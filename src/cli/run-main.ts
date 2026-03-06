@@ -101,10 +101,13 @@ export async function runCli(argv: string[] = process.argv) {
   loadDotEnv({ quiet: true });
   normalizeEnv();
 
-  // Apply persisted dev-mode for route-first commands (after dotenv, before tryRouteCli)
+  // Apply persisted dev-mode for route-first commands (after dotenv, before tryRouteCli).
+  // Use createConfigIO with a snapshot of process.env so the internal
+  // maybeLoadDotEnvForConfig is a no-op (it only calls loadDotEnv when
+  // env === process.env). This avoids a duplicate loadDotEnv call.
   try {
-    const { loadConfig } = await import("../config/config.js");
-    const cfg = loadConfig();
+    const { createConfigIO } = await import("../config/io.js");
+    const cfg = createConfigIO({ env: { ...process.env } }).loadConfig();
     if (cfg.cli?.devMode) {
       process.env.OPENCLAW_DEV_MODE = "1";
     }
