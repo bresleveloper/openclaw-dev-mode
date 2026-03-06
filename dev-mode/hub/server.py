@@ -176,7 +176,7 @@ class HubHandler(BaseHTTPRequestHandler):
 
         try:
             data = json.loads(body) if body else {}
-        except:
+except (ValueError, json.JSONDecodeError):
             data = {}
 
         if self.path == '/notify':
