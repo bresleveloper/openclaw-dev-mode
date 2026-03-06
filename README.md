@@ -10,7 +10,7 @@
 </p>
 
 ## what have i done:
-(HTML with --dev-mode list)[https://htmlpreview.github.io/?https://github.com/bresleveloper/openclaw-dev-mode/blob/main/dev-mode/yes.2026.03.06.html]
+[HTML with --dev-mode list](https://htmlpreview.github.io/?https://github.com/bresleveloper/openclaw-dev-mode/blob/main/dev-mode/yes.2026.03.06.html)
 
 ## how to install
 
