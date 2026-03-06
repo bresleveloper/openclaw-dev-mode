@@ -109,25 +109,22 @@ Because the beauty of any opensource project is that it's MINE and I am allowed 
 | SEC-96 | All env vars passed through to child processes |
 | FIX-01 | Auto-bootstrap MEMORY.md in new workspaces |
 
-## Hub notification plugin
+## Hub notification plugin (optional)
 
-The Hub is a lightweight notification server that auto-starts in dev-mode. It gives agents three tools:
+Dev-mode includes a bundled Hub notification server that gives agents tools to send and receive notifications. It auto-starts on `127.0.0.1:10020` when dev-mode is active.
 
-- **hub_notify** — POST a notification (any app/cron/agent can notify)
-- **hub_pending** — GET pending notifications
-- **hub_done** — Mark a notification as done
+The Hub registers three agent tools: **hub_notify**, **hub_pending**, **hub_done**.
 
-The Hub server (`dev-mode/hub/server.py`) auto-starts on `127.0.0.1:10020` when dev-mode is active. It uses SQLite for storage.
+If you already run your own Hub server (e.g. on a different port), the auto-start will not interfere — it only spawns if port 10020 is free. You can also disable auto-start by removing or not running the bundled `server.py`, and point the plugin config at your existing hub instead.
 
-### Manual hub server management
+### Changing the hub port
+
+If your existing hub uses a different port, update your openclaw config to match:
 
 ```bash
-# Start manually
-python3 /opt/openclaw-dev-mode/dev-mode/hub/server.py &
-
-# Test it
-curl http://127.0.0.1:10020/pending
-curl -X POST http://127.0.0.1:10020/notify -H "Content-Type: application/json" -d '{"source":"test","title":"hello"}'
+openclaw config set plugins.hub.port 10021
 ```
 
-See [dev-mode/hub/README.md](dev-mode/hub/README.md) for full API reference.
+### Full documentation
+
+See the [Hub README](https://github.com/bresleveloper/openclaw-dev-mode/tree/main/dev-mode/hub) for the full API reference, setup guide, and configuration options.
