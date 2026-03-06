@@ -132,6 +132,32 @@ export function registerPreActionHooks(program: Command, programVersion: string)
         if (!currentPaths.includes(hubPluginPath)) {
           setConfigOverride("plugins.load.paths", [...currentPaths, hubPluginPath]);
         }
+
+        // Auto-start hub server if not already running
+        {
+          const { spawn } = await import("node:child_process");
+          const http = await import("node:http");
+          const hubServerPath = path.resolve(hubPluginPath, "server.py");
+          const fs = await import("node:fs");
+          if (fs.existsSync(hubServerPath)) {
+            const isRunning = await new Promise<boolean>((resolve) => {
+              const req = http.request(
+                { hostname: "127.0.0.1", port: 10020, path: "/pending", method: "GET", timeout: 1000 },
+                () => resolve(true),
+              );
+              req.on("error", () => resolve(false));
+              req.on("timeout", () => { req.destroy(); resolve(false); });
+              req.end();
+            });
+            if (!isRunning) {
+              const child = spawn("python3", [hubServerPath], {
+                detached: true,
+                stdio: "ignore",
+              });
+              child.unref();
+            }
+          }
+        }
       }
     }
     const cliLogLevel = getCliLogLevel(actionCommand);

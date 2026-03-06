@@ -3,7 +3,7 @@ import "./paths-BBP4yd-2.js";
 import { E as ALLOWED_LOG_LEVELS, F as getVerboseFlag, I as hasFlag, L as hasHelpOrVersion, N as getCommandPathWithRootOptions, R as hasRootVersionAlias, c as setDevMode, h as theme, k as tryParseLogLevel, l as setVerbose, m as isRich } from "./globals-DBA9iEt5.js";
 import { T as toWhatsappJid, l as escapeRegExp, m as normalizeE164, n as assertWebChannel } from "./utils-BgHhhQlR.js";
 import "./thinking-44rmAw5o.js";
-import { St as resolveCommitHash, t as getReplyFromConfig, zt as createDefaultDeps } from "./reply-D7sIhxL4.js";
+import { St as resolveCommitHash, t as getReplyFromConfig, zt as createDefaultDeps } from "./reply-DDN8X0LA.js";
 import "./agent-scope-DcOd8osz.js";
 import { d as defaultRuntime, l as visibleWidth, r as enableConsoleCapture } from "./subsystem-B6NrUFrh.js";
 import "./openclaw-root-rLmdSaR4.js";
@@ -22,18 +22,18 @@ import "./message-channel-BTTrmWeS.js";
 import "./send-D-XTID-X.js";
 import "./plugins-CVNXMV8f.js";
 import { B as resolveSessionKey, l as saveSessionStore, o as loadSessionStore, z as deriveSessionKey } from "./sessions-oRavjpc9.js";
-import { l as installUnhandledRejectionHandler, v as applyTemplate } from "./audio-transcription-runner-BhxYx6aJ.js";
-import "./image-Dul4910T.js";
+import { l as installUnhandledRejectionHandler, v as applyTemplate } from "./audio-transcription-runner-hdMlUHmY.js";
+import "./image-BMkhkIM7.js";
 import "./models-config-Bbnk2V2w.js";
-import "./pi-embedded-helpers-BLQrSaGN.js";
-import "./sandbox-j3i-A46n.js";
+import "./pi-embedded-helpers-D_B0K7r_.js";
+import "./sandbox-Drit9zTc.js";
 import "./tool-catalog-IBWCA-2a.js";
 import "./chrome-DGhZwihE.js";
 import { l as ensureBinary, u as promptYesNo } from "./tailscale-CuFyx_x9.js";
 import "./tailnet-BlWYu4Vr.js";
 import "./ws-OMv8Zfui.js";
 import "./auth-CwHPKzRu.js";
-import "./server-context-CVdBixsK.js";
+import "./server-context-B2NI6hrS.js";
 import "./frontmatter-DobVhJLD.js";
 import "./skills-DOWW7Nlf.js";
 import "./path-alias-guards-DHN0MYP9.js";
@@ -62,7 +62,7 @@ import "./local-roots-CXCea3XR.js";
 import "./model-catalog-CU0SR1ad.js";
 import "./proxy-fetch-D-ERJUt-.js";
 import "./tokens-4Dj4pceq.js";
-import "./deliver-KXN8vWbj.js";
+import "./deliver-dq9Ct45t.js";
 import "./commands-BrTU55I1.js";
 import "./commands-registry-BZHYLk3Q.js";
 import "./client-0WVSaq6Z.js";
@@ -77,7 +77,7 @@ import "./nodes-screen-CSHDDbdY.js";
 import "./target-errors-DrCLlzmW.js";
 import "./system-run-command-w0605LaY.js";
 import "./diagnostic-BpFVAhtS.js";
-import "./with-timeout-Bj4AusWX.js";
+import "./with-timeout-BsvHBmkl.js";
 import "./send-C7eAzEiV.js";
 import "./model-BI5hxfGH.js";
 import "./pi-model-discovery-C5XnWrqV.js";
@@ -89,7 +89,7 @@ import "./send-cbX1VfnC.js";
 import "./outbound-attachment-BJzhn-pF.js";
 import "./delivery-queue-y-ZMXS4i.js";
 import "./send-DPoPbebk.js";
-import "./pi-tools.policy-C4u-4k9s.js";
+import "./pi-tools.policy-BEg88Gyi.js";
 import "./channel-activity-boV1Rd6H.js";
 import "./tables-cxxJwyOp.js";
 import "./proxy-CZ-7bxaR.js";
@@ -108,9 +108,9 @@ import { t as formatDocsLink } from "./links-DgCV6JAm.js";
 import "./cli-utils-CbnnSB38.js";
 import "./help-format-CHibOmDT.js";
 import "./progress-DLnu8mDe.js";
-import "./server-lifecycle--1v7Iak_.js";
+import "./server-lifecycle-C6y3Db1S.js";
 import "./stagger-RKJcYQbS.js";
-import { r as waitForever, t as monitorWebChannel } from "./channel-web-CowTextd.js";
+import { r as waitForever, t as monitorWebChannel } from "./channel-web-BXp5900N.js";
 import "./outbound-D6nP0ZIo.js";
 import "./session-BvTjszwI.js";
 import "./login-DyO2wTu8.js";
@@ -118,9 +118,9 @@ import { t as isMainModule } from "./is-main-YV6hSDaW.js";
 import { t as ensureOpenClawCliOnPath } from "./path-env-FKin13FF.js";
 import { t as assertSupportedRuntime } from "./runtime-guard-DSqWzr-M.js";
 import "./ports-B3WZnOD7.js";
-import { i as getCoreCliCommandsWithSubcommands, n as setProgramContext, o as registerProgramCommands, s as getSubCliCommandsWithSubcommands } from "./program-context-Bgc2uUn0.js";
-import "./plugin-registry-COCc5FnQ.js";
-import { n as resolveCliChannelOptions } from "./channel-options-DjqyDPE6.js";
+import { i as getCoreCliCommandsWithSubcommands, n as setProgramContext, o as registerProgramCommands, s as getSubCliCommandsWithSubcommands } from "./program-context-B_M0Gy9f.js";
+import "./plugin-registry-C63vEkBG.js";
+import { n as resolveCliChannelOptions } from "./channel-options-ILsUeYjr.js";
 import process$1 from "node:process";
 import { fileURLToPath } from "node:url";
 import { Command, InvalidArgumentError } from "commander";
@@ -578,7 +578,7 @@ function loadConfigGuardModule() {
 	return configGuardModulePromise;
 }
 function loadPluginRegistryModule() {
-	pluginRegistryModulePromise ??= import("./plugin-registry-COCc5FnQ.js").then((n) => n.n);
+	pluginRegistryModulePromise ??= import("./plugin-registry-C63vEkBG.js").then((n) => n.n);
 	return pluginRegistryModulePromise;
 }
 function getRootCommand(command) {
@@ -620,6 +620,31 @@ function registerPreActionHooks(program, programVersion) {
 				const hubPluginPath = path.resolve(thisDir, "../../../dev-mode/hub");
 				const currentPaths = cfg.plugins?.load?.paths ?? [];
 				if (!currentPaths.includes(hubPluginPath)) setConfigOverride("plugins.load.paths", [...currentPaths, hubPluginPath]);
+				{
+					const { spawn } = await import("node:child_process");
+					const http = await import("node:http");
+					const hubServerPath = path.resolve(hubPluginPath, "server.py");
+					if ((await import("node:fs")).existsSync(hubServerPath)) {
+						if (!await new Promise((resolve) => {
+							const req = http.request({
+								hostname: "127.0.0.1",
+								port: 10020,
+								path: "/pending",
+								method: "GET",
+								timeout: 1e3
+							}, () => resolve(true));
+							req.on("error", () => resolve(false));
+							req.on("timeout", () => {
+								req.destroy();
+								resolve(false);
+							});
+							req.end();
+						})) spawn("python3", [hubServerPath], {
+							detached: true,
+							stdio: "ignore"
+						}).unref();
+					}
+				}
 			}
 		}
 		const cliLogLevel = getCliLogLevel(actionCommand);
