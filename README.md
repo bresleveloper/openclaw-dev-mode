@@ -115,6 +115,8 @@ Dev-mode includes a bundled Hub notification server that gives agents tools to s
 
 The Hub registers three agent tools: **hub_notify**, **hub_pending**, **hub_done**.
 
+**How it works:** When a notification arrives (from a cron job, an app, or another agent), the Hub doesn't just store it — it forwards the notification through OpenClaw's `/v1/chat/completions` API. This means the notification enters the agent's active session as a real message, triggering a full cognitive response: the agent reasons about it using its system prompt, memory, and context, then delivers its response through the configured channel (WhatsApp, Telegram, etc.). The agent then calls `hub_done` to close the loop.
+
 If you already run your own Hub server (e.g. on a different port), the auto-start will not interfere — it only spawns if port 10020 is free. You can also disable auto-start by removing or not running the bundled `server.py`, and point the plugin config at your existing hub instead.
 
 ### Changing the hub port

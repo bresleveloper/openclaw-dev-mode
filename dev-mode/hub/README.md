@@ -70,7 +70,11 @@ In OpenClaw config under `plugins.entries.hub.config`:
 
 ---
 
-## How It Works
+## How It Works — Agent Reaction Flow
+
+> **Key concept:** The Hub does not just store notifications — it forwards them through the OpenClaw gateway API (`/v1/chat/completions`) so they enter the agent's active session as a real message. This means the agent receives the notification in context, can reason about it using its memory and system prompt, and delivers a response through the configured channel (WhatsApp, Telegram, Discord, etc.).
+>
+> Without this gateway integration, notifications would sit idle in SQLite. The `/v1/chat/completions` call is what bridges external events into the agent's cognitive loop.
 
 ```
 Your cron / your app / your agent
@@ -80,15 +84,37 @@ Your cron / your app / your agent
         v
    Hub Server (this)
         |
-        v
-   SQLite (hub.db) --- stores notification as "pending"
+        |  1. Stores in SQLite as "pending"
+        |
+        |  2. Forwards to OpenClaw gateway:
+        |     POST http://localhost:{OPENCLAW_PORT}/v1/chat/completions
+        |     Authorization: Bearer {OPENCLAW_TOKEN}
+        |     { messages: [{ role: "user", content: "Hub notification: ..." }] }
         |
         v
-   OpenClaw API (/v1/chat/completions)
+   OpenClaw Gateway
+        |
+        |  3. Message enters the agent's active session
+        |     - Agent receives it like any other inbound message
+        |     - Agent reasons using system prompt + memory + context
+        |     - Agent decides how to respond (cognitive decision)
         |
         v
-   Main agent reads it, forwards to WhatsApp, calls /done/{id}
+   Channel delivery (WhatsApp / Telegram / Discord / etc.)
+        |
+        |  4. Agent calls hub_done({ id, response }) to close the loop
+        v
+   Hub marks notification as "done"
 ```
+
+**Environment variables required for gateway integration:**
+
+| Variable | Description |
+|----------|-------------|
+| `OPENCLAW_PORT` | Gateway port (e.g. `18789`) — must match your `openclaw gateway` config |
+| `OPENCLAW_TOKEN` | Gateway auth token — found via `openclaw config get gateway.auth.token` |
+
+Without these, the Hub stores notifications but cannot wake the agent.
 
 ---
 
