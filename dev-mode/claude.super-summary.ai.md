@@ -6,10 +6,11 @@
 
 - **Repo**: https://github.com/bresleveloper/openclaw-dev-mode
 - **Fork of**: https://github.com/openclaw/openclaw (V2026.3.2, commit 029c47372)
-- **PR**: https://github.com/openclaw/openclaw/pull/37337
+- **PR**: https://github.com/openclaw/openclaw/pull/37427 (replaces #37337 which had dist/ mess)
 - **Owner**: Ariel (bresleveloper)
 - **Purpose**: Add `--dev-mode` flag to OpenClaw that relaxes security features for dev environments
 - **Status**: IMPLEMENTED, BUILT, DEPLOYED, TESTED, PR SUBMITTED
+- **GitHub fork**: Proper fork of openclaw/openclaw (not just a clone)
 
 ## Local Paths
 
@@ -225,6 +226,11 @@ dev-mode/
 - **Pre-action hooks**: `src/cli/program/preaction.ts` runs before every CLI command
 - **Profile parsing**: `src/cli/profile.ts` runs before Commander, extracts early flags
 
+## Branches
+
+- `main` — has `dist/` committed for easy VPS deployment (clone and run, no build)
+- `pr-ready` — clean branch without `dist/`, used for upstream PR. DO NOT touch this branch.
+
 ## Git Commits (chronological)
 
 1. `4561d0f8b` — feat: add --dev-mode flag (all 13 items + hub plugin + plans)
@@ -238,3 +244,6 @@ dev-mode/
 9. `6ce39d20f` — chore: include control-ui assets in dist
 10. `8e65cd734` — docs: update install guide with symlink step
 11. `474016d14` — docs: update hub section with conflict guidance
+12. `b7109b2b3` — docs: add claude super summary
+13. `ed71541fe` — docs: detail hub-to-agent reaction flow
+14. `44cd7cfa5` — docs: update claude super summary with VPS details
