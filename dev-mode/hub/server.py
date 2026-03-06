@@ -20,7 +20,7 @@ LOG_FILE = Path(__file__).parent / "hub.log"
 
 # OpenClaw API
 OPENCLAW_HOST = os.environ.get("OPENCLAW_HOST", "127.0.0.1")
-OPENCLAW_PORT = int(os.environ.get("OPENCLAW_PORT", "0"))
+OPENCLAW_PORT = int(os.environ.get("OPENCLAW_PORT", "18789"))
 OPENCLAW_TOKEN = os.environ.get("OPENCLAW_TOKEN", "")
 ARIEL_PHONE = os.environ.get("ARIEL_PHONE", "")
 
