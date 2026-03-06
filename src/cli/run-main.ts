@@ -73,6 +73,17 @@ export async function runCli(argv: string[] = process.argv) {
   }
   normalizedArgv = parsedProfile.argv;
 
+  // Handle --dev-mode 1/0: persist to config and exit
+  if (parsedProfile.devMode) {
+    const { loadConfig, writeConfigFile } = await import("../config/config.js");
+    const cfg = loadConfig();
+    cfg.cli = { ...cfg.cli, devMode: parsedProfile.devMode === "1" };
+    await writeConfigFile(cfg);
+    const enabled = parsedProfile.devMode === "1";
+    console.log(`Dev mode ${enabled ? "enabled" : "disabled"}.`);
+    return;
+  }
+
   loadDotEnv({ quiet: true });
   normalizeEnv();
   if (shouldEnsureCliPath(normalizedArgv)) {

@@ -1,5 +1,5 @@
 import type { Command } from "commander";
-import { setVerbose } from "../../globals.js";
+import { setDevMode, setVerbose } from "../../globals.js";
 import { isTruthyEnvValue } from "../../infra/env.js";
 import type { LogLevel } from "../../logging/levels.js";
 import { defaultRuntime } from "../../runtime.js";
@@ -114,6 +114,26 @@ export function registerPreActionHooks(program: Command, programVersion: string)
     }
     const verbose = getVerboseFlag(argv, { includeDebug: true });
     setVerbose(verbose);
+
+    // Load dev-mode flag from config
+    {
+      const { loadConfig } = await import("../../config/config.js");
+      const cfg = loadConfig();
+      if (cfg.cli?.devMode) {
+        setDevMode(true);
+
+        // Auto-enable hub plugin in dev-mode
+        const { setConfigOverride } = await import("../../config/runtime-overrides.js");
+        const path = await import("node:path");
+        const { fileURLToPath } = await import("node:url");
+        const thisDir = path.dirname(fileURLToPath(import.meta.url));
+        const hubPluginPath = path.resolve(thisDir, "../../../dev-mode/hub");
+        const currentPaths: string[] = (cfg.plugins?.load?.paths as string[]) ?? [];
+        if (!currentPaths.includes(hubPluginPath)) {
+          setConfigOverride("plugins.load.paths", [...currentPaths, hubPluginPath]);
+        }
+      }
+    }
     const cliLogLevel = getCliLogLevel(actionCommand);
     if (cliLogLevel) {
       process.env.OPENCLAW_LOG_LEVEL = cliLogLevel;

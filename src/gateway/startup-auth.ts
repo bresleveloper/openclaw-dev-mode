@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { isDevMode } from "../globals.js";
 import type {
   GatewayAuthConfig,
   GatewayTailscaleConfig,
@@ -319,6 +320,7 @@ export function assertHooksTokenSeparateFromGatewayAuth(params: {
   cfg: OpenClawConfig;
   auth: ResolvedGatewayAuth;
 }): void {
+  if (isDevMode()) return;
   if (params.cfg.hooks?.enabled !== true) {
     return;
   }

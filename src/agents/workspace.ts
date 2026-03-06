@@ -7,6 +7,7 @@ import { resolveRequiredHomeDir } from "../infra/home-dir.js";
 import { runCommandWithTimeout } from "../process/exec.js";
 import { isCronSessionKey, isSubagentSessionKey } from "../routing/session-key.js";
 import { resolveUserPath } from "../utils.js";
+import { isDevMode } from "../globals.js";
 import { resolveWorkspaceTemplateDir } from "./workspace-templates.js";
 
 export function resolveDefaultAgentWorkspaceDir(
@@ -381,6 +382,12 @@ export async function ensureAgentWorkspace(params?: {
   await writeFileIfMissing(identityPath, identityTemplate);
   await writeFileIfMissing(userPath, userTemplate);
   await writeFileIfMissing(heartbeatPath, heartbeatTemplate);
+
+  // In dev-mode, bootstrap MEMORY.md for new agents
+  if (isDevMode()) {
+    const memoryPath = path.join(dir, DEFAULT_MEMORY_FILENAME);
+    await writeFileIfMissing(memoryPath, "# Memory\n");
+  }
 
   let state = await readWorkspaceOnboardingState(statePath);
   let stateDirty = false;

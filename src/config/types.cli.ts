@@ -10,4 +10,5 @@ export type CliConfig = {
      */
     taglineMode?: CliBannerTaglineMode;
   };
+  devMode?: boolean;
 };
