@@ -15,8 +15,7 @@
 
 - **Windows dev**: `C:\Users\Ariel\source\openclaw chaos mode\openclaw-dev-mode`
 - **VPS production**: `/opt/openclaw-dev-mode` (symlinked to `/usr/lib/node_modules/openclaw`)
-- **VPS**: `srv1150525` (root user, Linux, systemd manages gateway)
-- **Old folder** (may still exist): `C:\Users\Ariel\source\openclaw chaos mode\openclaw-chaos-mode`
+- **VPS**: `` (root user, Linux, systemd manages gateway)
 
 ## Build & Deploy
 
