@@ -5,7 +5,7 @@ import fs, { constants } from "node:fs";
 import os from "node:os";
 import chalk, { Chalk } from "chalk";
 import { Logger } from "tslog";
-import JSON5 from "json5";
+import json5 from "json5";
 import util, { promisify } from "node:util";
 import fs$1 from "node:fs/promises";
 import process$1 from "node:process";
@@ -400,7 +400,7 @@ function readLoggingConfig() {
 	try {
 		if (!fs.existsSync(configPath)) return;
 		const raw = fs.readFileSync(configPath, "utf-8");
-		const logging = JSON5.parse(raw)?.logging;
+		const logging = json5.parse(raw)?.logging;
 		if (!logging || typeof logging !== "object" || Array.isArray(logging)) return;
 		return logging;
 	} catch {
@@ -4512,7 +4512,7 @@ function resolveOpenClawManifestBlock(params) {
 	const raw = getFrontmatterString(params.frontmatter, params.key ?? "metadata");
 	if (!raw) return;
 	try {
-		const parsed = JSON5.parse(raw);
+		const parsed = json5.parse(raw);
 		if (!parsed || typeof parsed !== "object") return;
 		const manifestKeys = [MANIFEST_KEY, ...LEGACY_MANIFEST_KEYS];
 		for (const key of manifestKeys) {

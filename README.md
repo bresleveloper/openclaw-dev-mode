@@ -22,39 +22,33 @@
 - Python 3 (for the Hub notification server)
 - Git
 
-### On a VPS / Linux server
+### Installation (VPS / Linux)
 
 ```bash
-# 1. Clone the fork
+# 1. Uninstall existing openclaw
+npm uninstall -g openclaw
+
+# 2. Clone the fork
 git clone https://github.com/bresleveloper/openclaw-dev-mode.git /opt/openclaw-dev-mode
 
-# 2. Install dependencies
+# 3. Install dependencies
 cd /opt/openclaw-dev-mode
 npm install --ignore-scripts
 
-# 3. Create a wrapper binary that replaces the openclaw command
+# 4. Create a wrapper binary that replaces the openclaw command
 echo '#!/usr/bin/env bash' > /usr/local/bin/openclaw
 echo 'set -euo pipefail' >> /usr/local/bin/openclaw
 echo 'exec node /opt/openclaw-dev-mode/openclaw.mjs "$@"' >> /usr/local/bin/openclaw
 chmod +x /usr/local/bin/openclaw
 
-# 4. Enable dev mode
+# 5. Enable dev mode (auto-restarts the gateway)
 openclaw --dev-mode 1
 ```
 
-### On Windows / local dev
+### Updating
 
 ```bash
-# 1. Clone the fork
-git clone https://github.com/bresleveloper/openclaw-dev-mode.git
-
-# 2. Install dependencies & link globally
-cd openclaw-dev-mode
-npm install --ignore-scripts
-npm link
-
-# 3. Enable dev mode
-openclaw --dev-mode 1
+cd /opt/openclaw-dev-mode && git pull
 ```
 
 ### Disable dev mode
@@ -81,8 +75,8 @@ OpenClaw is AMAZING. And security is awesome for prod. And a hell of a buzz kill
 I cloned, listed all security features (latest - V2026.3.2) and just added a simple flag to relax them, introducing:
 
 ```bash
-openclaw --dev-mode 1    # enable
-openclaw --dev-mode 0    # disable
+openclaw --dev-mode 1    # enable (auto-restarts gateway)
+openclaw --dev-mode 0    # disable (auto-restarts gateway)
 ```
 
 Because the beauty of any opensource project is that it's MINE and I am allowed to enjoy it to its full extent.

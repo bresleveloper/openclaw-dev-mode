@@ -4,7 +4,7 @@ import fs, { constants } from "node:fs";
 import os from "node:os";
 import chalk, { Chalk } from "chalk";
 import { Logger } from "tslog";
-import json5 from "json5";
+import JSON5 from "json5";
 import { promisify } from "node:util";
 import fs$1 from "node:fs/promises";
 import { execFile } from "node:child_process";
@@ -373,7 +373,7 @@ function readLoggingConfig() {
 	try {
 		if (!fs.existsSync(configPath)) return;
 		const raw = fs.readFileSync(configPath, "utf-8");
-		const logging = json5.parse(raw)?.logging;
+		const logging = JSON5.parse(raw)?.logging;
 		if (!logging || typeof logging !== "object" || Array.isArray(logging)) return;
 		return logging;
 	} catch {

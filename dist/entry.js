@@ -402,7 +402,7 @@ if (!isMainModule({
 			applyCliProfileEnv({ profile: parsed.profile });
 			process$1.argv = parsed.argv;
 		}
-		if (!tryHandleRootVersionFastPath(process$1.argv) && !tryHandleRootHelpFastPath(process$1.argv)) import("./run-main-CUkB1mC8.js").then(({ runCli }) => runCli(process$1.argv)).catch((error) => {
+		if (!tryHandleRootVersionFastPath(process$1.argv) && !tryHandleRootHelpFastPath(process$1.argv)) import("./run-main-BOJ8TkFL.js").then(({ runCli }) => runCli(process$1.argv)).catch((error) => {
 			console.error("[openclaw] Failed to start CLI:", error instanceof Error ? error.stack ?? error.message : error);
 			process$1.exitCode = 1;
 		});

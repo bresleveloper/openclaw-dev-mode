@@ -73,14 +73,20 @@ export async function runCli(argv: string[] = process.argv) {
   }
   normalizedArgv = parsedProfile.argv;
 
-  // Handle --dev-mode 1/0: persist to config and exit
+  // Handle --dev-mode 1/0: persist to config and restart gateway
   if (parsedProfile.devMode) {
     const { loadConfig, writeConfigFile } = await import("../config/config.js");
     const cfg = loadConfig();
     cfg.cli = { ...cfg.cli, devMode: parsedProfile.devMode === "1" };
     await writeConfigFile(cfg);
     const enabled = parsedProfile.devMode === "1";
-    console.log(`Dev mode ${enabled ? "enabled" : "disabled"}.`);
+    console.log(`Dev mode ${enabled ? "enabled" : "disabled"}. Restarting gateway...`);
+    const { execFileSync } = await import("node:child_process");
+    try {
+      execFileSync("openclaw", ["gateway", "restart"], { stdio: "inherit" });
+    } catch {
+      console.log("Gateway restart failed (gateway may not be running). Start it with: openclaw gateway start");
+    }
     return;
   }
 
