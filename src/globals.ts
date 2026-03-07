@@ -3,7 +3,6 @@ import { theme } from "./terminal/theme.js";
 
 let globalVerbose = false;
 let globalYes = false;
-let globalDevMode = false;
 
 export function setVerbose(v: boolean) {
   globalVerbose = v;
@@ -47,12 +46,8 @@ export function isYes() {
   return globalYes;
 }
 
-export function setDevMode(v: boolean) {
-  globalDevMode = v;
-}
-
 export function isDevMode() {
-  return globalDevMode || process.env.OPENCLAW_DEV_MODE === "1";
+  return process.env.OPENCLAW_DEV_MODE === "1";
 }
 
 export const success = theme.success;

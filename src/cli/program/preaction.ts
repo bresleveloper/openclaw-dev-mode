@@ -1,5 +1,5 @@
 import type { Command } from "commander";
-import { isDevMode, setDevMode, setVerbose } from "../../globals.js";
+import { isDevMode, setVerbose } from "../../globals.js";
 import { isTruthyEnvValue } from "../../infra/env.js";
 import type { LogLevel } from "../../logging/levels.js";
 import { defaultRuntime } from "../../runtime.js";
@@ -117,16 +117,11 @@ export function registerPreActionHooks(program: Command, programVersion: string)
     const verbose = getVerboseFlag(argv, { includeDebug: true });
     setVerbose(verbose);
 
-    // Load dev-mode flag from config (fail-safe: don't break recovery commands)
-    try {
-      const { loadConfig } = await import("../../config/config.js");
-      const cfg = loadConfig();
-      if (cfg.cli?.devMode) {
-        setDevMode(true);
-      }
-      // Register hub plugin if dev mode is active (config OR env var)
-      if (isDevMode()) {
-        // Auto-enable hub plugin in dev-mode
+    // Register hub plugin if dev mode is active (OPENCLAW_DEV_MODE=1 env var)
+    if (isDevMode()) {
+      try {
+        const { loadConfig } = await import("../../config/config.js");
+        const cfg = loadConfig();
         // Hub is presented as a plugin. If management agrees, we'd like it to be
         // a built-in tool for agents — enabling in-session alert and response
         // without requiring a separate server process.
@@ -139,12 +134,11 @@ export function registerPreActionHooks(program: Command, programVersion: string)
         if (!currentPaths.includes(hubPluginPath)) {
           setConfigOverride("plugins.load.paths", [...currentPaths, hubPluginPath]);
         }
+      } catch (err) {
+        console.error(
+          `[dev-mode] Failed to register hub plugin: ${err instanceof Error ? err.message : String(err)}`,
+        );
       }
-    } catch (err) {
-      console.error(
-        `[dev-mode] Failed to activate dev-mode: ${err instanceof Error ? err.message : String(err)}`,
-      );
-      console.error("[dev-mode] Config may be broken. Run 'openclaw doctor' to diagnose.");
     }
     const cliLogLevel = getCliLogLevel(actionCommand);
     if (cliLogLevel) {

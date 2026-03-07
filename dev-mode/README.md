@@ -1,6 +1,8 @@
 # OpenClaw Dev Mode — Personal AI DEV Assistant
 
-# Presenting - Dev Mode, Lowering Un-Necessary Security Features, back to fun level!
+## Presenting - Dev Mode, Lowering Un-Necessary Security Features, 
+
+# BACK to FUN LEVEL!
 
 <p align="center">
     <picture>
@@ -12,6 +14,9 @@
 ## What have I done
 
 [HTML with --dev-mode list](https://htmlpreview.github.io/?https://github.com/bresleveloper/openclaw-dev-mode/blob/main/dev-mode/yes.2026.03.06.html)
+
+* 2026-03-05 - created dev mode on V2026.3.2
+* 2026-03-06 - updated to mains V2026.3.7 + removed interactions with openclaw.json (now saves devMode in .env)
 
 ## How to install
 
@@ -48,8 +53,11 @@ echo 'set -euo pipefail' >> /usr/local/bin/openclaw
 echo 'exec node /opt/openclaw-dev-mode/openclaw.mjs "$@"' >> /usr/local/bin/openclaw
 chmod +x /usr/local/bin/openclaw
 
-# 7. Enable dev mode (auto-restarts the gateway)
-openclaw --dev-mode 1
+# 7. Enable dev mode
+echo 'OPENCLAW_DEV_MODE=1' >> ~/.openclaw/.env
+
+# 8. Start the gateway
+openclaw gateway start
 ```
 
 ### Updating
@@ -61,8 +69,9 @@ cd /opt/openclaw-dev-mode && git pull && openclaw gateway restart
 ### Reverting to original openclaw
 
 ```bash
-openclaw --dev-mode 0
 openclaw gateway stop
+# Remove OPENCLAW_DEV_MODE=1 from ~/.openclaw/.env
+sed -i '/OPENCLAW_DEV_MODE/d' ~/.openclaw/.env
 rm /usr/lib/node_modules/openclaw
 mv /usr/lib/node_modules/openclaw.bak /usr/lib/node_modules/openclaw
 openclaw gateway start
@@ -71,11 +80,7 @@ openclaw gateway start
 ### Verify it works
 
 ```bash
-# Check dev mode is on
-openclaw config get cli.devMode
-# Should return: true
-
-# Check config values are unredacted (API keys visible)
+# Check config values are unredacted (API keys visible — means dev mode is active)
 openclaw config get models.providers
 ```
 
@@ -83,11 +88,11 @@ openclaw config get models.providers
 
 OpenClaw is AMAZING. And security is awesome for prod. And a hell of a buzz killer for dev/other situations.
 
-I cloned, listed all security features (latest - V2026.3.2) and just added a simple flag to relax them, introducing:
+I cloned, listed all security features (latest - V2026.3.2) and just added a simple flag to relax them:
 
 ```bash
-openclaw --dev-mode 1    # enable (auto-restarts gateway)
-openclaw --dev-mode 0    # disable (auto-restarts gateway)
+# Add to ~/.openclaw/.env
+OPENCLAW_DEV_MODE=1
 ```
 
 Because the beauty of any opensource project is that it's MINE and I am allowed to enjoy it to its full extent.

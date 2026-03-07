@@ -1,0 +1,442 @@
+{
+  "meta": {
+    "lastTouchedVersion": "2026.3.3",
+    "lastTouchedAt": "2026-03-06T13:41:14.443Z"
+  },
+  "wizard": {
+    "lastRunAt": "2026-03-01T14:56:52.204Z",
+    "lastRunVersion": "2026.2.26",
+    "lastRunCommand": "doctor",
+    "lastRunMode": "local"
+  },
+  "browser": {
+    "enabled": true,
+    "executablePath": "/usr/bin/google-chrome-stable",
+    "headless": true,
+    "noSandbox": true,
+    "defaultProfile": "openclaw"
+  },
+  "auth": {
+    "profiles": {
+      "openai-codex:default": {
+        "provider": "openai-codex",
+        "mode": "oauth"
+      },
+      "openrouter:default": {
+        "provider": "openrouter",
+        "mode": "api_key"
+      },
+      "ollama:default": {
+        "provider": "ollama",
+        "mode": "api_key"
+      }
+    }
+  },
+  "models": {
+    "mode": "merge",
+    "providers": {
+      "ollama": {
+        "baseUrl": "http://127.0.0.1:11434/v1",
+        "models": [
+          {
+            "id": "kimi-k2.5:cloud",
+            "name": "kimi-k2.5:cloud",
+            "reasoning": false,
+            "input": [
+              "text"
+            ],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "contextWindow": 256000,
+            "maxTokens": 75000
+          },
+          {
+            "id": "minimax-m2.5:cloud",
+            "name": "minimax-m2.5:cloud",
+            "reasoning": false,
+            "input": [
+              "text"
+            ],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "contextWindow": 198000,
+            "maxTokens": 64000
+          }
+        ]
+      }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "ollama/minimax-m2.5:cloud"
+      },
+      "models": {
+        "openai-codex/gpt-5.3-codex": {
+          "alias": "CODEX"
+        },
+        "openai-codex/gpt-5.1-codex-mini": {
+          "alias": "MINI"
+        },
+        "ollama/kimi-k2.5:cloud": {
+          "alias": "KIMI"
+        },
+        "openai-codex/GPT-5.3-Codex-Spark": {
+          "alias": "SPARK"
+        },
+        "ollama/minimax-m2.5:cloud": {
+          "alias": "MAX"
+        },
+        "openai-codex/gpt-5.4": {
+          "alias": "GPT"
+        }
+      },
+      "workspace": "/root/.openclaw/workspace",
+      "compaction": {
+        "mode": "safeguard"
+      },
+      "maxConcurrent": 3,
+      "subagents": {
+        "maxConcurrent": 4
+      },
+      "sandbox": {
+        "browser": {
+          "enabled": true,
+          "headless": true
+        }
+      }
+    },
+    "list": [
+      {
+        "id": "main"
+      },
+      {
+        "id": "codex",
+        "name": "codex",
+        "workspace": "/root/.openclaw/workspace-codex",
+        "agentDir": "/root/.openclaw/agents/codex/agent",
+        "model": "openai-codex/gpt-5.3-codex"
+      },
+      {
+        "id": "missdaily",
+        "name": "MissDaily",
+        "workspace": "/root/.openclaw/workspace-missdaily",
+        "agentDir": "/root/.openclaw/agents/missdaily/agent",
+        "heartbeat": {
+          "every": "0m"
+        }
+      },
+      {
+        "id": "trendy",
+        "name": "trendy",
+        "workspace": "/root/.openclaw/workspace-trendy",
+        "agentDir": "/root/.openclaw/agents/trendy/agent",
+        "heartbeat": {
+          "every": "0m"
+        }
+      },
+      {
+        "id": "ytdatareader",
+        "name": "ytDataReader",
+        "workspace": "/root/.openclaw/workspace-ytDataReader",
+        "agentDir": "/root/.openclaw/agents/ytdatareader/agent",
+        "heartbeat": {
+          "every": "0m"
+        }
+      },
+      {
+        "id": "ytoutliner",
+        "name": "ytOutliner",
+        "workspace": "/root/.openclaw/workspace-ytOutliner",
+        "agentDir": "/root/.openclaw/agents/ytoutliner/agent",
+        "heartbeat": {
+          "every": "0m"
+        }
+      },
+      {
+        "id": "dev-boss",
+        "name": "DEV-BOSS",
+        "workspace": "/root/.openclaw/workspace-DEV-BOSS",
+        "agentDir": "/root/.openclaw/agents/dev-boss/agent"
+      }
+    ]
+  },
+  "tools": {
+    "sessions": {
+      "visibility": "all"
+    },
+    "agentToAgent": {
+      "enabled": true
+    }
+  },
+  "bindings": [
+    {
+      "agentId": "missdaily",
+      "match": {
+        "channel": "discord",
+        "accountId": "missdaily"
+      }
+    },
+    {
+      "agentId": "trendy",
+      "match": {
+        "channel": "discord",
+        "accountId": "trendy"
+      }
+    },
+    {
+      "agentId": "ytdatareader",
+      "match": {
+        "channel": "discord",
+        "accountId": "ytdatareader"
+      }
+    },
+    {
+      "agentId": "ytoutliner",
+      "match": {
+        "channel": "discord",
+        "accountId": "ytoutliner"
+      }
+    }
+  ],
+  "messages": {
+    "ackReactionScope": "group-mentions",
+    "tts": {
+      "provider": "edge",
+      "edge": {
+        "enabled": true,
+        "voice": "en-GB-RyanNeural",
+        "lang": "en-GB",
+        "outputFormat": "audio-24khz-48kbitrate-mono-mp3"
+      }
+    }
+  },
+  "commands": {
+    "native": "auto",
+    "nativeSkills": "auto",
+    "restart": true,
+    "ownerDisplay": "raw"
+  },
+  "session": {
+    "dmScope": "per-channel-peer"
+  },
+  "channels": {
+    "whatsapp": {
+      "enabled": true,
+      "dmPolicy": "allowlist",
+      "selfChatMode": true,
+      "allowFrom": [
+        "+972542634114"
+      ],
+      "groupPolicy": "allowlist",
+      "debounceMs": 0,
+      "mediaMaxMb": 50
+    },
+    "discord": {
+      "enabled": true,
+      "allowBots": true,
+      "groupPolicy": "allowlist",
+      "streaming": "off",
+      "guilds": {
+        "1476121756707328022": {
+          "requireMention": false,
+          "users": [
+            "1059620424125788162",
+            "1476170227216683079",
+            "1476122107627835473",
+            "1476554283888545842",
+            "1477633394941755426"
+          ],
+          "channels": {
+            "1476121757323759659": {
+              "allow": true,
+              "requireMention": false
+            },
+            "1476180349594894377": {
+              "allow": true,
+              "requireMention": false
+            },
+            "1477632788193869889": {
+              "allow": true,
+              "requireMention": false
+            }
+          }
+        }
+      },
+      "accounts": {
+        "missdaily": {
+          "name": "MissDaily",
+          "token": "__OPENCLAW_REDACTED__",
+          "groupPolicy": "allowlist",
+          "streaming": "off",
+          "guilds": {
+            "1476121756707328022": {
+              "users": [
+                "1059620424125788162",
+                "1476170227216683079",
+                "1476122107627835473"
+              ],
+              "channels": {
+                "1476124599576956971": {
+                  "allow": true,
+                  "requireMention": false
+                },
+                "1476121757323759659": {
+                  "allow": true,
+                  "requireMention": true
+                },
+                "1476180349594894377": {
+                  "allow": true,
+                  "requireMention": false
+                },
+                "1476253656600019148": {
+                  "allow": true,
+                  "requireMention": false
+                }
+              }
+            }
+          }
+        },
+        "trendy": {
+          "name": "trendy",
+          "token": "__OPENCLAW_REDACTED__",
+          "groupPolicy": "allowlist",
+          "streaming": "off",
+          "guilds": {
+            "1476121756707328022": {
+              "users": [
+                "1059620424125788162",
+                "1476170227216683079",
+                "1476122107627835473"
+              ],
+              "channels": {
+                "1476170664359755816": {
+                  "allow": true,
+                  "requireMention": false
+                },
+                "1476121757323759659": {
+                  "allow": true,
+                  "requireMention": true
+                },
+                "1476180349594894377": {
+                  "allow": true,
+                  "requireMention": false
+                },
+                "1476253656600019148": {
+                  "allow": true,
+                  "requireMention": false
+                }
+              }
+            }
+          }
+        },
+        "default": {
+          "groupPolicy": "allowlist",
+          "streaming": "off",
+          "allowFrom": [
+            "discord:channel:1476121756707328022:1476124599576956971",
+            "discord:channel:1476121756707328022:1476170664359755816",
+            "discord:channel:1476121756707328022:1476121757323759659",
+            "discord:channel:1476121756707328022:1476180349594894377",
+            "discord:channel:1476121756707328022:1476253656600019148",
+            "discord:channel:1476121756707328022:1477632788193869889",
+            "discord:user:1059620424125788162"
+          ]
+        },
+        "ytdatareader": {
+          "name": "ytdatareader",
+          "token": "__OPENCLAW_REDACTED__",
+          "groupPolicy": "allowlist",
+          "streaming": "off",
+          "guilds": {
+            "1476121756707328022": {
+              "users": [
+                "1059620424125788162",
+                "1477633394941755426"
+              ],
+              "channels": {
+                "1477632788193869889": {
+                  "allow": true,
+                  "requireMention": false
+                }
+              }
+            }
+          }
+        },
+        "ytoutliner": {
+          "name": "ytoutliner",
+          "token": "__OPENCLAW_REDACTED__",
+          "groupPolicy": "allowlist",
+          "streaming": "off",
+          "guilds": {
+            "1476121756707328022": {
+              "users": [
+                "1059620424125788162",
+                "1476554283888545842"
+              ],
+              "channels": {
+                "1477632788193869889": {
+                  "allow": true,
+                  "requireMention": false
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "gateway": {
+    "port": 18789,
+    "mode": "local",
+    "bind": "loopback",
+    "controlUi": {
+      "allowedOrigins": [
+        "https://72.62.43.130:29999"
+      ]
+    },
+    "auth": {
+      "mode": "token",
+      "token": "__OPENCLAW_REDACTED__"
+    },
+    "tailscale": {
+      "mode": "off",
+      "resetOnExit": false
+    },
+    "http": {
+      "endpoints": {
+        "chatCompletions": {
+          "enabled": true
+        },
+        "responses": {
+          "enabled": true
+        }
+      }
+    },
+    "nodes": {
+      "denyCommands": [
+        "camera.snap",
+        "camera.clip",
+        "screen.record",
+        "calendar.add",
+        "contacts.add",
+        "reminders.add"
+      ]
+    }
+  },
+  "plugins": {
+    "entries": {
+      "whatsapp": {
+        "enabled": true
+      }
+    }
+  }
+}
