@@ -4,7 +4,7 @@ import { resolveRequiredHomeDir } from "../infra/home-dir.js";
 import { isValidProfileName } from "./profile-utils.js";
 
 export type CliProfileParseResult =
-  | { ok: true; profile: string | null; argv: string[]; devMode?: "1" | "0" }
+  | { ok: true; profile: string | null; argv: string[] }
   | { ok: false; error: string };
 
 function takeValue(
@@ -32,7 +32,6 @@ export function parseCliProfileArgs(argv: string[]): CliProfileParseResult {
   let profile: string | null = null;
   let sawDev = false;
   let sawCommand = false;
-  let devMode: "1" | "0" | undefined;
 
   const args = argv.slice(2);
   for (let i = 0; i < args.length; i += 1) {
@@ -77,19 +76,6 @@ export function parseCliProfileArgs(argv: string[]): CliProfileParseResult {
       continue;
     }
 
-    if (arg === "--dev-mode" || arg.startsWith("--dev-mode=")) {
-      const next = args[i + 1];
-      const { value, consumedNext } = takeValue(arg, next);
-      if (consumedNext) {
-        i += 1;
-      }
-      if (value !== "0" && value !== "1") {
-        return { ok: false, error: "--dev-mode requires 0 or 1" };
-      }
-      devMode = value;
-      continue;
-    }
-
     if (!arg.startsWith("-")) {
       sawCommand = true;
       out.push(arg);
@@ -99,7 +85,7 @@ export function parseCliProfileArgs(argv: string[]): CliProfileParseResult {
     out.push(arg);
   }
 
-  return { ok: true, profile, argv: out, devMode };
+  return { ok: true, profile, argv: out };
 }
 
 function resolveProfileStateDir(

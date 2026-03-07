@@ -73,49 +73,8 @@ export async function runCli(argv: string[] = process.argv) {
   }
   normalizedArgv = parsedProfile.argv;
 
-  // Handle --dev-mode 1/0: persist to config and restart gateway
-  if (parsedProfile.devMode) {
-    const { loadConfig, writeConfigFile } = await import("../config/config.js");
-    const cfg = loadConfig();
-    // Guard: if config loaded as empty (broken/missing), don't overwrite it
-    if (!cfg.cli && !cfg.gateway && !cfg.agents && Object.keys(cfg).length === 0) {
-      console.error("[dev-mode] Config appears broken or empty. Fix it first: openclaw doctor");
-      console.error("[dev-mode] Not writing dev-mode flag to avoid overwriting your config.");
-      return;
-    }
-    cfg.cli = { ...cfg.cli, devMode: parsedProfile.devMode === "1" };
-    await writeConfigFile(cfg);
-    const enabled = parsedProfile.devMode === "1";
-    console.log(`Dev mode ${enabled ? "enabled" : "disabled"}. Restarting gateway...`);
-    const { execFileSync } = await import("node:child_process");
-    try {
-      execFileSync("openclaw", ["gateway", "restart"], { stdio: "inherit" });
-    } catch {
-      console.log(
-        "Gateway restart failed (gateway may not be running). Start it with: openclaw gateway start",
-      );
-    }
-    return;
-  }
-
   loadDotEnv({ quiet: true });
   normalizeEnv();
-
-  // Apply persisted dev-mode for route-first commands (after dotenv, before tryRouteCli).
-  // Use createConfigIO with a snapshot of process.env so the internal
-  // maybeLoadDotEnvForConfig is a no-op (it only calls loadDotEnv when
-  // env === process.env). This avoids a duplicate loadDotEnv call.
-  try {
-    const { createConfigIO } = await import("../config/io.js");
-    const cfg = createConfigIO({ env: { ...process.env } }).loadConfig();
-    if (cfg.cli?.devMode) {
-      process.env.OPENCLAW_DEV_MODE = "1";
-    }
-  } catch (err) {
-    console.error(
-      `[dev-mode] Failed to load dev-mode config: ${err instanceof Error ? err.message : String(err)}`,
-    );
-  }
 
   if (shouldEnsureCliPath(normalizedArgv)) {
     ensureOpenClawCliOnPath();
