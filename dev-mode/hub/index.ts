@@ -48,7 +48,9 @@ function httpRequest(
       req.destroy();
       reject(new Error("Hub request timed out"));
     });
-    if (body) req.write(body);
+    if (body) {
+      req.write(body);
+    }
     req.end();
   });
 }
@@ -67,7 +69,7 @@ export default {
       label: "Hub Notify",
       description: [
         "Send a notification through the Hub.",
-        "The hub stores it, wakes the main agent, and the agent forwards to the user on WhatsApp.",
+        "The hub stores it, wakes the main agent, and the agent forwards to the user via the configured channel.",
         "Use this from crons, sub-agents, or any automation that needs to reach the user.",
         "",
         "Priority levels:",
@@ -86,7 +88,8 @@ export default {
           },
           source: {
             type: "string",
-            description: "Who is sending this (e.g. 'daily-digest', 'health-check', your agent name)",
+            description:
+              "Who is sending this (e.g. 'daily-digest', 'health-check', your agent name)",
           },
           title: {
             type: "string",
@@ -119,7 +122,8 @@ export default {
     api.registerTool({
       name: "hub_pending",
       label: "Hub Pending",
-      description: "List all unhandled notifications from the Hub. Use this to check if there are notifications waiting to be processed.",
+      description:
+        "List all unhandled notifications from the Hub. Use this to check if there are notifications waiting to be processed.",
       parameters: {
         type: "object" as const,
         properties: {},
@@ -138,7 +142,8 @@ export default {
     api.registerTool({
       name: "hub_done",
       label: "Hub Done",
-      description: "Mark a hub notification as handled. Call this after you've forwarded or acted on a notification.",
+      description:
+        "Mark a hub notification as handled. Call this after you've forwarded or acted on a notification.",
       parameters: {
         type: "object" as const,
         required: ["id"],
@@ -156,7 +161,7 @@ export default {
       async execute(_toolCallId: string, args: Record<string, unknown>) {
         const body = JSON.stringify({ response: args.response ?? "" });
         try {
-          const res = await httpRequest(`${baseUrl}/done/${args.id}`, "POST", body);
+          const res = await httpRequest(`${baseUrl}/done/${String(args.id)}`, "POST", body);
           return JSON.parse(res.data);
         } catch (err: unknown) {
           return { error: `Hub unreachable: ${(err as Error).message}. Is server.py running?` };
@@ -164,6 +169,8 @@ export default {
       },
     });
 
-    api.logger.info(`Hub plugin registered — tools: hub_notify, hub_pending, hub_done (${baseUrl})`);
+    api.logger.info(
+      `Hub plugin registered — tools: hub_notify, hub_pending, hub_done (${baseUrl})`,
+    );
   },
 };
