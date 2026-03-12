@@ -10,12 +10,13 @@
 - **Current base**: V2026.3.11 (merged 2026-03-12, 893 upstream commits)
 - **PR**: https://github.com/openclaw/openclaw/pull/37337
 - **Purpose**: Add dev-mode flag to OpenClaw that relaxes security features for dev environments
-- **Status**: PR submitted, updated to V2026.3.11, config persistence removed
+- **Status**: PR submitted, both branches updated to V2026.3.11, CI green on pr-ready
 
 ## Branches
 
-- `main` — has `dist/` committed for easy VPS deployment, includes `dev-mode/rejects/` folder
-- `pr-ready` — clean branch without `dist/` or rejects, used for upstream PR
+- `main` — has `dist/` committed for easy VPS deployment, includes `dev-mode/rejects/` folder. Deployed to VPS.
+- `pr-ready` — clean branch without `dist/` or rejects, used for upstream PR. CI must pass here.
+- Both branches are on V2026.3.11 as of 2026-03-12. Same dev-mode source code, different packaging.
 
 ## Build & Deploy
 
@@ -103,7 +104,7 @@ Each one is a minimal `if (isDevMode()) { ... }` check in the relevant source fi
 
 ### V2026.3.11 (2026-03-12, 893 commits)
 
-3 merge conflicts resolved, all import/constant collisions:
+Both branches upgraded. `main` had 3 conflicts, `pr-ready` had 4 (same 3 + `.gitignore` for `dist/` vs `.dev-state`). All import/constant collisions:
 
 | File                            | Conflict                                                                                            | Resolution                                            |
 | ------------------------------- | --------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
@@ -112,6 +113,10 @@ Each one is a minimal `if (isDevMode()) { ... }` check in the relevant source fi
 | `src/gateway/startup-auth.ts`   | Our `isDevMode` import vs their refactored secret-resolution imports (consolidated into `resolveRequiredConfiguredSecretRefInputString`) | Took upstream's refactored imports + kept our `isDevMode` import |
 
 7 auto-merged files (no conflicts): `zod-schema.ts`, `run-main.ts`, `preaction.ts`, `server.impl.ts`, `system-prompt.ts`, `navigation-guard.ts`, `host-env-security.ts`
+
+`pr-ready` additional conflict: `.gitignore` — our `dist/` entry (gitignored on pr-ready) vs upstream's new `.dev-state` entry. Resolution: kept both.
+
+Also updated `dev-mode/README.md` on pr-ready from stale `--dev-mode 1` CLI references to env-var approach. CI green on pr-ready.
 
 ### V2026.3.7 (2026-03-06, 251 commits)
 
