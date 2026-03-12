@@ -1,6 +1,6 @@
 # OpenClaw Dev Mode — Personal AI DEV Assistant
 
-## Presenting - Dev Mode, Lowering Un-Necessary Security Features, 
+## Presenting - Dev Mode, Lowering Un-Necessary Security Features,
 
 # BACK to FUN LEVEL!
 
@@ -15,8 +15,8 @@
 
 [HTML with --dev-mode list](https://htmlpreview.github.io/?https://github.com/bresleveloper/openclaw-dev-mode/blob/main/dev-mode/yes.2026.03.06.html)
 
-* 2026-03-05 - created dev mode on V2026.3.2
-* 2026-03-06 - updated to mains V2026.3.7 + removed interactions with openclaw.json (now saves devMode in .env)
+- 2026-03-05 - created dev mode on V2026.3.2
+- 2026-03-06 - updated to mains V2026.3.7 + removed interactions with openclaw.json (now saves devMode in .env)
 
 ## How to install
 

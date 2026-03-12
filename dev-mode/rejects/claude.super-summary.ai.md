@@ -97,41 +97,41 @@ Each one is a minimal `if (isDevMode()) { ... }` check in the relevant source fi
 
 9 issues flagged (R1-R9). All addressed:
 
-| ID | Issue | Fix |
-|----|-------|-----|
-| R1 | Security concern about bypassing all checks | Added warning banner in README |
-| R2 | README.md conflicts with upstream | Moved our README to `dev-mode/README.md`, restored upstream root README |
-| R3 | Hardcoded "Jarvis" name and WhatsApp channel | Renamed to generic terms, added `OPENCLAW_AGENT` and `HUB_CHANNEL` env vars |
-| R4 | server.py broken indentation (GitHub suggestion acceptance bug) | Restored proper Python indentation |
-| R5 | Personal branding in docs | Removed personal references from all tracked files |
-| R6 | Hub auto-start in preAction hook (runs every CLI command, 1s latency) | Moved to `server.impl.ts` — runs once at gateway start only |
-| R7 | Silent failures in dev-mode activation | Added try-catch with clear `console.error` messages |
-| R8 | loadConfig called before loadDotEnv (route-first commands) | Added dev-mode env var block in `run-main.ts` after dotenv, before `tryRouteCli()` |
-| R9 | No error handling for missing python3 | Added ENOENT detection with clear dependency message |
+| ID  | Issue                                                                 | Fix                                                                                |
+| --- | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| R1  | Security concern about bypassing all checks                           | Added warning banner in README                                                     |
+| R2  | README.md conflicts with upstream                                     | Moved our README to `dev-mode/README.md`, restored upstream root README            |
+| R3  | Hardcoded "Jarvis" name and WhatsApp channel                          | Renamed to generic terms, added `OPENCLAW_AGENT` and `HUB_CHANNEL` env vars        |
+| R4  | server.py broken indentation (GitHub suggestion acceptance bug)       | Restored proper Python indentation                                                 |
+| R5  | Personal branding in docs                                             | Removed personal references from all tracked files                                 |
+| R6  | Hub auto-start in preAction hook (runs every CLI command, 1s latency) | Moved to `server.impl.ts` — runs once at gateway start only                        |
+| R7  | Silent failures in dev-mode activation                                | Added try-catch with clear `console.error` messages                                |
+| R8  | loadConfig called before loadDotEnv (route-first commands)            | Added dev-mode env var block in `run-main.ts` after dotenv, before `tryRouteCli()` |
+| R9  | No error handling for missing python3                                 | Added ENOENT detection with clear dependency message                               |
 
 ### Round 2 — CI failures + Codex P1/P2 comments
 
-| ID | Issue | Fix |
-|----|-------|-----|
-| F1 | Test `run-main.profile-env.test.ts` failed — loadDotEnv called twice | Moved dev-mode config block after `loadDotEnv()` in run-main.ts |
-| F2 | oxfmt formatter failures (30 files) | Ran `pnpm format` — all cosmetic (import sorting, line wrapping) |
-| C1 | P1: `--dev-mode 1` on broken config clobbers all settings | Added empty config guard before writing |
-| C2 | P2: Hub plugin only loaded from config, not env var | Split logic: `cfg.cli?.devMode` sets global flag, `isDevMode()` gates hub registration |
+| ID  | Issue                                                                | Fix                                                                                    |
+| --- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| F1  | Test `run-main.profile-env.test.ts` failed — loadDotEnv called twice | Moved dev-mode config block after `loadDotEnv()` in run-main.ts                        |
+| F2  | oxfmt formatter failures (30 files)                                  | Ran `pnpm format` — all cosmetic (import sorting, line wrapping)                       |
+| C1  | P1: `--dev-mode 1` on broken config clobbers all settings            | Added empty config guard before writing                                                |
+| C2  | P2: Hub plugin only loaded from config, not env var                  | Split logic: `cfg.cli?.devMode` sets global flag, `isDevMode()` gates hub registration |
 
 ### Round 3 — Duplicate loadDotEnv + lint errors
 
-| ID | Issue | Fix |
-|----|-------|-----|
-| F3 | Same test still failing — loadConfig() internally calls loadDotEnv via `maybeLoadDotEnvForConfig` | Used `createConfigIO({ env: { ...process.env } })` — env copy bypasses the `env !== process.env` check, skipping internal loadDotEnv |
-| L1 | 6x `eslint(curly)` errors — one-liner `if` statements need braces | Added `{ }` braces to all `if (isDevMode()) return;` patterns |
-| L2 | 4x `restrict-template-expressions` — `unknown` in template literals | Wrapped with `String()` for unknown types in error logging |
+| ID  | Issue                                                                                             | Fix                                                                                                                                  |
+| --- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| F3  | Same test still failing — loadConfig() internally calls loadDotEnv via `maybeLoadDotEnvForConfig` | Used `createConfigIO({ env: { ...process.env } })` — env copy bypasses the `env !== process.env` check, skipping internal loadDotEnv |
+| L1  | 6x `eslint(curly)` errors — one-liner `if` statements need braces                                 | Added `{ }` braces to all `if (isDevMode()) return;` patterns                                                                        |
+| L2  | 4x `restrict-template-expressions` — `unknown` in template literals                               | Wrapped with `String()` for unknown types in error logging                                                                           |
 
 ### Codex comments we replied to (not code changes)
 
-| Comment | Our reply |
-|---------|-----------|
+| Comment                                                                     | Our reply                                                                                                                                                                                                   |
+| --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | P2: Fresh install can't enable dev mode (empty config guard too aggressive) | Non-issue: fresh installs have no API keys/gateway/agent config. Users must `openclaw configure` first. By the time `--dev-mode` is relevant, config exists. Guard protects broken configs from clobbering. |
-| P2: Hub plugin path not in npm release artifacts | By design: hub is a runtime addon for source-tree/fork users. Path resolved via `import.meta.url`, `fs.existsSync` skips silently if missing. All 13 SEC items work regardless. |
+| P2: Hub plugin path not in npm release artifacts                            | By design: hub is a runtime addon for source-tree/fork users. Path resolved via `import.meta.url`, `fs.existsSync` skips silently if missing. All 13 SEC items work regardless.                             |
 
 ### Human reviewer (sxu75374)
 
@@ -147,6 +147,7 @@ Each one is a minimal `if (isDevMode()) { ... }` check in the relevant source fi
 ## Key Gotcha: oxlint curly rule
 
 The codebase enforces `eslint(curly)` — all `if` statements must use braces, even one-liners. `if (isDevMode()) return;` is a lint error. Must be:
+
 ```typescript
 if (isDevMode()) {
   return;
@@ -156,8 +157,9 @@ if (isDevMode()) {
 ## Key Gotcha: restrict-template-expressions
 
 `catch (err)` gives `unknown` type. Using `${err}` in template literals is a lint error. Must use `String(err)`:
+
 ```typescript
-`Error: ${err instanceof Error ? err.message : String(err)}`
+`Error: ${err instanceof Error ? err.message : String(err)}`;
 ```
 
 ## Project File Structure (our additions)

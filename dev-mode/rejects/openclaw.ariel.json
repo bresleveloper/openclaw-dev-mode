@@ -42,9 +42,7 @@
             "id": "kimi-k2.5:cloud",
             "name": "kimi-k2.5:cloud",
             "reasoning": false,
-            "input": [
-              "text"
-            ],
+            "input": ["text"],
             "cost": {
               "input": 0,
               "output": 0,
@@ -58,9 +56,7 @@
             "id": "minimax-m2.5:cloud",
             "name": "minimax-m2.5:cloud",
             "reasoning": false,
-            "input": [
-              "text"
-            ],
+            "input": ["text"],
             "cost": {
               "input": 0,
               "output": 0,
@@ -233,9 +229,7 @@
       "enabled": true,
       "dmPolicy": "allowlist",
       "selfChatMode": true,
-      "allowFrom": [
-        "+972542634114"
-      ],
+      "allowFrom": ["+972542634114"],
       "groupPolicy": "allowlist",
       "debounceMs": 0,
       "mediaMaxMb": 50
@@ -279,11 +273,7 @@
           "streaming": "off",
           "guilds": {
             "1476121756707328022": {
-              "users": [
-                "1059620424125788162",
-                "1476170227216683079",
-                "1476122107627835473"
-              ],
+              "users": ["1059620424125788162", "1476170227216683079", "1476122107627835473"],
               "channels": {
                 "1476124599576956971": {
                   "allow": true,
@@ -312,11 +302,7 @@
           "streaming": "off",
           "guilds": {
             "1476121756707328022": {
-              "users": [
-                "1059620424125788162",
-                "1476170227216683079",
-                "1476122107627835473"
-              ],
+              "users": ["1059620424125788162", "1476170227216683079", "1476122107627835473"],
               "channels": {
                 "1476170664359755816": {
                   "allow": true,
@@ -358,10 +344,7 @@
           "streaming": "off",
           "guilds": {
             "1476121756707328022": {
-              "users": [
-                "1059620424125788162",
-                "1477633394941755426"
-              ],
+              "users": ["1059620424125788162", "1477633394941755426"],
               "channels": {
                 "1477632788193869889": {
                   "allow": true,
@@ -378,10 +361,7 @@
           "streaming": "off",
           "guilds": {
             "1476121756707328022": {
-              "users": [
-                "1059620424125788162",
-                "1476554283888545842"
-              ],
+              "users": ["1059620424125788162", "1476554283888545842"],
               "channels": {
                 "1477632788193869889": {
                   "allow": true,
@@ -399,9 +379,7 @@
     "mode": "local",
     "bind": "loopback",
     "controlUi": {
-      "allowedOrigins": [
-        "https://72.62.43.130:29999"
-      ]
+      "allowedOrigins": ["https://72.62.43.130:29999"]
     },
     "auth": {
       "mode": "token",
