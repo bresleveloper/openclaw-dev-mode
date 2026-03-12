@@ -1,13 +1,8 @@
 import { type EmbeddingBatchExecutionParams } from "./batch-runner.js";
-import type { GeminiEmbeddingClient } from "./embeddings-gemini.js";
+import type { GeminiEmbeddingClient, GeminiTextEmbeddingRequest } from "./embeddings-gemini.js";
 export type GeminiBatchRequest = {
     custom_id: string;
-    content: {
-        parts: Array<{
-            text: string;
-        }>;
-    };
-    taskType: "RETRIEVAL_DOCUMENT" | "RETRIEVAL_QUERY";
+    request: GeminiTextEmbeddingRequest;
 };
 export type GeminiBatchStatus = {
     name?: string;

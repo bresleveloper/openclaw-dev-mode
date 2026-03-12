@@ -1,4 +1,5 @@
 import type { TelegramGroupConfig } from "../config/types.js";
+import type { TelegramNetworkConfig } from "../config/types.telegram.js";
 export type TelegramGroupMembershipAuditEntry = {
     chatId: string;
     ok: boolean;
@@ -25,6 +26,7 @@ export type AuditTelegramGroupMembershipParams = {
     botId: number;
     groupIds: string[];
     proxyUrl?: string;
+    network?: TelegramNetworkConfig;
     timeoutMs: number;
 };
 export declare function auditTelegramGroupMembership(params: AuditTelegramGroupMembershipParams): Promise<TelegramGroupMembershipAudit>;

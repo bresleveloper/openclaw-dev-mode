@@ -46,6 +46,9 @@ export declare class GatewayClient {
     private connectNonce;
     private connectSent;
     private connectTimer;
+    private pendingDeviceTokenRetry;
+    private deviceTokenRetryBudgetUsed;
+    private pendingConnectErrorDetailCode;
     private lastTick;
     private tickIntervalMs;
     private tickTimer;
@@ -53,6 +56,9 @@ export declare class GatewayClient {
     start(): void;
     stop(): void;
     private sendConnect;
+    private shouldPauseReconnectAfterAuthFailure;
+    private shouldRetryWithStoredDeviceToken;
+    private isTrustedDeviceRetryEndpoint;
     private handleMessage;
     private queueConnect;
     private scheduleReconnect;

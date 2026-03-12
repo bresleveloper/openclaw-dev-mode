@@ -9,6 +9,9 @@ export declare function deliverReplies(params: {
     replies: ReplyPayload[];
     chatId: string;
     accountId?: string;
+    sessionKeyForInternalHooks?: string;
+    mirrorIsGroup?: boolean;
+    mirrorGroupId?: string;
     token: string;
     runtime: RuntimeEnv;
     bot: Bot;

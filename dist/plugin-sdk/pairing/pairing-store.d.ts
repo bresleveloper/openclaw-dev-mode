@@ -7,6 +7,7 @@ export type PairingRequest = {
     lastSeenAt: string;
     meta?: Record<string, string>;
 };
+export declare function resolveChannelAllowFromPath(channel: PairingChannel, env?: NodeJS.ProcessEnv, accountId?: string): string;
 export declare function readLegacyChannelAllowFromStore(channel: PairingChannel, env?: NodeJS.ProcessEnv): Promise<string[]>;
 export declare function readChannelAllowFromStore(channel: PairingChannel, env?: NodeJS.ProcessEnv, accountId?: string): Promise<string[]>;
 export declare function readLegacyChannelAllowFromStoreSync(channel: PairingChannel, env?: NodeJS.ProcessEnv): string[];

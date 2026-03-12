@@ -1,8 +1,8 @@
 export type { ReplyPayload } from "../auto-reply/types.js";
 export { buildChannelConfigSchema } from "../channels/plugins/config-schema.js";
 export type { ChannelOnboardingAdapter } from "../channels/plugins/onboarding-types.js";
-export { promptAccountId } from "../channels/plugins/onboarding/helpers.js";
-export { applyAccountNameToChannelSection } from "../channels/plugins/setup-helpers.js";
+export { promptAccountId, resolveAccountIdForConfigure, } from "../channels/plugins/onboarding/helpers.js";
+export { applyAccountNameToChannelSection, patchScopedAccountConfig, } from "../channels/plugins/setup-helpers.js";
 export type { ChannelAccountSnapshot, ChannelOutboundAdapter, ChannelSetupInput, } from "../channels/plugins/types.js";
 export type { ChannelPlugin } from "../channels/plugins/types.plugin.js";
 export { createReplyPrefixOptions } from "../channels/reply-prefix.js";

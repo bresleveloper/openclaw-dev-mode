@@ -90,7 +90,9 @@ export declare function getPageForTargetId(opts: {
     targetId?: string;
 }): Promise<Page>;
 export declare function refLocator(page: Page, ref: string): import("playwright-core").Locator;
-export declare function closePlaywrightBrowserConnection(): Promise<void>;
+export declare function closePlaywrightBrowserConnection(opts?: {
+    cdpUrl?: string;
+}): Promise<void>;
 /**
  * Best-effort cancellation for stuck page operations.
  *

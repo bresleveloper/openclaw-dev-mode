@@ -21,6 +21,7 @@ export { listTelegramDirectoryGroupsFromConfig, listTelegramDirectoryPeersFromCo
 export { looksLikeTelegramTargetId, normalizeTelegramMessagingTarget, } from "../channels/plugins/normalize/telegram.js";
 export { parseTelegramReplyToMessageId, parseTelegramThreadId, } from "../telegram/outbound-params.js";
 export { collectTelegramStatusIssues } from "../channels/plugins/status-issues/telegram.js";
+export { sendTelegramPayloadMessages } from "../channels/plugins/outbound/telegram.js";
 export { resolveAllowlistProviderRuntimeGroupPolicy, resolveDefaultGroupPolicy, } from "../config/runtime-group-policy.js";
 export { resolveTelegramGroupRequireMention, resolveTelegramGroupToolPolicy, } from "../channels/plugins/group-mentions.js";
 export { telegramOnboardingAdapter } from "../channels/plugins/onboarding/telegram.js";

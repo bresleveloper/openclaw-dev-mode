@@ -28,6 +28,7 @@ export declare function buildEmbeddedRunPayloads(params: {
     suppressToolErrorWarnings?: boolean;
     inlineToolResultsAllowed: boolean;
     didSendViaMessagingTool?: boolean;
+    didSendDeterministicApprovalPrompt?: boolean;
 }): Array<{
     text?: string;
     mediaUrl?: string;

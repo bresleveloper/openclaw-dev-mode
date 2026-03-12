@@ -55,7 +55,7 @@ export declare function resolveGatewayAuth(params: {
     env?: NodeJS.ProcessEnv;
     tailscaleMode?: GatewayTailscaleMode;
 }): ResolvedGatewayAuth;
-export declare function assertGatewayAuthConfigured(auth: ResolvedGatewayAuth): void;
+export declare function assertGatewayAuthConfigured(auth: ResolvedGatewayAuth, rawAuthConfig?: GatewayAuthConfig | null): void;
 export declare function authorizeGatewayConnect(params: AuthorizeGatewayConnectParams): Promise<GatewayAuthResult>;
 export declare function authorizeHttpGatewayConnect(params: Omit<AuthorizeGatewayConnectParams, "authSurface">): Promise<GatewayAuthResult>;
 export declare function authorizeWsControlUiGatewayConnect(params: Omit<AuthorizeGatewayConnectParams, "authSurface">): Promise<GatewayAuthResult>;

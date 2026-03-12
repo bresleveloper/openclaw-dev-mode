@@ -22,6 +22,14 @@ export declare const ChatSendParamsSchema: import("@sinclair/typebox").TObject<{
     deliver: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TBoolean>;
     attachments: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TArray<import("@sinclair/typebox").TUnknown>>;
     timeoutMs: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TInteger>;
+    systemInputProvenance: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TObject<{
+        kind: import("@sinclair/typebox").TString;
+        originSessionId: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TString>;
+        sourceSessionKey: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TString>;
+        sourceChannel: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TString>;
+        sourceTool: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TString>;
+    }>>;
+    systemProvenanceReceipt: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TString>;
     idempotencyKey: import("@sinclair/typebox").TString;
 }>;
 export declare const ChatAbortParamsSchema: import("@sinclair/typebox").TObject<{

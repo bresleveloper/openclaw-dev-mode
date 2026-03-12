@@ -12,7 +12,7 @@ export declare function findGatewayPidsOnPortSync(port: number, spawnTimeoutMs?:
  *
  * Called before service restart commands to prevent port conflicts.
  */
-export declare function cleanStaleGatewayProcessesSync(): number[];
+export declare function cleanStaleGatewayProcessesSync(portOverride?: number): number[];
 export declare const __testing: {
     setSleepSyncOverride(fn: ((ms: number) => void) | null): void;
     setDateNowOverride(fn: (() => number) | null): void;

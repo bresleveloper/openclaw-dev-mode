@@ -226,6 +226,8 @@ export declare const MessagesSchema: z.ZodOptional<z.ZodObject<{
             baseUrl: z.ZodOptional<z.ZodString>;
             model: z.ZodOptional<z.ZodString>;
             voice: z.ZodOptional<z.ZodString>;
+            speed: z.ZodOptional<z.ZodNumber>;
+            instructions: z.ZodOptional<z.ZodString>;
         }, z.core.$strict>>;
         edge: z.ZodOptional<z.ZodObject<{
             enabled: z.ZodOptional<z.ZodBoolean>;

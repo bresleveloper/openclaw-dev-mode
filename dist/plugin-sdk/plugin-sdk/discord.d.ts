@@ -15,4 +15,4 @@ export { resolveDiscordGroupRequireMention, resolveDiscordGroupToolPolicy, } fro
 export { discordOnboardingAdapter } from "../channels/plugins/onboarding/discord.js";
 export { DiscordConfigSchema } from "../config/zod-schema.providers-core.js";
 export { autoBindSpawnedDiscordSubagent, listThreadBindingsBySessionKey, unbindThreadBindingsBySessionKey, } from "../discord/monitor/thread-bindings.js";
-export { buildTokenChannelStatusSummary } from "./status-helpers.js";
+export { buildComputedAccountStatusSnapshot, buildTokenChannelStatusSummary, } from "./status-helpers.js";

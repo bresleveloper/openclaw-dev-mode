@@ -1,131 +1,42 @@
-import { B as readStoreAllowFromForDmPolicy, G as GROUP_POLICY_BLOCKED_LABEL, K as resolveAllowlistProviderRuntimeGroupPolicy, U as resolveEffectiveAllowFromLists, X as isDangerousNameMatchingEnabled, Y as warnMissingProviderGroupPolicyFallbackOnce, Z as createReplyPrefixOptions, et as logInboundDrop, q as resolveDefaultGroupPolicy, tt as resolveControlCommandGate, z as formatDocsLink } from "./dispatch-DnLtzcbn.js";
-import { at as DEFAULT_ACCOUNT_ID, ot as normalizeAccountId } from "./run-with-concurrency-DhMKNVpI.js";
-import { At as getChatChannelMeta, Er as normalizeResolvedSecretInputString, G as DmConfigSchema, J as MarkdownConfigSchema, K as DmPolicySchema, U as ToolPolicySchema, Vr as formatCliCommand, W as BlockStreamingCoalesceSchema, X as requireOpenAllowFrom, Y as ReplyRuntimeConfigSchemaShape, q as GroupPolicySchema } from "./model-auth-CaxBuigV.js";
-import "./logger-CQsSB0EM.js";
+import { B as issuePairingChallenge, G as resolveEffectiveAllowFromLists, H as readStoreAllowFromForDmPolicy, J as createReplyPrefixOptions, Q as resolveControlCommandGate, V as formatDocsLink, Z as logInboundDrop, q as isDangerousNameMatchingEnabled } from "./dispatch-DpWfbfex.js";
+import { Ut as DEFAULT_ACCOUNT_ID, Wt as normalizeAccountId } from "./paths-BosfUIb7.js";
+import { $a as getChatChannelMeta, Fa as ToolPolicySchema, Qs as formatPairingApproveHint, ac as MarkdownConfigSchema, bc as setAccountEnabledInConfigSection, ic as GroupPolicySchema, mc as normalizeResolvedSecretInputString, nc as DmConfigSchema, oc as ReplyRuntimeConfigSchemaShape, rc as DmPolicySchema, sc as requireOpenAllowFrom, tc as BlockStreamingCoalesceSchema, vc as createAccountListHelpers, yc as deleteAccountFromConfigSection } from "./model-auth-DCZchpVh.js";
+import "./logger-DcprVJ1_.js";
 import "./paths-CtOdJffQ.js";
-import "./github-copilot-token-BLx9ZUBJ.js";
-import "./thinking-BgYk8jDi.js";
-import "./send-wpV0PX_c.js";
-import "./accounts-DIP_YQdu.js";
-import "./plugins-DMOsoNVq.js";
-import "./send-C9WC2Eeo.js";
-import "./send-BfOMlPPm.js";
-import "./image-ops-D7EC9-0o.js";
-import "./pi-embedded-helpers-DPucGs3n.js";
-import "./accounts-Dd9kacAJ.js";
-import "./accounts-Cqrp19n_.js";
-import "./paths-DWdzjQje.js";
-import "./deliver-Dc4EBZI4.js";
-import "./diagnostic-BxRisvVr.js";
-import "./pi-model-discovery-DldvNprI.js";
-import "./audio-transcription-runner-CsxvwXOe.js";
-import "./image-DM0Xrq3C.js";
-import "./chrome-CylXZHex.js";
-import "./skills-yHFjxVF7.js";
-import "./path-alias-guards-kkFDc18i.js";
-import "./redact-Bkty79fb.js";
-import "./errors-C8ZgIUby.js";
-import "./fs-safe-BDNnHIDA.js";
-import "./proxy-env-DPgqVcba.js";
-import "./store-C48zY6ZZ.js";
-import "./tool-images-CAwqV3qH.js";
-import "./fetch-guard-BTR8Vwye.js";
-import "./api-key-rotation-BoqKs7Xr.js";
-import "./local-roots-DgO10kgA.js";
-import "./proxy-fetch-WQDr4H8_.js";
-import "./tokens-6jaB28eO.js";
-import "./commands-registry-Dg2qSfPC.js";
-import "./skill-commands-DbAhEtHl.js";
-import "./ir-DjDpAA25.js";
-import "./render-hUn-4tdL.js";
-import "./target-errors-DnC0rRg-.js";
-import "./channel-activity-D5LgNGyu.js";
-import "./fetch-Xb84ORZK.js";
-import "./tables-DQmN6p4y.js";
-import "./send-CA_V4jEw.js";
-import "./proxy-CgXTW63Y.js";
-import "./outbound-attachment-OhfejuuU.js";
-import "./send-OE6SE5p3.js";
-import "./manager-BZSKn1XD.js";
-import "./query-expansion-Cx46IUDC.js";
+import "./proxy-env-DFC4wAsW.js";
+import "./github-copilot-token-B5aRMBY6.js";
+import "./send-BezQ7o1c.js";
+import { At as resolveAllowlistProviderRuntimeGroupPolicy, Nt as warnMissingProviderGroupPolicyFallbackOnce, jt as resolveDefaultGroupPolicy, kt as GROUP_POLICY_BLOCKED_LABEL } from "./send-T9bdg8YQ.js";
+import "./send-Y08Pyf0T.js";
+import "./deliver-CNcpQs37.js";
+import "./diagnostic-CeFagaaq.js";
+import "./pi-model-discovery-PDIejh-G.js";
+import "./audio-transcription-runner-Ce0_1m2I.js";
+import "./image-C_bqfGL0.js";
+import "./fetch-guard-6uumlQ4d.js";
+import "./api-key-rotation-jeYfwKY7.js";
+import "./local-roots-CKm0aD_L.js";
+import "./proxy-fetch-BdMU9PCX.js";
+import "./tokens-5ACSdtYj.js";
+import "./commands-registry-CGY6JI9n.js";
+import "./ir-CGZK3483.js";
+import "./render-Cky8fVYO.js";
+import "./target-errors-DACYOBT7.js";
+import "./send-9Oy8KPju.js";
+import "./outbound-attachment-1Dh4afHd.js";
+import "./fetch-B-Q2OOqY.js";
+import "./send-BrWetf92.js";
+import "./sqlite-CbKA_Hfu.js";
+import "./channel-activity-DXMRPJT8.js";
+import "./tables-BQwTu0Tj.js";
+import "./fetch-C5jByiXr.js";
+import "./skill-commands-BYN7JbCI.js";
+import "./manager-8IlmOJgT.js";
+import { z } from "zod";
 import { format } from "node:util";
-//#region src/channels/plugins/config-helpers.ts
-function setAccountEnabledInConfigSection(params) {
-	const accountKey = params.accountId || "default";
-	const base = params.cfg.channels?.[params.sectionKey];
-	const hasAccounts = Boolean(base?.accounts);
-	if (params.allowTopLevel && accountKey === "default" && !hasAccounts) return {
-		...params.cfg,
-		channels: {
-			...params.cfg.channels,
-			[params.sectionKey]: {
-				...base,
-				enabled: params.enabled
-			}
-		}
-	};
-	const baseAccounts = base?.accounts ?? {};
-	const existing = baseAccounts[accountKey] ?? {};
-	return {
-		...params.cfg,
-		channels: {
-			...params.cfg.channels,
-			[params.sectionKey]: {
-				...base,
-				accounts: {
-					...baseAccounts,
-					[accountKey]: {
-						...existing,
-						enabled: params.enabled
-					}
-				}
-			}
-		}
-	};
-}
-function deleteAccountFromConfigSection(params) {
-	const accountKey = params.accountId || "default";
-	const base = params.cfg.channels?.[params.sectionKey];
-	if (!base) return params.cfg;
-	const baseAccounts = base.accounts && typeof base.accounts === "object" ? { ...base.accounts } : void 0;
-	if (accountKey !== "default") {
-		const accounts = baseAccounts ? { ...baseAccounts } : {};
-		delete accounts[accountKey];
-		return {
-			...params.cfg,
-			channels: {
-				...params.cfg.channels,
-				[params.sectionKey]: {
-					...base,
-					accounts: Object.keys(accounts).length ? accounts : void 0
-				}
-			}
-		};
-	}
-	if (baseAccounts && Object.keys(baseAccounts).length > 0) {
-		delete baseAccounts[accountKey];
-		const baseRecord = { ...base };
-		for (const field of params.clearBaseFields ?? []) if (field in baseRecord) baseRecord[field] = void 0;
-		return {
-			...params.cfg,
-			channels: {
-				...params.cfg.channels,
-				[params.sectionKey]: {
-					...baseRecord,
-					accounts: Object.keys(baseAccounts).length ? baseAccounts : void 0
-				}
-			}
-		};
-	}
-	const nextChannels = { ...params.cfg.channels };
-	delete nextChannels[params.sectionKey];
-	const nextCfg = { ...params.cfg };
-	if (Object.keys(nextChannels).length > 0) nextCfg.channels = nextChannels;
-	else delete nextCfg.channels;
-	return nextCfg;
-}
-//#endregion
 //#region src/channels/plugins/config-schema.ts
+const AllowFromEntrySchema = z.union([z.string(), z.number()]);
+z.array(AllowFromEntrySchema).optional();
 function buildChannelConfigSchema(schema) {
 	const schemaWithJson = schema;
 	if (typeof schemaWithJson.toJSONSchema === "function") return { schema: schemaWithJson.toJSONSchema({
@@ -138,10 +49,55 @@ function buildChannelConfigSchema(schema) {
 	} };
 }
 //#endregion
-//#region src/channels/plugins/helpers.ts
-function formatPairingApproveHint(channelId) {
-	return `Approve via: ${formatCliCommand(`openclaw pairing list ${channelId}`)} / ${formatCliCommand(`openclaw pairing approve ${channelId} <code>`)}`;
-}
+//#region src/secrets/provider-env-vars.ts
+const PROVIDER_ENV_VARS = {
+	openai: ["OPENAI_API_KEY"],
+	anthropic: ["ANTHROPIC_API_KEY"],
+	google: ["GEMINI_API_KEY"],
+	minimax: ["MINIMAX_API_KEY"],
+	"minimax-cn": ["MINIMAX_API_KEY"],
+	moonshot: ["MOONSHOT_API_KEY"],
+	"kimi-coding": ["KIMI_API_KEY", "KIMICODE_API_KEY"],
+	synthetic: ["SYNTHETIC_API_KEY"],
+	venice: ["VENICE_API_KEY"],
+	zai: ["ZAI_API_KEY", "Z_AI_API_KEY"],
+	xiaomi: ["XIAOMI_API_KEY"],
+	openrouter: ["OPENROUTER_API_KEY"],
+	"cloudflare-ai-gateway": ["CLOUDFLARE_AI_GATEWAY_API_KEY"],
+	litellm: ["LITELLM_API_KEY"],
+	"vercel-ai-gateway": ["AI_GATEWAY_API_KEY"],
+	opencode: ["OPENCODE_API_KEY", "OPENCODE_ZEN_API_KEY"],
+	"opencode-go": ["OPENCODE_API_KEY", "OPENCODE_ZEN_API_KEY"],
+	together: ["TOGETHER_API_KEY"],
+	huggingface: ["HUGGINGFACE_HUB_TOKEN", "HF_TOKEN"],
+	qianfan: ["QIANFAN_API_KEY"],
+	xai: ["XAI_API_KEY"],
+	mistral: ["MISTRAL_API_KEY"],
+	kilocode: ["KILOCODE_API_KEY"],
+	modelstudio: ["MODELSTUDIO_API_KEY"],
+	volcengine: ["VOLCANO_ENGINE_API_KEY"],
+	byteplus: ["BYTEPLUS_API_KEY"]
+};
+const EXTRA_PROVIDER_AUTH_ENV_VARS = [
+	"VOYAGE_API_KEY",
+	"GROQ_API_KEY",
+	"DEEPGRAM_API_KEY",
+	"CEREBRAS_API_KEY",
+	"NVIDIA_API_KEY",
+	"COPILOT_GITHUB_TOKEN",
+	"GH_TOKEN",
+	"GITHUB_TOKEN",
+	"ANTHROPIC_OAUTH_TOKEN",
+	"CHUTES_OAUTH_TOKEN",
+	"CHUTES_API_KEY",
+	"QWEN_OAUTH_TOKEN",
+	"QWEN_PORTAL_API_KEY",
+	"MINIMAX_OAUTH_TOKEN",
+	"OLLAMA_API_KEY",
+	"VLLM_API_KEY"
+];
+const KNOWN_SECRET_ENV_VARS = [...new Set(Object.values(PROVIDER_ENV_VARS).flatMap((keys) => keys))];
+[...new Set([...KNOWN_SECRET_ENV_VARS, ...EXTRA_PROVIDER_AUTH_ENV_VARS])];
 //#endregion
 //#region src/plugin-sdk/onboarding.ts
 async function promptAccountId$1(params) {
@@ -168,6 +124,48 @@ async function promptAccountId$1(params) {
 	return normalized;
 }
 //#endregion
+//#region src/channels/plugins/setup-helpers.ts
+function patchScopedAccountConfig(params) {
+	const accountId = normalizeAccountId(params.accountId);
+	const channelConfig = params.cfg.channels?.[params.channelKey];
+	const base = typeof channelConfig === "object" && channelConfig ? channelConfig : void 0;
+	const ensureChannelEnabled = params.ensureChannelEnabled ?? true;
+	const ensureAccountEnabled = params.ensureAccountEnabled ?? ensureChannelEnabled;
+	const patch = params.patch;
+	const accountPatch = params.accountPatch ?? patch;
+	if (accountId === "default") return {
+		...params.cfg,
+		channels: {
+			...params.cfg.channels,
+			[params.channelKey]: {
+				...base,
+				...ensureChannelEnabled ? { enabled: true } : {},
+				...patch
+			}
+		}
+	};
+	const accounts = base?.accounts ?? {};
+	const existingAccount = accounts[accountId] ?? {};
+	return {
+		...params.cfg,
+		channels: {
+			...params.cfg.channels,
+			[params.channelKey]: {
+				...base,
+				...ensureChannelEnabled ? { enabled: true } : {},
+				accounts: {
+					...accounts,
+					[accountId]: {
+						...existingAccount,
+						...ensureAccountEnabled ? { enabled: typeof existingAccount.enabled === "boolean" ? existingAccount.enabled : true } : {},
+						...accountPatch
+					}
+				}
+			}
+		}
+	};
+}
+//#endregion
 //#region src/channels/plugins/onboarding/helpers.ts
 const promptAccountId = async (params) => {
 	return await promptAccountId$1(params);
@@ -179,6 +177,49 @@ function addWildcardAllowFrom(allowFrom) {
 }
 function splitOnboardingEntries(raw) {
 	return raw.split(/[\n,;]+/g).map((entry) => entry.trim()).filter(Boolean);
+}
+async function resolveAccountIdForConfigure(params) {
+	const override = params.accountOverride?.trim();
+	let accountId = override ? normalizeAccountId(override) : params.defaultAccountId;
+	if (params.shouldPromptAccountIds && !override) accountId = await promptAccountId({
+		cfg: params.cfg,
+		prompter: params.prompter,
+		label: params.label,
+		currentId: accountId,
+		listAccountIds: params.listAccountIds,
+		defaultAccountId: params.defaultAccountId
+	});
+	return accountId;
+}
+function setTopLevelChannelAllowFrom(params) {
+	const channelConfig = params.cfg.channels?.[params.channel] ?? {};
+	return {
+		...params.cfg,
+		channels: {
+			...params.cfg.channels,
+			[params.channel]: {
+				...channelConfig,
+				...params.enabled ? { enabled: true } : {},
+				allowFrom: params.allowFrom
+			}
+		}
+	};
+}
+function setTopLevelChannelDmPolicyWithAllowFrom(params) {
+	const channelConfig = params.cfg.channels?.[params.channel] ?? {};
+	const existingAllowFrom = params.getAllowFrom?.(params.cfg) ?? channelConfig.allowFrom ?? void 0;
+	const allowFrom = params.dmPolicy === "open" ? addWildcardAllowFrom(existingAllowFrom) : void 0;
+	return {
+		...params.cfg,
+		channels: {
+			...params.cfg.channels,
+			[params.channel]: {
+				...channelConfig,
+				dmPolicy: params.dmPolicy,
+				...allowFrom ? { allowFrom } : {}
+			}
+		}
+	};
 }
 //#endregion
 //#region src/channels/plugins/onboarding/channel-access.ts
@@ -278,6 +319,47 @@ function emptyPluginConfigSchema() {
 			properties: {}
 		}
 	};
+}
+//#endregion
+//#region src/plugin-sdk/channel-lifecycle.ts
+function createAccountStatusSink(params) {
+	return (patch) => {
+		params.setStatus({
+			accountId: params.accountId,
+			...patch
+		});
+	};
+}
+/**
+* Return a promise that resolves when the signal is aborted.
+*
+* If no signal is provided, the promise stays pending forever. When provided,
+* `onAbort` runs once before the promise resolves.
+*/
+function waitUntilAbort(signal, onAbort) {
+	return new Promise((resolve, reject) => {
+		const complete = () => {
+			Promise.resolve(onAbort?.()).then(() => resolve(), reject);
+		};
+		if (!signal) return;
+		if (signal.aborted) {
+			complete();
+			return;
+		}
+		signal.addEventListener("abort", complete, { once: true });
+	});
+}
+/**
+* Keep a passive account task alive until abort, then run optional cleanup.
+*/
+async function runPassiveAccountLifecycle(params) {
+	const handle = await params.start();
+	try {
+		await waitUntilAbort(params.abortSignal);
+	} finally {
+		await params.stop?.(handle);
+		await params.onStop?.();
+	}
 }
 //#endregion
 //#region src/plugin-sdk/pairing-access.ts
@@ -432,4 +514,4 @@ function buildRuntimeAccountStatusSnapshot(params) {
 	};
 }
 //#endregion
-export { BlockStreamingCoalesceSchema, DEFAULT_ACCOUNT_ID, DmConfigSchema, DmPolicySchema, GROUP_POLICY_BLOCKED_LABEL, GroupPolicySchema, MarkdownConfigSchema, PAIRING_APPROVED_MESSAGE, ReplyRuntimeConfigSchemaShape, ToolPolicySchema, addWildcardAllowFrom, buildBaseAccountStatusSnapshot, buildBaseChannelStatusSummary, buildChannelConfigSchema, createLoggerBackedRuntime, createNormalizedOutboundDeliverer, createReplyPrefixOptions, createScopedPairingAccess, deleteAccountFromConfigSection, dispatchInboundReplyWithBase, emptyPluginConfigSchema, formatDocsLink, formatPairingApproveHint, formatTextWithAttachmentLinks, getChatChannelMeta, isDangerousNameMatchingEnabled, logInboundDrop, normalizeResolvedSecretInputString, promptAccountId, promptChannelAccessConfig, readStoreAllowFromForDmPolicy, requireOpenAllowFrom, resolveAllowlistProviderRuntimeGroupPolicy, resolveControlCommandGate, resolveDefaultGroupPolicy, resolveEffectiveAllowFromLists, resolveOutboundMediaUrls, setAccountEnabledInConfigSection, warnMissingProviderGroupPolicyFallbackOnce };
+export { BlockStreamingCoalesceSchema, DEFAULT_ACCOUNT_ID, DmConfigSchema, DmPolicySchema, GROUP_POLICY_BLOCKED_LABEL, GroupPolicySchema, MarkdownConfigSchema, PAIRING_APPROVED_MESSAGE, ReplyRuntimeConfigSchemaShape, ToolPolicySchema, addWildcardAllowFrom, buildBaseAccountStatusSnapshot, buildBaseChannelStatusSummary, buildChannelConfigSchema, createAccountListHelpers, createAccountStatusSink, createLoggerBackedRuntime, createNormalizedOutboundDeliverer, createReplyPrefixOptions, createScopedPairingAccess, deleteAccountFromConfigSection, dispatchInboundReplyWithBase, emptyPluginConfigSchema, formatDocsLink, formatPairingApproveHint, formatTextWithAttachmentLinks, getChatChannelMeta, isDangerousNameMatchingEnabled, issuePairingChallenge, logInboundDrop, normalizeResolvedSecretInputString, patchScopedAccountConfig, promptAccountId, promptChannelAccessConfig, readStoreAllowFromForDmPolicy, requireOpenAllowFrom, resolveAccountIdForConfigure, resolveAllowlistProviderRuntimeGroupPolicy, resolveControlCommandGate, resolveDefaultGroupPolicy, resolveEffectiveAllowFromLists, resolveOutboundMediaUrls, runPassiveAccountLifecycle, setAccountEnabledInConfigSection, setTopLevelChannelAllowFrom, setTopLevelChannelDmPolicyWithAllowFrom, warnMissingProviderGroupPolicyFallbackOnce };

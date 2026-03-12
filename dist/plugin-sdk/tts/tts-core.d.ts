@@ -7,6 +7,7 @@ export declare const OPENAI_TTS_MODELS: readonly ["gpt-4o-mini-tts", "tts-1", "t
 export declare const OPENAI_TTS_VOICES: readonly ["alloy", "ash", "ballad", "cedar", "coral", "echo", "fable", "juniper", "marin", "onyx", "nova", "sage", "shimmer", "verse"];
 type OpenAiTtsVoice = (typeof OPENAI_TTS_VOICES)[number];
 export declare function isValidOpenAIModel(model: string, baseUrl?: string): boolean;
+export declare function resolveOpenAITtsInstructions(model: string, instructions?: string): string | undefined;
 export declare function isValidOpenAIVoice(voice: string, baseUrl?: string): voice is OpenAiTtsVoice;
 type SummarizeResult = {
     summary: string;
@@ -41,6 +42,8 @@ export declare function openaiTTS(params: {
     baseUrl: string;
     model: string;
     voice: string;
+    speed?: number;
+    instructions?: string;
     responseFormat: "mp3" | "opus" | "pcm";
     timeoutMs: number;
 }): Promise<Buffer>;

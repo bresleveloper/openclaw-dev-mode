@@ -3,6 +3,7 @@ import { type HistoryEntry } from "../../auto-reply/reply/history.js";
 import { finalizeInboundContext } from "../../auto-reply/reply/inbound-context.js";
 import type { OpenClawConfig } from "../../config/config.js";
 import { resolveAgentRoute } from "../../routing/resolve-route.js";
+import type { SelfChatCache } from "./self-chat-cache.js";
 import type { MonitorIMessageOpts, IMessagePayload } from "./types.js";
 type IMessageReplyContext = {
     id?: string;
@@ -55,6 +56,7 @@ export declare function resolveIMessageInboundDecision(params: {
             messageId?: string;
         }) => boolean;
     };
+    selfChatCache?: SelfChatCache;
     logVerbose?: (msg: string) => void;
 }): IMessageInboundDecision;
 export declare function buildIMessageInboundContext(params: {

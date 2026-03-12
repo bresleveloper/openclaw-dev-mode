@@ -63,6 +63,7 @@ export declare function buildEmbeddedRunBaseParams(params: {
     config: OpenClawConfig;
     skillsSnapshot: import("../../agents/skills.ts").SkillSnapshot | undefined;
     ownerNumbers: string[] | undefined;
+    inputProvenance: import("../../sessions/input-provenance.ts").InputProvenance | undefined;
     senderIsOwner: boolean | undefined;
     enforceFinalTag: boolean;
     provider: string;

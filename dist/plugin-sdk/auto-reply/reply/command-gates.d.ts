@@ -2,6 +2,11 @@ import type { CommandFlagKey } from "../../config/commands.js";
 import type { ReplyPayload } from "../types.js";
 import type { CommandHandlerResult, HandleCommandsParams } from "./commands-types.js";
 export declare function rejectUnauthorizedCommand(params: HandleCommandsParams, commandLabel: string): CommandHandlerResult | null;
+export declare function requireGatewayClientScopeForInternalChannel(params: HandleCommandsParams, config: {
+    label: string;
+    allowedScopes: string[];
+    missingText: string;
+}): CommandHandlerResult | null;
 export declare function buildDisabledCommandReply(params: {
     label: string;
     configKey: CommandFlagKey;

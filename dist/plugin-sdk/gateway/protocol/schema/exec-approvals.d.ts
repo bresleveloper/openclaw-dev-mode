@@ -146,14 +146,20 @@ export declare const ExecApprovalsNodeSetParamsSchema: import("@sinclair/typebox
 }>;
 export declare const ExecApprovalRequestParamsSchema: import("@sinclair/typebox").TObject<{
     id: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TString>;
-    command: import("@sinclair/typebox").TString;
+    command: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TString>;
     commandArgv: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TArray<import("@sinclair/typebox").TString>>;
     systemRunPlan: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TObject<{
         argv: import("@sinclair/typebox").TArray<import("@sinclair/typebox").TString>;
         cwd: import("@sinclair/typebox").TUnion<[import("@sinclair/typebox").TString, import("@sinclair/typebox").TNull]>;
-        rawCommand: import("@sinclair/typebox").TUnion<[import("@sinclair/typebox").TString, import("@sinclair/typebox").TNull]>;
+        commandText: import("@sinclair/typebox").TString;
+        commandPreview: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TUnion<[import("@sinclair/typebox").TString, import("@sinclair/typebox").TNull]>>;
         agentId: import("@sinclair/typebox").TUnion<[import("@sinclair/typebox").TString, import("@sinclair/typebox").TNull]>;
         sessionKey: import("@sinclair/typebox").TUnion<[import("@sinclair/typebox").TString, import("@sinclair/typebox").TNull]>;
+        mutableFileOperand: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TUnion<[import("@sinclair/typebox").TObject<{
+            argvIndex: import("@sinclair/typebox").TInteger;
+            path: import("@sinclair/typebox").TString;
+            sha256: import("@sinclair/typebox").TString;
+        }>, import("@sinclair/typebox").TNull]>>;
     }>>;
     env: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TRecord<import("@sinclair/typebox").TString, import("@sinclair/typebox").TString>>;
     cwd: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TUnion<[import("@sinclair/typebox").TString, import("@sinclair/typebox").TNull]>>;

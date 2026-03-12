@@ -20,6 +20,7 @@ export type ResolvedBrowserConfig = {
     profiles: Record<string, BrowserProfileConfig>;
     ssrfPolicy?: SsrFPolicy;
     extraArgs: string[];
+    relayBindHost?: string;
 };
 export type ResolvedBrowserProfile = {
     name: string;

@@ -117,6 +117,7 @@ export declare const CronJobStateSchema: import("@sinclair/typebox").TObject<{
     lastRunStatus: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TUnion<[import("@sinclair/typebox").TLiteral<"ok">, import("@sinclair/typebox").TLiteral<"error">, import("@sinclair/typebox").TLiteral<"skipped">]>>;
     lastStatus: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TUnion<[import("@sinclair/typebox").TLiteral<"ok">, import("@sinclair/typebox").TLiteral<"error">, import("@sinclair/typebox").TLiteral<"skipped">]>>;
     lastError: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TString>;
+    lastErrorReason: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TUnion<[import("@sinclair/typebox").TLiteral<"auth">, import("@sinclair/typebox").TLiteral<"format">, import("@sinclair/typebox").TLiteral<"rate_limit">, import("@sinclair/typebox").TLiteral<"billing">, import("@sinclair/typebox").TLiteral<"timeout">, import("@sinclair/typebox").TLiteral<"model_not_found">, import("@sinclair/typebox").TLiteral<"unknown">]>>;
     lastDurationMs: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TInteger>;
     consecutiveErrors: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TInteger>;
     lastDelivered: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TBoolean>;
@@ -218,6 +219,7 @@ export declare const CronJobSchema: import("@sinclair/typebox").TObject<{
         lastRunStatus: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TUnion<[import("@sinclair/typebox").TLiteral<"ok">, import("@sinclair/typebox").TLiteral<"error">, import("@sinclair/typebox").TLiteral<"skipped">]>>;
         lastStatus: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TUnion<[import("@sinclair/typebox").TLiteral<"ok">, import("@sinclair/typebox").TLiteral<"error">, import("@sinclair/typebox").TLiteral<"skipped">]>>;
         lastError: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TString>;
+        lastErrorReason: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TUnion<[import("@sinclair/typebox").TLiteral<"auth">, import("@sinclair/typebox").TLiteral<"format">, import("@sinclair/typebox").TLiteral<"rate_limit">, import("@sinclair/typebox").TLiteral<"billing">, import("@sinclair/typebox").TLiteral<"timeout">, import("@sinclair/typebox").TLiteral<"model_not_found">, import("@sinclair/typebox").TLiteral<"unknown">]>>;
         lastDurationMs: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TInteger>;
         consecutiveErrors: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TInteger>;
         lastDelivered: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TBoolean>;
@@ -382,6 +384,7 @@ export declare const CronJobPatchSchema: import("@sinclair/typebox").TObject<{
         lastRunStatus: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TUnion<[import("@sinclair/typebox").TLiteral<"ok">, import("@sinclair/typebox").TLiteral<"error">, import("@sinclair/typebox").TLiteral<"skipped">]>>;
         lastStatus: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TUnion<[import("@sinclair/typebox").TLiteral<"ok">, import("@sinclair/typebox").TLiteral<"error">, import("@sinclair/typebox").TLiteral<"skipped">]>>;
         lastError: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TString>;
+        lastErrorReason: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TUnion<[import("@sinclair/typebox").TLiteral<"auth">, import("@sinclair/typebox").TLiteral<"format">, import("@sinclair/typebox").TLiteral<"rate_limit">, import("@sinclair/typebox").TLiteral<"billing">, import("@sinclair/typebox").TLiteral<"timeout">, import("@sinclair/typebox").TLiteral<"model_not_found">, import("@sinclair/typebox").TLiteral<"unknown">]>>;
         lastDurationMs: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TInteger>;
         consecutiveErrors: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TInteger>;
         lastDelivered: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TBoolean>;

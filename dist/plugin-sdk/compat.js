@@ -1,69 +1,52 @@
-import { $ as normalizeAgentId, D as runCommandWithTimeout, R as isNotFoundPathError, at as DEFAULT_ACCOUNT_ID, nt as resolveThreadSessionKeys, ot as normalizeAccountId, z as isPathInside } from "./run-with-concurrency-CWh7CuJZ.js";
-import { a as resolveWhatsAppAuthDir, b as createAccountListHelpers, i as resolveWhatsAppAccount, n as listWhatsAppAccountIds, r as resolveDefaultWhatsAppAccountId } from "./accounts-DXBuS0M5.js";
-import { $ as buildMediaPayload, $t as resolveRuntimeGroupPolicy, A as resolveDiscordUserAllowlist, At as extractToolSend, B as createReplyPrefixContext, Bt as readStoreAllowFromForDmPolicy, C as resolveSlackUserAllowlist, Cn as formatAllowlistMatchMeta, D as resolveDefaultLineAccountId, Dn as BLUEBUBBLES_ACTION_NAMES, Dt as stripMarkdown, E as normalizeAccountId$1, En as BLUEBUBBLES_ACTIONS, Et as processLineMessage, Ft as formatInboundFromLabel, G as DEFAULT_GROUP_HISTORY_LIMIT, Gt as resolveEffectiveAllowFromLists, H as logAckFailure, Ht as resolveDmGroupAccessDecision, It as formatUtcTimestamp, J as clearHistoryEntries, Jt as GROUP_POLICY_BLOCKED_LABEL, L as resolveMentionGating, Lt as formatZonedTimestamp, M as mergeAllowlist, N as summarizeMapping, Nt as resolveInboundSessionEnvelopeContext, O as resolveLineAccount, On as BLUEBUBBLES_GROUP_ACTIONS, Ot as createReceiptCard, Q as recordPendingHistoryEntryIfEnabled, Qt as resolveOpenProviderRuntimeGroupPolicy, R as resolveMentionGatingWithBypass, Rt as resolveTimezone, S as createDedupeCache, Sn as unbindThreadBindingsBySessionKey, T as listLineAccountIds, Tn as resolveAllowlistMatchSimple, Tt as hasMarkdownToConvert, U as logInboundDrop, Ut as resolveDmGroupAccessWithCommandGate, V as createReplyPrefixOptions, Vt as resolveDmAllowState, W as logTypingFailure, Wt as resolveDmGroupAccessWithLists, X as evictOldHistoryKeys, Xt as resolveAllowlistProviderRuntimeGroupPolicy, Y as clearHistoryEntriesIfEnabled, Yt as resetMissingProviderGroupPolicyFallbackWarningsForTesting, Z as recordPendingHistoryEntry, Zt as resolveDefaultGroupPolicy, _ as formatDocsLink, _n as unregisterAcpRuntimeBackend, an as installRequestBodyLimitGuard, at as removeAckReactionAfterReply, bn as autoBindSpawnedDiscordSubagent, bt as listDevicePairing, cn as readRequestBodyWithLimit, dn as enqueueKeyedTask, en as warnMissingProviderGroupPolicyFallbackOnce, fn as isDangerousNameMatchingEnabled, g as stringEnum, gn as requireAcpRuntimeBackend, gt as resolveAckReaction, h as optionalStringEnum, hn as registerAcpRuntimeBackend, in as RequestBodyLimitError, it as readBooleanParam, j as resolveDiscordChannelAllowlist, jt as issuePairingChallenge, k as detectBinary, kn as CHANNEL_MESSAGE_ACTION_NAMES, kt as attachFooterText, ln as requestBodyErrorToText, m as parseTelegramThreadId, mn as getAcpRuntimeBackend, n as dispatchReplyFromConfig, nn as DEFAULT_WEBHOOK_BODY_TIMEOUT_MS, nt as collectDiscordAuditChannelIds, on as isRequestBodyLimitError, ot as shouldAckReaction, p as parseTelegramReplyToMessageId, pn as registerPluginHttpRoute, q as buildPendingHistoryContextFromMap, qt as resolveControlCommandGate, rn as DEFAULT_WEBHOOK_MAX_BODY_BYTES, rt as recordInboundSession, sn as readJsonBodyWithLimit, st as shouldAckReactionForWhatsApp, t as withReplyDispatcher, tn as pruneMapToMaxSize, un as KeyedAsyncQueue, vn as ACP_ERROR_CODES, w as resolveSlackChannelAllowlist, wn as resolveAllowlistMatchByCandidates, xn as listThreadBindingsBySessionKey, xt as rejectDevicePairing, yn as AcpRuntimeError, yt as approveDevicePairing, z as createTypingCallbacks, zt as DM_GROUP_ACCESS_REASON } from "./dispatch-Ngo6jF9m.js";
+import { Ct as isNotFoundPathError, E as copyFileWithinRoot, Gt as resolveThreadSessionKeys, Ht as normalizeAgentId, Jt as DEFAULT_ACCOUNT_ID, L as redactSensitiveText, O as openFileWithinRoot, Yt as normalizeAccountId, c as applyWindowsSpawnProgramPolicy, d as resolveWindowsSpawnProgram, f as resolveWindowsSpawnProgramCandidate, h as getFileExtension, k as openWritableFileWithinRoot, l as materializeWindowsSpawnProgram, m as extensionForMime, p as detectMime, pt as runCommandWithTimeout, u as resolveWindowsExecutablePath, w as SafeOpenError, wt as isPathInside, xt as sameFileIdentity } from "./paths-CqsRFXAL.js";
+import { $i as resolveTelegramGroupRequireMention, $t as requireApiKey, A as BlockStreamingCoalesceSchema, Aa as resolveDefaultSignalAccountId, Ai as looksLikeSlackTargetId, B as TtsModeSchema, Ba as resolveOptionalConfigString, Bc as getChatChannelMeta, Bi as resolveWhatsAppMentionStripPatterns, Bl as formatCliCommand, Ca as resolveDefaultSlackAccountId, Ci as listDiscordDirectoryPeersFromConfig, Co as formatNormalizedAllowFromEntries, Di as listTelegramDirectoryPeersFromConfig, Dl as isValidExecSecretRefId, Ei as listTelegramDirectoryGroupsFromConfig, El as formatExecSecretRefIdValidationMessage, Eo as inspectDiscordAccount, Es as rawDataToString, F as MarkdownTableModeSchema, Fa as formatTrimmedAllowFromEntries, Ga as resolveDefaultWhatsAppAccountId, Gi as resolveDiscordGroupRequireMention, Gs as SsrFBlockedError, H as normalizeAllowFrom, Ha as resolveWhatsAppConfigDefaultTo, Hi as normalizeSignalMessagingTarget, I as ReplyRuntimeConfigSchemaShape, Ia as formatWhatsAppConfigAllowFromEntries, Io as resolveChannelGroupRequireMention, Ji as resolveGoogleChatGroupToolPolicy, Jl as hasConfiguredSecretInput, Js as isBlockedHostname, Ka as resolveWhatsAppAccount, Ki as resolveDiscordGroupToolPolicy, Kl as assertSecretInputResolved, L as SecretInputSchema, La as mapAllowFromEntries, Ls as formatErrorMessage, M as DmPolicySchema, Ma as createScopedAccountConfigAccessors, Mo as resolveDiscordAccount, N as GroupPolicySchema, Na as createScopedChannelConfigBase, Oi as listWhatsAppDirectoryGroupsFromConfig, Ol as isValidFileSecretRefId, Oo as listDiscordAccountIds, Os as extractOriginalFilename, P as MarkdownConfigSchema, Pa as createScopedDmSecurityResolver, Qc as normalizePluginHttpPath, Qi as resolveSlackGroupToolPolicy, Ql as normalizeSecretInputString, R as TtsAutoSchema, Ra as resolveIMessageConfigAllowFrom, Rl as acquireFileLock, Ro as resolveToolsBySender, Sa as listSlackAccountIds, Si as listDiscordDirectoryGroupsFromConfig, So as formatAllowFromLowercase, Ta as resolveSlackReplyToMode, Ti as listSlackDirectoryPeersFromConfig, To as isNormalizedSenderAllowed, U as requireOpenAllowFrom, Ui as resolveBlueBubblesGroupRequireMention, V as TtsProviderSchema, Va as resolveWhatsAppConfigAllowFrom, Vi as looksLikeSignalTargetId, Wa as listWhatsAppAccountIds, Wi as resolveBlueBubblesGroupToolPolicy, Xi as resolveIMessageGroupToolPolicy, Xl as isValidEnvSecretRefId, Xs as isPrivateIpAddress, Yi as resolveIMessageGroupRequireMention, Yl as isSecretRef, Ys as isBlockedHostnameOrIp, Zi as resolveSlackGroupRequireMention, Zl as normalizeResolvedSecretInputString, _ as SlackConfigSchema, _a as resolveAccountWithDefaultFallback, _o as buildAccountScopedDmSecurityPolicy, aa as inspectTelegramAccount, as as writeJsonAtomic, ba as inspectSlackAccount, bo as deleteAccountFromConfigSection, ca as listTelegramAccountIds, co as resolveDefaultIMessageAccountId, d as WhatsAppConfigSchema, do as normalizeWhatsAppAllowFromEntries, ea as resolveTelegramGroupToolPolicy, f as DiscordConfigSchema, fo as normalizeWhatsAppMessagingTarget, g as SignalConfigSchema, ga as listConfiguredAccountIds, gl as resolveSecretRefString, go as normalizeWhatsAppTarget, h as MSTeamsConfigSchema, ho as isWhatsAppGroupJid, is as readJsonFile, j as DmConfigSchema, ja as resolveSignalAccount, ji as normalizeSlackMessagingTarget, jl as encodeJsonPointerToken, jo as resolveDefaultDiscordAccountId, k as ToolPolicySchema, ka as listSignalAccountIds, ki as listWhatsAppDirectoryPeersFromConfig, kl as resolveDefaultSecretProviderAlias, la as resolveDefaultTelegramAccountId, lo as resolveIMessageAccount, m as IMessageConfigSchema, mo as trimMessagingTarget, na as resolveWhatsAppGroupToolPolicy, ol as registerContextEngine, p as GoogleChatConfigSchema, po as looksLikeHandleOrPhoneTarget, qa as resolveWhatsAppAuthDir, qi as resolveGoogleChatGroupRequireMention, rs as createAsyncLock, so as listIMessageAccountIds, ta as resolveWhatsAppGroupRequireMention, ua as resolveTelegramAccount, uo as looksLikeWhatsAppTargetId, uu as createAccountListHelpers, v as TelegramConfigSchema, vo as formatPairingApproveHint, wa as resolveSlackAccount, wi as listSlackDirectoryGroupsFromConfig, wo as isAllowedParsedChatSender, xa as listEnabledSlackAccounts, xo as setAccountEnabledInConfigSection, ya as buildSlackThreadingToolContext, yo as clearAccountEntryFields, z as TtsConfigSchema, za as resolveIMessageConfigDefaultTo, zi as resolveWhatsAppGroupIntroHint, zl as withFileLock } from "./config-TmerCxZY.js";
+import { $t as readJsonBodyWithLimit, A as createReplyPrefixContext, At as extractToolSend, B as evictOldHistoryKeys, Bt as resolveDmAllowState, C as resolveDiscordChannelAllowlist, Cn as CHANNEL_MESSAGE_ACTION_NAMES, D as resolveMentionGating, Dt as stripMarkdown, Et as processLineMessage, F as DEFAULT_GROUP_HISTORY_LIMIT, Ft as formatUtcTimestamp, G as recordInboundSession, H as recordPendingHistoryEntryIfEnabled, Ht as resolveDmGroupAccessWithCommandGate, It as formatZonedTimestamp, J as shouldAckReactionForWhatsApp, Jt as DEFAULT_WEBHOOK_BODY_TIMEOUT_MS, K as removeAckReactionAfterReply, Kt as resolveControlCommandGate, L as buildPendingHistoryContextFromMap, Lt as resolveTimezone, M as logAckFailure, Mt as resolveInboundSessionEnvelopeContext, N as logInboundDrop, O as resolveMentionGatingWithBypass, Ot as createReceiptCard, P as logTypingFailure, Pt as formatInboundFromLabel, Qt as isRequestBodyLimitError, R as clearHistoryEntries, Rt as DM_GROUP_ACCESS_REASON, S as resolveDiscordUserAllowlist, Sn as BLUEBUBBLES_GROUP_ACTIONS, T as summarizeMapping, Tt as hasMarkdownToConvert, U as buildMediaPayload, Ut as resolveDmGroupAccessWithLists, V as recordPendingHistoryEntry, Vt as resolveDmGroupAccessDecision, W as collectDiscordAuditChannelIds, Wt as resolveEffectiveAllowFromLists, Xt as RequestBodyLimitError, Yt as DEFAULT_WEBHOOK_MAX_BODY_BYTES, Zt as installRequestBodyLimitGuard, _ as listLineAccountIds, _n as resolveAllowlistCandidates, an as registerPluginHttpRoute, b as resolveLineAccount, bn as BLUEBUBBLES_ACTIONS, cn as requireAcpRuntimeBackend, dn as AcpRuntimeError, dt as readBooleanParam, en as readRequestBodyWithLimit, f as formatDocsLink, fn as autoBindSpawnedDiscordSubagent, ft as optionalStringEnum, g as resolveSlackChannelAllowlist, gn as formatAllowlistMatchMeta, gt as resolveAckReaction, h as resolveSlackUserAllowlist, hn as compileAllowlist, in as isDangerousNameMatchingEnabled, j as createReplyPrefixOptions, jt as issuePairingChallenge, k as createTypingCallbacks, kt as attachFooterText, ln as unregisterAcpRuntimeBackend, lt as parseTelegramReplyToMessageId, mn as unbindThreadBindingsBySessionKey, n as dispatchReplyFromConfig, nn as KeyedAsyncQueue, on as getAcpRuntimeBackend, ot as createDedupeCache, pn as listThreadBindingsBySessionKey, pt as stringEnum, q as shouldAckReaction, qt as pruneMapToMaxSize, rn as enqueueKeyedTask, sn as registerAcpRuntimeBackend, t as withReplyDispatcher, tn as requestBodyErrorToText, un as ACP_ERROR_CODES, ut as parseTelegramThreadId, v as normalizeAccountId$1, vn as resolveAllowlistMatchByCandidates, w as mergeAllowlist, x as detectBinary, xn as BLUEBUBBLES_ACTION_NAMES, y as resolveDefaultLineAccountId, yn as resolveAllowlistMatchSimple, yt as normalizeDeviceAuthScopes, z as clearHistoryEntriesIfEnabled, zt as readStoreAllowFromForDmPolicy } from "./dispatch-BFnU6DAE.js";
 import "./paths-eFexkPEh.js";
 import "./github-copilot-token-Cxf8QYZb.js";
-import { A as BlockStreamingCoalesceSchema, B as TtsModeSchema, Er as resolveDefaultSecretProviderAlias, F as MarkdownTableModeSchema, H as normalizeAllowFrom, I as ReplyRuntimeConfigSchemaShape, Ir as acquireFileLock, Jr as hasConfiguredSecretInput, Kr as assertSecretInputResolved, L as SecretInputSchema, Lr as withFileLock, M as DmPolicySchema, N as GroupPolicySchema, Nt as normalizePluginHttpPath, Or as encodeJsonPointerToken, P as MarkdownConfigSchema, Qr as normalizeSecretInputString, R as TtsAutoSchema, St as getChatChannelMeta, Tr as isValidFileSecretRefId, U as requireOpenAllowFrom, V as TtsProviderSchema, Vr as formatCliCommand, Vt as registerContextEngine, Xr as isValidEnvSecretRefId, Yr as isSecretRef, Zr as normalizeResolvedSecretInputString, _ as SlackConfigSchema, ci as isTruthyEnvValue, d as WhatsAppConfigSchema, f as DiscordConfigSchema, g as SignalConfigSchema, h as MSTeamsConfigSchema, j as DmConfigSchema, k as ToolPolicySchema, m as IMessageConfigSchema, p as GoogleChatConfigSchema, v as TelegramConfigSchema, vr as resolveSecretRefString, z as TtsConfigSchema } from "./config-DsOWzWmU.js";
-import { A as sleep, C as pathExists, D as safeParseJson, S as normalizeE164, Z as resolvePreferredOpenClawTmpDir, _ as escapeRegExp, f as CONFIG_DIR, o as stripAnsi, p as clamp, q as registerLogTransport, y as isRecord } from "./logger-IRKETRMd.js";
-import { A as resolveWhatsAppGroupToolPolicy, B as normalizeWhatsAppMessagingTarget, C as resolveIMessageGroupRequireMention, D as resolveTelegramGroupRequireMention, E as resolveSlackGroupToolPolicy, F as resolveIMessageConfigDefaultTo, H as trimMessagingTarget, I as resolveWhatsAppConfigAllowFrom, K as resolveToolsBySender, L as resolveWhatsAppConfigDefaultTo, M as formatTrimmedAllowFromEntries, N as formatWhatsAppConfigAllowFromEntries, O as resolveTelegramGroupToolPolicy, P as resolveIMessageConfigAllowFrom, R as looksLikeWhatsAppTargetId, S as resolveGoogleChatGroupToolPolicy, T as resolveSlackGroupRequireMention, V as looksLikeHandleOrPhoneTarget, W as resolveChannelGroupRequireMention, _ as resolveBlueBubblesGroupRequireMention, b as resolveDiscordGroupToolPolicy, g as normalizeSignalMessagingTarget, h as looksLikeSignalTargetId, j as buildSlackThreadingToolContext, k as resolveWhatsAppGroupRequireMention, m as resolveWhatsAppMentionStripPatterns, p as resolveWhatsAppGroupIntroHint, v as resolveBlueBubblesGroupToolPolicy, w as resolveIMessageGroupToolPolicy, x as resolveGoogleChatGroupRequireMention, y as resolveDiscordGroupRequireMention, z as normalizeWhatsAppAllowFromEntries } from "./thinking-CDxrqekX.js";
-import { c as detectMime, l as extensionForMime, u as getFileExtension } from "./image-ops-DAAtPyza.js";
-import "./pi-embedded-helpers-aohswcEW.js";
-import { A as listConfiguredAccountIds, B as isWhatsAppGroupJid, C as resolveDefaultTelegramAccountId, F as resolveDefaultSlackAccountId, H as inspectDiscordAccount, I as resolveSlackAccount, K as resolveDefaultDiscordAccountId, L as resolveSlackReplyToMode, M as inspectSlackAccount, N as listEnabledSlackAccounts, P as listSlackAccountIds, S as listTelegramAccountIds, V as normalizeWhatsAppTarget, W as listDiscordAccountIds, a as listDiscordDirectoryPeersFromConfig, c as listTelegramDirectoryGroupsFromConfig, d as listWhatsAppDirectoryPeersFromConfig, f as looksLikeSlackTargetId, i as listDiscordDirectoryGroupsFromConfig, j as resolveAccountWithDefaultFallback, l as listTelegramDirectoryPeersFromConfig, o as listSlackDirectoryGroupsFromConfig, p as normalizeSlackMessagingTarget, q as resolveDiscordAccount, s as listSlackDirectoryPeersFromConfig, u as listWhatsAppDirectoryGroupsFromConfig, w as resolveTelegramAccount, y as inspectTelegramAccount } from "./plugins-Dz9iIawy.js";
-import { n as resolveDefaultIMessageAccountId, r as resolveIMessageAccount, t as listIMessageAccountIds } from "./accounts-BwWhog4G.js";
-import { i as resolveSignalAccount, n as listSignalAccountIds, r as resolveDefaultSignalAccountId } from "./accounts-BJ_K25Nn.js";
-import { At as resolveChannelEntryMatch, Mt as resolveNestedAllowlistDecision, Ot as buildChannelKeyCandidates, at as parseDiscordTarget, dt as normalizeDiscordSlug, jt as resolveChannelEntryMatchWithFallback, kt as normalizeChannelSlug } from "./send-DnBrPYQo.js";
-import "./paths-BZxNY0wq.js";
-import "./fetch-C_ro9dG3.js";
-import { t as redactSensitiveText } from "./redact-BDiKSVX1.js";
-import { r as formatErrorMessage } from "./errors-Cr8axI0N.js";
-import "./channel-activity-BxG-nq2R.js";
-import "./path-alias-guards-C0zthhyO.js";
-import { a as openWritableFileWithinRoot, t as SafeOpenError } from "./fs-safe-4yoePFyv.js";
-import { a as isBlockedHostnameOrIp, i as isBlockedHostname, o as isPrivateIpAddress, t as SsrFBlockedError } from "./ssrf-COC0PzR6.js";
-import { t as fetchWithSsrFGuard } from "./fetch-guard-DjUIgrk6.js";
-import "./local-roots-CnA7RwU3.js";
-import { p as chunkTextByBreakResolver, v as loadWebMedia } from "./ir-E4GckxPv.js";
-import "./render-C15_5JiR.js";
-import "./tables-Bh78y6fH.js";
-import { _ as isNormalizedSenderAllowed, c as parseChatTargetPrefixesOrThrow, d as resolveServicePrefixedOrChatAllowTarget, f as resolveServicePrefixedTarget, g as isAllowedParsedChatSender, h as formatAllowFromLowercase, i as normalizeIMessageHandle, l as resolveServicePrefixedAllowTarget, o as createAllowedChatSenderMatcher, s as parseChatAllowTargetPrefixes, u as resolveServicePrefixedChatTarget } from "./send-uVkyCEE2.js";
-import { J as toLocationContext, b as isWSLEnv, nt as readJsonFileWithFallback, q as formatLocationText, rt as writeJsonFileAtomically, x as isWSLSync, y as isWSL2Sync } from "./send-xydgJ9I2.js";
-import "./tool-images-CsMngy4L.js";
-import { d as readNumberParam, f as readReactionParams, h as readStringParam, l as jsonResult, n as missingTargetError, o as createActionGate } from "./target-errors-kD9sT6al.js";
-import { s as parseSlackBlocksInput } from "./send-CfM8xQc_.js";
-import { x as resolveChannelMediaMaxBytes } from "./deliver-DOVR6pjZ.js";
-import { g as onDiagnosticEvent, h as isDiagnosticsEnabled, m as emitDiagnosticEvent } from "./diagnostic-C4SjubzH.js";
-import "./pi-model-discovery-DpSoaWEz.js";
-import { d as buildRandomTempFilePath, f as withTempDownloadPath } from "./audio-transcription-runner-BEP-l3ob.js";
-import "./image-BRWfmmJL.js";
-import { k as rawDataToString } from "./chrome-BriEg17b.js";
-import "./skills-0cAu5_X6.js";
-import { r as extractOriginalFilename } from "./store-BQ5tHTlT.js";
-import { a as resolveWindowsSpawnProgramCandidate, i as resolveWindowsSpawnProgram, n as materializeWindowsSpawnProgram, r as resolveWindowsExecutablePath, t as applyWindowsSpawnProgramPolicy } from "./windows-spawn-BordjUBM.js";
-import "./api-key-rotation-D7BQBefs.js";
-import "./proxy-fetch-BTfwqmaA.js";
-import { i as isSilentReplyText, n as SILENT_REPLY_TOKEN } from "./tokens-ijjekxV2.js";
-import "./commands-registry-DG7gBqCx.js";
-import { n as normalizeTelegramLookupTarget, r as parseTelegramTarget } from "./targets-B6NBgHav.js";
-import { n as listSkillCommandsForAgents } from "./skill-commands-Cv6B4hTT.js";
-import "./send-KN2tGbsG.js";
-import "./proxy-CgXTW63Y.js";
-import "./outbound-attachment-D9FPUmvH.js";
-import "./manager-CoVXyoaG.js";
-import "./query-expansion-CUmRwBTa.js";
-import { t as resolveWhatsAppOutboundTarget } from "./resolve-outbound-target-CK-Y3bbY.js";
-import { r as resolveWhatsAppHeartbeatRecipients } from "./channel-web-Dg-LNUU3.js";
-import "./outbound-DLHwCHrm.js";
-import "./session-Ew00dV_8.js";
-import { t as loginWeb } from "./login-DNyLBkls.js";
-import fs, { createWriteStream } from "node:fs";
+import { $ as resolvePreferredOpenClawTmpDir, C as normalizeE164, J as registerLogTransport, O as safeParseJson, b as isRecord, j as sleep, m as clamp, p as CONFIG_DIR, s as stripAnsi, v as escapeRegExp, w as pathExists } from "./logger-BicwwdhS.js";
+import { r as isTruthyEnvValue } from "./proxy-env-DIq17opM.js";
+import { At as GROUP_POLICY_BLOCKED_LABEL, Bt as buildChannelKeyCandidates, Dt as evaluateSenderGroupAccess, Et as evaluateMatchedGroupAccessForPolicy, Ft as resolveRuntimeGroupPolicy, Ht as resolveChannelEntryMatch, It as warnMissingProviderGroupPolicyFallbackOnce, Mt as resolveAllowlistProviderRuntimeGroupPolicy, Nt as resolveDefaultGroupPolicy, Ot as evaluateSenderGroupAccessForPolicy, Pt as resolveOpenProviderRuntimeGroupPolicy, Tt as evaluateGroupRouteAccessForPolicy, Ut as resolveChannelEntryMatchWithFallback, Vt as normalizeChannelSlug, Wt as resolveNestedAllowlistDecision, at as parseDiscordTarget, dt as normalizeDiscordSlug, jt as resetMissingProviderGroupPolicyFallbackWarningsForTesting, kt as resolveSenderScopedGroupPolicy } from "./send-C0J2DGl1.js";
+import "./fetch-BSKpf2dM.js";
+import "./channel-activity-B7ehV-5z.js";
+import { t as fetchWithSsrFGuard } from "./fetch-guard-DfHwQxMw.js";
+import "./local-roots-DFtFoKkc.js";
+import { p as chunkTextByBreakResolver, v as loadWebMedia } from "./ir-DI6ZgyPI.js";
+import "./render-CKf6NJ1M.js";
+import "./tables-kdY00WFp.js";
+import { X as toLocationContext, Y as formatLocationText, it as writeJsonFileAtomically, rt as readJsonFileWithFallback } from "./send-C2UE3wrv.js";
+import { d as readNumberParam, f as readReactionParams, h as readStringParam, l as jsonResult, n as missingTargetError, o as createActionGate } from "./target-errors-CkWGuQlE.js";
+import { s as parseSlackBlocksInput } from "./send-B_zGacyg.js";
+import { h as resolveChannelMediaMaxBytes } from "./deliver-NikudUub.js";
+import { g as onDiagnosticEvent, h as isDiagnosticsEnabled, m as emitDiagnosticEvent } from "./diagnostic-BvnAyiv_.js";
+import "./pi-model-discovery-p-xIsD6C.js";
+import { d as buildRandomTempFilePath, f as withTempDownloadPath } from "./audio-transcription-runner-DU9eDASJ.js";
+import "./image-BxbdzFl_.js";
+import "./api-key-rotation-CZGnB-K2.js";
+import "./proxy-fetch-RCtchI_K.js";
+import { i as isSilentReplyText, n as SILENT_REPLY_TOKEN } from "./tokens-CS1YChl7.js";
+import "./commands-registry-D6wXBQjQ.js";
+import { n as normalizeTelegramLookupTarget, r as parseTelegramTarget } from "./targets-s9KeyATC.js";
+import "./send-w1NrnX6C.js";
+import "./outbound-attachment-CShJCCjA.js";
+import { c as createAllowedChatSenderMatcher, d as resolveServicePrefixedAllowTarget, f as resolveServicePrefixedChatTarget, l as parseChatAllowTargetPrefixes, m as resolveServicePrefixedTarget, o as normalizeIMessageHandle, p as resolveServicePrefixedOrChatAllowTarget, u as parseChatTargetPrefixesOrThrow } from "./send-RkdyCzyj.js";
+import "./sqlite-DRjlnTVK.js";
+import { i as isWSLSync, n as isWSL2Sync, r as isWSLEnv } from "./fetch-DnYAQmH1.js";
+import { c as pruneExpiredPending, l as resolvePairingPaths, n as listSkillCommandsForAgents, o as generatePairingToken, s as rejectPendingPairingRequest } from "./skill-commands-JfB_p8sP.js";
+import "./manager-2HFxn1Y3.js";
+import { t as resolveWhatsAppOutboundTarget } from "./resolve-outbound-target-s-KrOkN7.js";
+import { r as resolveWhatsAppHeartbeatRecipients } from "./channel-web-IVuqvEYk.js";
+import "./outbound-B94wynnS.js";
+import "./session-B5apR9g6.js";
+import { t as loginWeb } from "./login-CKc9Sg8z.js";
+import fs, { constants, createWriteStream } from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import fs$1 from "node:fs/promises";
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { format } from "node:util";
-import { z } from "zod";
 import { pipeline } from "node:stream/promises";
 import { request } from "node:https";
+import { z } from "zod";
 import { Readable, Transform } from "node:stream";
 import JSZip from "jszip";
 import * as tar from "tar";
@@ -108,6 +91,11 @@ function mapBasicAllowlistResolutionEntries(entries) {
 		name: entry.name,
 		note: entry.note
 	}));
+}
+async function mapAllowlistResolutionInputs(params) {
+	const results = [];
+	for (const input of params.inputs) results.push(await params.mapInput(input));
+	return results;
 }
 //#endregion
 //#region src/plugin-sdk/request-url.ts
@@ -158,134 +146,6 @@ function resolveWebhookPath(params) {
 		return null;
 	}
 	return params.defaultPath ?? null;
-}
-//#endregion
-//#region src/plugin-sdk/webhook-targets.ts
-function registerWebhookTargetWithPluginRoute(params) {
-	return registerWebhookTarget(params.targetsByPath, params.target, {
-		onFirstPathTarget: ({ path }) => registerPluginHttpRoute({
-			...params.route,
-			path,
-			replaceExisting: params.route.replaceExisting ?? true
-		}),
-		onLastPathTargetRemoved: params.onLastPathTargetRemoved
-	});
-}
-const pathTeardownByTargetMap = /* @__PURE__ */ new WeakMap();
-function getPathTeardownMap(targetsByPath) {
-	const mapKey = targetsByPath;
-	const existing = pathTeardownByTargetMap.get(mapKey);
-	if (existing) return existing;
-	const created = /* @__PURE__ */ new Map();
-	pathTeardownByTargetMap.set(mapKey, created);
-	return created;
-}
-function registerWebhookTarget(targetsByPath, target, opts) {
-	const key = normalizeWebhookPath(target.path);
-	const normalizedTarget = {
-		...target,
-		path: key
-	};
-	const existing = targetsByPath.get(key) ?? [];
-	if (existing.length === 0) {
-		const onFirstPathResult = opts?.onFirstPathTarget?.({
-			path: key,
-			target: normalizedTarget
-		});
-		if (typeof onFirstPathResult === "function") getPathTeardownMap(targetsByPath).set(key, onFirstPathResult);
-	}
-	targetsByPath.set(key, [...existing, normalizedTarget]);
-	let isActive = true;
-	const unregister = () => {
-		if (!isActive) return;
-		isActive = false;
-		const updated = (targetsByPath.get(key) ?? []).filter((entry) => entry !== normalizedTarget);
-		if (updated.length > 0) {
-			targetsByPath.set(key, updated);
-			return;
-		}
-		targetsByPath.delete(key);
-		const teardown = getPathTeardownMap(targetsByPath).get(key);
-		if (teardown) {
-			getPathTeardownMap(targetsByPath).delete(key);
-			teardown();
-		}
-		opts?.onLastPathTargetRemoved?.({ path: key });
-	};
-	return {
-		target: normalizedTarget,
-		unregister
-	};
-}
-function resolveWebhookTargets(req, targetsByPath) {
-	const path = normalizeWebhookPath(new URL(req.url ?? "/", "http://localhost").pathname);
-	const targets = targetsByPath.get(path);
-	if (!targets || targets.length === 0) return null;
-	return {
-		path,
-		targets
-	};
-}
-function updateMatchedWebhookTarget(matched, target) {
-	if (matched) return {
-		ok: false,
-		result: { kind: "ambiguous" }
-	};
-	return {
-		ok: true,
-		matched: target
-	};
-}
-function finalizeMatchedWebhookTarget(matched) {
-	if (!matched) return { kind: "none" };
-	return {
-		kind: "single",
-		target: matched
-	};
-}
-function resolveSingleWebhookTarget(targets, isMatch) {
-	let matched;
-	for (const target of targets) {
-		if (!isMatch(target)) continue;
-		const updated = updateMatchedWebhookTarget(matched, target);
-		if (!updated.ok) return updated.result;
-		matched = updated.matched;
-	}
-	return finalizeMatchedWebhookTarget(matched);
-}
-async function resolveSingleWebhookTargetAsync(targets, isMatch) {
-	let matched;
-	for (const target of targets) {
-		if (!await isMatch(target)) continue;
-		const updated = updateMatchedWebhookTarget(matched, target);
-		if (!updated.ok) return updated.result;
-		matched = updated.matched;
-	}
-	return finalizeMatchedWebhookTarget(matched);
-}
-async function resolveWebhookTargetWithAuthOrReject(params) {
-	return resolveWebhookTargetMatchOrReject(params, await resolveSingleWebhookTargetAsync(params.targets, async (target) => Boolean(await params.isMatch(target))));
-}
-function resolveWebhookTargetWithAuthOrRejectSync(params) {
-	return resolveWebhookTargetMatchOrReject(params, resolveSingleWebhookTarget(params.targets, params.isMatch));
-}
-function resolveWebhookTargetMatchOrReject(params, match) {
-	if (match.kind === "single") return match.target;
-	if (match.kind === "ambiguous") {
-		params.res.statusCode = params.ambiguousStatusCode ?? 401;
-		params.res.end(params.ambiguousMessage ?? "ambiguous webhook target");
-		return null;
-	}
-	params.res.statusCode = params.unauthorizedStatusCode ?? 401;
-	params.res.end(params.unauthorizedMessage ?? "unauthorized");
-	return null;
-}
-function rejectNonPostWebhookRequest(req, res) {
-	if (req.method === "POST") return false;
-	res.statusCode = 405;
-	res.setHeader("Allow", "POST");
-	res.end("Method Not Allowed");
-	return true;
 }
 //#endregion
 //#region src/plugin-sdk/webhook-request-guards.ts
@@ -457,21 +317,202 @@ async function readJsonWebhookBodyOrReject(params) {
 	});
 }
 //#endregion
+//#region src/plugin-sdk/webhook-targets.ts
+function registerWebhookTargetWithPluginRoute(params) {
+	return registerWebhookTarget(params.targetsByPath, params.target, {
+		onFirstPathTarget: ({ path }) => registerPluginHttpRoute({
+			...params.route,
+			path,
+			replaceExisting: params.route.replaceExisting ?? true
+		}),
+		onLastPathTargetRemoved: params.onLastPathTargetRemoved
+	});
+}
+const pathTeardownByTargetMap = /* @__PURE__ */ new WeakMap();
+function getPathTeardownMap(targetsByPath) {
+	const mapKey = targetsByPath;
+	const existing = pathTeardownByTargetMap.get(mapKey);
+	if (existing) return existing;
+	const created = /* @__PURE__ */ new Map();
+	pathTeardownByTargetMap.set(mapKey, created);
+	return created;
+}
+function registerWebhookTarget(targetsByPath, target, opts) {
+	const key = normalizeWebhookPath(target.path);
+	const normalizedTarget = {
+		...target,
+		path: key
+	};
+	const existing = targetsByPath.get(key) ?? [];
+	if (existing.length === 0) {
+		const onFirstPathResult = opts?.onFirstPathTarget?.({
+			path: key,
+			target: normalizedTarget
+		});
+		if (typeof onFirstPathResult === "function") getPathTeardownMap(targetsByPath).set(key, onFirstPathResult);
+	}
+	targetsByPath.set(key, [...existing, normalizedTarget]);
+	let isActive = true;
+	const unregister = () => {
+		if (!isActive) return;
+		isActive = false;
+		const updated = (targetsByPath.get(key) ?? []).filter((entry) => entry !== normalizedTarget);
+		if (updated.length > 0) {
+			targetsByPath.set(key, updated);
+			return;
+		}
+		targetsByPath.delete(key);
+		const teardown = getPathTeardownMap(targetsByPath).get(key);
+		if (teardown) {
+			getPathTeardownMap(targetsByPath).delete(key);
+			teardown();
+		}
+		opts?.onLastPathTargetRemoved?.({ path: key });
+	};
+	return {
+		target: normalizedTarget,
+		unregister
+	};
+}
+function resolveWebhookTargets(req, targetsByPath) {
+	const path = normalizeWebhookPath(new URL(req.url ?? "/", "http://localhost").pathname);
+	const targets = targetsByPath.get(path);
+	if (!targets || targets.length === 0) return null;
+	return {
+		path,
+		targets
+	};
+}
+async function withResolvedWebhookRequestPipeline(params) {
+	const resolved = resolveWebhookTargets(params.req, params.targetsByPath);
+	if (!resolved) return false;
+	const inFlightKey = typeof params.inFlightKey === "function" ? params.inFlightKey({
+		req: params.req,
+		path: resolved.path,
+		targets: resolved.targets
+	}) : params.inFlightKey ?? `${resolved.path}:${params.req.socket?.remoteAddress ?? "unknown"}`;
+	const requestLifecycle = beginWebhookRequestPipelineOrReject({
+		req: params.req,
+		res: params.res,
+		allowMethods: params.allowMethods,
+		rateLimiter: params.rateLimiter,
+		rateLimitKey: params.rateLimitKey,
+		nowMs: params.nowMs,
+		requireJsonContentType: params.requireJsonContentType,
+		inFlightLimiter: params.inFlightLimiter,
+		inFlightKey,
+		inFlightLimitStatusCode: params.inFlightLimitStatusCode,
+		inFlightLimitMessage: params.inFlightLimitMessage
+	});
+	if (!requestLifecycle.ok) return true;
+	try {
+		await params.handle(resolved);
+		return true;
+	} finally {
+		requestLifecycle.release();
+	}
+}
+function updateMatchedWebhookTarget(matched, target) {
+	if (matched) return {
+		ok: false,
+		result: { kind: "ambiguous" }
+	};
+	return {
+		ok: true,
+		matched: target
+	};
+}
+function finalizeMatchedWebhookTarget(matched) {
+	if (!matched) return { kind: "none" };
+	return {
+		kind: "single",
+		target: matched
+	};
+}
+function resolveSingleWebhookTarget(targets, isMatch) {
+	let matched;
+	for (const target of targets) {
+		if (!isMatch(target)) continue;
+		const updated = updateMatchedWebhookTarget(matched, target);
+		if (!updated.ok) return updated.result;
+		matched = updated.matched;
+	}
+	return finalizeMatchedWebhookTarget(matched);
+}
+async function resolveSingleWebhookTargetAsync(targets, isMatch) {
+	let matched;
+	for (const target of targets) {
+		if (!await isMatch(target)) continue;
+		const updated = updateMatchedWebhookTarget(matched, target);
+		if (!updated.ok) return updated.result;
+		matched = updated.matched;
+	}
+	return finalizeMatchedWebhookTarget(matched);
+}
+async function resolveWebhookTargetWithAuthOrReject(params) {
+	return resolveWebhookTargetMatchOrReject(params, await resolveSingleWebhookTargetAsync(params.targets, async (target) => Boolean(await params.isMatch(target))));
+}
+function resolveWebhookTargetWithAuthOrRejectSync(params) {
+	return resolveWebhookTargetMatchOrReject(params, resolveSingleWebhookTarget(params.targets, params.isMatch));
+}
+function resolveWebhookTargetMatchOrReject(params, match) {
+	if (match.kind === "single") return match.target;
+	if (match.kind === "ambiguous") {
+		params.res.statusCode = params.ambiguousStatusCode ?? 401;
+		params.res.end(params.ambiguousMessage ?? "ambiguous webhook target");
+		return null;
+	}
+	params.res.statusCode = params.unauthorizedStatusCode ?? 401;
+	params.res.end(params.unauthorizedMessage ?? "unauthorized");
+	return null;
+}
+function rejectNonPostWebhookRequest(req, res) {
+	if (req.method === "POST") return false;
+	res.statusCode = 405;
+	res.setHeader("Allow", "POST");
+	res.end("Method Not Allowed");
+	return true;
+}
+//#endregion
 //#region src/plugin-sdk/channel-lifecycle.ts
+function createAccountStatusSink(params) {
+	return (patch) => {
+		params.setStatus({
+			accountId: params.accountId,
+			...patch
+		});
+	};
+}
 /**
 * Return a promise that resolves when the signal is aborted.
 *
-* If no signal is provided, the promise stays pending forever.
+* If no signal is provided, the promise stays pending forever. When provided,
+* `onAbort` runs once before the promise resolves.
 */
-function waitUntilAbort(signal) {
-	return new Promise((resolve) => {
+function waitUntilAbort(signal, onAbort) {
+	return new Promise((resolve, reject) => {
+		const complete = () => {
+			Promise.resolve(onAbort?.()).then(() => resolve(), reject);
+		};
 		if (!signal) return;
 		if (signal.aborted) {
-			resolve();
+			complete();
 			return;
 		}
-		signal.addEventListener("abort", () => resolve(), { once: true });
+		signal.addEventListener("abort", complete, { once: true });
 	});
+}
+/**
+* Keep a passive account task alive until abort, then run optional cleanup.
+*/
+async function runPassiveAccountLifecycle(params) {
+	const handle = await params.start();
+	try {
+		await waitUntilAbort(params.abortSignal);
+	} finally {
+		await params.stop?.(handle);
+		await params.onStop?.();
+	}
 }
 /**
 * Keep a channel/provider task pending until the HTTP server closes.
@@ -625,15 +666,37 @@ const PROVIDER_ENV_VARS = {
 	litellm: ["LITELLM_API_KEY"],
 	"vercel-ai-gateway": ["AI_GATEWAY_API_KEY"],
 	opencode: ["OPENCODE_API_KEY", "OPENCODE_ZEN_API_KEY"],
+	"opencode-go": ["OPENCODE_API_KEY", "OPENCODE_ZEN_API_KEY"],
 	together: ["TOGETHER_API_KEY"],
 	huggingface: ["HUGGINGFACE_HUB_TOKEN", "HF_TOKEN"],
 	qianfan: ["QIANFAN_API_KEY"],
 	xai: ["XAI_API_KEY"],
 	mistral: ["MISTRAL_API_KEY"],
 	kilocode: ["KILOCODE_API_KEY"],
+	modelstudio: ["MODELSTUDIO_API_KEY"],
 	volcengine: ["VOLCANO_ENGINE_API_KEY"],
 	byteplus: ["BYTEPLUS_API_KEY"]
 };
+const EXTRA_PROVIDER_AUTH_ENV_VARS = [
+	"VOYAGE_API_KEY",
+	"GROQ_API_KEY",
+	"DEEPGRAM_API_KEY",
+	"CEREBRAS_API_KEY",
+	"NVIDIA_API_KEY",
+	"COPILOT_GITHUB_TOKEN",
+	"GH_TOKEN",
+	"GITHUB_TOKEN",
+	"ANTHROPIC_OAUTH_TOKEN",
+	"CHUTES_OAUTH_TOKEN",
+	"CHUTES_API_KEY",
+	"QWEN_OAUTH_TOKEN",
+	"QWEN_PORTAL_API_KEY",
+	"MINIMAX_OAUTH_TOKEN",
+	"OLLAMA_API_KEY",
+	"VLLM_API_KEY"
+];
+const KNOWN_SECRET_ENV_VARS = [...new Set(Object.values(PROVIDER_ENV_VARS).flatMap((keys) => keys))];
+[...new Set([...KNOWN_SECRET_ENV_VARS, ...EXTRA_PROVIDER_AUTH_ENV_VARS])];
 //#endregion
 //#region src/commands/auth-choice.apply-helpers.ts
 function formatErrorMessage$1(error) {
@@ -725,6 +788,7 @@ async function promptSecretRefForOnboarding(params) {
 				if (!candidate) return "Secret id cannot be empty.";
 				if (providerEntry.source === "file" && providerEntry.mode !== "singleValue" && !isValidFileSecretRefId(candidate)) return "Use an absolute JSON pointer like \"/providers/openai/apiKey\".";
 				if (providerEntry.source === "file" && providerEntry.mode === "singleValue" && candidate !== "value") return "singleValue mode expects id \"value\".";
+				if (providerEntry.source === "exec" && !isValidExecSecretRefId(candidate)) return formatExecSecretRefIdValidationMessage();
 			}
 		});
 		const id = String(idRaw ?? "").trim() || idDefault;
@@ -868,6 +932,54 @@ function migrateBaseNameToDefaultAccount(params) {
 			[params.channelKey]: {
 				...rest,
 				accounts
+			}
+		}
+	};
+}
+function applySetupAccountConfigPatch(params) {
+	return patchScopedAccountConfig({
+		cfg: params.cfg,
+		channelKey: params.channelKey,
+		accountId: params.accountId,
+		patch: params.patch
+	});
+}
+function patchScopedAccountConfig(params) {
+	const accountId = normalizeAccountId(params.accountId);
+	const channelConfig = params.cfg.channels?.[params.channelKey];
+	const base = typeof channelConfig === "object" && channelConfig ? channelConfig : void 0;
+	const ensureChannelEnabled = params.ensureChannelEnabled ?? true;
+	const ensureAccountEnabled = params.ensureAccountEnabled ?? ensureChannelEnabled;
+	const patch = params.patch;
+	const accountPatch = params.accountPatch ?? patch;
+	if (accountId === "default") return {
+		...params.cfg,
+		channels: {
+			...params.cfg.channels,
+			[params.channelKey]: {
+				...base,
+				...ensureChannelEnabled ? { enabled: true } : {},
+				...patch
+			}
+		}
+	};
+	const accounts = base?.accounts ?? {};
+	const existingAccount = accounts[accountId] ?? {};
+	return {
+		...params.cfg,
+		channels: {
+			...params.cfg.channels,
+			[params.channelKey]: {
+				...base,
+				...ensureChannelEnabled ? { enabled: true } : {},
+				accounts: {
+					...accounts,
+					[accountId]: {
+						...existingAccount,
+						...ensureAccountEnabled ? { enabled: typeof existingAccount.enabled === "boolean" ? existingAccount.enabled : true } : {},
+						...accountPatch
+					}
+				}
 			}
 		}
 	};
@@ -1024,6 +1136,50 @@ function setAccountAllowFromForChannel(params) {
 		ensureEnabled: false
 	});
 }
+function setTopLevelChannelAllowFrom(params) {
+	const channelConfig = params.cfg.channels?.[params.channel] ?? {};
+	return {
+		...params.cfg,
+		channels: {
+			...params.cfg.channels,
+			[params.channel]: {
+				...channelConfig,
+				...params.enabled ? { enabled: true } : {},
+				allowFrom: params.allowFrom
+			}
+		}
+	};
+}
+function setTopLevelChannelDmPolicyWithAllowFrom(params) {
+	const channelConfig = params.cfg.channels?.[params.channel] ?? {};
+	const existingAllowFrom = params.getAllowFrom?.(params.cfg) ?? channelConfig.allowFrom ?? void 0;
+	const allowFrom = params.dmPolicy === "open" ? addWildcardAllowFrom(existingAllowFrom) : void 0;
+	return {
+		...params.cfg,
+		channels: {
+			...params.cfg.channels,
+			[params.channel]: {
+				...channelConfig,
+				dmPolicy: params.dmPolicy,
+				...allowFrom ? { allowFrom } : {}
+			}
+		}
+	};
+}
+function setTopLevelChannelGroupPolicy(params) {
+	const channelConfig = params.cfg.channels?.[params.channel] ?? {};
+	return {
+		...params.cfg,
+		channels: {
+			...params.cfg.channels,
+			[params.channel]: {
+				...channelConfig,
+				...params.enabled ? { enabled: true } : {},
+				groupPolicy: params.groupPolicy
+			}
+		}
+	};
+}
 function setChannelDmPolicyWithAllowFrom(params) {
 	const { cfg, channel, dmPolicy } = params;
 	const allowFrom = dmPolicy === "open" ? addWildcardAllowFrom(cfg.channels?.[channel]?.allowFrom) : void 0;
@@ -1104,42 +1260,17 @@ function setOnboardingChannelEnabled(cfg, channel, enabled) {
 }
 function patchConfigForScopedAccount(params) {
 	const { cfg, channel, accountId, patch, ensureEnabled } = params;
-	const seededCfg = accountId === "default" ? cfg : moveSingleAccountChannelSectionToDefaultAccount({
-		cfg,
-		channelKey: channel
+	return patchScopedAccountConfig({
+		cfg: accountId === "default" ? cfg : moveSingleAccountChannelSectionToDefaultAccount({
+			cfg,
+			channelKey: channel
+		}),
+		channelKey: channel,
+		accountId,
+		patch,
+		ensureChannelEnabled: ensureEnabled,
+		ensureAccountEnabled: ensureEnabled
 	});
-	const channelConfig = seededCfg.channels?.[channel] ?? {};
-	if (accountId === "default") return {
-		...seededCfg,
-		channels: {
-			...seededCfg.channels,
-			[channel]: {
-				...channelConfig,
-				...ensureEnabled ? { enabled: true } : {},
-				...patch
-			}
-		}
-	};
-	const accounts = channelConfig.accounts ?? {};
-	const existingAccount = accounts[accountId] ?? {};
-	return {
-		...seededCfg,
-		channels: {
-			...seededCfg.channels,
-			[channel]: {
-				...channelConfig,
-				...ensureEnabled ? { enabled: true } : {},
-				accounts: {
-					...accounts,
-					[accountId]: {
-						...existingAccount,
-						...ensureEnabled ? { enabled: typeof existingAccount.enabled === "boolean" ? existingAccount.enabled : true } : {},
-						...patch
-					}
-				}
-			}
-		}
-	};
 }
 function patchChannelConfigForAccount(params) {
 	return patchConfigForScopedAccount({
@@ -1162,6 +1293,13 @@ function applySingleTokenPromptResult(params) {
 		patch: { [params.tokenPatchKey]: params.tokenResult.token }
 	});
 	return next;
+}
+function buildSingleChannelSecretPromptState(params) {
+	return {
+		accountConfigured: params.accountConfigured,
+		hasConfigToken: params.hasConfigToken,
+		canUseEnv: params.allowEnv && Boolean(params.envValue?.trim()) && !params.hasConfigToken
+	};
 }
 async function promptSingleChannelToken(params) {
 	const promptToken = async () => String(await params.prompter.text({
@@ -1193,6 +1331,43 @@ async function promptSingleChannelToken(params) {
 	return {
 		useEnv: false,
 		token: await promptToken()
+	};
+}
+async function runSingleChannelSecretStep(params) {
+	const promptState = buildSingleChannelSecretPromptState({
+		accountConfigured: params.accountConfigured,
+		hasConfigToken: params.hasConfigToken,
+		allowEnv: params.allowEnv,
+		envValue: params.envValue
+	});
+	if (!promptState.accountConfigured && params.onMissingConfigured) await params.onMissingConfigured();
+	const result = await promptSingleChannelSecretInput({
+		cfg: params.cfg,
+		prompter: params.prompter,
+		providerHint: params.providerHint,
+		credentialLabel: params.credentialLabel,
+		secretInputMode: params.secretInputMode,
+		accountConfigured: promptState.accountConfigured,
+		canUseEnv: promptState.canUseEnv,
+		hasConfigToken: promptState.hasConfigToken,
+		envPrompt: params.envPrompt,
+		keepPrompt: params.keepPrompt,
+		inputPrompt: params.inputPrompt,
+		preferredEnvVar: params.preferredEnvVar
+	});
+	if (result.action === "use-env") return {
+		cfg: params.applyUseEnv ? await params.applyUseEnv(params.cfg) : params.cfg,
+		action: result.action,
+		resolvedValue: params.envValue?.trim() || void 0
+	};
+	if (result.action === "set") return {
+		cfg: params.applySet ? await params.applySet(params.cfg, result.value, result.resolvedValue) : params.cfg,
+		action: result.action,
+		resolvedValue: result.resolvedValue
+	};
+	return {
+		cfg: params.cfg,
+		action: result.action
 	};
 }
 async function promptSingleChannelSecretInput(params) {
@@ -1381,39 +1556,52 @@ function buildChannelSendResult(channel, result) {
 	};
 }
 //#endregion
-//#region src/plugin-sdk/group-access.ts
-function evaluateSenderGroupAccess(params) {
-	const { groupPolicy, providerMissingFallbackApplied } = resolveOpenProviderRuntimeGroupPolicy({
-		providerConfigPresent: params.providerConfigPresent,
-		groupPolicy: params.configuredGroupPolicy,
-		defaultGroupPolicy: params.defaultGroupPolicy
-	});
-	if (groupPolicy === "disabled") return {
-		allowed: false,
-		groupPolicy,
-		providerMissingFallbackApplied,
-		reason: "disabled"
-	};
-	if (groupPolicy === "allowlist") {
-		if (params.groupAllowFrom.length === 0) return {
-			allowed: false,
-			groupPolicy,
-			providerMissingFallbackApplied,
-			reason: "empty_allowlist"
-		};
-		if (!params.isSenderAllowed(params.senderId, params.groupAllowFrom)) return {
-			allowed: false,
-			groupPolicy,
-			providerMissingFallbackApplied,
-			reason: "sender_not_allowlisted"
-		};
-	}
+//#region src/plugin-sdk/runtime-store.ts
+function createPluginRuntimeStore(errorMessage) {
+	let runtime = null;
 	return {
-		allowed: true,
-		groupPolicy,
-		providerMissingFallbackApplied,
-		reason: "allowed"
+		setRuntime(next) {
+			runtime = next;
+		},
+		clearRuntime() {
+			runtime = null;
+		},
+		tryGetRuntime() {
+			return runtime;
+		},
+		getRuntime() {
+			if (!runtime) throw new Error(errorMessage);
+			return runtime;
+		}
 	};
+}
+//#endregion
+//#region src/channels/plugins/config-schema.ts
+const AllowFromEntrySchema = z.union([z.string(), z.number()]);
+const AllowFromListSchema = z.array(AllowFromEntrySchema).optional();
+function buildNestedDmConfigSchema() {
+	return z.object({
+		enabled: z.boolean().optional(),
+		policy: DmPolicySchema.optional(),
+		allowFrom: AllowFromListSchema
+	}).optional();
+}
+function buildCatchallMultiAccountChannelSchema(accountSchema) {
+	return accountSchema.extend({
+		accounts: z.object({}).catchall(accountSchema).optional(),
+		defaultAccount: z.string().optional()
+	});
+}
+function buildChannelConfigSchema(schema) {
+	const schemaWithJson = schema;
+	if (typeof schemaWithJson.toJSONSchema === "function") return { schema: schemaWithJson.toJSONSchema({
+		target: "draft-07",
+		unrepresentable: "any"
+	}) };
+	return { schema: {
+		type: "object",
+		additionalProperties: true
+	} };
 }
 //#endregion
 //#region src/plugin-sdk/command-auth.ts
@@ -2201,6 +2389,129 @@ async function resolveTailnetHostWithRunner(runCommandWithTimeout) {
 	return null;
 }
 //#endregion
+//#region src/infra/device-pairing.ts
+const PENDING_TTL_MS = 300 * 1e3;
+const withLock = createAsyncLock();
+async function loadState(baseDir) {
+	const { pendingPath, pairedPath } = resolvePairingPaths(baseDir, "devices");
+	const [pending, paired] = await Promise.all([readJsonFile(pendingPath), readJsonFile(pairedPath)]);
+	const state = {
+		pendingById: pending ?? {},
+		pairedByDeviceId: paired ?? {}
+	};
+	pruneExpiredPending(state.pendingById, Date.now(), PENDING_TTL_MS);
+	return state;
+}
+async function persistState(state, baseDir) {
+	const { pendingPath, pairedPath } = resolvePairingPaths(baseDir, "devices");
+	await Promise.all([writeJsonAtomic(pendingPath, state.pendingById), writeJsonAtomic(pairedPath, state.pairedByDeviceId)]);
+}
+function normalizeRole(role) {
+	const trimmed = role?.trim();
+	return trimmed ? trimmed : null;
+}
+function mergeRoles(...items) {
+	const roles = /* @__PURE__ */ new Set();
+	for (const item of items) {
+		if (!item) continue;
+		if (Array.isArray(item)) for (const role of item) {
+			const trimmed = role.trim();
+			if (trimmed) roles.add(trimmed);
+		}
+		else {
+			const trimmed = item.trim();
+			if (trimmed) roles.add(trimmed);
+		}
+	}
+	if (roles.size === 0) return;
+	return [...roles];
+}
+function mergeScopes(...items) {
+	const scopes = /* @__PURE__ */ new Set();
+	for (const item of items) {
+		if (!item) continue;
+		for (const scope of item) {
+			const trimmed = scope.trim();
+			if (trimmed) scopes.add(trimmed);
+		}
+	}
+	if (scopes.size === 0) return;
+	return [...scopes];
+}
+function newToken() {
+	return generatePairingToken();
+}
+async function listDevicePairing(baseDir) {
+	const state = await loadState(baseDir);
+	return {
+		pending: Object.values(state.pendingById).toSorted((a, b) => b.ts - a.ts),
+		paired: Object.values(state.pairedByDeviceId).toSorted((a, b) => b.approvedAtMs - a.approvedAtMs)
+	};
+}
+async function approveDevicePairing(requestId, baseDir) {
+	return await withLock(async () => {
+		const state = await loadState(baseDir);
+		const pending = state.pendingById[requestId];
+		if (!pending) return null;
+		const now = Date.now();
+		const existing = state.pairedByDeviceId[pending.deviceId];
+		const roles = mergeRoles(existing?.roles, existing?.role, pending.roles, pending.role);
+		const approvedScopes = mergeScopes(existing?.approvedScopes ?? existing?.scopes, pending.scopes);
+		const tokens = existing?.tokens ? { ...existing.tokens } : {};
+		const roleForToken = normalizeRole(pending.role);
+		if (roleForToken) {
+			const existingToken = tokens[roleForToken];
+			const requestedScopes = normalizeDeviceAuthScopes(pending.scopes);
+			const nextScopes = requestedScopes.length > 0 ? requestedScopes : normalizeDeviceAuthScopes(existingToken?.scopes ?? approvedScopes ?? existing?.approvedScopes ?? existing?.scopes);
+			const now = Date.now();
+			tokens[roleForToken] = {
+				token: newToken(),
+				role: roleForToken,
+				scopes: nextScopes,
+				createdAtMs: existingToken?.createdAtMs ?? now,
+				rotatedAtMs: existingToken ? now : void 0,
+				revokedAtMs: void 0,
+				lastUsedAtMs: existingToken?.lastUsedAtMs
+			};
+		}
+		const device = {
+			deviceId: pending.deviceId,
+			publicKey: pending.publicKey,
+			displayName: pending.displayName,
+			platform: pending.platform,
+			deviceFamily: pending.deviceFamily,
+			clientId: pending.clientId,
+			clientMode: pending.clientMode,
+			role: pending.role,
+			roles,
+			scopes: approvedScopes,
+			approvedScopes,
+			remoteIp: pending.remoteIp,
+			tokens,
+			createdAtMs: existing?.createdAtMs ?? now,
+			approvedAtMs: now
+		};
+		delete state.pendingById[requestId];
+		state.pairedByDeviceId[device.deviceId] = device;
+		await persistState(state, baseDir);
+		return {
+			requestId,
+			device
+		};
+	});
+}
+async function rejectDevicePairing(requestId, baseDir) {
+	return await withLock(async () => {
+		return await rejectPendingPairingRequest({
+			requestId,
+			idKey: "deviceId",
+			loadState: () => loadState(baseDir),
+			persistState: (state) => persistState(state, baseDir),
+			getId: (pending) => pending.deviceId
+		});
+	});
+}
+//#endregion
 //#region src/plugin-sdk/persistent-dedupe.ts
 const DEFAULT_LOCK_OPTIONS = {
 	retries: {
@@ -2519,137 +2830,145 @@ async function fetchWithBearerAuthScopeFallback(params) {
 	return firstAttempt;
 }
 //#endregion
-//#region src/channels/plugins/config-schema.ts
-function buildChannelConfigSchema(schema) {
-	const schemaWithJson = schema;
-	if (typeof schemaWithJson.toJSONSchema === "function") return { schema: schemaWithJson.toJSONSchema({
-		target: "draft-07",
-		unrepresentable: "any"
-	}) };
-	return { schema: {
-		type: "object",
-		additionalProperties: true
-	} };
+//#region src/channels/plugins/directory-config-helpers.ts
+function resolveDirectoryQuery(query) {
+	return query?.trim().toLowerCase() || "";
+}
+function resolveDirectoryLimit(limit) {
+	return typeof limit === "number" && limit > 0 ? limit : void 0;
+}
+function applyDirectoryQueryAndLimit(ids, params) {
+	const q = resolveDirectoryQuery(params.query);
+	const limit = resolveDirectoryLimit(params.limit);
+	const filtered = ids.filter((id) => q ? id.toLowerCase().includes(q) : true);
+	return typeof limit === "number" ? filtered.slice(0, limit) : filtered;
+}
+function toDirectoryEntries(kind, ids) {
+	return ids.map((id) => ({
+		kind,
+		id
+	}));
+}
+function collectDirectoryIdsFromEntries(params) {
+	return (params.entries ?? []).map((entry) => String(entry).trim()).filter((entry) => Boolean(entry) && entry !== "*").map((entry) => {
+		const normalized = params.normalizeId ? params.normalizeId(entry) : entry;
+		return typeof normalized === "string" ? normalized.trim() : "";
+	}).filter(Boolean);
+}
+function collectDirectoryIdsFromMapKeys(params) {
+	return Object.keys(params.groups ?? {}).map((entry) => entry.trim()).filter((entry) => Boolean(entry) && entry !== "*").map((entry) => {
+		const normalized = params.normalizeId ? params.normalizeId(entry) : entry;
+		return typeof normalized === "string" ? normalized.trim() : "";
+	}).filter(Boolean);
+}
+function dedupeDirectoryIds(ids) {
+	return Array.from(new Set(ids));
+}
+function listDirectoryUserEntriesFromAllowFrom(params) {
+	return toDirectoryEntries("user", applyDirectoryQueryAndLimit(dedupeDirectoryIds(collectDirectoryIdsFromEntries({
+		entries: params.allowFrom,
+		normalizeId: params.normalizeId
+	})), params));
+}
+function listDirectoryUserEntriesFromAllowFromAndMapKeys(params) {
+	return toDirectoryEntries("user", applyDirectoryQueryAndLimit(dedupeDirectoryIds([...collectDirectoryIdsFromEntries({
+		entries: params.allowFrom,
+		normalizeId: params.normalizeAllowFromId
+	}), ...collectDirectoryIdsFromMapKeys({
+		groups: params.map,
+		normalizeId: params.normalizeMapKeyId
+	})]), params));
+}
+function listDirectoryGroupEntriesFromMapKeys(params) {
+	return toDirectoryEntries("group", applyDirectoryQueryAndLimit(dedupeDirectoryIds(collectDirectoryIdsFromMapKeys({
+		groups: params.groups,
+		normalizeId: params.normalizeId
+	})), params));
+}
+function listDirectoryGroupEntriesFromMapKeysAndAllowFrom(params) {
+	return toDirectoryEntries("group", applyDirectoryQueryAndLimit(dedupeDirectoryIds([...collectDirectoryIdsFromMapKeys({
+		groups: params.groups,
+		normalizeId: params.normalizeMapKeyId
+	}), ...collectDirectoryIdsFromEntries({
+		entries: params.allowFrom,
+		normalizeId: params.normalizeAllowFromId
+	})]), params));
 }
 //#endregion
-//#region src/channels/plugins/config-helpers.ts
-function isConfiguredSecretValue(value) {
-	if (typeof value === "string") return value.trim().length > 0;
-	return Boolean(value);
+//#region src/channels/plugins/group-policy-warnings.ts
+function buildOpenGroupPolicyWarning(params) {
+	return `- ${params.surface}: groupPolicy="open" ${params.openBehavior}. ${params.remediation}.`;
 }
-function setAccountEnabledInConfigSection(params) {
-	const accountKey = params.accountId || "default";
-	const base = params.cfg.channels?.[params.sectionKey];
-	const hasAccounts = Boolean(base?.accounts);
-	if (params.allowTopLevel && accountKey === "default" && !hasAccounts) return {
-		...params.cfg,
-		channels: {
-			...params.cfg.channels,
-			[params.sectionKey]: {
-				...base,
-				enabled: params.enabled
-			}
-		}
-	};
-	const baseAccounts = base?.accounts ?? {};
-	const existing = baseAccounts[accountKey] ?? {};
-	return {
-		...params.cfg,
-		channels: {
-			...params.cfg.channels,
-			[params.sectionKey]: {
-				...base,
-				accounts: {
-					...baseAccounts,
-					[accountKey]: {
-						...existing,
-						enabled: params.enabled
-					}
-				}
-			}
-		}
-	};
+function buildOpenGroupPolicyRestrictSendersWarning(params) {
+	const mentionSuffix = params.mentionGated === false ? "" : " (mention-gated)";
+	return buildOpenGroupPolicyWarning({
+		surface: params.surface,
+		openBehavior: `allows ${params.openScope} to trigger${mentionSuffix}`,
+		remediation: `Set ${params.groupPolicyPath}="allowlist" + ${params.groupAllowFromPath} to restrict senders`
+	});
 }
-function deleteAccountFromConfigSection(params) {
-	const accountKey = params.accountId || "default";
-	const base = params.cfg.channels?.[params.sectionKey];
-	if (!base) return params.cfg;
-	const baseAccounts = base.accounts && typeof base.accounts === "object" ? { ...base.accounts } : void 0;
-	if (accountKey !== "default") {
-		const accounts = baseAccounts ? { ...baseAccounts } : {};
-		delete accounts[accountKey];
-		return {
-			...params.cfg,
-			channels: {
-				...params.cfg.channels,
-				[params.sectionKey]: {
-					...base,
-					accounts: Object.keys(accounts).length ? accounts : void 0
-				}
-			}
-		};
-	}
-	if (baseAccounts && Object.keys(baseAccounts).length > 0) {
-		delete baseAccounts[accountKey];
-		const baseRecord = { ...base };
-		for (const field of params.clearBaseFields ?? []) if (field in baseRecord) baseRecord[field] = void 0;
-		return {
-			...params.cfg,
-			channels: {
-				...params.cfg.channels,
-				[params.sectionKey]: {
-					...baseRecord,
-					accounts: Object.keys(baseAccounts).length ? baseAccounts : void 0
-				}
-			}
-		};
-	}
-	const nextChannels = { ...params.cfg.channels };
-	delete nextChannels[params.sectionKey];
-	const nextCfg = { ...params.cfg };
-	if (Object.keys(nextChannels).length > 0) nextCfg.channels = nextChannels;
-	else delete nextCfg.channels;
-	return nextCfg;
+function buildOpenGroupPolicyNoRouteAllowlistWarning(params) {
+	const mentionSuffix = params.mentionGated === false ? "" : " (mention-gated)";
+	return buildOpenGroupPolicyWarning({
+		surface: params.surface,
+		openBehavior: `with no ${params.routeAllowlistPath} allowlist; any ${params.routeScope} can add + ping${mentionSuffix}`,
+		remediation: `Set ${params.groupPolicyPath}="allowlist" + ${params.groupAllowFromPath} or configure ${params.routeAllowlistPath}`
+	});
 }
-function clearAccountEntryFields(params) {
-	const accountKey = params.accountId || "default";
-	const baseAccounts = params.accounts && typeof params.accounts === "object" ? { ...params.accounts } : void 0;
-	if (!baseAccounts || !(accountKey in baseAccounts)) return {
-		nextAccounts: baseAccounts,
-		changed: false,
-		cleared: false
-	};
-	const entry = baseAccounts[accountKey];
-	if (!entry || typeof entry !== "object") return {
-		nextAccounts: baseAccounts,
-		changed: false,
-		cleared: false
-	};
-	const nextEntry = { ...entry };
-	if (!params.fields.some((field) => field in nextEntry)) return {
-		nextAccounts: baseAccounts,
-		changed: false,
-		cleared: false
-	};
-	const isValueSet = params.isValueSet ?? isConfiguredSecretValue;
-	let cleared = Boolean(params.markClearedOnFieldPresence);
-	for (const field of params.fields) {
-		if (!(field in nextEntry)) continue;
-		if (isValueSet(nextEntry[field])) cleared = true;
-		delete nextEntry[field];
-	}
-	if (Object.keys(nextEntry).length === 0) delete baseAccounts[accountKey];
-	else baseAccounts[accountKey] = nextEntry;
-	return {
-		nextAccounts: Object.keys(baseAccounts).length > 0 ? baseAccounts : void 0,
-		changed: true,
-		cleared
-	};
+function buildOpenGroupPolicyConfigureRouteAllowlistWarning(params) {
+	const mentionSuffix = params.mentionGated === false ? "" : " (mention-gated)";
+	return buildOpenGroupPolicyWarning({
+		surface: params.surface,
+		openBehavior: `allows ${params.openScope} to trigger${mentionSuffix}`,
+		remediation: `Set ${params.groupPolicyPath}="allowlist" and configure ${params.routeAllowlistPath}`
+	});
 }
-//#endregion
-//#region src/channels/plugins/helpers.ts
-function formatPairingApproveHint(channelId) {
-	return `Approve via: ${formatCliCommand(`openclaw pairing list ${channelId}`)} / ${formatCliCommand(`openclaw pairing approve ${channelId} <code>`)}`;
+function collectOpenGroupPolicyRestrictSendersWarnings(params) {
+	if (params.groupPolicy !== "open") return [];
+	return [buildOpenGroupPolicyRestrictSendersWarning(params)];
+}
+function collectAllowlistProviderRestrictSendersWarnings(params) {
+	return collectAllowlistProviderGroupPolicyWarnings({
+		cfg: params.cfg,
+		providerConfigPresent: params.providerConfigPresent,
+		configuredGroupPolicy: params.configuredGroupPolicy,
+		collect: (groupPolicy) => collectOpenGroupPolicyRestrictSendersWarnings({
+			groupPolicy,
+			surface: params.surface,
+			openScope: params.openScope,
+			groupPolicyPath: params.groupPolicyPath,
+			groupAllowFromPath: params.groupAllowFromPath,
+			mentionGated: params.mentionGated
+		})
+	});
+}
+function collectAllowlistProviderGroupPolicyWarnings(params) {
+	const defaultGroupPolicy = resolveDefaultGroupPolicy(params.cfg);
+	const { groupPolicy } = resolveAllowlistProviderRuntimeGroupPolicy({
+		providerConfigPresent: params.providerConfigPresent,
+		groupPolicy: params.configuredGroupPolicy ?? void 0,
+		defaultGroupPolicy
+	});
+	return params.collect(groupPolicy);
+}
+function collectOpenProviderGroupPolicyWarnings(params) {
+	const defaultGroupPolicy = resolveDefaultGroupPolicy(params.cfg);
+	const { groupPolicy } = resolveOpenProviderRuntimeGroupPolicy({
+		providerConfigPresent: params.providerConfigPresent,
+		groupPolicy: params.configuredGroupPolicy ?? void 0,
+		defaultGroupPolicy
+	});
+	return params.collect(groupPolicy);
+}
+function collectOpenGroupPolicyRouteAllowlistWarnings(params) {
+	if (params.groupPolicy !== "open") return [];
+	if (params.routeAllowlistConfigured) return [buildOpenGroupPolicyRestrictSendersWarning(params.restrictSenders)];
+	return [buildOpenGroupPolicyNoRouteAllowlistWarning(params.noRouteAllowlist)];
+}
+function collectOpenGroupPolicyConfiguredRouteWarnings(params) {
+	if (params.groupPolicy !== "open") return [];
+	if (params.routeAllowlistConfigured) return [buildOpenGroupPolicyConfigureRouteAllowlistWarning(params.configureRouteAllowlist)];
+	return [buildOpenGroupPolicyWarning(params.missingRouteAllowlist)];
 }
 //#endregion
 //#region src/channels/plugins/pairing-message.ts
@@ -2850,29 +3169,24 @@ const discordOnboardingAdapter = {
 			cfg: next,
 			accountId: discordAccountId
 		});
-		const hasConfigToken = hasConfiguredSecretInput(resolvedAccount.config.token);
-		const accountConfigured = Boolean(resolvedAccount.token) || hasConfigToken;
 		const allowEnv = discordAccountId === DEFAULT_ACCOUNT_ID;
-		const canUseEnv = allowEnv && !hasConfigToken && Boolean(process.env.DISCORD_BOT_TOKEN?.trim());
-		if (!accountConfigured) await noteDiscordTokenHelp(prompter);
-		const tokenResult = await promptSingleChannelSecretInput({
+		const tokenStep = await runSingleChannelSecretStep({
 			cfg: next,
 			prompter,
 			providerHint: "discord",
 			credentialLabel: "Discord bot token",
 			secretInputMode: options?.secretInputMode,
-			accountConfigured,
-			canUseEnv,
-			hasConfigToken,
+			accountConfigured: Boolean(resolvedAccount.token),
+			hasConfigToken: hasConfiguredSecretInput(resolvedAccount.config.token),
+			allowEnv,
+			envValue: process.env.DISCORD_BOT_TOKEN,
 			envPrompt: "DISCORD_BOT_TOKEN detected. Use env var?",
 			keepPrompt: "Discord token already configured. Keep it?",
 			inputPrompt: "Enter Discord bot token",
-			preferredEnvVar: allowEnv ? "DISCORD_BOT_TOKEN" : void 0
-		});
-		let resolvedTokenForAllowlist;
-		if (tokenResult.action === "use-env") {
-			next = applySingleTokenPromptResult({
-				cfg: next,
+			preferredEnvVar: allowEnv ? "DISCORD_BOT_TOKEN" : void 0,
+			onMissingConfigured: async () => await noteDiscordTokenHelp(prompter),
+			applyUseEnv: async (cfg) => applySingleTokenPromptResult({
+				cfg,
 				channel: "discord",
 				accountId: discordAccountId,
 				tokenPatchKey: "token",
@@ -2880,21 +3194,19 @@ const discordOnboardingAdapter = {
 					useEnv: true,
 					token: null
 				}
-			});
-			resolvedTokenForAllowlist = process.env.DISCORD_BOT_TOKEN?.trim() || void 0;
-		} else if (tokenResult.action === "set") {
-			next = applySingleTokenPromptResult({
-				cfg: next,
+			}),
+			applySet: async (cfg, value) => applySingleTokenPromptResult({
+				cfg,
 				channel: "discord",
 				accountId: discordAccountId,
 				tokenPatchKey: "token",
 				tokenResult: {
 					useEnv: false,
-					token: tokenResult.value
+					token: value
 				}
-			});
-			resolvedTokenForAllowlist = tokenResult.resolvedValue;
-		}
+			})
+		});
+		next = tokenStep.cfg;
 		const currentEntries = Object.entries(resolvedAccount.config.guilds ?? {}).flatMap(([guildKey, value]) => {
 			const channels = value?.channels ?? {};
 			const channelKeys = Object.keys(channels);
@@ -2924,7 +3236,7 @@ const discordOnboardingAdapter = {
 					input,
 					resolved: false
 				}));
-				const activeToken = accountWithTokens.token || resolvedTokenForAllowlist || "";
+				const activeToken = accountWithTokens.token || tokenStep.resolvedValue || "";
 				if (activeToken && entries.length > 0) try {
 					resolved = await resolveDiscordChannelAllowlist({
 						token: activeToken,
@@ -3505,58 +3817,56 @@ const slackOnboardingAdapter = {
 		const hasConfigTokens = hasConfiguredBotToken && hasConfiguredAppToken;
 		const accountConfigured = Boolean(resolvedAccount.botToken && resolvedAccount.appToken) || hasConfigTokens;
 		const allowEnv = slackAccountId === DEFAULT_ACCOUNT_ID;
-		const canUseBotEnv = allowEnv && !hasConfiguredBotToken && Boolean(process.env.SLACK_BOT_TOKEN?.trim());
-		const canUseAppEnv = allowEnv && !hasConfiguredAppToken && Boolean(process.env.SLACK_APP_TOKEN?.trim());
 		let resolvedBotTokenForAllowlist = resolvedAccount.botToken;
 		const slackBotName = String(await prompter.text({
 			message: "Slack bot display name (used for manifest)",
 			initialValue: "OpenClaw"
 		})).trim();
 		if (!accountConfigured) await noteSlackTokenHelp(prompter, slackBotName);
-		const botTokenResult = await promptSingleChannelSecretInput({
+		const botTokenStep = await runSingleChannelSecretStep({
 			cfg: next,
 			prompter,
 			providerHint: "slack-bot",
 			credentialLabel: "Slack bot token",
 			secretInputMode: options?.secretInputMode,
 			accountConfigured: Boolean(resolvedAccount.botToken) || hasConfiguredBotToken,
-			canUseEnv: canUseBotEnv,
 			hasConfigToken: hasConfiguredBotToken,
+			allowEnv,
+			envValue: process.env.SLACK_BOT_TOKEN,
 			envPrompt: "SLACK_BOT_TOKEN detected. Use env var?",
 			keepPrompt: "Slack bot token already configured. Keep it?",
 			inputPrompt: "Enter Slack bot token (xoxb-...)",
-			preferredEnvVar: allowEnv ? "SLACK_BOT_TOKEN" : void 0
-		});
-		if (botTokenResult.action === "use-env") resolvedBotTokenForAllowlist = process.env.SLACK_BOT_TOKEN?.trim() || void 0;
-		else if (botTokenResult.action === "set") {
-			next = patchChannelConfigForAccount({
-				cfg: next,
+			preferredEnvVar: allowEnv ? "SLACK_BOT_TOKEN" : void 0,
+			applySet: async (cfg, value) => patchChannelConfigForAccount({
+				cfg,
 				channel: "slack",
 				accountId: slackAccountId,
-				patch: { botToken: botTokenResult.value }
-			});
-			resolvedBotTokenForAllowlist = botTokenResult.resolvedValue;
-		}
-		const appTokenResult = await promptSingleChannelSecretInput({
+				patch: { botToken: value }
+			})
+		});
+		next = botTokenStep.cfg;
+		if (botTokenStep.resolvedValue) resolvedBotTokenForAllowlist = botTokenStep.resolvedValue;
+		next = (await runSingleChannelSecretStep({
 			cfg: next,
 			prompter,
 			providerHint: "slack-app",
 			credentialLabel: "Slack app token",
 			secretInputMode: options?.secretInputMode,
 			accountConfigured: Boolean(resolvedAccount.appToken) || hasConfiguredAppToken,
-			canUseEnv: canUseAppEnv,
 			hasConfigToken: hasConfiguredAppToken,
+			allowEnv,
+			envValue: process.env.SLACK_APP_TOKEN,
 			envPrompt: "SLACK_APP_TOKEN detected. Use env var?",
 			keepPrompt: "Slack app token already configured. Keep it?",
 			inputPrompt: "Enter Slack app token (xapp-...)",
-			preferredEnvVar: allowEnv ? "SLACK_APP_TOKEN" : void 0
-		});
-		if (appTokenResult.action === "set") next = patchChannelConfigForAccount({
-			cfg: next,
-			channel: "slack",
-			accountId: slackAccountId,
-			patch: { appToken: appTokenResult.value }
-		});
+			preferredEnvVar: allowEnv ? "SLACK_APP_TOKEN" : void 0,
+			applySet: async (cfg, value) => patchChannelConfigForAccount({
+				cfg,
+				channel: "slack",
+				accountId: slackAccountId,
+				patch: { appToken: value }
+			})
+		})).cfg;
 		next = await configureChannelAccessWithAllowlist({
 			cfg: next,
 			prompter,
@@ -3771,28 +4081,24 @@ const telegramOnboardingAdapter = {
 			accountId: telegramAccountId
 		});
 		const hasConfigToken = hasConfiguredSecretInput(resolvedAccount.config.botToken) || Boolean(resolvedAccount.config.tokenFile?.trim());
-		const accountConfigured = Boolean(resolvedAccount.token) || hasConfigToken;
 		const allowEnv = telegramAccountId === DEFAULT_ACCOUNT_ID;
-		const canUseEnv = allowEnv && !hasConfigToken && Boolean(process.env.TELEGRAM_BOT_TOKEN?.trim());
-		if (!accountConfigured) await noteTelegramTokenHelp(prompter);
-		const tokenResult = await promptSingleChannelSecretInput({
+		const tokenStep = await runSingleChannelSecretStep({
 			cfg: next,
 			prompter,
 			providerHint: "telegram",
 			credentialLabel: "Telegram bot token",
 			secretInputMode: options?.secretInputMode,
-			accountConfigured,
-			canUseEnv,
+			accountConfigured: Boolean(resolvedAccount.token) || hasConfigToken,
 			hasConfigToken,
+			allowEnv,
+			envValue: process.env.TELEGRAM_BOT_TOKEN,
 			envPrompt: "TELEGRAM_BOT_TOKEN detected. Use env var?",
 			keepPrompt: "Telegram token already configured. Keep it?",
 			inputPrompt: "Enter Telegram bot token",
-			preferredEnvVar: allowEnv ? "TELEGRAM_BOT_TOKEN" : void 0
-		});
-		let resolvedTokenForAllowFrom;
-		if (tokenResult.action === "use-env") {
-			next = applySingleTokenPromptResult({
-				cfg: next,
+			preferredEnvVar: allowEnv ? "TELEGRAM_BOT_TOKEN" : void 0,
+			onMissingConfigured: async () => await noteTelegramTokenHelp(prompter),
+			applyUseEnv: async (cfg) => applySingleTokenPromptResult({
+				cfg,
 				channel: "telegram",
 				accountId: telegramAccountId,
 				tokenPatchKey: "botToken",
@@ -3800,26 +4106,24 @@ const telegramOnboardingAdapter = {
 					useEnv: true,
 					token: null
 				}
-			});
-			resolvedTokenForAllowFrom = process.env.TELEGRAM_BOT_TOKEN?.trim() || void 0;
-		} else if (tokenResult.action === "set") {
-			next = applySingleTokenPromptResult({
-				cfg: next,
+			}),
+			applySet: async (cfg, value) => applySingleTokenPromptResult({
+				cfg,
 				channel: "telegram",
 				accountId: telegramAccountId,
 				tokenPatchKey: "botToken",
 				tokenResult: {
 					useEnv: false,
-					token: tokenResult.value
+					token: value
 				}
-			});
-			resolvedTokenForAllowFrom = tokenResult.resolvedValue;
-		}
+			})
+		});
+		next = tokenStep.cfg;
 		if (forceAllowFrom) next = await promptTelegramAllowFrom({
 			cfg: next,
 			prompter,
 			accountId: telegramAccountId,
-			tokenOverride: resolvedTokenForAllowFrom
+			tokenOverride: tokenStep.resolvedValue
 		});
 		return {
 			cfg: next,
@@ -3989,7 +4293,8 @@ function resolveArchiveOutputPath(params) {
 	return outPath;
 }
 //#endregion
-//#region src/infra/archive.ts
+//#region src/infra/archive-staging.ts
+const ERROR_ARCHIVE_ENTRY_TRAVERSES_SYMLINK = "archive entry traverses symlink in destination";
 var ArchiveSecurityError = class extends Error {
 	constructor(code, message, options) {
 		super(message, options);
@@ -3997,11 +4302,145 @@ var ArchiveSecurityError = class extends Error {
 		this.name = "ArchiveSecurityError";
 	}
 };
+function symlinkTraversalError$1(originalPath) {
+	return new ArchiveSecurityError("destination-symlink-traversal", `${ERROR_ARCHIVE_ENTRY_TRAVERSES_SYMLINK}: ${originalPath}`);
+}
+async function prepareArchiveDestinationDir(destDir) {
+	const stat = await fs$1.lstat(destDir);
+	if (stat.isSymbolicLink()) throw new ArchiveSecurityError("destination-symlink", "archive destination is a symlink");
+	if (!stat.isDirectory()) throw new ArchiveSecurityError("destination-not-directory", "archive destination is not a directory");
+	return await fs$1.realpath(destDir);
+}
+async function assertNoSymlinkTraversal(params) {
+	const parts = params.relPath.split(/[\\/]+/).filter(Boolean);
+	let current = path.resolve(params.rootDir);
+	for (const part of parts) {
+		current = path.join(current, part);
+		let stat;
+		try {
+			stat = await fs$1.lstat(current);
+		} catch (err) {
+			if (isNotFoundPathError(err)) continue;
+			throw err;
+		}
+		if (stat.isSymbolicLink()) throw symlinkTraversalError$1(params.originalPath);
+	}
+}
+async function assertResolvedInsideDestination(params) {
+	let resolved;
+	try {
+		resolved = await fs$1.realpath(params.targetPath);
+	} catch (err) {
+		if (isNotFoundPathError(err)) return;
+		throw err;
+	}
+	if (!isPathInside(params.destinationRealDir, resolved)) throw symlinkTraversalError$1(params.originalPath);
+}
+async function prepareArchiveOutputPath(params) {
+	await assertNoSymlinkTraversal({
+		rootDir: params.destinationDir,
+		relPath: params.relPath,
+		originalPath: params.originalPath
+	});
+	if (params.isDirectory) {
+		await fs$1.mkdir(params.outPath, { recursive: true });
+		await assertResolvedInsideDestination({
+			destinationRealDir: params.destinationRealDir,
+			targetPath: params.outPath,
+			originalPath: params.originalPath
+		});
+		return;
+	}
+	const parentDir = path.dirname(params.outPath);
+	await fs$1.mkdir(parentDir, { recursive: true });
+	await assertResolvedInsideDestination({
+		destinationRealDir: params.destinationRealDir,
+		targetPath: parentDir,
+		originalPath: params.originalPath
+	});
+}
+async function applyStagedEntryMode(params) {
+	const destinationPath = path.join(params.destinationRealDir, params.relPath);
+	await assertResolvedInsideDestination({
+		destinationRealDir: params.destinationRealDir,
+		targetPath: destinationPath,
+		originalPath: params.originalPath
+	});
+	if (params.mode !== 0) await fs$1.chmod(destinationPath, params.mode).catch(() => void 0);
+}
+async function withStagedArchiveDestination(params) {
+	const stagingDir = await fs$1.mkdtemp(path.join(params.destinationRealDir, ".openclaw-archive-"));
+	try {
+		return await params.run(stagingDir);
+	} finally {
+		await fs$1.rm(stagingDir, {
+			recursive: true,
+			force: true
+		}).catch(() => void 0);
+	}
+}
+async function mergeExtractedTreeIntoDestination(params) {
+	const walk = async (currentSourceDir) => {
+		const entries = await fs$1.readdir(currentSourceDir, { withFileTypes: true });
+		for (const entry of entries) {
+			const sourcePath = path.join(currentSourceDir, entry.name);
+			const relPath = path.relative(params.sourceDir, sourcePath);
+			const originalPath = relPath.split(path.sep).join("/");
+			const destinationPath = path.join(params.destinationDir, relPath);
+			const sourceStat = await fs$1.lstat(sourcePath);
+			if (sourceStat.isSymbolicLink()) throw symlinkTraversalError$1(originalPath);
+			if (sourceStat.isDirectory()) {
+				await prepareArchiveOutputPath({
+					destinationDir: params.destinationDir,
+					destinationRealDir: params.destinationRealDir,
+					relPath,
+					outPath: destinationPath,
+					originalPath,
+					isDirectory: true
+				});
+				await walk(sourcePath);
+				await applyStagedEntryMode({
+					destinationRealDir: params.destinationRealDir,
+					relPath,
+					mode: sourceStat.mode & 511,
+					originalPath
+				});
+				continue;
+			}
+			if (!sourceStat.isFile()) throw new Error(`archive staging contains unsupported entry: ${originalPath}`);
+			await prepareArchiveOutputPath({
+				destinationDir: params.destinationDir,
+				destinationRealDir: params.destinationRealDir,
+				relPath,
+				outPath: destinationPath,
+				originalPath,
+				isDirectory: false
+			});
+			await copyFileWithinRoot({
+				sourcePath,
+				rootDir: params.destinationRealDir,
+				relativePath: relPath,
+				mkdir: true
+			});
+			await applyStagedEntryMode({
+				destinationRealDir: params.destinationRealDir,
+				relPath,
+				mode: sourceStat.mode & 511,
+				originalPath
+			});
+		}
+	};
+	await walk(params.sourceDir);
+}
+function createArchiveSymlinkTraversalError(originalPath) {
+	return symlinkTraversalError$1(originalPath);
+}
 const ERROR_ARCHIVE_SIZE_EXCEEDS_LIMIT = "archive size exceeds limit";
 const ERROR_ARCHIVE_ENTRY_COUNT_EXCEEDS_LIMIT = "archive entry count exceeds limit";
 const ERROR_ARCHIVE_ENTRY_EXTRACTED_SIZE_EXCEEDS_LIMIT = "archive entry extracted size exceeds limit";
 const ERROR_ARCHIVE_EXTRACTED_SIZE_EXCEEDS_LIMIT = "archive extracted size exceeds limit";
-const ERROR_ARCHIVE_ENTRY_TRAVERSES_SYMLINK = "archive entry traverses symlink in destination";
+const SUPPORTS_NOFOLLOW = process.platform !== "win32" && "O_NOFOLLOW" in constants;
+const OPEN_WRITE_CREATE_FLAGS = constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | (SUPPORTS_NOFOLLOW ? constants.O_NOFOLLOW : 0);
 const TAR_SUFFIXES = [
 	".tgz",
 	".tar.gz",
@@ -4074,38 +4513,7 @@ function createExtractBudgetTransform(params) {
 	} });
 }
 function symlinkTraversalError(originalPath) {
-	return new ArchiveSecurityError("destination-symlink-traversal", `${ERROR_ARCHIVE_ENTRY_TRAVERSES_SYMLINK}: ${originalPath}`);
-}
-async function assertDestinationDirReady(destDir) {
-	const stat = await fs$1.lstat(destDir);
-	if (stat.isSymbolicLink()) throw new ArchiveSecurityError("destination-symlink", "archive destination is a symlink");
-	if (!stat.isDirectory()) throw new ArchiveSecurityError("destination-not-directory", "archive destination is not a directory");
-	return await fs$1.realpath(destDir);
-}
-async function assertNoSymlinkTraversal(params) {
-	const parts = params.relPath.split("/").filter(Boolean);
-	let current = path.resolve(params.rootDir);
-	for (const part of parts) {
-		current = path.join(current, part);
-		let stat;
-		try {
-			stat = await fs$1.lstat(current);
-		} catch (err) {
-			if (isNotFoundPathError(err)) continue;
-			throw err;
-		}
-		if (stat.isSymbolicLink()) throw symlinkTraversalError(params.originalPath);
-	}
-}
-async function assertResolvedInsideDestination(params) {
-	let resolved;
-	try {
-		resolved = await fs$1.realpath(params.targetPath);
-	} catch (err) {
-		if (isNotFoundPathError(err)) return;
-		throw err;
-	}
-	if (!isPathInside(params.destinationRealDir, resolved)) throw symlinkTraversalError(params.originalPath);
+	return createArchiveSymlinkTraversalError(originalPath);
 }
 async function openZipOutputFile(params) {
 	try {
@@ -4130,6 +4538,22 @@ async function cleanupPartialRegularFile(filePath) {
 	}
 	if (stat.isFile()) await fs$1.unlink(filePath).catch(() => void 0);
 }
+function buildArchiveAtomicTempPath(targetPath) {
+	return path.join(path.dirname(targetPath), `.${path.basename(targetPath)}.${process.pid}.${randomUUID()}.tmp`);
+}
+async function verifyZipWriteResult(params) {
+	const opened = await openFileWithinRoot({
+		rootDir: params.destinationRealDir,
+		relativePath: params.relPath,
+		rejectHardlinks: true
+	});
+	try {
+		if (!sameFileIdentity(opened.stat, params.expectedStat)) throw new SafeOpenError("path-mismatch", "path changed during zip extract");
+		return opened.realPath;
+	} finally {
+		await opened.handle.close().catch(() => void 0);
+	}
+}
 async function readZipEntryStream(entry) {
 	if (typeof entry.nodeStream === "function") return entry.nodeStream();
 	const buf = await entry.async("nodebuffer");
@@ -4150,27 +4574,7 @@ function resolveZipOutputPath(params) {
 	};
 }
 async function prepareZipOutputPath(params) {
-	await assertNoSymlinkTraversal({
-		rootDir: params.destinationDir,
-		relPath: params.relPath,
-		originalPath: params.originalPath
-	});
-	if (params.isDirectory) {
-		await fs$1.mkdir(params.outPath, { recursive: true });
-		await assertResolvedInsideDestination({
-			destinationRealDir: params.destinationRealDir,
-			targetPath: params.outPath,
-			originalPath: params.originalPath
-		});
-		return;
-	}
-	const parentDir = path.dirname(params.outPath);
-	await fs$1.mkdir(parentDir, { recursive: true });
-	await assertResolvedInsideDestination({
-		destinationRealDir: params.destinationRealDir,
-		targetPath: parentDir,
-		originalPath: params.originalPath
-	});
+	await prepareArchiveOutputPath(params);
 }
 async function writeZipFileEntry(params) {
 	const opened = await openZipOutputFile({
@@ -4180,28 +4584,51 @@ async function writeZipFileEntry(params) {
 	});
 	params.budget.startEntry();
 	const readable = await readZipEntryStream(params.entry);
-	const writable = opened.handle.createWriteStream();
+	const destinationPath = opened.openedRealPath;
+	const targetMode = opened.openedStat.mode & 511;
+	await opened.handle.close().catch(() => void 0);
+	let tempHandle = null;
+	let tempPath = null;
+	let tempStat = null;
 	let handleClosedByStream = false;
-	writable.once("close", () => {
-		handleClosedByStream = true;
-	});
 	try {
+		tempPath = buildArchiveAtomicTempPath(destinationPath);
+		tempHandle = await fs$1.open(tempPath, OPEN_WRITE_CREATE_FLAGS, targetMode || 438);
+		const writable = tempHandle.createWriteStream();
+		writable.once("close", () => {
+			handleClosedByStream = true;
+		});
 		await pipeline(readable, createExtractBudgetTransform({ onChunkBytes: params.budget.addBytes }), writable);
+		tempStat = await fs$1.stat(tempPath);
+		if (!tempStat) throw new Error("zip temp write did not produce file metadata");
+		if (!handleClosedByStream) {
+			await tempHandle.close().catch(() => void 0);
+			handleClosedByStream = true;
+		}
+		tempHandle = null;
+		await fs$1.rename(tempPath, destinationPath);
+		tempPath = null;
+		const verifiedPath = await verifyZipWriteResult({
+			destinationRealDir: params.destinationRealDir,
+			relPath: params.relPath,
+			expectedStat: tempStat
+		});
+		if (typeof params.entry.unixPermissions === "number") {
+			const mode = params.entry.unixPermissions & 511;
+			if (mode !== 0) await fs$1.chmod(verifiedPath, mode).catch(() => void 0);
+		}
 	} catch (err) {
-		if (opened.createdForWrite) await fs$1.rm(opened.openedRealPath, { force: true }).catch(() => void 0);
-		else await cleanupPartialRegularFile(opened.openedRealPath).catch(() => void 0);
+		if (tempPath) await fs$1.rm(tempPath, { force: true }).catch(() => void 0);
+		else await cleanupPartialRegularFile(destinationPath).catch(() => void 0);
+		if (err instanceof SafeOpenError) throw symlinkTraversalError(params.entry.name);
 		throw err;
 	} finally {
-		if (!handleClosedByStream) await opened.handle.close().catch(() => void 0);
-	}
-	if (typeof params.entry.unixPermissions === "number") {
-		const mode = params.entry.unixPermissions & 511;
-		if (mode !== 0) await fs$1.chmod(opened.openedRealPath, mode).catch(() => void 0);
+		if (tempHandle && !handleClosedByStream) await tempHandle.close().catch(() => void 0);
 	}
 }
 async function extractZip(params) {
 	const limits = resolveExtractLimits(params.limits);
-	const destinationRealDir = await assertDestinationDirReady(params.destDir);
+	const destinationRealDir = await prepareArchiveDestinationDir(params.destDir);
 	if ((await fs$1.stat(params.archivePath)).size > limits.maxArchiveBytes) throw new Error(ERROR_ARCHIVE_SIZE_EXCEEDS_LIMIT);
 	const buffer = await fs$1.readFile(params.archivePath);
 	const zip = await JSZip.loadAsync(buffer);
@@ -4248,7 +4675,7 @@ function readTarEntryInfo(entry) {
 		size: typeof entry === "object" && entry !== null && "size" in entry && typeof entry.size === "number" && Number.isFinite(entry.size) ? Math.max(0, Math.floor(entry.size)) : 0
 	};
 }
-function createTarEntrySafetyChecker(params) {
+function createTarEntryPreflightChecker(params) {
 	const strip = Math.max(0, Math.floor(params.stripComponents ?? 0));
 	const limits = resolveExtractLimits(params.limits);
 	let entryCount = 0;
@@ -4275,29 +4702,42 @@ async function extractArchive(params) {
 	if (!kind) throw new Error(`unsupported archive: ${params.archivePath}`);
 	const label = kind === "zip" ? "extract zip" : "extract tar";
 	if (kind === "tar") {
-		const limits = resolveExtractLimits(params.limits);
-		if ((await fs$1.stat(params.archivePath)).size > limits.maxArchiveBytes) throw new Error(ERROR_ARCHIVE_SIZE_EXCEEDS_LIMIT);
-		const checkTarEntrySafety = createTarEntrySafetyChecker({
-			rootDir: params.destDir,
-			stripComponents: params.stripComponents,
-			limits
-		});
-		await withTimeout(tar.x({
-			file: params.archivePath,
-			cwd: params.destDir,
-			strip: Math.max(0, Math.floor(params.stripComponents ?? 0)),
-			gzip: params.tarGzip,
-			preservePaths: false,
-			strict: true,
-			onReadEntry(entry) {
-				try {
-					checkTarEntrySafety(readTarEntryInfo(entry));
-				} catch (err) {
-					const error = err instanceof Error ? err : new Error(String(err));
-					this.abort?.(error);
+		await withTimeout((async () => {
+			const limits = resolveExtractLimits(params.limits);
+			if ((await fs$1.stat(params.archivePath)).size > limits.maxArchiveBytes) throw new Error(ERROR_ARCHIVE_SIZE_EXCEEDS_LIMIT);
+			const destinationRealDir = await prepareArchiveDestinationDir(params.destDir);
+			await withStagedArchiveDestination({
+				destinationRealDir,
+				run: async (stagingDir) => {
+					const checkTarEntrySafety = createTarEntryPreflightChecker({
+						rootDir: destinationRealDir,
+						stripComponents: params.stripComponents,
+						limits
+					});
+					await tar.x({
+						file: params.archivePath,
+						cwd: stagingDir,
+						strip: Math.max(0, Math.floor(params.stripComponents ?? 0)),
+						gzip: params.tarGzip,
+						preservePaths: false,
+						strict: true,
+						onReadEntry(entry) {
+							try {
+								checkTarEntrySafety(readTarEntryInfo(entry));
+							} catch (err) {
+								const error = err instanceof Error ? err : new Error(String(err));
+								this.abort?.(error);
+							}
+						}
+					});
+					await mergeExtractedTreeIntoDestination({
+						sourceDir: stagingDir,
+						destinationDir: destinationRealDir,
+						destinationRealDir
+					});
 				}
-			}
-		}), params.timeoutMs, label);
+			});
+		})(), params.timeoutMs, label);
 		return;
 	}
 	await withTimeout(extractZip({
@@ -5096,4 +5536,4 @@ const LineConfigSchema = LineCommonConfigSchema.extend({
 	groups: z.record(z.string(), LineGroupConfigSchema.optional()).optional()
 }).strict();
 //#endregion
-export { ACP_ERROR_CODES, AcpRuntimeError, BLUEBUBBLES_ACTIONS, BLUEBUBBLES_ACTION_NAMES, BLUEBUBBLES_GROUP_ACTIONS, BlockStreamingCoalesceSchema, CHANNEL_MESSAGE_ACTION_NAMES, DEFAULT_ACCOUNT_ID, DEFAULT_GROUP_HISTORY_LIMIT, DEFAULT_WEBHOOK_BODY_TIMEOUT_MS, DEFAULT_WEBHOOK_MAX_BODY_BYTES, DM_GROUP_ACCESS_REASON, DiscordConfigSchema, DmConfigSchema, DmPolicySchema, GROUP_POLICY_BLOCKED_LABEL, GoogleChatConfigSchema, GroupPolicySchema, IMessageConfigSchema, KeyedAsyncQueue, LineConfigSchema, MSTeamsConfigSchema, MarkdownConfigSchema, MarkdownTableModeSchema, PAIRING_APPROVED_MESSAGE, ReplyRuntimeConfigSchemaShape, RequestBodyLimitError, SILENT_REPLY_TOKEN, SecretInputSchema, SignalConfigSchema, SlackConfigSchema, SsrFBlockedError, TelegramConfigSchema, ToolPolicySchema, TtsAutoSchema, TtsConfigSchema, TtsModeSchema, TtsProviderSchema, WEBHOOK_ANOMALY_COUNTER_DEFAULTS, WEBHOOK_ANOMALY_STATUS_CODES, WEBHOOK_BODY_READ_DEFAULTS, WEBHOOK_IN_FLIGHT_DEFAULTS, WEBHOOK_RATE_LIMIT_DEFAULTS, WhatsAppConfigSchema, acquireFileLock, addWildcardAllowFrom, applyAccountNameToChannelSection, applyBasicWebhookRequestGuards, applyWindowsSpawnProgramPolicy, approveDevicePairing, assertSecretInputResolved, autoBindSpawnedDiscordSubagent, beginWebhookRequestPipelineOrReject, buildAgentMediaPayload, buildBaseAccountStatusSnapshot, buildBaseChannelStatusSummary, buildChannelConfigSchema, buildChannelKeyCandidates, buildChannelSendResult, buildComputedAccountStatusSnapshot, buildDiscordSendMediaOptions, buildDiscordSendOptions, buildHostnameAllowlistPolicyFromSuffixAllowlist, buildInboundReplyDispatchBase, buildMediaPayload, buildOauthProviderAuthResult, buildPendingHistoryContextFromMap, buildProbeChannelStatusSummary, buildRandomTempFilePath, buildRuntimeAccountStatusSnapshot, buildSlackThreadingToolContext, buildTokenChannelStatusSummary, chunkTextForOutbound, clamp, clearAccountEntryFields, clearHistoryEntries, clearHistoryEntriesIfEnabled, collectBlueBubblesStatusIssues, collectDiscordAuditChannelIds, collectDiscordStatusIssues, collectStatusIssuesFromLastError, collectTelegramStatusIssues, collectWhatsAppStatusIssues, createAccountListHelpers, createActionCard, createActionGate, createAllowedChatSenderMatcher, createBoundedCounter, createDedupeCache, createDefaultChannelRuntimeState, createFixedWindowRateLimiter, createImageCard, createInboundEnvelopeBuilder, createInfoCard, createListCard, createLoggerBackedRuntime, createNormalizedOutboundDeliverer, createPersistentDedupe, createReceiptCard, createReplyPrefixContext, createReplyPrefixOptions, createScopedPairingAccess, createTypingCallbacks, createWebhookAnomalyTracker, createWebhookInFlightLimiter, deleteAccountFromConfigSection, detectMime, discordOnboardingAdapter, dispatchInboundReplyWithBase, dispatchReplyFromConfigWithSettledDispatcher, emitDiagnosticEvent, emptyPluginConfigSchema, enqueueKeyedTask, escapeRegExp, evaluateSenderGroupAccess, evictOldHistoryKeys, extensionForMime, extractOriginalFilename, extractSlackToolSend, extractToolSend, fetchWithBearerAuthScopeFallback, fetchWithSsrFGuard, formatAllowFromLowercase, formatAllowlistMatchMeta, formatDocsLink, formatErrorMessage, formatInboundFromLabel, formatLocationText, formatPairingApproveHint, formatResolvedUnresolvedNote, formatTextWithAttachmentLinks, formatTrimmedAllowFromEntries, formatUtcTimestamp, formatWhatsAppConfigAllowFromEntries, formatZonedTimestamp, generatePkceVerifierChallenge, getAcpRuntimeBackend, getChatChannelMeta, getFileExtension, handleSlackMessageAction, hasConfiguredSecretInput, hasMarkdownToConvert, imessageOnboardingAdapter, inspectDiscordAccount, inspectSlackAccount, inspectTelegramAccount, installRequestBodyLimitGuard, isAllowedParsedChatSender, isBlockedHostname, isBlockedHostnameOrIp, isDangerousNameMatchingEnabled, isDiagnosticsEnabled, isHttpsUrlAllowedByHostnameSuffixAllowlist, isJsonContentType, isNormalizedSenderAllowed, isNumericTargetId, isPrivateIpAddress, isRequestBodyLimitError, isSecretRef, isSilentReplyText, isTruthyEnvValue, isWSL2Sync, isWSLEnv, isWSLSync, isWhatsAppGroupJid, issuePairingChallenge, jsonResult, keepHttpServerTaskAlive, listConfiguredAccountIds, listDevicePairing, listDiscordAccountIds, listDiscordDirectoryGroupsFromConfig, listDiscordDirectoryPeersFromConfig, listEnabledSlackAccounts, listIMessageAccountIds, listLineAccountIds, listSignalAccountIds, listSkillCommandsForAgents, listSlackAccountIds, listSlackDirectoryGroupsFromConfig, listSlackDirectoryPeersFromConfig, listSlackMessageActions, listTelegramAccountIds, listTelegramDirectoryGroupsFromConfig, listTelegramDirectoryPeersFromConfig, listThreadBindingsBySessionKey, listWhatsAppAccountIds, listWhatsAppDirectoryGroupsFromConfig, listWhatsAppDirectoryPeersFromConfig, loadOutboundMediaFromUrl, loadWebMedia, logAckFailure, logInboundDrop, logTypingFailure, looksLikeDiscordTargetId, looksLikeIMessageTargetId, looksLikeSignalTargetId, looksLikeSlackTargetId, looksLikeTelegramTargetId, looksLikeWhatsAppTargetId, mapBasicAllowlistResolutionEntries, materializeWindowsSpawnProgram, mergeAllowFromEntries, mergeAllowlist, migrateBaseNameToDefaultAccount, missingTargetError, normalizeAccountId, normalizeAgentId, normalizeAllowFrom, normalizeChannelSlug, normalizeDiscordMessagingTarget, normalizeDiscordOutboundTarget, normalizeE164, normalizeHostnameSuffixAllowlist, normalizeIMessageMessagingTarget, normalizeAccountId$1 as normalizeLineAccountId, normalizeOutboundReplyPayload, normalizePluginHttpPath, normalizeResolvedSecretInputString, normalizeSecretInputString, normalizeSignalMessagingTarget, normalizeSlackMessagingTarget, normalizeTelegramMessagingTarget, normalizeWebhookPath, normalizeWhatsAppAllowFromEntries, normalizeWhatsAppMessagingTarget, normalizeWhatsAppTarget, onDiagnosticEvent, optionalStringEnum, parseChatAllowTargetPrefixes, parseChatTargetPrefixesOrThrow, parseTelegramReplyToMessageId, parseTelegramThreadId, processLineMessage, promptAccountId, promptChannelAccessConfig, promptSingleChannelSecretInput, rawDataToString, readBooleanParam, readJsonBodyWithLimit, readJsonFileWithFallback, readJsonWebhookBodyOrReject, readNumberParam, readReactionParams, readRequestBodyWithLimit, readStoreAllowFromForDmPolicy, readStringParam, readWebhookBodyOrReject, recordInboundSession, recordInboundSessionAndDispatchReply, recordPendingHistoryEntry, recordPendingHistoryEntryIfEnabled, redactSensitiveText, registerAcpRuntimeBackend, registerContextEngine, registerLogTransport, registerPluginHttpRoute, registerWebhookTarget, registerWebhookTargetWithPluginRoute, rejectDevicePairing, rejectNonPostWebhookRequest, removeAckReactionAfterReply, requestBodyErrorToText, requireAcpRuntimeBackend, requireOpenAllowFrom, resetMissingProviderGroupPolicyFallbackWarningsForTesting, resolveAccountWithDefaultFallback, resolveAckReaction, resolveAllowlistMatchByCandidates, resolveAllowlistMatchSimple, resolveAllowlistProviderRuntimeGroupPolicy, resolveBlueBubblesGroupRequireMention, resolveBlueBubblesGroupToolPolicy, resolveChannelAccountConfigBasePath, resolveChannelEntryMatch, resolveChannelEntryMatchWithFallback, resolveChannelGroupRequireMention, resolveChannelMediaMaxBytes, resolveControlCommandGate, resolveDefaultDiscordAccountId, resolveDefaultGroupPolicy, resolveDefaultIMessageAccountId, resolveDefaultLineAccountId, resolveDefaultSignalAccountId, resolveDefaultSlackAccountId, resolveDefaultTelegramAccountId, resolveDefaultWhatsAppAccountId, resolveDirectDmAuthorizationOutcome, resolveDiscordAccount, resolveDiscordGroupRequireMention, resolveDiscordGroupToolPolicy, resolveDmAllowState, resolveDmGroupAccessDecision, resolveDmGroupAccessWithCommandGate, resolveDmGroupAccessWithLists, resolveEffectiveAllowFromLists, resolveGatewayBindUrl, resolveGoogleChatGroupRequireMention, resolveGoogleChatGroupToolPolicy, resolveIMessageAccount, resolveIMessageConfigAllowFrom, resolveIMessageConfigDefaultTo, resolveIMessageGroupRequireMention, resolveIMessageGroupToolPolicy, resolveInboundRouteEnvelopeBuilder, resolveInboundRouteEnvelopeBuilderWithRuntime, resolveInboundSessionEnvelopeContext, resolveLineAccount, resolveMentionGating, resolveMentionGatingWithBypass, resolveNestedAllowlistDecision, resolveOpenProviderRuntimeGroupPolicy, resolveOutboundMediaUrls, resolvePreferredOpenClawTmpDir, resolveRequestUrl, resolveRuntimeEnv, resolveRuntimeEnvWithUnavailableExit, resolveRuntimeGroupPolicy, resolveSenderCommandAuthorization, resolveSenderCommandAuthorizationWithRuntime, resolveServicePrefixedAllowTarget, resolveServicePrefixedChatTarget, resolveServicePrefixedOrChatAllowTarget, resolveServicePrefixedTarget, resolveSignalAccount, resolveSingleWebhookTarget, resolveSingleWebhookTargetAsync, resolveSlackAccount, resolveSlackGroupRequireMention, resolveSlackGroupToolPolicy, resolveSlackReplyToMode, resolveTailnetHostWithRunner, resolveTelegramAccount, resolveTelegramGroupRequireMention, resolveTelegramGroupToolPolicy, resolveThreadSessionKeys, resolveTimezone, resolveToolsBySender, resolveWebhookPath, resolveWebhookTargetWithAuthOrReject, resolveWebhookTargetWithAuthOrRejectSync, resolveWebhookTargets, resolveWhatsAppAccount, resolveWhatsAppConfigAllowFrom, resolveWhatsAppConfigDefaultTo, resolveWhatsAppGroupIntroHint, resolveWhatsAppGroupRequireMention, resolveWhatsAppGroupToolPolicy, resolveWhatsAppHeartbeatRecipients, resolveWhatsAppMentionStripPatterns, resolveWhatsAppOutboundTarget, resolveWindowsExecutablePath, resolveWindowsSpawnProgram, resolveWindowsSpawnProgramCandidate, runPluginCommandWithTimeout, safeParseJson, sendMediaWithLeadingCaption, sendPayloadWithChunkedTextAndMedia, setAccountEnabledInConfigSection, shouldAckReaction, shouldAckReactionForWhatsApp, signalOnboardingAdapter, slackOnboardingAdapter, sleep, stringEnum, stripAnsi, stripMarkdown, summarizeMapping, tagDiscordChannelResult, telegramOnboardingAdapter, toFormUrlEncoded, toLocationContext, unbindThreadBindingsBySessionKey, unregisterAcpRuntimeBackend, waitUntilAbort, warnMissingProviderGroupPolicyFallbackOnce, whatsappOnboardingAdapter, withFileLock, withTempDownloadPath, writeJsonFileAtomically };
+export { ACP_ERROR_CODES, AcpRuntimeError, AllowFromEntrySchema, AllowFromListSchema, BLUEBUBBLES_ACTIONS, BLUEBUBBLES_ACTION_NAMES, BLUEBUBBLES_GROUP_ACTIONS, BlockStreamingCoalesceSchema, CHANNEL_MESSAGE_ACTION_NAMES, DEFAULT_ACCOUNT_ID, DEFAULT_GROUP_HISTORY_LIMIT, DEFAULT_WEBHOOK_BODY_TIMEOUT_MS, DEFAULT_WEBHOOK_MAX_BODY_BYTES, DM_GROUP_ACCESS_REASON, DiscordConfigSchema, DmConfigSchema, DmPolicySchema, GROUP_POLICY_BLOCKED_LABEL, GoogleChatConfigSchema, GroupPolicySchema, IMessageConfigSchema, KeyedAsyncQueue, LineConfigSchema, MSTeamsConfigSchema, MarkdownConfigSchema, MarkdownTableModeSchema, PAIRING_APPROVED_MESSAGE, ReplyRuntimeConfigSchemaShape, RequestBodyLimitError, SILENT_REPLY_TOKEN, SecretInputSchema, SignalConfigSchema, SlackConfigSchema, SsrFBlockedError, TelegramConfigSchema, ToolPolicySchema, TtsAutoSchema, TtsConfigSchema, TtsModeSchema, TtsProviderSchema, WEBHOOK_ANOMALY_COUNTER_DEFAULTS, WEBHOOK_ANOMALY_STATUS_CODES, WEBHOOK_BODY_READ_DEFAULTS, WEBHOOK_IN_FLIGHT_DEFAULTS, WEBHOOK_RATE_LIMIT_DEFAULTS, WhatsAppConfigSchema, acquireFileLock, addWildcardAllowFrom, applyAccountNameToChannelSection, applyBasicWebhookRequestGuards, applySetupAccountConfigPatch, applyWindowsSpawnProgramPolicy, approveDevicePairing, assertSecretInputResolved, autoBindSpawnedDiscordSubagent, beginWebhookRequestPipelineOrReject, buildAccountScopedDmSecurityPolicy, buildAgentMediaPayload, buildBaseAccountStatusSnapshot, buildBaseChannelStatusSummary, buildCatchallMultiAccountChannelSchema, buildChannelConfigSchema, buildChannelKeyCandidates, buildChannelSendResult, buildComputedAccountStatusSnapshot, buildDiscordSendMediaOptions, buildDiscordSendOptions, buildHostnameAllowlistPolicyFromSuffixAllowlist, buildInboundReplyDispatchBase, buildMediaPayload, buildNestedDmConfigSchema, buildOauthProviderAuthResult, buildOpenGroupPolicyConfigureRouteAllowlistWarning, buildOpenGroupPolicyNoRouteAllowlistWarning, buildOpenGroupPolicyRestrictSendersWarning, buildOpenGroupPolicyWarning, buildPendingHistoryContextFromMap, buildProbeChannelStatusSummary, buildRandomTempFilePath, buildRuntimeAccountStatusSnapshot, buildSlackThreadingToolContext, buildTokenChannelStatusSummary, chunkTextForOutbound, clamp, clearAccountEntryFields, clearHistoryEntries, clearHistoryEntriesIfEnabled, collectAllowlistProviderGroupPolicyWarnings, collectAllowlistProviderRestrictSendersWarnings, collectBlueBubblesStatusIssues, collectDiscordAuditChannelIds, collectDiscordStatusIssues, collectOpenGroupPolicyConfiguredRouteWarnings, collectOpenGroupPolicyRestrictSendersWarnings, collectOpenGroupPolicyRouteAllowlistWarnings, collectOpenProviderGroupPolicyWarnings, collectStatusIssuesFromLastError, collectTelegramStatusIssues, collectWhatsAppStatusIssues, compileAllowlist, createAccountListHelpers, createAccountStatusSink, createActionCard, createActionGate, createAllowedChatSenderMatcher, createBoundedCounter, createDedupeCache, createDefaultChannelRuntimeState, createFixedWindowRateLimiter, createImageCard, createInboundEnvelopeBuilder, createInfoCard, createListCard, createLoggerBackedRuntime, createNormalizedOutboundDeliverer, createPersistentDedupe, createPluginRuntimeStore, createReceiptCard, createReplyPrefixContext, createReplyPrefixOptions, createScopedAccountConfigAccessors, createScopedChannelConfigBase, createScopedDmSecurityResolver, createScopedPairingAccess, createTypingCallbacks, createWebhookAnomalyTracker, createWebhookInFlightLimiter, deleteAccountFromConfigSection, detectMime, discordOnboardingAdapter, dispatchInboundReplyWithBase, dispatchReplyFromConfigWithSettledDispatcher, emitDiagnosticEvent, emptyPluginConfigSchema, enqueueKeyedTask, escapeRegExp, evaluateGroupRouteAccessForPolicy, evaluateMatchedGroupAccessForPolicy, evaluateSenderGroupAccess, evaluateSenderGroupAccessForPolicy, evictOldHistoryKeys, extensionForMime, extractOriginalFilename, extractSlackToolSend, extractToolSend, fetchWithBearerAuthScopeFallback, fetchWithSsrFGuard, formatAllowFromLowercase, formatAllowlistMatchMeta, formatDocsLink, formatErrorMessage, formatInboundFromLabel, formatLocationText, formatNormalizedAllowFromEntries, formatPairingApproveHint, formatResolvedUnresolvedNote, formatTextWithAttachmentLinks, formatTrimmedAllowFromEntries, formatUtcTimestamp, formatWhatsAppConfigAllowFromEntries, formatZonedTimestamp, generatePkceVerifierChallenge, getAcpRuntimeBackend, getChatChannelMeta, getFileExtension, handleSlackMessageAction, hasConfiguredSecretInput, hasMarkdownToConvert, imessageOnboardingAdapter, inspectDiscordAccount, inspectSlackAccount, inspectTelegramAccount, installRequestBodyLimitGuard, isAllowedParsedChatSender, isBlockedHostname, isBlockedHostnameOrIp, isDangerousNameMatchingEnabled, isDiagnosticsEnabled, isHttpsUrlAllowedByHostnameSuffixAllowlist, isJsonContentType, isNormalizedSenderAllowed, isNumericTargetId, isPrivateIpAddress, isRequestBodyLimitError, isSecretRef, isSilentReplyText, isTruthyEnvValue, isWSL2Sync, isWSLEnv, isWSLSync, isWhatsAppGroupJid, issuePairingChallenge, jsonResult, keepHttpServerTaskAlive, listConfiguredAccountIds, listDevicePairing, listDirectoryGroupEntriesFromMapKeys, listDirectoryGroupEntriesFromMapKeysAndAllowFrom, listDirectoryUserEntriesFromAllowFrom, listDirectoryUserEntriesFromAllowFromAndMapKeys, listDiscordAccountIds, listDiscordDirectoryGroupsFromConfig, listDiscordDirectoryPeersFromConfig, listEnabledSlackAccounts, listIMessageAccountIds, listLineAccountIds, listSignalAccountIds, listSkillCommandsForAgents, listSlackAccountIds, listSlackDirectoryGroupsFromConfig, listSlackDirectoryPeersFromConfig, listSlackMessageActions, listTelegramAccountIds, listTelegramDirectoryGroupsFromConfig, listTelegramDirectoryPeersFromConfig, listThreadBindingsBySessionKey, listWhatsAppAccountIds, listWhatsAppDirectoryGroupsFromConfig, listWhatsAppDirectoryPeersFromConfig, loadOutboundMediaFromUrl, loadWebMedia, logAckFailure, logInboundDrop, logTypingFailure, looksLikeDiscordTargetId, looksLikeIMessageTargetId, looksLikeSignalTargetId, looksLikeSlackTargetId, looksLikeTelegramTargetId, looksLikeWhatsAppTargetId, mapAllowFromEntries, mapAllowlistResolutionInputs, mapBasicAllowlistResolutionEntries, materializeWindowsSpawnProgram, mergeAllowFromEntries, mergeAllowlist, migrateBaseNameToDefaultAccount, missingTargetError, normalizeAccountId, normalizeAgentId, normalizeAllowFrom, normalizeChannelSlug, normalizeDiscordMessagingTarget, normalizeDiscordOutboundTarget, normalizeE164, normalizeHostnameSuffixAllowlist, normalizeIMessageMessagingTarget, normalizeAccountId$1 as normalizeLineAccountId, normalizeOutboundReplyPayload, normalizePluginHttpPath, normalizeResolvedSecretInputString, normalizeSecretInputString, normalizeSignalMessagingTarget, normalizeSlackMessagingTarget, normalizeTelegramMessagingTarget, normalizeWebhookPath, normalizeWhatsAppAllowFromEntries, normalizeWhatsAppMessagingTarget, normalizeWhatsAppTarget, onDiagnosticEvent, optionalStringEnum, parseChatAllowTargetPrefixes, parseChatTargetPrefixesOrThrow, parseTelegramReplyToMessageId, parseTelegramThreadId, patchScopedAccountConfig, processLineMessage, promptAccountId, promptChannelAccessConfig, promptSingleChannelSecretInput, rawDataToString, readBooleanParam, readJsonBodyWithLimit, readJsonFileWithFallback, readJsonWebhookBodyOrReject, readNumberParam, readReactionParams, readRequestBodyWithLimit, readStoreAllowFromForDmPolicy, readStringParam, readWebhookBodyOrReject, recordInboundSession, recordInboundSessionAndDispatchReply, recordPendingHistoryEntry, recordPendingHistoryEntryIfEnabled, redactSensitiveText, registerAcpRuntimeBackend, registerContextEngine, registerLogTransport, registerPluginHttpRoute, registerWebhookTarget, registerWebhookTargetWithPluginRoute, rejectDevicePairing, rejectNonPostWebhookRequest, removeAckReactionAfterReply, requestBodyErrorToText, requireAcpRuntimeBackend, requireApiKey, requireOpenAllowFrom, resetMissingProviderGroupPolicyFallbackWarningsForTesting, resolveAccountIdForConfigure, resolveAccountWithDefaultFallback, resolveAckReaction, resolveAllowlistCandidates, resolveAllowlistMatchByCandidates, resolveAllowlistMatchSimple, resolveAllowlistProviderRuntimeGroupPolicy, resolveBlueBubblesGroupRequireMention, resolveBlueBubblesGroupToolPolicy, resolveChannelAccountConfigBasePath, resolveChannelEntryMatch, resolveChannelEntryMatchWithFallback, resolveChannelGroupRequireMention, resolveChannelMediaMaxBytes, resolveControlCommandGate, resolveDefaultDiscordAccountId, resolveDefaultGroupPolicy, resolveDefaultIMessageAccountId, resolveDefaultLineAccountId, resolveDefaultSignalAccountId, resolveDefaultSlackAccountId, resolveDefaultTelegramAccountId, resolveDefaultWhatsAppAccountId, resolveDirectDmAuthorizationOutcome, resolveDiscordAccount, resolveDiscordGroupRequireMention, resolveDiscordGroupToolPolicy, resolveDmAllowState, resolveDmGroupAccessDecision, resolveDmGroupAccessWithCommandGate, resolveDmGroupAccessWithLists, resolveEffectiveAllowFromLists, resolveGatewayBindUrl, resolveGoogleChatGroupRequireMention, resolveGoogleChatGroupToolPolicy, resolveIMessageAccount, resolveIMessageConfigAllowFrom, resolveIMessageConfigDefaultTo, resolveIMessageGroupRequireMention, resolveIMessageGroupToolPolicy, resolveInboundRouteEnvelopeBuilder, resolveInboundRouteEnvelopeBuilderWithRuntime, resolveInboundSessionEnvelopeContext, resolveLineAccount, resolveMentionGating, resolveMentionGatingWithBypass, resolveNestedAllowlistDecision, resolveOpenProviderRuntimeGroupPolicy, resolveOptionalConfigString, resolveOutboundMediaUrls, resolvePreferredOpenClawTmpDir, resolveRequestUrl, resolveRuntimeEnv, resolveRuntimeEnvWithUnavailableExit, resolveRuntimeGroupPolicy, resolveSenderCommandAuthorization, resolveSenderCommandAuthorizationWithRuntime, resolveSenderScopedGroupPolicy, resolveServicePrefixedAllowTarget, resolveServicePrefixedChatTarget, resolveServicePrefixedOrChatAllowTarget, resolveServicePrefixedTarget, resolveSignalAccount, resolveSingleWebhookTarget, resolveSingleWebhookTargetAsync, resolveSlackAccount, resolveSlackGroupRequireMention, resolveSlackGroupToolPolicy, resolveSlackReplyToMode, resolveTailnetHostWithRunner, resolveTelegramAccount, resolveTelegramGroupRequireMention, resolveTelegramGroupToolPolicy, resolveThreadSessionKeys, resolveTimezone, resolveToolsBySender, resolveWebhookPath, resolveWebhookTargetWithAuthOrReject, resolveWebhookTargetWithAuthOrRejectSync, resolveWebhookTargets, resolveWhatsAppAccount, resolveWhatsAppConfigAllowFrom, resolveWhatsAppConfigDefaultTo, resolveWhatsAppGroupIntroHint, resolveWhatsAppGroupRequireMention, resolveWhatsAppGroupToolPolicy, resolveWhatsAppHeartbeatRecipients, resolveWhatsAppMentionStripPatterns, resolveWhatsAppOutboundTarget, resolveWindowsExecutablePath, resolveWindowsSpawnProgram, resolveWindowsSpawnProgramCandidate, runPassiveAccountLifecycle, runPluginCommandWithTimeout, safeParseJson, sendMediaWithLeadingCaption, sendPayloadWithChunkedTextAndMedia, setAccountEnabledInConfigSection, setTopLevelChannelAllowFrom, setTopLevelChannelDmPolicyWithAllowFrom, setTopLevelChannelGroupPolicy, shouldAckReaction, shouldAckReactionForWhatsApp, signalOnboardingAdapter, slackOnboardingAdapter, sleep, stringEnum, stripAnsi, stripMarkdown, summarizeMapping, tagDiscordChannelResult, telegramOnboardingAdapter, toFormUrlEncoded, toLocationContext, unbindThreadBindingsBySessionKey, unregisterAcpRuntimeBackend, waitUntilAbort, warnMissingProviderGroupPolicyFallbackOnce, whatsappOnboardingAdapter, withFileLock, withResolvedWebhookRequestPipeline, withTempDownloadPath, writeJsonFileAtomically };

@@ -33,10 +33,6 @@ export declare function shouldInjectOllamaCompatNumCtx(params: {
     providerId?: string;
 }): boolean;
 export declare function wrapOllamaCompatNumCtx(baseFn: StreamFn | undefined, numCtx: number): StreamFn;
-export declare function resolveOllamaBaseUrlForRun(params: {
-    modelBaseUrl?: string;
-    providerBaseUrl?: string;
-}): string;
 export declare function wrapStreamFnTrimToolCallNames(baseFn: StreamFn, allowedToolNames?: Set<string>): StreamFn;
 export declare function decodeHtmlEntitiesInObject(obj: unknown): unknown;
 export declare function resolvePromptBuildHookResult(params: {
@@ -60,8 +56,8 @@ export declare function prependSystemPromptAddition(params: {
     systemPrompt: string;
     systemPromptAddition?: string;
 }): string;
-/** Build legacy compaction params passed into context-engine afterTurn hooks. */
-export declare function buildAfterTurnLegacyCompactionParams(params: {
+/** Build runtime context passed into context-engine afterTurn hooks. */
+export declare function buildAfterTurnRuntimeContext(params: {
     attempt: Pick<EmbeddedRunAttemptParams, "sessionKey" | "messageChannel" | "messageProvider" | "agentAccountId" | "config" | "skillsSnapshot" | "senderIsOwner" | "provider" | "modelId" | "thinkLevel" | "reasoningLevel" | "bashElevated" | "extraSystemPrompt" | "ownerNumbers" | "authProfileId">;
     workspaceDir: string;
     agentDir: string;

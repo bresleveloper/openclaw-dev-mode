@@ -1,59 +1,43 @@
-import { c as resolveAgentWorkspaceDir } from "../../run-with-concurrency-C4XHHPgL.js";
+import { G as resolveAgentWorkspaceDir, U as resolveAgentIdByWorkspacePath, k as writeFileWithinRoot } from "../../paths-C-KFRgN3.js";
 import { c as resolveStateDir } from "../../paths-DkxwiA8g.js";
-import { t as createSubsystemLogger } from "../../subsystem-CJA8wzR-.js";
-import { B as resolveAgentIdFromSessionKey } from "../../workspace-CfdKlr4m.js";
-import "../../logger-BbAT83Qh.js";
-import "../../model-selection-CjLMEx1O.js";
+import { t as createSubsystemLogger } from "../../subsystem-CZTbUHS8.js";
+import { U as resolveAgentIdFromSessionKey, q as toAgentStoreSessionKey, rt as parseAgentSessionKey } from "../../workspace-Cd7X7wJE.js";
+import "../../logger-Bza9HxLB.js";
+import { Sn as hasInterSessionUserProvenance } from "../../model-selection-BpzcW6do.js";
 import "../../github-copilot-token-8N63GdbE.js";
-import "../../legacy-names-DOSIC6ex.js";
-import "../../thinking-Da7Taxu9.js";
-import "../../tokens-CkJEWr2h.js";
-import "../../pi-embedded-tyneix3i.js";
-import "../../accounts-DCQcJO-i.js";
-import "../../plugins-DOPwZyoX.js";
-import "../../send-qCGWC5rH.js";
-import "../../send-D6mRwtfl.js";
-import "../../deliver-sIcfvwX1.js";
-import "../../diagnostic-BmKI6wGN.js";
-import "../../accounts-DzbTLw_0.js";
-import "../../image-ops-BIl9UeOZ.js";
-import "../../send-CZfepO8S.js";
-import "../../pi-model-discovery-CU9XMLmy.js";
-import { ft as hasInterSessionUserProvenance } from "../../pi-embedded-helpers-Dxu6LHG0.js";
-import "../../chrome-COZ7YCsN.js";
-import "../../frontmatter-BeGrEokt.js";
-import "../../skills-DNYmQKiw.js";
-import "../../path-alias-guards-DS7ydm_S.js";
-import "../../redact-42EdcDhY.js";
-import "../../errors-Dw6HjS62.js";
-import { c as writeFileWithinRoot } from "../../fs-safe-CemWTMJt.js";
-import "../../proxy-env-B6RCnAA_.js";
-import "../../store-BQSQNPdy.js";
-import "../../accounts-pgrv1Qkh.js";
-import "../../paths-gKA8fewC.js";
-import "../../tool-images-Dg_vf6bo.js";
-import "../../image-CFUHso_v.js";
-import "../../audio-transcription-runner-D_nujbp8.js";
-import "../../fetch-BDmqlILw.js";
-import "../../fetch-guard-C6jQTGKD.js";
-import "../../api-key-rotation-CPMSw0JH.js";
-import "../../proxy-fetch-DByX8_eQ.js";
-import "../../ir-B7_edm9e.js";
-import "../../render-7C7EDC8_.js";
-import "../../target-errors-D3n0_J7n.js";
-import "../../commands-registry-uNn1I6-g.js";
-import "../../skill-commands-HlMtV9zX.js";
-import "../../fetch-CONQGbzL.js";
-import "../../channel-activity-7cAktR86.js";
-import "../../tables-CIrPlCAf.js";
-import "../../send-Dkoovwla.js";
-import "../../outbound-attachment-ui5dnDdq.js";
-import "../../send-BLyCK5gT.js";
-import "../../proxy-BzwL4n0W.js";
-import "../../manager-BNLg4e4F.js";
-import "../../query-expansion-5HLLPGvn.js";
+import "../../boolean-C7Ct_klp.js";
+import "../../proxy-env-D49LgOsT.js";
+import "../../frontmatter-DiMBhUTH.js";
+import "../../send-ox1I6pbQ.js";
+import "../../send-BzLKkzAn.js";
+import "../../pi-embedded-MGT4N4z1.js";
+import "../../tokens-CTHUOebF.js";
+import "../../deliver-XDM__jFI.js";
+import "../../diagnostic-rZ0OYjSM.js";
+import "../../send-FnTPzcyV.js";
+import "../../pi-model-discovery-BGZQWV6P.js";
+import "../../image-DMxFPUco.js";
+import "../../audio-transcription-runner-CVOeTiYX.js";
+import "../../fetch-DaO4TUeC.js";
+import "../../fetch-guard-DYY4RUUK.js";
+import "../../api-key-rotation-CkUVZIcp.js";
+import "../../proxy-fetch-DezimVDd.js";
+import "../../ir-DfvJx2qw.js";
+import "../../render-IRnn-2gt.js";
+import "../../target-errors-pP0_s9tW.js";
+import "../../commands-registry-BMYqONAe.js";
+import "../../fetch-CBrh_wN0.js";
+import "../../skill-commands-DUFMe6HW.js";
+import "../../channel-activity-DeE_Fhy3.js";
+import "../../tables-DY0SjgF4.js";
+import "../../send-DjF720l22.js";
+import "../../outbound-attachment-ClexuZOC.js";
+import "../../send-D31u6Ow9.js";
+import "../../fetch-Db00d9ZI.js";
+import "../../query-expansion-Ccv3NIyX.js";
+import "../../manager-vAfn3tsP.js";
 import { generateSlugViaLLM } from "../../llm-slug-generator.js";
-import { t as resolveHookConfig } from "../../config-Bs6iYHRw.js";
+import { t as resolveHookConfig } from "../../config-B5gP-m1V.js";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -65,6 +49,16 @@ import path from "node:path";
 * Creates a new dated memory file with LLM-generated slug
 */
 const log = createSubsystemLogger("hooks/session-memory");
+function resolveDisplaySessionKey(params) {
+	if (!params.cfg || !params.workspaceDir) return params.sessionKey;
+	const workspaceAgentId = resolveAgentIdByWorkspacePath(params.cfg, params.workspaceDir);
+	const parsed = parseAgentSessionKey(params.sessionKey);
+	if (!workspaceAgentId || !parsed || workspaceAgentId === parsed.agentId) return params.sessionKey;
+	return toAgentStoreSessionKey({
+		agentId: workspaceAgentId,
+		requestKey: parsed.rest
+	});
+}
 /**
 * Read recent messages from session file for slug generation
 */
@@ -144,8 +138,14 @@ const saveSessionToMemory = async (event) => {
 		log.debug("Hook triggered for reset/new command", { action: event.action });
 		const context = event.context || {};
 		const cfg = context.cfg;
+		const contextWorkspaceDir = typeof context.workspaceDir === "string" && context.workspaceDir.trim().length > 0 ? context.workspaceDir : void 0;
 		const agentId = resolveAgentIdFromSessionKey(event.sessionKey);
-		const workspaceDir = cfg ? resolveAgentWorkspaceDir(cfg, agentId) : path.join(resolveStateDir(process.env, os.homedir), "workspace");
+		const workspaceDir = contextWorkspaceDir || (cfg ? resolveAgentWorkspaceDir(cfg, agentId) : path.join(resolveStateDir(process.env, os.homedir), "workspace"));
+		const displaySessionKey = resolveDisplaySessionKey({
+			cfg,
+			workspaceDir: contextWorkspaceDir,
+			sessionKey: event.sessionKey
+		});
 		const memoryDir = path.join(workspaceDir, "memory");
 		await fs.mkdir(memoryDir, { recursive: true });
 		const now = new Date(event.timestamp);
@@ -211,7 +211,7 @@ const saveSessionToMemory = async (event) => {
 		const entryParts = [
 			`# Session: ${dateStr} ${timeStr} UTC`,
 			"",
-			`- **Session Key**: ${event.sessionKey}`,
+			`- **Session Key**: ${displaySessionKey}`,
 			`- **Session ID**: ${sessionId}`,
 			`- **Source**: ${source}`,
 			""

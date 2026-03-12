@@ -26,10 +26,20 @@ export type ResolvedAgentRoute = {
     sessionKey: string;
     /** Convenience alias for direct-chat collapse. */
     mainSessionKey: string;
+    /** Which session should receive inbound last-route updates. */
+    lastRoutePolicy: "main" | "session";
     /** Match description for debugging/logging. */
     matchedBy: "binding.peer" | "binding.peer.parent" | "binding.guild+roles" | "binding.guild" | "binding.team" | "binding.account" | "binding.channel" | "default";
 };
 export { DEFAULT_ACCOUNT_ID, DEFAULT_AGENT_ID } from "./session-key.js";
+export declare function deriveLastRoutePolicy(params: {
+    sessionKey: string;
+    mainSessionKey: string;
+}): ResolvedAgentRoute["lastRoutePolicy"];
+export declare function resolveInboundLastRouteSessionKey(params: {
+    route: Pick<ResolvedAgentRoute, "lastRoutePolicy" | "mainSessionKey">;
+    sessionKey: string;
+}): string;
 export declare function buildAgentSessionKey(params: {
     agentId: string;
     channel: string;

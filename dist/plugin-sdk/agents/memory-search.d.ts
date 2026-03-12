@@ -1,9 +1,11 @@
 import type { OpenClawConfig } from "../config/config.js";
 import type { SecretInput } from "../config/types.secrets.js";
+import { type MemoryMultimodalSettings } from "../memory/multimodal.js";
 export type ResolvedMemorySearchConfig = {
     enabled: boolean;
     sources: Array<"memory" | "sessions">;
     extraPaths: string[];
+    multimodal: MemoryMultimodalSettings;
     provider: "openai" | "local" | "gemini" | "voyage" | "mistral" | "ollama" | "auto";
     remote?: {
         baseUrl?: string;
@@ -22,6 +24,7 @@ export type ResolvedMemorySearchConfig = {
     };
     fallback: "openai" | "gemini" | "local" | "voyage" | "mistral" | "ollama" | "none";
     model: string;
+    outputDimensionality?: number;
     local: {
         modelPath?: string;
         modelCacheDir?: string;

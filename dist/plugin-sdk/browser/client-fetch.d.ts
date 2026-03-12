@@ -11,6 +11,7 @@ declare function withLoopbackBrowserAuthImpl(url: string, init: (RequestInit & {
 }) | undefined, deps: LoopbackBrowserAuthDeps): RequestInit & {
     timeoutMs?: number;
 };
+export declare function resolveBrowserRateLimitMessage(url: string): string;
 export declare function fetchBrowserJson<T>(url: string, init?: RequestInit & {
     timeoutMs?: number;
 }): Promise<T>;

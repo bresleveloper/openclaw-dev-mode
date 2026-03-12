@@ -1,4 +1,5 @@
 import type { OpenClawConfig } from "../../config/config.js";
+import { looksLikeSessionId } from "../../sessions/session-id.js";
 export declare function resolveMainSessionAlias(cfg: OpenClawConfig): {
     mainKey: string;
     alias: string;
@@ -36,7 +37,7 @@ export declare function isResolvedSessionVisibleToRequester(params: {
     resolvedViaSessionId: boolean;
     limit?: number;
 }): Promise<boolean>;
-export declare function looksLikeSessionId(value: string): boolean;
+export { looksLikeSessionId };
 export declare function looksLikeSessionKey(value: string): boolean;
 export declare function shouldResolveSessionIdInput(value: string): boolean;
 export type SessionReferenceResolution = {

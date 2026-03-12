@@ -2,7 +2,7 @@
 import { H as isRootVersionInvocation, V as isRootHelpInvocation, z as hasHelpOrVersion } from "./globals-DtwqVhkV.js";
 import { y as resolveRequiredHomeDir } from "./paths-BfR2LXbA.js";
 import { t as isValidProfileName } from "./profile-utils-BLR70_pd.js";
-import { t as createSubsystemLogger } from "./subsystem-D-lLN9nd.js";
+import { t as createSubsystemLogger } from "./subsystem-CkDRqDzV.js";
 import { t as parseBooleanValue } from "./boolean-DTgd5CzD.js";
 import { enableCompileCache } from "node:module";
 import { spawn } from "node:child_process";
@@ -207,6 +207,19 @@ function isMainModule({ currentFile, argv = process.argv, env = process.env, cwd
 	return false;
 }
 //#endregion
+//#region src/infra/openclaw-exec-env.ts
+const OPENCLAW_CLI_ENV_VAR = "OPENCLAW_CLI";
+function markOpenClawExecEnv(env) {
+	return {
+		...env,
+		[OPENCLAW_CLI_ENV_VAR]: "1"
+	};
+}
+function ensureOpenClawExecMarkerOnProcess(env = process.env) {
+	env[OPENCLAW_CLI_ENV_VAR] = "1";
+	return env;
+}
+//#endregion
 //#region src/infra/warning-filter.ts
 const warningFilterKey = Symbol.for("openclaw.warning-filter");
 function shouldIgnoreWarning(warning) {
@@ -305,6 +318,7 @@ if (!isMainModule({
 	wrapperEntryPairs: [...ENTRY_WRAPPER_PAIRS]
 })) {} else {
 	process$1.title = "openclaw";
+	ensureOpenClawExecMarkerOnProcess();
 	installProcessWarningFilter();
 	normalizeEnv();
 	if (!isTruthyEnvValue(process$1.env.NODE_DISABLE_COMPILE_CACHE)) try {
@@ -352,8 +366,10 @@ if (!isMainModule({
 	}
 	function tryHandleRootVersionFastPath(argv) {
 		if (!isRootVersionInvocation(argv)) return false;
-		import("./version-Bxx5bg6l.js").then((n) => n.r).then(({ VERSION }) => {
-			console.log(VERSION);
+		Promise.all([import("./version-BvA7WhZA.js").then((n) => n.r), import("./git-commit-BPpI_qkj.js").then((n) => n.t)]).then(([{ VERSION }, { resolveCommitHash }]) => {
+			const commit = resolveCommitHash({ moduleUrl: import.meta.url });
+			console.log(commit ? `OpenClaw ${VERSION} (${commit})` : `OpenClaw ${VERSION}`);
+			process$1.exit(0);
 		}).catch((error) => {
 			console.error("[openclaw] Failed to resolve version:", error instanceof Error ? error.stack ?? error.message : error);
 			process$1.exitCode = 1;
@@ -362,7 +378,7 @@ if (!isMainModule({
 	}
 	function tryHandleRootHelpFastPath(argv) {
 		if (!isRootHelpInvocation(argv)) return false;
-		import("./program-BXL-UnMa.js").then(({ buildProgram }) => {
+		import("./program-82vM6yh-.js").then(({ buildProgram }) => {
 			buildProgram().outputHelp();
 		}).catch((error) => {
 			console.error("[openclaw] Failed to display help:", error instanceof Error ? error.stack ?? error.message : error);
@@ -381,11 +397,11 @@ if (!isMainModule({
 			applyCliProfileEnv({ profile: parsed.profile });
 			process$1.argv = parsed.argv;
 		}
-		if (!tryHandleRootVersionFastPath(process$1.argv) && !tryHandleRootHelpFastPath(process$1.argv)) import("./run-main-D4jXaPTe.js").then(({ runCli }) => runCli(process$1.argv)).catch((error) => {
+		if (!tryHandleRootVersionFastPath(process$1.argv) && !tryHandleRootHelpFastPath(process$1.argv)) import("./run-main-CH8xRW5D.js").then(({ runCli }) => runCli(process$1.argv)).catch((error) => {
 			console.error("[openclaw] Failed to start CLI:", error instanceof Error ? error.stack ?? error.message : error);
 			process$1.exitCode = 1;
 		});
 	}
 }
 //#endregion
-export { normalizeEnv as a, parseCliProfileArgs as c, logAcceptedEnvOption as i, isMainModule as n, normalizeWindowsArgv as o, isTruthyEnvValue as r, applyCliProfileEnv as s, installProcessWarningFilter as t };
+export { logAcceptedEnvOption as a, applyCliProfileEnv as c, isTruthyEnvValue as i, parseCliProfileArgs as l, markOpenClawExecEnv as n, normalizeEnv as o, isMainModule as r, normalizeWindowsArgv as s, installProcessWarningFilter as t };

@@ -9,3 +9,4 @@ export declare function getMemorySearchManager(params: {
     agentId: string;
     purpose?: "default" | "status";
 }): Promise<MemorySearchManagerResult>;
+export declare function closeAllMemorySearchManagers(): Promise<void>;

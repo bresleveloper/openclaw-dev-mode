@@ -18,7 +18,7 @@ export declare const ACP_INSTALL_USAGE = "Usage: /acp install";
 export declare const ACP_DOCTOR_USAGE = "Usage: /acp doctor";
 export declare const ACP_SESSIONS_USAGE = "Usage: /acp sessions";
 export declare const ACP_STEER_OUTPUT_LIMIT = 800;
-export declare const SESSION_ID_RE: RegExp;
+export { SESSION_ID_RE } from "../../../sessions/session-id.js";
 export type AcpAction = "spawn" | "cancel" | "steer" | "close" | "sessions" | "status" | "set-mode" | "set" | "cwd" | "permissions" | "timeout" | "model" | "reset-options" | "doctor" | "install" | "help";
 export type AcpSpawnThreadMode = "auto" | "here" | "off";
 export type ParsedSpawnInput = {

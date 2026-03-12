@@ -50,25 +50,28 @@ export declare function remove(state: CronServiceState, id: string): Promise<{
     readonly removed: boolean;
 }>;
 export declare function run(state: CronServiceState, id: string, mode?: "due" | "force"): Promise<{
-    ok: boolean;
-    ran: boolean;
-    reason: "already-running";
-    readonly jobId?: undefined;
-    readonly startedAt?: undefined;
-    readonly executionJob?: undefined;
+    ok: true;
+    ran: false;
+    reason: "already-running" | "not-due";
 } | {
-    ok: boolean;
-    ran: boolean;
-    reason: "not-due";
-    readonly jobId?: undefined;
-    readonly startedAt?: undefined;
-    readonly executionJob?: undefined;
-} | {
-    readonly ok: false;
-    readonly ran?: undefined;
+    ok: false;
 } | {
     readonly ok: true;
     readonly ran: true;
+}>;
+export declare function enqueueRun(state: CronServiceState, id: string, mode?: "due" | "force"): Promise<{
+    ok: true;
+    ran: false;
+    reason: "already-running" | "not-due";
+} | {
+    ok: true;
+    runnable: true;
+} | {
+    ok: false;
+} | {
+    readonly ok: true;
+    readonly enqueued: true;
+    readonly runId: string;
 }>;
 export declare function wakeNow(state: CronServiceState, opts: {
     mode: "now" | "next-heartbeat";

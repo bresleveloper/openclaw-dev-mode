@@ -7,22 +7,89 @@ export declare const TalkConfigParamsSchema: import("@sinclair/typebox").TObject
 }>;
 export declare const TalkConfigResultSchema: import("@sinclair/typebox").TObject<{
     config: import("@sinclair/typebox").TObject<{
-        talk: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TObject<{
+        talk: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TUnion<[import("@sinclair/typebox").TObject<{
+            voiceId: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TString>;
+            voiceAliases: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TRecord<import("@sinclair/typebox").TString, import("@sinclair/typebox").TString>>;
+            modelId: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TString>;
+            outputFormat: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TString>;
+            apiKey: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TUnion<[import("@sinclair/typebox").TString, import("@sinclair/typebox").TUnion<[import("@sinclair/typebox").TObject<{
+                source: import("@sinclair/typebox").TLiteral<"env">;
+                provider: import("@sinclair/typebox").TString;
+                id: import("@sinclair/typebox").TString;
+            }>, import("@sinclair/typebox").TObject<{
+                source: import("@sinclair/typebox").TLiteral<"file">;
+                provider: import("@sinclair/typebox").TString;
+                id: import("@sinclair/typebox").TString;
+            }>, import("@sinclair/typebox").TObject<{
+                source: import("@sinclair/typebox").TLiteral<"exec">;
+                provider: import("@sinclair/typebox").TString;
+                id: import("@sinclair/typebox").TString;
+            }>]>]>>;
+            interruptOnSpeech: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TBoolean>;
+            silenceTimeoutMs: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TInteger>;
+        }>, import("@sinclair/typebox").TObject<{
             provider: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TString>;
             providers: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TRecord<import("@sinclair/typebox").TString, import("@sinclair/typebox").TObject<{
                 voiceId: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TString>;
                 voiceAliases: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TRecord<import("@sinclair/typebox").TString, import("@sinclair/typebox").TString>>;
                 modelId: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TString>;
                 outputFormat: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TString>;
-                apiKey: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TString>;
+                apiKey: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TUnion<[import("@sinclair/typebox").TString, import("@sinclair/typebox").TUnion<[import("@sinclair/typebox").TObject<{
+                    source: import("@sinclair/typebox").TLiteral<"env">;
+                    provider: import("@sinclair/typebox").TString;
+                    id: import("@sinclair/typebox").TString;
+                }>, import("@sinclair/typebox").TObject<{
+                    source: import("@sinclair/typebox").TLiteral<"file">;
+                    provider: import("@sinclair/typebox").TString;
+                    id: import("@sinclair/typebox").TString;
+                }>, import("@sinclair/typebox").TObject<{
+                    source: import("@sinclair/typebox").TLiteral<"exec">;
+                    provider: import("@sinclair/typebox").TString;
+                    id: import("@sinclair/typebox").TString;
+                }>]>]>>;
             }>>>;
+            resolved: import("@sinclair/typebox").TObject<{
+                provider: import("@sinclair/typebox").TString;
+                config: import("@sinclair/typebox").TObject<{
+                    voiceId: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TString>;
+                    voiceAliases: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TRecord<import("@sinclair/typebox").TString, import("@sinclair/typebox").TString>>;
+                    modelId: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TString>;
+                    outputFormat: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TString>;
+                    apiKey: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TUnion<[import("@sinclair/typebox").TString, import("@sinclair/typebox").TUnion<[import("@sinclair/typebox").TObject<{
+                        source: import("@sinclair/typebox").TLiteral<"env">;
+                        provider: import("@sinclair/typebox").TString;
+                        id: import("@sinclair/typebox").TString;
+                    }>, import("@sinclair/typebox").TObject<{
+                        source: import("@sinclair/typebox").TLiteral<"file">;
+                        provider: import("@sinclair/typebox").TString;
+                        id: import("@sinclair/typebox").TString;
+                    }>, import("@sinclair/typebox").TObject<{
+                        source: import("@sinclair/typebox").TLiteral<"exec">;
+                        provider: import("@sinclair/typebox").TString;
+                        id: import("@sinclair/typebox").TString;
+                    }>]>]>>;
+                }>;
+            }>;
             voiceId: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TString>;
             voiceAliases: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TRecord<import("@sinclair/typebox").TString, import("@sinclair/typebox").TString>>;
             modelId: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TString>;
             outputFormat: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TString>;
-            apiKey: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TString>;
+            apiKey: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TUnion<[import("@sinclair/typebox").TString, import("@sinclair/typebox").TUnion<[import("@sinclair/typebox").TObject<{
+                source: import("@sinclair/typebox").TLiteral<"env">;
+                provider: import("@sinclair/typebox").TString;
+                id: import("@sinclair/typebox").TString;
+            }>, import("@sinclair/typebox").TObject<{
+                source: import("@sinclair/typebox").TLiteral<"file">;
+                provider: import("@sinclair/typebox").TString;
+                id: import("@sinclair/typebox").TString;
+            }>, import("@sinclair/typebox").TObject<{
+                source: import("@sinclair/typebox").TLiteral<"exec">;
+                provider: import("@sinclair/typebox").TString;
+                id: import("@sinclair/typebox").TString;
+            }>]>]>>;
             interruptOnSpeech: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TBoolean>;
-        }>>;
+            silenceTimeoutMs: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TInteger>;
+        }>]>>;
         session: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TObject<{
             mainKey: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TString>;
         }>>;

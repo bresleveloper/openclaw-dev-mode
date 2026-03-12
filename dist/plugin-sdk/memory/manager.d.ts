@@ -5,6 +5,7 @@ import type { OpenClawConfig } from "../config/config.js";
 import { type EmbeddingProvider, type GeminiEmbeddingClient, type MistralEmbeddingClient, type OllamaEmbeddingClient, type OpenAiEmbeddingClient, type VoyageEmbeddingClient } from "./embeddings.js";
 import { MemoryManagerEmbeddingOps } from "./manager-embedding-ops.js";
 import type { MemoryEmbeddingProbeResult, MemoryProviderStatus, MemorySearchManager, MemorySearchResult, MemorySource, MemorySyncProgressUpdate } from "./types.js";
+export declare function closeAllMemoryIndexManagers(): Promise<void>;
 export declare class MemoryIndexManager extends MemoryManagerEmbeddingOps implements MemorySearchManager {
     private readonly cacheKey;
     protected readonly cfg: OpenClawConfig;

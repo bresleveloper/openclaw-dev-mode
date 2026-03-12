@@ -1,0 +1,13 @@
+import "./paths-BPFh8Kvv.js";
+import "./paths-DinMprTu.js";
+import "./logger-J22gODrQ.js";
+import "./model-auth-RrhBttaV.js";
+import "./proxy-env-Di_Io86L.js";
+import "./github-copilot-token-CHD9No4C.js";
+import "./fetch-guard-8bPXIYJU.js";
+import "./local-roots-mc__9cOJ.js";
+import "./ir-DGWx-OAQ.js";
+import { t as sendMessageSignal } from "./send-CoF0OW0j.js";
+import "./outbound-attachment-D9My4cAS.js";
+import "./fetch-DdpSxwwg.js";
+export { sendMessageSignal };

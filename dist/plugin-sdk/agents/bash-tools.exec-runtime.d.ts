@@ -47,6 +47,15 @@ export declare function renderExecHostLabel(host: ExecHost): "sandbox" | "gatewa
 export declare function normalizeNotifyOutput(value: string): string;
 export declare function applyShellPath(env: Record<string, string>, shellPath?: string | null): void;
 export declare function createApprovalSlug(id: string): string;
+export declare function buildApprovalPendingMessage(params: {
+    warningText?: string;
+    approvalSlug: string;
+    approvalId: string;
+    command: string;
+    cwd: string;
+    host: "gateway" | "node";
+    nodeId?: string;
+}): string;
 export declare function resolveApprovalRunningNoticeMs(value?: number): number;
 export declare function emitExecSystemEvent(text: string, opts: {
     sessionKey?: string;

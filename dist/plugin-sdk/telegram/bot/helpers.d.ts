@@ -103,6 +103,11 @@ export declare function buildSenderName(msg: Message): string | undefined;
 export declare function resolveTelegramMediaPlaceholder(msg: Pick<Message, "photo" | "video" | "video_note" | "audio" | "voice" | "document" | "sticker"> | undefined | null): string | undefined;
 export declare function buildSenderLabel(msg: Message, senderId?: number | string): string;
 export declare function buildGroupLabel(msg: Message, chatId: number | string, messageThreadId?: number): string;
+export type TelegramTextEntity = NonNullable<Message["entities"]>[number];
+export declare function getTelegramTextParts(msg: Pick<Message, "text" | "caption" | "entities" | "caption_entities">): {
+    text: string;
+    entities: TelegramTextEntity[];
+};
 export declare function hasBotMention(msg: Message, botUsername: string): boolean;
 type TelegramTextLinkEntity = {
     type: string;

@@ -4,7 +4,7 @@ import { optimizeImageToPng } from "../media/image-ops.js";
 export type WebMediaResult = {
     buffer: Buffer;
     contentType?: string;
-    kind: MediaKind;
+    kind: MediaKind | undefined;
     fileName?: string;
 };
 type WebMediaOptions = {

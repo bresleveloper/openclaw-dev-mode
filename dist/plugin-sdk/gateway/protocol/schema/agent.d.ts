@@ -89,6 +89,7 @@ export declare const AgentParamsSchema: import("@sinclair/typebox").TObject<{
     }>>>;
     inputProvenance: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TObject<{
         kind: import("@sinclair/typebox").TString;
+        originSessionId: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TString>;
         sourceSessionKey: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TString>;
         sourceChannel: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TString>;
         sourceTool: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TString>;
@@ -96,6 +97,7 @@ export declare const AgentParamsSchema: import("@sinclair/typebox").TObject<{
     idempotencyKey: import("@sinclair/typebox").TString;
     label: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TString>;
     spawnedBy: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TString>;
+    workspaceDir: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TString>;
 }>;
 export declare const AgentIdentityParamsSchema: import("@sinclair/typebox").TObject<{
     agentId: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TString>;

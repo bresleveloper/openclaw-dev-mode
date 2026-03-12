@@ -2,127 +2,101 @@
 import "./paths-BJV7vkaX.js";
 import { F as hasFlag, I as hasHelpOrVersion, L as hasRootVersionAlias, M as getCommandPathWithRootOptions, O as tryParseLogLevel, P as getVerboseFlag, T as ALLOWED_LOG_LEVELS, c as setVerbose, m as theme, p as isRich, r as isDevMode } from "./globals-BozXJ-QJ.js";
 import { T as toWhatsappJid, l as escapeRegExp, m as normalizeE164, n as assertWebChannel } from "./utils-BzWe_IKB.js";
-import "./thinking-BYwvlJ3S.js";
-import { Rt as resolveCommitHash, rn as createDefaultDeps, t as getReplyFromConfig } from "./reply-CLjug3BF.js";
-import "./agent-scope-BJ-A8vSB.js";
-import { d as defaultRuntime, l as visibleWidth, r as enableConsoleCapture } from "./subsystem-DEHxNIeh.js";
-import "./openclaw-root-pxEnyCPl.js";
-import "./logger-CybQ0xau.js";
-import { n as runExec, t as runCommandWithTimeout } from "./exec-BpxsjP05.js";
-import { in as loadConfig, si as loadDotEnv, ti as VERSION } from "./model-selection-CX4C7NZp.js";
-import "./github-copilot-token-BQoM_VEX.js";
-import { n as replaceCliName, r as resolveCliName } from "./command-format-76HdMaIV.js";
-import "./boolean-D8Ha5nYV.js";
-import { r as normalizeEnv, t as isTruthyEnvValue } from "./env-ZTsIDHVm.js";
-import "./host-env-security-8lfqCQOD.js";
-import "./runtime-overrides-CzZbXh6c.js";
-import "./registry-CAMKAMjq.js";
-import "./manifest-registry-CWvKZnOp.js";
-import "./dock-Comp2gJ6.js";
-import "./message-channel-DQep2kbh.js";
-import "./send-wAjeRso3.js";
-import "./plugins-C0pOwMtf.js";
-import { H as resolveSessionKey, V as deriveSessionKey, d as saveSessionStore, s as loadSessionStore } from "./sessions-HiopsrVS.js";
-import { l as installUnhandledRejectionHandler, v as applyTemplate } from "./audio-transcription-runner-D-V7O4fK.js";
-import "./image-C-Zw0oaM.js";
-import "./models-config-BEpJKGMR.js";
-import "./pi-embedded-helpers-CVA4fQUQ.js";
-import "./sandbox-CoGpmvXW.js";
-import "./tool-catalog-DE9Q8xiB.js";
-import "./chrome-tXGLEhE5.js";
-import { l as ensureBinary, u as promptYesNo } from "./tailscale-Cb--SHEE.js";
-import "./tailnet-CjKuOt5U.js";
-import "./ws-BeoXlzsZ.js";
-import "./auth-32YLiXaF.js";
-import "./server-context-CpZq_krd.js";
-import "./frontmatter-BNgDHC-E.js";
-import "./env-overrides-Dsk7pgN4.js";
-import "./path-alias-guards-C7fuvY3a.js";
-import "./skills-C12GSy0o.js";
-import "./paths-Ds-H_wj4.js";
-import "./redact-BuHVrHGi.js";
-import { i as formatUncaughtError } from "./errors-lgWRdCyT.js";
-import "./fs-safe-ByGe0qYX.js";
-import "./proxy-env-Ce3yMsLG.js";
-import "./image-ops-CVsEAuQZ.js";
-import "./store-BCGAnbcB.js";
-import { i as handlePortError, n as describePortOwner, r as ensurePortAvailable, t as PortInUseError } from "./ports-BFNjqMt6.js";
-import "./trash-kZ6uvO8p.js";
-import "./server-middleware-Cel4wU9c.js";
-import "./accounts-82c5Tbng.js";
-import "./accounts-CvmhVLij.js";
-import "./logging-T8IDvLh2.js";
-import "./accounts-CoSHDMaf.js";
-import "./send-DTPMdtCD.js";
-import { c as resolveStorePath } from "./paths-CrgdtCHd.js";
-import "./chat-envelope-DyXtQzoD.js";
-import "./tool-images-BkNIdbzz.js";
-import "./tool-display-C6selhgh.js";
-import "./fetch-guard-NL9A0Guz.js";
-import "./api-key-rotation-DwF99nSy.js";
-import "./local-roots-C8vp-IWv.js";
-import "./model-catalog-W6R6I2rN.js";
-import "./proxy-fetch-WnO0dYIx.js";
-import "./tokens-B1O6Fibu.js";
-import "./deliver-BdAuZ8ch.js";
-import "./commands-Bf8GhDBS.js";
-import "./commands-registry-BcRgECpc.js";
-import "./client-CaaDgxx2.js";
-import "./call-Ch1eylWu.js";
-import "./pairing-token-BiCaqjaN.js";
-import "./with-timeout-BFfaJzQ8.js";
-import "./diagnostic-CZz9fkS3.js";
-import "./send-gvtxjkVN.js";
-import "./pi-model-discovery-DN1_rbg1.js";
-import "./exec-approvals-allowlist-DMGPrtps.js";
-import "./exec-safe-bin-runtime-policy-C8qGqATK.js";
-import "./ir-DfVgSQsI.js";
-import "./render-DMmq5MTs.js";
-import "./target-errors-BxXAk4rN.js";
-import "./channel-selection-CH-IC7Wc.js";
-import "./plugin-auto-enable-EN1mZ2vU.js";
-import "./send-Q_YARaI5.js";
-import "./outbound-attachment-Z9x6X-hu.js";
-import "./fetch-D56Oi7TD.js";
-import "./delivery-queue-Cb689DYG.js";
-import "./send-BK2IjrDj.js";
-import "./pairing-store-lwllLpUz.js";
-import "./read-only-account-inspect-C0vtmV0V.js";
-import "./channel-activity-BU6JWzbE.js";
-import "./tables-RZo-0M8D.js";
-import "./proxy-i4Vk7UXO.js";
-import "./timeouts-WPVgOKHt.js";
-import "./skill-commands-CrvFkN8J.js";
-import "./workspace-dirs-QH37roq1.js";
-import "./runtime-config-collectors-BgRo9iWt.js";
-import "./command-secret-targets-B22Udz2k.js";
-import "./session-cost-usage-B6JvTk-n.js";
-import "./onboard-helpers-XgRedRg8.js";
-import "./prompt-style-DwgYrBLh.js";
-import "./pairing-labels-CTP_Cum6.js";
-import "./memory-cli-C6trfVLZ.js";
-import "./manager-DhJPwx7R.js";
-import "./query-expansion-DukPwnJT.js";
-import { t as formatDocsLink } from "./links-D4VD_bBP.js";
-import "./cli-utils-dheMMb8l.js";
-import "./help-format-AqVUaAli.js";
-import "./progress-CcxlwGsg.js";
-import "./exec-approvals-Cmf_ppYW.js";
-import "./nodes-screen-DCTx-sg3.js";
-import "./system-run-command-Dz2MJO0p.js";
-import "./server-lifecycle-CN-LjJB7.js";
-import "./stagger-DqGaRx1m.js";
-import { r as waitForever, t as monitorWebChannel } from "./channel-web-DdkgKNeS.js";
-import "./outbound-D7Evm0WN.js";
-import "./session-BdkYkUEY.js";
-import "./login-Dm0tIJIE.js";
-import { t as isMainModule } from "./is-main-BtBKB2vt.js";
-import { t as ensureOpenClawCliOnPath } from "./path-env-BDbDHlwC.js";
-import { t as assertSupportedRuntime } from "./runtime-guard-XHQ65dbS.js";
-import "./ports-1lRNLsLg.js";
-import { i as getCoreCliCommandsWithSubcommands, n as setProgramContext, o as registerProgramCommands, s as getSubCliCommandsWithSubcommands } from "./program-context-DZOV4Dms.js";
-import "./plugin-registry-DCZF5fWX.js";
-import { n as resolveCliChannelOptions } from "./channel-options-D5h4hB0z.js";
+import { Cr as deriveSessionKey, Il as loadDotEnv, No as ensureBinary, Po as promptYesNo, Un as saveSessionStore, Ws as loadConfig, ea as PortInUseError, kl as VERSION, na as ensurePortAvailable, ra as handlePortError, ta as describePortOwner, wr as resolveSessionKey, zn as loadSessionStore } from "./model-selection-BRhJAUKb.js";
+import { cn as resolveCommitHash, q as createDefaultDeps, t as getReplyFromConfig } from "./reply-CCXYDkRB.js";
+import "./agent-scope-Dx6t10xJ.js";
+import { d as visibleWidth, p as defaultRuntime, r as enableConsoleCapture } from "./subsystem-NSiOA8hi.js";
+import "./openclaw-root-BgG4cyU3.js";
+import "./logger-CX3t1bKz.js";
+import { n as runExec, t as runCommandWithTimeout } from "./exec-B1lVds_y.js";
+import "./github-copilot-token-BD0SJwml.js";
+import { n as replaceCliName, r as resolveCliName } from "./command-format-Dl98Vqkn.js";
+import "./boolean-B6zcAynR.js";
+import { r as normalizeEnv, t as isTruthyEnvValue } from "./env-ChlBW8C4.js";
+import "./env-overrides-C_5dHP8H.js";
+import "./runtime-overrides-BlDGW6c7.js";
+import "./registry-Bwq7RDwU.js";
+import "./skills-B5bzQ_n_.js";
+import "./frontmatter-CNhVfaKz.js";
+import "./plugins-7t5A5YJP.js";
+import "./windows-spawn-BAKAvVI9.js";
+import "./redact-DWSz2XT_.js";
+import "./path-alias-guards-CbtFbGMl.js";
+import { i as formatUncaughtError } from "./errors-Cvi_W98b.js";
+import "./send-DSM74Le3.js";
+import "./send-CHdjCxfM.js";
+import { c as resolveStorePath } from "./paths-B3fM69Ic.js";
+import "./chat-envelope-DUjyuML-.js";
+import { S as applyTemplate, l as installUnhandledRejectionHandler } from "./audio-transcription-runner-Co3IGX6I.js";
+import "./image-DQrHnMco.js";
+import "./models-config-SmFayixR.js";
+import "./tool-display-sVkRN5IQ.js";
+import "./fetch-guard-Sa6WT-j-.js";
+import "./api-key-rotation-CxGeWKo4.js";
+import "./local-roots-Dx-W2ctQ.js";
+import "./model-catalog-R9lrAX5y.js";
+import "./proxy-fetch-DHPfZjfB.js";
+import "./tokens-DNNmyytE.js";
+import "./deliver-CBpHrKCR.js";
+import "./commands-DJcqkLzs.js";
+import "./commands-registry-C6-Sw-9S.js";
+import "./call-CGmUC45G.js";
+import "./read-only-account-inspect-BYTbLmn-.js";
+import "./send-plgDSxi2.js";
+import "./pi-model-discovery-DqLk9GdO.js";
+import "./ir-C3NVthTb.js";
+import "./render-BN-UbX-m.js";
+import "./target-errors-ktTxpmqA.js";
+import "./with-timeout-ojFtnVc9.js";
+import "./diagnostic-rsbggqQM.js";
+import "./exec-approvals-allowlist-DIMuKva2.js";
+import "./exec-safe-bin-runtime-policy-oIkOeHmm.js";
+import "./exec-approvals-Dmpxx9a7.js";
+import "./nodes-screen-CSX42i3Y.js";
+import "./restart-Dd1X7N_e.js";
+import "./system-run-command-DM5s0YZ1.js";
+import "./runtime-web-tools-BEc15rYi.js";
+import "./runtime-DfihcdQF.js";
+import "./stagger-BL_zy07S.js";
+import "./channel-selection-BAU5AQsK.js";
+import "./plugin-auto-enable-BBFWfBBL.js";
+import "./send-DWczDrkX.js";
+import "./outbound-attachment-DXEN6iTE.js";
+import "./fetch-C28BvV1J.js";
+import "./delivery-queue-DCGoWKK2.js";
+import "./send-DvXqtbBS.js";
+import "./pairing-store-CREONAb_.js";
+import "./session-cost-usage-Cz5kozNM.js";
+import "./sqlite-Ch5fX2EB.js";
+import "./channel-activity-BIpicHYd.js";
+import "./tables-BmkACGX-.js";
+import "./fetch-CVHFK0bN.js";
+import "./timeouts-DZvg6Pwq.js";
+import "./skill-commands-CLdu5Xk9.js";
+import "./workspace-dirs-DO6iNo4t.js";
+import "./pairing-token-DvXTp71G.js";
+import "./command-secret-targets-CGUoVJF5.js";
+import "./connection-auth-DI-T0p2K.js";
+import "./onboard-helpers-JN2sbVho.js";
+import "./prompt-style-fqsyersP.js";
+import "./pairing-labels-Tl9X9H-7.js";
+import "./memory-cli-BfPK9jaN.js";
+import "./manager-9n5vXmpA.js";
+import { t as formatDocsLink } from "./links-Kt0rFq9G.js";
+import "./cli-utils-B9eWuDii.js";
+import "./help-format-Cj82FtTx.js";
+import "./progress-DFpY5mr6.js";
+import { r as waitForever, t as monitorWebChannel } from "./channel-web-Cc6GLydv.js";
+import "./outbound-DTq7fPS3.js";
+import "./session-DPizSM5T.js";
+import "./login-B8OLo5-7.js";
+import { t as isMainModule } from "./is-main-tUpP1YAY.js";
+import { t as ensureOpenClawCliOnPath } from "./path-env-a4wkwnA4.js";
+import { t as assertSupportedRuntime } from "./runtime-guard-NUIBQgL8.js";
+import "./ports-DzLr8KjI.js";
+import { i as getCoreCliCommandsWithSubcommands, n as setProgramContext, o as registerProgramCommands, s as getSubCliCommandsWithSubcommands } from "./program-context-D9oychJa.js";
+import "./plugin-registry-DnHz3CUU.js";
+import { n as resolveCliChannelOptions } from "./channel-options-CpHWmsDn.js";
 import process$1 from "node:process";
 import { fileURLToPath } from "node:url";
 import { Command, InvalidArgumentError } from "commander";
@@ -429,7 +403,10 @@ function resolveTaglineMode(options) {
 	}
 }
 function formatCliBannerLine(version, options = {}) {
-	const commitLabel = options.commit ?? resolveCommitHash({ env: options.env }) ?? "unknown";
+	const commitLabel = options.commit ?? resolveCommitHash({
+		env: options.env,
+		moduleUrl: import.meta.url
+	}) ?? "unknown";
 	const tagline = pickTagline({
 		...options,
 		mode: resolveTaglineMode(options)
@@ -521,7 +498,8 @@ function configureProgramHelp(program, ctx) {
 		outputError: (str, write) => write(theme.error(str))
 	});
 	if (hasFlag(process.argv, "-V") || hasFlag(process.argv, "--version") || hasRootVersionAlias(process.argv)) {
-		console.log(ctx.programVersion);
+		const commit = resolveCommitHash({ moduleUrl: import.meta.url });
+		console.log(commit ? `OpenClaw ${ctx.programVersion} (${commit})` : `OpenClaw ${ctx.programVersion}`);
 		process.exit(0);
 	}
 	program.addHelpText("beforeAll", () => {
@@ -557,6 +535,7 @@ const PLUGIN_REQUIRED_COMMANDS = new Set([
 	"health"
 ]);
 const CONFIG_GUARD_BYPASS_COMMANDS = new Set([
+	"backup",
 	"doctor",
 	"completion",
 	"secrets"
@@ -572,11 +551,11 @@ function shouldBypassConfigGuard(commandPath) {
 	return false;
 }
 function loadConfigGuardModule() {
-	configGuardModulePromise ??= import("./config-guard-B9wrl-a5.js");
+	configGuardModulePromise ??= import("./config-guard-BUwyoK_c.js");
 	return configGuardModulePromise;
 }
 function loadPluginRegistryModule() {
-	pluginRegistryModulePromise ??= import("./plugin-registry-DCZF5fWX.js").then((n) => n.n);
+	pluginRegistryModulePromise ??= import("./plugin-registry-DnHz3CUU.js").then((n) => n.n);
 	return pluginRegistryModulePromise;
 }
 function getRootCommand(command) {
@@ -607,9 +586,9 @@ function registerPreActionHooks(program, programVersion) {
 		const verbose = getVerboseFlag(argv, { includeDebug: true });
 		setVerbose(verbose);
 		if (isDevMode()) try {
-			const { loadConfig } = await import("./model-selection-CX4C7NZp.js").then((n) => n.Qt);
+			const { loadConfig } = await import("./model-selection-BRhJAUKb.js").then((n) => n.Ls);
 			const cfg = loadConfig();
-			const { setConfigOverride } = await import("./runtime-overrides-CzZbXh6c.js").then((n) => n.i);
+			const { setConfigOverride } = await import("./runtime-overrides-BlDGW6c7.js").then((n) => n.i);
 			const path = await import("node:path");
 			const { fileURLToPath } = await import("node:url");
 			const thisDir = path.dirname(fileURLToPath(import.meta.url));

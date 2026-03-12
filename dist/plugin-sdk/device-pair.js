@@ -587,6 +587,15 @@ theme.warn;
 theme.info;
 theme.error;
 //#endregion
+//#region src/infra/openclaw-exec-env.ts
+const OPENCLAW_CLI_ENV_VAR = "OPENCLAW_CLI";
+function markOpenClawExecEnv(env) {
+	return {
+		...env,
+		[OPENCLAW_CLI_ENV_VAR]: "1"
+	};
+}
+//#endregion
 //#region src/terminal/progress-line.ts
 let activeStream = null;
 function clearActiveProgressLine() {
@@ -620,6 +629,7 @@ const ANSI_SGR_PATTERN = "\\x1b\\[[0-9;]*m";
 const OSC8_PATTERN = "\\x1b\\]8;;.*?\\x1b\\\\|\\x1b\\]8;;\\x1b\\\\";
 new RegExp(ANSI_SGR_PATTERN, "g");
 new RegExp(OSC8_PATTERN, "g");
+typeof Intl !== "undefined" && "Segmenter" in Intl && new Intl.Segmenter(void 0, { granularity: "grapheme" });
 resolveNodeRequireFromMeta(import.meta.url);
 (() => {
 	const getBuiltinModule = process.getBuiltinModule;
@@ -639,6 +649,15 @@ function resolveCommandStdio(params) {
 		"pipe",
 		"pipe"
 	];
+}
+//#endregion
+//#region src/process/windows-command.ts
+function resolveWindowsCommandShim(params) {
+	if ((params.platform ?? process$1.platform) !== "win32") return params.command;
+	const basename = path.basename(params.command).toLowerCase();
+	if (path.extname(basename)) return params.command;
+	if (params.cmdCommands.includes(basename)) return `${params.command}.cmd`;
+	return params.command;
 }
 promisify(execFile);
 const WINDOWS_UNSAFE_CMD_CHARS_RE = /[&|<>^%\r\n]/;
@@ -683,11 +702,10 @@ function resolveNpmArgvForWindows(argv) {
 * are handled by resolveNpmArgvForWindows to avoid spawn EINVAL (no direct .cmd).
 */
 function resolveCommand(command) {
-	if (process$1.platform !== "win32") return command;
-	const basename = path.basename(command).toLowerCase();
-	if (path.extname(basename)) return command;
-	if (["pnpm", "yarn"].includes(basename)) return `${command}.cmd`;
-	return command;
+	return resolveWindowsCommandShim({
+		command,
+		cmdCommands: ["pnpm", "yarn"]
+	});
 }
 function shouldSpawnWithShell(params) {
 	return false;
@@ -710,7 +728,7 @@ function resolveCommandEnv(params) {
 		if (resolvedEnv.NPM_CONFIG_FUND == null) resolvedEnv.NPM_CONFIG_FUND = "false";
 		if (resolvedEnv.npm_config_fund == null) resolvedEnv.npm_config_fund = "false";
 	}
-	return resolvedEnv;
+	return markOpenClawExecEnv(resolvedEnv);
 }
 async function runCommandWithTimeout(argv, optionsOrTimeout) {
 	const options = typeof optionsOrTimeout === "number" ? { timeoutMs: optionsOrTimeout } : optionsOrTimeout;

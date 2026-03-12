@@ -1,5 +1,5 @@
 import type { AgentMessage } from "@mariozechner/pi-agent-core";
-import type { ContextEngine, ContextEngineInfo, AssembleResult, CompactResult, IngestResult } from "./types.js";
+import type { ContextEngine, ContextEngineInfo, AssembleResult, CompactResult, ContextEngineRuntimeContext, IngestResult } from "./types.js";
 /**
  * LegacyContextEngine wraps the existing compaction behavior behind the
  * ContextEngine interface, preserving 100% backward compatibility.
@@ -28,7 +28,7 @@ export declare class LegacyContextEngine implements ContextEngine {
         autoCompactionSummary?: string;
         isHeartbeat?: boolean;
         tokenBudget?: number;
-        legacyCompactionParams?: Record<string, unknown>;
+        runtimeContext?: ContextEngineRuntimeContext;
     }): Promise<void>;
     compact(params: {
         sessionId: string;
@@ -38,7 +38,7 @@ export declare class LegacyContextEngine implements ContextEngine {
         currentTokenCount?: number;
         compactionTarget?: "budget" | "threshold";
         customInstructions?: string;
-        legacyParams?: Record<string, unknown>;
+        runtimeContext?: ContextEngineRuntimeContext;
     }): Promise<CompactResult>;
     dispose(): Promise<void>;
 }

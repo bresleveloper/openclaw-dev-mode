@@ -58,4 +58,6 @@ export declare function resolveEffectiveModelFallbacks(params: {
     hasSessionModelOverride: boolean;
 }): string[] | undefined;
 export declare function resolveAgentWorkspaceDir(cfg: OpenClawConfig, agentId: string): string;
+export declare function resolveAgentIdsByWorkspacePath(cfg: OpenClawConfig, workspacePath: string): string[];
+export declare function resolveAgentIdByWorkspacePath(cfg: OpenClawConfig, workspacePath: string): string | undefined;
 export declare function resolveAgentDir(cfg: OpenClawConfig, agentId: string): string;

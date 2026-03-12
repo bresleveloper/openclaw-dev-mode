@@ -1,4 +1,5 @@
 import type { WebhookEvent } from "@line/bot-sdk";
+import { type HistoryEntry } from "../auto-reply/reply/history.js";
 import type { OpenClawConfig } from "../config/config.js";
 import type { RuntimeEnv } from "../runtime.js";
 import { type LineInboundContext } from "./bot-message-context.js";
@@ -10,6 +11,8 @@ export interface LineHandlerContext {
     mediaMaxBytes: number;
     processMessage: (ctx: LineInboundContext) => Promise<void>;
     replayCache?: LineWebhookReplayCache;
+    groupHistories?: Map<string, HistoryEntry[]>;
+    historyLimit?: number;
 }
 export type LineWebhookReplayCache = {
     seenEvents: Map<string, number>;

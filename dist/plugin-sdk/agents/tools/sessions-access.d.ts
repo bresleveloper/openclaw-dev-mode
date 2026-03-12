@@ -5,7 +5,7 @@ export type AgentToAgentPolicy = {
     matchesAllow: (agentId: string) => boolean;
     isAllowed: (requesterAgentId: string, targetAgentId: string) => boolean;
 };
-export type SessionAccessAction = "history" | "send" | "list";
+export type SessionAccessAction = "history" | "send" | "list" | "status";
 export type SessionAccessResult = {
     allowed: true;
 } | {

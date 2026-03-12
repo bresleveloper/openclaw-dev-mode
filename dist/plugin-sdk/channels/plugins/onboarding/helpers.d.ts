@@ -47,6 +47,24 @@ export declare function setAccountAllowFromForChannel(params: {
     accountId: string;
     allowFrom: string[];
 }): OpenClawConfig;
+export declare function setTopLevelChannelAllowFrom(params: {
+    cfg: OpenClawConfig;
+    channel: string;
+    allowFrom: string[];
+    enabled?: boolean;
+}): OpenClawConfig;
+export declare function setTopLevelChannelDmPolicyWithAllowFrom(params: {
+    cfg: OpenClawConfig;
+    channel: string;
+    dmPolicy: DmPolicy;
+    getAllowFrom?: (cfg: OpenClawConfig) => Array<string | number> | undefined;
+}): OpenClawConfig;
+export declare function setTopLevelChannelGroupPolicy(params: {
+    cfg: OpenClawConfig;
+    channel: string;
+    groupPolicy: GroupPolicy;
+    enabled?: boolean;
+}): OpenClawConfig;
 export declare function setChannelDmPolicyWithAllowFrom(params: {
     cfg: OpenClawConfig;
     channel: "imessage" | "signal" | "telegram";
@@ -92,6 +110,16 @@ export declare function applySingleTokenPromptResult(params: {
         token: SecretInput | null;
     };
 }): OpenClawConfig;
+export declare function buildSingleChannelSecretPromptState(params: {
+    accountConfigured: boolean;
+    hasConfigToken: boolean;
+    allowEnv: boolean;
+    envValue?: string;
+}): {
+    accountConfigured: boolean;
+    hasConfigToken: boolean;
+    canUseEnv: boolean;
+};
 export declare function promptSingleChannelToken(params: {
     prompter: Pick<WizardPrompter, "confirm" | "text">;
     accountConfigured: boolean;
@@ -113,6 +141,28 @@ export type SingleChannelSecretInputPromptResult = {
     value: SecretInput;
     resolvedValue: string;
 };
+export declare function runSingleChannelSecretStep(params: {
+    cfg: OpenClawConfig;
+    prompter: Pick<WizardPrompter, "confirm" | "text" | "select" | "note">;
+    providerHint: string;
+    credentialLabel: string;
+    secretInputMode?: "plaintext" | "ref";
+    accountConfigured: boolean;
+    hasConfigToken: boolean;
+    allowEnv: boolean;
+    envValue?: string;
+    envPrompt: string;
+    keepPrompt: string;
+    inputPrompt: string;
+    preferredEnvVar?: string;
+    onMissingConfigured?: () => Promise<void>;
+    applyUseEnv?: (cfg: OpenClawConfig) => OpenClawConfig | Promise<OpenClawConfig>;
+    applySet?: (cfg: OpenClawConfig, value: SecretInput, resolvedValue: string) => OpenClawConfig | Promise<OpenClawConfig>;
+}): Promise<{
+    cfg: OpenClawConfig;
+    action: SingleChannelSecretInputPromptResult["action"];
+    resolvedValue?: string;
+}>;
 export declare function promptSingleChannelSecretInput(params: {
     cfg: OpenClawConfig;
     prompter: Pick<WizardPrompter, "confirm" | "text" | "select" | "note">;

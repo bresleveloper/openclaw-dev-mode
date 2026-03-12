@@ -1,8 +1,9 @@
+import { decodeStrictBase64 } from "./subagent-attachments.js";
 export declare const SUBAGENT_SPAWN_MODES: readonly ["run", "session"];
 export type SpawnSubagentMode = (typeof SUBAGENT_SPAWN_MODES)[number];
 export declare const SUBAGENT_SPAWN_SANDBOX_MODES: readonly ["inherit", "require"];
 export type SpawnSubagentSandboxMode = (typeof SUBAGENT_SPAWN_SANDBOX_MODES)[number];
-export declare function decodeStrictBase64(value: string, maxDecodedBytes: number): Buffer | null;
+export { decodeStrictBase64 };
 export type SpawnSubagentParams = {
     task: string;
     label?: string;
@@ -33,6 +34,8 @@ export type SpawnSubagentContext = {
     agentGroupChannel?: string | null;
     agentGroupSpace?: string | null;
     requesterAgentIdOverride?: string;
+    /** Explicit workspace directory for subagent to inherit (optional). */
+    workspaceDir?: string;
 };
 export declare const SUBAGENT_SPAWN_ACCEPTED_NOTE = "Auto-announce is push-based. After spawning children, do NOT call sessions_list, sessions_history, exec sleep, or any polling tool. Wait for completion events to arrive as user messages, track expected child session keys, and only send your final answer after ALL expected completions arrive. If a child completion event arrives AFTER your final answer, reply ONLY with NO_REPLY.";
 export declare const SUBAGENT_SPAWN_SESSION_ACCEPTED_NOTE = "thread-bound session stays active after this task; continue in-thread for follow-ups.";

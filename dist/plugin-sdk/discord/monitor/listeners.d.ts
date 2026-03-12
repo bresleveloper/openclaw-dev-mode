@@ -31,9 +31,7 @@ export declare class DiscordMessageListener extends MessageCreateListener {
     private handler;
     private logger?;
     private onEvent?;
-    private readonly channelQueue;
-    private readonly listenerTimeoutMs;
-    constructor(handler: DiscordMessageHandler, logger?: Logger | undefined, onEvent?: (() => void) | undefined, options?: {
+    constructor(handler: DiscordMessageHandler, logger?: Logger | undefined, onEvent?: (() => void) | undefined, _options?: {
         timeoutMs?: number;
     });
     handle(data: DiscordMessageEvent, client: Client): Promise<void>;

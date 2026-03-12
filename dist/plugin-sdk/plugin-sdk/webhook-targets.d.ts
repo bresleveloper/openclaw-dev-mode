@@ -1,5 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { registerPluginHttpRoute } from "../plugins/http-registry.js";
+import type { FixedWindowRateLimiter } from "./webhook-memory-guards.js";
+import { type WebhookInFlightLimiter } from "./webhook-request-guards.js";
 export type RegisteredWebhookTarget<T> = {
     target: T;
     unregister: () => void;
@@ -32,6 +34,28 @@ export declare function resolveWebhookTargets<T>(req: IncomingMessage, targetsBy
     path: string;
     targets: T[];
 } | null;
+export declare function withResolvedWebhookRequestPipeline<T>(params: {
+    req: IncomingMessage;
+    res: ServerResponse;
+    targetsByPath: Map<string, T[]>;
+    allowMethods?: readonly string[];
+    rateLimiter?: FixedWindowRateLimiter;
+    rateLimitKey?: string;
+    nowMs?: number;
+    requireJsonContentType?: boolean;
+    inFlightLimiter?: WebhookInFlightLimiter;
+    inFlightKey?: string | ((args: {
+        req: IncomingMessage;
+        path: string;
+        targets: T[];
+    }) => string);
+    inFlightLimitStatusCode?: number;
+    inFlightLimitMessage?: string;
+    handle: (args: {
+        path: string;
+        targets: T[];
+    }) => Promise<boolean | void> | boolean | void;
+}): Promise<boolean>;
 export type WebhookTargetMatchResult<T> = {
     kind: "none";
 } | {

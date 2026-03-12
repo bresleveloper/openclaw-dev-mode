@@ -185,6 +185,17 @@ export declare const ChannelsSchema: z.ZodOptional<z.ZodObject<{
                 all: "all";
             }>>;
         }, z.core.$strict>]>>;
+        execApprovals: z.ZodOptional<z.ZodObject<{
+            enabled: z.ZodOptional<z.ZodBoolean>;
+            approvers: z.ZodOptional<z.ZodArray<z.ZodUnion<readonly [z.ZodString, z.ZodNumber]>>>;
+            agentFilter: z.ZodOptional<z.ZodArray<z.ZodString>>;
+            sessionFilter: z.ZodOptional<z.ZodArray<z.ZodString>>;
+            target: z.ZodOptional<z.ZodEnum<{
+                channel: "channel";
+                dm: "dm";
+                both: "both";
+            }>>;
+        }, z.core.$strict>>;
         markdown: z.ZodOptional<z.ZodObject<{
             tables: z.ZodOptional<z.ZodEnum<{
                 off: "off";
@@ -370,12 +381,15 @@ export declare const ChannelsSchema: z.ZodOptional<z.ZodObject<{
         webhookPath: z.ZodOptional<z.ZodString>;
         webhookHost: z.ZodOptional<z.ZodString>;
         webhookPort: z.ZodOptional<z.ZodNumber>;
+        webhookCertPath: z.ZodOptional<z.ZodString>;
         actions: z.ZodOptional<z.ZodObject<{
             reactions: z.ZodOptional<z.ZodBoolean>;
             sendMessage: z.ZodOptional<z.ZodBoolean>;
             poll: z.ZodOptional<z.ZodBoolean>;
             deleteMessage: z.ZodOptional<z.ZodBoolean>;
+            editMessage: z.ZodOptional<z.ZodBoolean>;
             sticker: z.ZodOptional<z.ZodBoolean>;
+            createForumTopic: z.ZodOptional<z.ZodBoolean>;
         }, z.core.$strict>>;
         threadBindings: z.ZodOptional<z.ZodObject<{
             enabled: z.ZodOptional<z.ZodBoolean>;
@@ -414,6 +428,17 @@ export declare const ChannelsSchema: z.ZodOptional<z.ZodObject<{
                     all: "all";
                 }>>;
             }, z.core.$strict>]>>;
+            execApprovals: z.ZodOptional<z.ZodObject<{
+                enabled: z.ZodOptional<z.ZodBoolean>;
+                approvers: z.ZodOptional<z.ZodArray<z.ZodUnion<readonly [z.ZodString, z.ZodNumber]>>>;
+                agentFilter: z.ZodOptional<z.ZodArray<z.ZodString>>;
+                sessionFilter: z.ZodOptional<z.ZodArray<z.ZodString>>;
+                target: z.ZodOptional<z.ZodEnum<{
+                    channel: "channel";
+                    dm: "dm";
+                    both: "both";
+                }>>;
+            }, z.core.$strict>>;
             markdown: z.ZodOptional<z.ZodObject<{
                 tables: z.ZodOptional<z.ZodEnum<{
                     off: "off";
@@ -599,12 +624,15 @@ export declare const ChannelsSchema: z.ZodOptional<z.ZodObject<{
             webhookPath: z.ZodOptional<z.ZodString>;
             webhookHost: z.ZodOptional<z.ZodString>;
             webhookPort: z.ZodOptional<z.ZodNumber>;
+            webhookCertPath: z.ZodOptional<z.ZodString>;
             actions: z.ZodOptional<z.ZodObject<{
                 reactions: z.ZodOptional<z.ZodBoolean>;
                 sendMessage: z.ZodOptional<z.ZodBoolean>;
                 poll: z.ZodOptional<z.ZodBoolean>;
                 deleteMessage: z.ZodOptional<z.ZodBoolean>;
+                editMessage: z.ZodOptional<z.ZodBoolean>;
                 sticker: z.ZodOptional<z.ZodBoolean>;
+                createForumTopic: z.ZodOptional<z.ZodBoolean>;
             }, z.core.$strict>>;
             threadBindings: z.ZodOptional<z.ZodObject<{
                 enabled: z.ZodOptional<z.ZodBoolean>;
@@ -797,6 +825,12 @@ export declare const ChannelsSchema: z.ZodOptional<z.ZodObject<{
                 systemPrompt: z.ZodOptional<z.ZodString>;
                 includeThreadStarter: z.ZodOptional<z.ZodBoolean>;
                 autoThread: z.ZodOptional<z.ZodBoolean>;
+                autoArchiveDuration: z.ZodOptional<z.ZodUnion<readonly [z.ZodEnum<{
+                    60: "60";
+                    1440: "1440";
+                    4320: "4320";
+                    10080: "10080";
+                }>, z.ZodLiteral<60>, z.ZodLiteral<1440>, z.ZodLiteral<4320>, z.ZodLiteral<10080>]>>;
             }, z.core.$strict>>>>;
         }, z.core.$strict>>>>;
         heartbeat: z.ZodOptional<z.ZodObject<{
@@ -815,6 +849,9 @@ export declare const ChannelsSchema: z.ZodOptional<z.ZodObject<{
                 dm: "dm";
                 both: "both";
             }>>;
+        }, z.core.$strict>>;
+        agentComponents: z.ZodOptional<z.ZodObject<{
+            enabled: z.ZodOptional<z.ZodBoolean>;
         }, z.core.$strict>>;
         ui: z.ZodOptional<z.ZodObject<{
             components: z.ZodOptional<z.ZodObject<{
@@ -920,6 +957,8 @@ export declare const ChannelsSchema: z.ZodOptional<z.ZodObject<{
                     baseUrl: z.ZodOptional<z.ZodString>;
                     model: z.ZodOptional<z.ZodString>;
                     voice: z.ZodOptional<z.ZodString>;
+                    speed: z.ZodOptional<z.ZodNumber>;
+                    instructions: z.ZodOptional<z.ZodString>;
                 }, z.core.$strict>>;
                 edge: z.ZodOptional<z.ZodObject<{
                     enabled: z.ZodOptional<z.ZodBoolean>;
@@ -1151,6 +1190,12 @@ export declare const ChannelsSchema: z.ZodOptional<z.ZodObject<{
                     systemPrompt: z.ZodOptional<z.ZodString>;
                     includeThreadStarter: z.ZodOptional<z.ZodBoolean>;
                     autoThread: z.ZodOptional<z.ZodBoolean>;
+                    autoArchiveDuration: z.ZodOptional<z.ZodUnion<readonly [z.ZodEnum<{
+                        60: "60";
+                        1440: "1440";
+                        4320: "4320";
+                        10080: "10080";
+                    }>, z.ZodLiteral<60>, z.ZodLiteral<1440>, z.ZodLiteral<4320>, z.ZodLiteral<10080>]>>;
                 }, z.core.$strict>>>>;
             }, z.core.$strict>>>>;
             heartbeat: z.ZodOptional<z.ZodObject<{
@@ -1169,6 +1214,9 @@ export declare const ChannelsSchema: z.ZodOptional<z.ZodObject<{
                     dm: "dm";
                     both: "both";
                 }>>;
+            }, z.core.$strict>>;
+            agentComponents: z.ZodOptional<z.ZodObject<{
+                enabled: z.ZodOptional<z.ZodBoolean>;
             }, z.core.$strict>>;
             ui: z.ZodOptional<z.ZodObject<{
                 components: z.ZodOptional<z.ZodObject<{
@@ -1274,6 +1322,8 @@ export declare const ChannelsSchema: z.ZodOptional<z.ZodObject<{
                         baseUrl: z.ZodOptional<z.ZodString>;
                         model: z.ZodOptional<z.ZodString>;
                         voice: z.ZodOptional<z.ZodString>;
+                        speed: z.ZodOptional<z.ZodNumber>;
+                        instructions: z.ZodOptional<z.ZodString>;
                     }, z.core.$strict>>;
                     edge: z.ZodOptional<z.ZodObject<{
                         enabled: z.ZodOptional<z.ZodBoolean>;
@@ -2174,6 +2224,7 @@ export declare const ChannelsSchema: z.ZodOptional<z.ZodObject<{
         enabled: z.ZodOptional<z.ZodBoolean>;
         configWrites: z.ZodOptional<z.ZodBoolean>;
         account: z.ZodOptional<z.ZodString>;
+        accountUuid: z.ZodOptional<z.ZodString>;
         httpUrl: z.ZodOptional<z.ZodString>;
         httpHost: z.ZodOptional<z.ZodString>;
         httpPort: z.ZodOptional<z.ZodNumber>;
@@ -2250,6 +2301,7 @@ export declare const ChannelsSchema: z.ZodOptional<z.ZodObject<{
             enabled: z.ZodOptional<z.ZodBoolean>;
             configWrites: z.ZodOptional<z.ZodBoolean>;
             account: z.ZodOptional<z.ZodString>;
+            accountUuid: z.ZodOptional<z.ZodString>;
             httpUrl: z.ZodOptional<z.ZodString>;
             httpHost: z.ZodOptional<z.ZodString>;
             httpPort: z.ZodOptional<z.ZodNumber>;

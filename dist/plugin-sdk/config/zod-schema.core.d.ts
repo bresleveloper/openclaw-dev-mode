@@ -90,8 +90,8 @@ export declare const ModelApiSchema: z.ZodEnum<{
     "openai-responses": "openai-responses";
     "openai-codex-responses": "openai-codex-responses";
     "anthropic-messages": "anthropic-messages";
-    "google-generative-ai": "google-generative-ai";
     "bedrock-converse-stream": "bedrock-converse-stream";
+    "google-generative-ai": "google-generative-ai";
 }>;
 export declare const ModelCompatSchema: z.ZodOptional<z.ZodObject<{
     supportsStore: z.ZodOptional<z.ZodBoolean>;
@@ -106,6 +106,7 @@ export declare const ModelCompatSchema: z.ZodOptional<z.ZodObject<{
     requiresAssistantAfterToolResult: z.ZodOptional<z.ZodBoolean>;
     requiresThinkingAsText: z.ZodOptional<z.ZodBoolean>;
     requiresMistralToolIds: z.ZodOptional<z.ZodBoolean>;
+    requiresOpenAiAnthropicToolPayload: z.ZodOptional<z.ZodBoolean>;
 }, z.core.$strict>>;
 export declare const ModelDefinitionSchema: z.ZodObject<{
     id: z.ZodString;
@@ -117,8 +118,8 @@ export declare const ModelDefinitionSchema: z.ZodObject<{
         "openai-responses": "openai-responses";
         "openai-codex-responses": "openai-codex-responses";
         "anthropic-messages": "anthropic-messages";
-        "google-generative-ai": "google-generative-ai";
         "bedrock-converse-stream": "bedrock-converse-stream";
+        "google-generative-ai": "google-generative-ai";
     }>>;
     reasoning: z.ZodOptional<z.ZodBoolean>;
     input: z.ZodOptional<z.ZodArray<z.ZodUnion<readonly [z.ZodLiteral<"text">, z.ZodLiteral<"image">]>>>;
@@ -144,6 +145,7 @@ export declare const ModelDefinitionSchema: z.ZodObject<{
         requiresAssistantAfterToolResult: z.ZodOptional<z.ZodBoolean>;
         requiresThinkingAsText: z.ZodOptional<z.ZodBoolean>;
         requiresMistralToolIds: z.ZodOptional<z.ZodBoolean>;
+        requiresOpenAiAnthropicToolPayload: z.ZodOptional<z.ZodBoolean>;
     }, z.core.$strict>>;
 }, z.core.$strict>;
 export declare const ModelProviderSchema: z.ZodObject<{
@@ -169,8 +171,8 @@ export declare const ModelProviderSchema: z.ZodObject<{
         "openai-responses": "openai-responses";
         "openai-codex-responses": "openai-codex-responses";
         "anthropic-messages": "anthropic-messages";
-        "google-generative-ai": "google-generative-ai";
         "bedrock-converse-stream": "bedrock-converse-stream";
+        "google-generative-ai": "google-generative-ai";
     }>>;
     injectNumCtxForOpenAICompat: z.ZodOptional<z.ZodBoolean>;
     headers: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnion<readonly [z.ZodString, z.ZodDiscriminatedUnion<[z.ZodObject<{
@@ -197,8 +199,8 @@ export declare const ModelProviderSchema: z.ZodObject<{
             "openai-responses": "openai-responses";
             "openai-codex-responses": "openai-codex-responses";
             "anthropic-messages": "anthropic-messages";
-            "google-generative-ai": "google-generative-ai";
             "bedrock-converse-stream": "bedrock-converse-stream";
+            "google-generative-ai": "google-generative-ai";
         }>>;
         reasoning: z.ZodOptional<z.ZodBoolean>;
         input: z.ZodOptional<z.ZodArray<z.ZodUnion<readonly [z.ZodLiteral<"text">, z.ZodLiteral<"image">]>>>;
@@ -224,6 +226,7 @@ export declare const ModelProviderSchema: z.ZodObject<{
             requiresAssistantAfterToolResult: z.ZodOptional<z.ZodBoolean>;
             requiresThinkingAsText: z.ZodOptional<z.ZodBoolean>;
             requiresMistralToolIds: z.ZodOptional<z.ZodBoolean>;
+            requiresOpenAiAnthropicToolPayload: z.ZodOptional<z.ZodBoolean>;
         }, z.core.$strict>>;
     }, z.core.$strict>>;
 }, z.core.$strict>;
@@ -260,8 +263,8 @@ export declare const ModelsConfigSchema: z.ZodOptional<z.ZodObject<{
             "openai-responses": "openai-responses";
             "openai-codex-responses": "openai-codex-responses";
             "anthropic-messages": "anthropic-messages";
-            "google-generative-ai": "google-generative-ai";
             "bedrock-converse-stream": "bedrock-converse-stream";
+            "google-generative-ai": "google-generative-ai";
         }>>;
         injectNumCtxForOpenAICompat: z.ZodOptional<z.ZodBoolean>;
         headers: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnion<readonly [z.ZodString, z.ZodDiscriminatedUnion<[z.ZodObject<{
@@ -288,8 +291,8 @@ export declare const ModelsConfigSchema: z.ZodOptional<z.ZodObject<{
                 "openai-responses": "openai-responses";
                 "openai-codex-responses": "openai-codex-responses";
                 "anthropic-messages": "anthropic-messages";
-                "google-generative-ai": "google-generative-ai";
                 "bedrock-converse-stream": "bedrock-converse-stream";
+                "google-generative-ai": "google-generative-ai";
             }>>;
             reasoning: z.ZodOptional<z.ZodBoolean>;
             input: z.ZodOptional<z.ZodArray<z.ZodUnion<readonly [z.ZodLiteral<"text">, z.ZodLiteral<"image">]>>>;
@@ -315,6 +318,7 @@ export declare const ModelsConfigSchema: z.ZodOptional<z.ZodObject<{
                 requiresAssistantAfterToolResult: z.ZodOptional<z.ZodBoolean>;
                 requiresThinkingAsText: z.ZodOptional<z.ZodBoolean>;
                 requiresMistralToolIds: z.ZodOptional<z.ZodBoolean>;
+                requiresOpenAiAnthropicToolPayload: z.ZodOptional<z.ZodBoolean>;
             }, z.core.$strict>>;
         }, z.core.$strict>>;
     }, z.core.$strict>>>;
@@ -489,6 +493,8 @@ export declare const TtsConfigSchema: z.ZodOptional<z.ZodObject<{
         baseUrl: z.ZodOptional<z.ZodString>;
         model: z.ZodOptional<z.ZodString>;
         voice: z.ZodOptional<z.ZodString>;
+        speed: z.ZodOptional<z.ZodNumber>;
+        instructions: z.ZodOptional<z.ZodString>;
     }, z.core.$strict>>;
     edge: z.ZodOptional<z.ZodObject<{
         enabled: z.ZodOptional<z.ZodBoolean>;

@@ -1,13 +1,40 @@
 import type { OpenClawConfig } from "../../config/config.js";
+import type { RuntimeWebSearchMetadata } from "../../secrets/runtime-web-tools.js";
 import type { AnyAgentTool } from "./common.js";
 import { resolveCitationRedirectUrl } from "./web-search-citation-redirect.js";
 import { CacheEntry } from "./web-shared.js";
-declare const SEARCH_PROVIDERS: readonly ["brave", "perplexity", "grok", "gemini", "kimi"];
+declare const SEARCH_PROVIDERS: readonly ["brave", "gemini", "grok", "kimi", "perplexity"];
 declare function isoToPerplexityDate(iso: string): string | undefined;
 declare function normalizeToIsoDate(value: string): string | undefined;
 type WebSearchConfig = NonNullable<OpenClawConfig["tools"]>["web"] extends infer Web ? Web extends {
     search?: infer Search;
 } ? Search : undefined : undefined;
+type BraveLlmContextResult = {
+    url: string;
+    title: string;
+    snippets: string[];
+};
+type BraveLlmContextResponse = {
+    grounding: {
+        generic?: BraveLlmContextResult[];
+    };
+    sources?: {
+        url?: string;
+        hostname?: string;
+        date?: string;
+    }[];
+};
+type BraveConfig = {
+    mode?: string;
+};
+type PerplexityConfig = {
+    apiKey?: string;
+    baseUrl?: string;
+    model?: string;
+};
+type PerplexityApiKeySource = "config" | "perplexity_env" | "openrouter_env" | "none";
+type PerplexityTransport = "search_api" | "chat_completions";
+type PerplexityBaseUrlHint = "direct" | "openrouter";
 type GrokConfig = {
     apiKey?: string;
     model?: string;
@@ -78,6 +105,24 @@ declare function extractGrokContent(data: GrokSearchResponse): {
     annotationCitations: string[];
 };
 declare function resolveSearchProvider(search?: WebSearchConfig): (typeof SEARCH_PROVIDERS)[number];
+declare function resolveBraveMode(brave: BraveConfig): "web" | "llm-context";
+declare function resolvePerplexityApiKey(perplexity?: PerplexityConfig): {
+    apiKey?: string;
+    source: PerplexityApiKeySource;
+};
+declare function inferPerplexityBaseUrlFromApiKey(apiKey?: string): PerplexityBaseUrlHint | undefined;
+declare function resolvePerplexityBaseUrl(perplexity?: PerplexityConfig, authSource?: PerplexityApiKeySource, // pragma: allowlist secret
+configuredKey?: string): string;
+declare function resolvePerplexityModel(perplexity?: PerplexityConfig): string;
+declare function isDirectPerplexityBaseUrl(baseUrl: string): boolean;
+declare function resolvePerplexityRequestModel(baseUrl: string, model: string): string;
+declare function resolvePerplexityTransport(perplexity?: PerplexityConfig): {
+    apiKey?: string;
+    source: PerplexityApiKeySource;
+    baseUrl: string;
+    model: string;
+    transport: PerplexityTransport;
+};
 declare function resolveGrokApiKey(grok?: GrokConfig): string | undefined;
 declare function resolveGrokModel(grok?: GrokConfig): string;
 declare function resolveGrokInlineCitations(grok?: GrokConfig): boolean;
@@ -99,12 +144,26 @@ declare function normalizeBraveLanguageParams(params: {
  */
 declare function normalizeFreshness(value: string | undefined, provider: (typeof SEARCH_PROVIDERS)[number]): string | undefined;
 declare function extractKimiCitations(data: KimiSearchResponse): string[];
+declare function mapBraveLlmContextResults(data: BraveLlmContextResponse): {
+    url: string;
+    title: string;
+    snippets: string[];
+    siteName?: string;
+}[];
 export declare function createWebSearchTool(options?: {
     config?: OpenClawConfig;
     sandboxed?: boolean;
+    runtimeWebSearch?: RuntimeWebSearchMetadata;
 }): AnyAgentTool | null;
 export declare const __testing: {
     readonly resolveSearchProvider: typeof resolveSearchProvider;
+    readonly inferPerplexityBaseUrlFromApiKey: typeof inferPerplexityBaseUrlFromApiKey;
+    readonly resolvePerplexityBaseUrl: typeof resolvePerplexityBaseUrl;
+    readonly resolvePerplexityModel: typeof resolvePerplexityModel;
+    readonly resolvePerplexityTransport: typeof resolvePerplexityTransport;
+    readonly isDirectPerplexityBaseUrl: typeof isDirectPerplexityBaseUrl;
+    readonly resolvePerplexityRequestModel: typeof resolvePerplexityRequestModel;
+    readonly resolvePerplexityApiKey: typeof resolvePerplexityApiKey;
     readonly normalizeBraveLanguageParams: typeof normalizeBraveLanguageParams;
     readonly normalizeFreshness: typeof normalizeFreshness;
     readonly normalizeToIsoDate: typeof normalizeToIsoDate;
@@ -121,5 +180,7 @@ export declare const __testing: {
     readonly resolveKimiBaseUrl: typeof resolveKimiBaseUrl;
     readonly extractKimiCitations: typeof extractKimiCitations;
     readonly resolveRedirectUrl: typeof resolveCitationRedirectUrl;
+    readonly resolveBraveMode: typeof resolveBraveMode;
+    readonly mapBraveLlmContextResults: typeof mapBraveLlmContextResults;
 };
 export {};

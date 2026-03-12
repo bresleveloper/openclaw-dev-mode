@@ -13,6 +13,8 @@ export type HeartbeatWakeHandler = (opts: {
     agentId?: string;
     sessionKey?: string;
 }) => Promise<HeartbeatRunResult>;
+export declare function setHeartbeatsEnabled(enabled: boolean): void;
+export declare function areHeartbeatsEnabled(): boolean;
 /**
  * Register (or clear) the heartbeat wake handler.
  * Returns a disposer function that clears this specific registration.

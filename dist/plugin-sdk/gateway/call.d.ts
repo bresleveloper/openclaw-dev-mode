@@ -1,5 +1,6 @@
 import type { OpenClawConfig } from "../config/config.js";
 import { type GatewayClientMode, type GatewayClientName } from "../utils/message-channel.js";
+import { type GatewayCredentialMode, type GatewayCredentialPrecedence, type GatewayRemoteCredentialFallback, type GatewayRemoteCredentialPrecedence } from "./credentials.js";
 import { type OperatorScope } from "./method-scopes.js";
 type CallGatewayBaseOptions = {
     url?: string;
@@ -65,7 +66,16 @@ export declare function resolveGatewayCredentialsWithSecretInputs(params: {
     config: OpenClawConfig;
     explicitAuth?: ExplicitGatewayAuth;
     urlOverride?: string;
+    urlOverrideSource?: "cli" | "env";
     env?: NodeJS.ProcessEnv;
+    modeOverride?: GatewayCredentialMode;
+    includeLegacyEnv?: boolean;
+    localTokenPrecedence?: GatewayCredentialPrecedence;
+    localPasswordPrecedence?: GatewayCredentialPrecedence;
+    remoteTokenPrecedence?: GatewayRemoteCredentialPrecedence;
+    remotePasswordPrecedence?: GatewayRemoteCredentialPrecedence;
+    remoteTokenFallback?: GatewayRemoteCredentialFallback;
+    remotePasswordFallback?: GatewayRemoteCredentialFallback;
 }): Promise<{
     token?: string;
     password?: string;

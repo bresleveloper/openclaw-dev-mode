@@ -21,13 +21,19 @@ export type AcpInitializeSessionInput = {
     sessionKey: string;
     agent: string;
     mode: AcpRuntimeSessionMode;
+    resumeSessionId?: string;
     cwd?: string;
     backendId?: string;
+};
+export type AcpTurnAttachment = {
+    mediaType: string;
+    data: string;
 };
 export type AcpRunTurnInput = {
     cfg: OpenClawConfig;
     sessionKey: string;
     text: string;
+    attachments?: AcpTurnAttachment[];
     mode: AcpRuntimePromptMode;
     requestId: string;
     signal?: AbortSignal;

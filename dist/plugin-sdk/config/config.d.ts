@@ -1,4 +1,4 @@
-export { clearConfigCache, clearRuntimeConfigSnapshot, createConfigIO, getRuntimeConfigSnapshot, getRuntimeConfigSourceSnapshot, loadConfig, parseConfigJson5, readConfigFileSnapshot, readConfigFileSnapshotForWrite, resolveConfigSnapshotHash, setRuntimeConfigSnapshot, writeConfigFile, } from "./io.js";
+export { clearConfigCache, ConfigRuntimeRefreshError, clearRuntimeConfigSnapshot, createConfigIO, getRuntimeConfigSnapshot, getRuntimeConfigSourceSnapshot, projectConfigOntoRuntimeSourceSnapshot, loadConfig, readBestEffortConfig, parseConfigJson5, readConfigFileSnapshot, readConfigFileSnapshotForWrite, resolveConfigSnapshotHash, setRuntimeConfigSnapshotRefreshHandler, setRuntimeConfigSnapshot, writeConfigFile, } from "./io.js";
 export { migrateLegacyConfig } from "./legacy-migrate.js";
 export * from "./paths.js";
 export * from "./runtime-overrides.js";

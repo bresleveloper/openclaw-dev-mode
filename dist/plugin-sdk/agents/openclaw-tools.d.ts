@@ -1,6 +1,7 @@
 import type { OpenClawConfig } from "../config/config.js";
 import type { GatewayMessageChannel } from "../utils/message-channel.js";
 import type { SandboxFsBridge } from "./sandbox/fs-bridge.js";
+import type { SpawnedToolContext } from "./spawned-context.js";
 import type { ToolFsPolicy } from "./tool-fs-policy.js";
 import type { AnyAgentTool } from "./tools/common.js";
 export declare function createOpenClawTools(options?: {
@@ -13,17 +14,10 @@ export declare function createOpenClawTools(options?: {
     agentTo?: string;
     /** Thread/topic identifier for routing replies to the originating thread. */
     agentThreadId?: string | number;
-    /** Group id for channel-level tool policy inheritance. */
-    agentGroupId?: string | null;
-    /** Group channel label for channel-level tool policy inheritance. */
-    agentGroupChannel?: string | null;
-    /** Group space label for channel-level tool policy inheritance. */
-    agentGroupSpace?: string | null;
     agentDir?: string;
     sandboxRoot?: string;
     sandboxFsBridge?: SandboxFsBridge;
     fsPolicy?: ToolFsPolicy;
-    workspaceDir?: string;
     sandboxed?: boolean;
     config?: OpenClawConfig;
     pluginToolAllowlist?: string[];
@@ -55,4 +49,11 @@ export declare function createOpenClawTools(options?: {
     senderIsOwner?: boolean;
     /** Ephemeral session UUID — regenerated on /new and /reset. */
     sessionId?: string;
-}): AnyAgentTool[];
+    /**
+     * Workspace directory to pass to spawned subagents for inheritance.
+     * Defaults to workspaceDir. Use this to pass the actual agent workspace when the
+     * session itself is running in a copied-workspace sandbox (`ro` or `none`) so
+     * subagents inherit the real workspace path instead of the sandbox copy.
+     */
+    spawnWorkspaceDir?: string;
+} & SpawnedToolContext): AnyAgentTool[];

@@ -43,7 +43,15 @@ export declare function ensureQueueDir(stateDir?: string): Promise<string>;
 /** Persist a delivery entry to disk before attempting send. Returns the entry ID. */
 type QueuedDeliveryParams = QueuedDeliveryPayload;
 export declare function enqueueDelivery(params: QueuedDeliveryParams, stateDir?: string): Promise<string>;
-/** Remove a successfully delivered entry from the queue. */
+/** Remove a successfully delivered entry from the queue.
+ *
+ * Uses a two-phase approach so that a crash between delivery and cleanup
+ * does not cause the message to be replayed on the next recovery scan:
+ *   Phase 1: atomic rename  {id}.json → {id}.delivered
+ *   Phase 2: unlink the .delivered marker
+ * If the process dies between phase 1 and phase 2 the marker is cleaned up
+ * by {@link loadPendingDeliveries} on the next startup without re-sending.
+ */
 export declare function ackDelivery(id: string, stateDir?: string): Promise<void>;
 /** Update a queue entry after a failed delivery attempt. */
 export declare function failDelivery(id: string, error: string, stateDir?: string): Promise<void>;

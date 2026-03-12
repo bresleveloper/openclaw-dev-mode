@@ -158,6 +158,9 @@ export declare const ToolsWebSearchSchema: z.ZodOptional<z.ZodObject<{
         baseUrl: z.ZodOptional<z.ZodString>;
         model: z.ZodOptional<z.ZodString>;
     }, z.core.$strict>>;
+    brave: z.ZodOptional<z.ZodObject<{
+        mode: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"web">, z.ZodLiteral<"llm-context">]>>;
+    }, z.core.$strict>>;
 }, z.core.$strict>>;
 export declare const ToolsWebFetchSchema: z.ZodOptional<z.ZodObject<{
     enabled: z.ZodOptional<z.ZodBoolean>;
@@ -254,6 +257,9 @@ export declare const ToolsWebSchema: z.ZodOptional<z.ZodObject<{
             }, z.core.$strict>], "source">]>>;
             baseUrl: z.ZodOptional<z.ZodString>;
             model: z.ZodOptional<z.ZodString>;
+        }, z.core.$strict>>;
+        brave: z.ZodOptional<z.ZodObject<{
+            mode: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"web">, z.ZodLiteral<"llm-context">]>>;
         }, z.core.$strict>>;
     }, z.core.$strict>>;
     fetch: z.ZodOptional<z.ZodObject<{
@@ -410,6 +416,11 @@ export declare const MemorySearchSchema: z.ZodOptional<z.ZodObject<{
     enabled: z.ZodOptional<z.ZodBoolean>;
     sources: z.ZodOptional<z.ZodArray<z.ZodUnion<readonly [z.ZodLiteral<"memory">, z.ZodLiteral<"sessions">]>>>;
     extraPaths: z.ZodOptional<z.ZodArray<z.ZodString>>;
+    multimodal: z.ZodOptional<z.ZodObject<{
+        enabled: z.ZodOptional<z.ZodBoolean>;
+        modalities: z.ZodOptional<z.ZodArray<z.ZodUnion<readonly [z.ZodLiteral<"image">, z.ZodLiteral<"audio">, z.ZodLiteral<"all">]>>>;
+        maxFileBytes: z.ZodOptional<z.ZodNumber>;
+    }, z.core.$strict>>;
     experimental: z.ZodOptional<z.ZodObject<{
         sessionMemory: z.ZodOptional<z.ZodBoolean>;
     }, z.core.$strict>>;
@@ -440,6 +451,7 @@ export declare const MemorySearchSchema: z.ZodOptional<z.ZodObject<{
     }, z.core.$strict>>;
     fallback: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"openai">, z.ZodLiteral<"gemini">, z.ZodLiteral<"local">, z.ZodLiteral<"voyage">, z.ZodLiteral<"mistral">, z.ZodLiteral<"ollama">, z.ZodLiteral<"none">]>>;
     model: z.ZodOptional<z.ZodString>;
+    outputDimensionality: z.ZodOptional<z.ZodNumber>;
     local: z.ZodOptional<z.ZodObject<{
         modelPath: z.ZodOptional<z.ZodString>;
         modelCacheDir: z.ZodOptional<z.ZodString>;
@@ -506,6 +518,11 @@ export declare const AgentEntrySchema: z.ZodObject<{
         enabled: z.ZodOptional<z.ZodBoolean>;
         sources: z.ZodOptional<z.ZodArray<z.ZodUnion<readonly [z.ZodLiteral<"memory">, z.ZodLiteral<"sessions">]>>>;
         extraPaths: z.ZodOptional<z.ZodArray<z.ZodString>>;
+        multimodal: z.ZodOptional<z.ZodObject<{
+            enabled: z.ZodOptional<z.ZodBoolean>;
+            modalities: z.ZodOptional<z.ZodArray<z.ZodUnion<readonly [z.ZodLiteral<"image">, z.ZodLiteral<"audio">, z.ZodLiteral<"all">]>>>;
+            maxFileBytes: z.ZodOptional<z.ZodNumber>;
+        }, z.core.$strict>>;
         experimental: z.ZodOptional<z.ZodObject<{
             sessionMemory: z.ZodOptional<z.ZodBoolean>;
         }, z.core.$strict>>;
@@ -536,6 +553,7 @@ export declare const AgentEntrySchema: z.ZodObject<{
         }, z.core.$strict>>;
         fallback: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"openai">, z.ZodLiteral<"gemini">, z.ZodLiteral<"local">, z.ZodLiteral<"voyage">, z.ZodLiteral<"mistral">, z.ZodLiteral<"ollama">, z.ZodLiteral<"none">]>>;
         model: z.ZodOptional<z.ZodString>;
+        outputDimensionality: z.ZodOptional<z.ZodNumber>;
         local: z.ZodOptional<z.ZodObject<{
             modelPath: z.ZodOptional<z.ZodString>;
             modelCacheDir: z.ZodOptional<z.ZodString>;
@@ -862,6 +880,9 @@ export declare const ToolsSchema: z.ZodOptional<z.ZodObject<{
                 }, z.core.$strict>], "source">]>>;
                 baseUrl: z.ZodOptional<z.ZodString>;
                 model: z.ZodOptional<z.ZodString>;
+            }, z.core.$strict>>;
+            brave: z.ZodOptional<z.ZodObject<{
+                mode: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"web">, z.ZodLiteral<"llm-context">]>>;
             }, z.core.$strict>>;
         }, z.core.$strict>>;
         fetch: z.ZodOptional<z.ZodObject<{

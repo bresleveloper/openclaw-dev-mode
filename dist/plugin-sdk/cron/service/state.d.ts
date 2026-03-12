@@ -35,6 +35,18 @@ export type CronServiceDeps = {
     resolveSessionStorePath?: (agentId?: string) => string;
     /** Path to the session store (sessions.json) for reaper use. */
     sessionStorePath?: string;
+    /**
+     * Delay in ms between missed job executions on startup.
+     * Prevents overwhelming the gateway when many jobs are overdue.
+     * See: https://github.com/openclaw/openclaw/issues/18892
+     */
+    missedJobStaggerMs?: number;
+    /**
+     * Maximum number of missed jobs to run immediately on startup.
+     * Additional missed jobs will be rescheduled to fire gradually.
+     * See: https://github.com/openclaw/openclaw/issues/18892
+     */
+    maxMissedJobsPerRestart?: number;
     enqueueSystemEvent: (text: string, opts?: {
         agentId?: string;
         sessionKey?: string;
@@ -117,6 +129,10 @@ export type CronStatusSummary = {
 export type CronRunResult = {
     ok: true;
     ran: true;
+} | {
+    ok: true;
+    enqueued: true;
+    runId: string;
 } | {
     ok: true;
     ran: false;

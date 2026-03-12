@@ -54,7 +54,16 @@ export declare function openWritableFileWithinRoot(params: {
     mkdir?: boolean;
     mode?: number;
     truncateExisting?: boolean;
+    append?: boolean;
 }): Promise<SafeWritableOpenResult>;
+export declare function appendFileWithinRoot(params: {
+    rootDir: string;
+    relativePath: string;
+    data: string | Buffer;
+    encoding?: BufferEncoding;
+    mkdir?: boolean;
+    prependNewlineIfNeeded?: boolean;
+}): Promise<void>;
 export declare function writeFileWithinRoot(params: {
     rootDir: string;
     relativePath: string;

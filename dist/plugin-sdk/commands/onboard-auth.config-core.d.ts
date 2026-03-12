@@ -74,3 +74,7 @@ export declare function applyAuthProfileConfig(cfg: OpenClawConfig, params: {
 }): OpenClawConfig;
 export declare function applyQianfanProviderConfig(cfg: OpenClawConfig): OpenClawConfig;
 export declare function applyQianfanConfig(cfg: OpenClawConfig): OpenClawConfig;
+export declare function applyModelStudioProviderConfig(cfg: OpenClawConfig): OpenClawConfig;
+export declare function applyModelStudioProviderConfigCn(cfg: OpenClawConfig): OpenClawConfig;
+export declare function applyModelStudioConfig(cfg: OpenClawConfig): OpenClawConfig;
+export declare function applyModelStudioConfigCn(cfg: OpenClawConfig): OpenClawConfig;

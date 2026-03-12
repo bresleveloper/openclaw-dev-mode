@@ -7,6 +7,21 @@ type OpenClawReadToolOptions = {
     imageSanitization?: ImageSanitizationLimits;
 };
 export declare function wrapToolWorkspaceRootGuard(tool: AnyAgentTool, root: string): AnyAgentTool;
+export declare function resolveToolPathAgainstWorkspaceRoot(params: {
+    filePath: string;
+    root: string;
+    containerWorkdir?: string;
+}): string;
+type MemoryFlushAppendOnlyWriteOptions = {
+    root: string;
+    relativePath: string;
+    containerWorkdir?: string;
+    sandbox?: {
+        root: string;
+        bridge: SandboxFsBridge;
+    };
+};
+export declare function wrapToolMemoryFlushAppendOnlyWrite(tool: AnyAgentTool, options: MemoryFlushAppendOnlyWriteOptions): AnyAgentTool;
 export declare function wrapToolWorkspaceRootGuardWithOptions(tool: AnyAgentTool, root: string, options?: {
     containerWorkdir?: string;
 }): AnyAgentTool;

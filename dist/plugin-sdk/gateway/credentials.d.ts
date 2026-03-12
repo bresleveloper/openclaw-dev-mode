@@ -1,4 +1,5 @@
 import type { OpenClawConfig } from "../config/config.js";
+export { hasGatewayPasswordEnvCandidate, hasGatewayTokenEnvCandidate, readGatewayPasswordEnv, readGatewayTokenEnv, trimCredentialToUndefined, trimToUndefined, } from "./credential-planner.js";
 export type ExplicitGatewayAuth = {
     token?: string;
     password?: string;
@@ -17,7 +18,6 @@ export declare class GatewaySecretRefUnavailableError extends Error {
     constructor(path: string);
 }
 export declare function isGatewaySecretRefUnavailableError(error: unknown, expectedPath?: string): error is GatewaySecretRefUnavailableError;
-export declare function trimToUndefined(value: unknown): string | undefined;
 export declare function resolveGatewayCredentialsFromValues(params: {
     configToken?: unknown;
     configPassword?: unknown;
@@ -40,4 +40,13 @@ export declare function resolveGatewayCredentialsFromConfig(params: {
     remotePasswordPrecedence?: GatewayRemoteCredentialPrecedence;
     remoteTokenFallback?: GatewayRemoteCredentialFallback;
     remotePasswordFallback?: GatewayRemoteCredentialFallback;
+}): ResolvedGatewayCredentials;
+export declare function resolveGatewayProbeCredentialsFromConfig(params: {
+    cfg: OpenClawConfig;
+    mode: GatewayCredentialMode;
+    env?: NodeJS.ProcessEnv;
+    explicitAuth?: ExplicitGatewayAuth;
+}): ResolvedGatewayCredentials;
+export declare function resolveGatewayDriftCheckCredentialsFromConfig(params: {
+    cfg: OpenClawConfig;
 }): ResolvedGatewayCredentials;

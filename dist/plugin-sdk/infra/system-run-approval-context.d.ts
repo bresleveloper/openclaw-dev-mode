@@ -1,12 +1,12 @@
 import type { SystemRunApprovalPlan } from "./exec-approvals.js";
 type PreparedRunPayload = {
-    cmdText: string;
     plan: SystemRunApprovalPlan;
 };
 type SystemRunApprovalRequestContext = {
     plan: SystemRunApprovalPlan | null;
     commandArgv: string[] | undefined;
     commandText: string;
+    commandPreview: string | null;
     cwd: string | null;
     agentId: string | null;
     sessionKey: string | null;
@@ -18,7 +18,7 @@ type SystemRunApprovalRuntimeContext = {
     cwd: string | null;
     agentId: string | null;
     sessionKey: string | null;
-    rawCommand: string | null;
+    commandText: string;
 } | {
     ok: false;
     message: string;

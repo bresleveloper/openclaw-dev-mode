@@ -15,4 +15,6 @@ export declare function resolveIMessageGroupToolPolicy(params: GroupMentionParam
 export declare function resolveDiscordGroupToolPolicy(params: GroupMentionParams): GroupToolPolicyConfig | undefined;
 export declare function resolveSlackGroupToolPolicy(params: GroupMentionParams): GroupToolPolicyConfig | undefined;
 export declare function resolveBlueBubblesGroupToolPolicy(params: GroupMentionParams): GroupToolPolicyConfig | undefined;
+export declare function resolveLineGroupRequireMention(params: GroupMentionParams): boolean;
+export declare function resolveLineGroupToolPolicy(params: GroupMentionParams): GroupToolPolicyConfig | undefined;
 export {};

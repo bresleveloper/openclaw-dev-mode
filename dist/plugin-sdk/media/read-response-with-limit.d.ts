@@ -4,4 +4,5 @@ export declare function readResponseWithLimit(res: Response, maxBytes: number, o
         maxBytes: number;
         res: Response;
     }) => Error;
+    chunkTimeoutMs?: number;
 }): Promise<Buffer>;

@@ -1,4 +1,5 @@
 import type { BaseProbeResult } from "../channels/plugins/types.js";
+import type { TelegramNetworkConfig } from "../config/types.telegram.js";
 export type TelegramProbe = BaseProbeResult & {
     status?: number | null;
     elapsedMs: number;
@@ -14,4 +15,10 @@ export type TelegramProbe = BaseProbeResult & {
         hasCustomCert?: boolean | null;
     };
 };
-export declare function probeTelegram(token: string, timeoutMs: number, proxyUrl?: string): Promise<TelegramProbe>;
+export type TelegramProbeOptions = {
+    proxyUrl?: string;
+    network?: TelegramNetworkConfig;
+    accountId?: string;
+};
+export declare function resetTelegramProbeFetcherCacheForTests(): void;
+export declare function probeTelegram(token: string, timeoutMs: number, proxyOrOptions?: string | TelegramProbeOptions): Promise<TelegramProbe>;

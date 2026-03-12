@@ -13,6 +13,8 @@ export type TelegramBotOptions = {
     replyToMode?: ReplyToMode;
     proxyFetch?: typeof fetch;
     config?: OpenClawConfig;
+    /** Signal to abort in-flight Telegram API fetch requests (e.g. getUpdates) on shutdown. */
+    fetchAbortSignal?: AbortSignal;
     updateOffset?: {
         lastUpdateId?: number | null;
         onUpdateId?: (updateId: number) => void | Promise<void>;

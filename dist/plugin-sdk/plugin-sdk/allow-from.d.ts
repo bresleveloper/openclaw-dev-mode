@@ -2,6 +2,10 @@ export declare function formatAllowFromLowercase(params: {
     allowFrom: Array<string | number>;
     stripPrefixRe?: RegExp;
 }): string[];
+export declare function formatNormalizedAllowFromEntries(params: {
+    allowFrom: Array<string | number>;
+    normalizeEntry: (entry: string) => string | undefined | null;
+}): string[];
 export declare function isNormalizedSenderAllowed(params: {
     senderId: string | number;
     allowFrom: Array<string | number>;

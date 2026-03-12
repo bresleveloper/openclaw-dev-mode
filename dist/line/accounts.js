@@ -1,14 +1,9 @@
-import { n as normalizeAccountId$1, r as normalizeOptionalAccountId, t as DEFAULT_ACCOUNT_ID } from "../account-id-DQE6gyMr.js";
-import { t as resolveAccountEntry } from "../account-lookup-CO8IjXYc.js";
-import fs from "node:fs";
+import { a as normalizeAccountId$1, i as DEFAULT_ACCOUNT_ID, o as normalizeOptionalAccountId, t as tryReadSecretFileSync } from "../secret-file-Cr5SygBE.js";
+import { t as resolveAccountEntry } from "../account-lookup-y3UdfCFv.js";
+import "../utils-dNeyb1Bh.js";
 //#region src/line/accounts.ts
 function readFileIfExists(filePath) {
-	if (!filePath) return;
-	try {
-		return fs.readFileSync(filePath, "utf-8").trim();
-	} catch {
-		return;
-	}
+	return tryReadSecretFileSync(filePath, "LINE credential file", { rejectSymlink: true });
 }
 function resolveToken(params) {
 	const { accountId, baseConfig, accountConfig } = params;

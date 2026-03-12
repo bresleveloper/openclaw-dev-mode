@@ -1,58 +1,43 @@
-import { at as DEFAULT_ACCOUNT_ID, ot as normalizeAccountId } from "./run-with-concurrency-CH079TNZ.js";
-import { Pr as formatCliCommand, d as WhatsAppConfigSchema, pr as getChatChannelMeta } from "./config-YEY6TI-H.js";
-import { f as isRecord, g as pathExists, h as normalizeE164 } from "./logger-CIGDGtYY.js";
+import { Ut as DEFAULT_ACCOUNT_ID, Wt as normalizeAccountId } from "./paths-Su3o8IWz.js";
+import { Ds as resolveWhatsAppAccount, Es as resolveDefaultWhatsAppAccountId, Fo as resolveWhatsAppMentionStripPatterns, Io as resolveWhatsAppGroupRequireMention, Lo as resolveWhatsAppGroupToolPolicy, Os as resolveWhatsAppAuthDir, Po as resolveWhatsAppGroupIntroHint, Ts as listWhatsAppAccountIds, Uo as listWhatsAppDirectoryGroupsFromConfig, Wo as listWhatsAppDirectoryPeersFromConfig, Ws as getChatChannelMeta, _s as resolveWhatsAppConfigAllowFrom, bs as looksLikeWhatsAppTargetId, fc as formatPairingApproveHint, hs as formatWhatsAppConfigAllowFromEntries, pc as formatCliCommand, rt as WhatsAppConfigSchema, vs as resolveWhatsAppConfigDefaultTo, xs as normalizeWhatsAppMessagingTarget } from "./sessions-IKHgc4YL.js";
+import { f as isRecord, g as pathExists, h as normalizeE164 } from "./logger-BlQvwwda.js";
 import "./paths-D6tDENa_.js";
-import { a as resolveWhatsAppAuthDir, i as resolveWhatsAppAccount, n as listWhatsAppAccountIds, r as resolveDefaultWhatsAppAccountId } from "./accounts-BAY9ShOD.js";
-import { a as listWhatsAppDirectoryPeersFromConfig, i as listWhatsAppDirectoryGroupsFromConfig } from "./plugins-Di6nAk1m.js";
-import { D as resolveWhatsAppConfigDefaultTo, E as resolveWhatsAppConfigAllowFrom, O as looksLikeWhatsAppTargetId, T as formatWhatsAppConfigAllowFromEntries, _ as resolveWhatsAppGroupToolPolicy, g as resolveWhatsAppGroupRequireMention, h as resolveWhatsAppMentionStripPatterns, k as normalizeWhatsAppMessagingTarget, m as resolveWhatsAppGroupIntroHint } from "./thinking-BowvFtvz.js";
-import "./accounts-DY5V4BBT.js";
-import "./send-DBeKQ1HR.js";
-import { f as readStringParam, r as createActionGate } from "./common-C6DZimy-.js";
-import { t as resolveWhatsAppOutboundTarget } from "./resolve-outbound-target-CMp51GqU.js";
-import { J as resolveDefaultGroupPolicy, d as formatDocsLink, q as resolveAllowlistProviderRuntimeGroupPolicy } from "./reply-vJQKuLU2.js";
-import "./image-ops-DdAdHBaA.js";
-import "./pi-embedded-helpers-DTKAUtny.js";
-import "./accounts-C8tKOTzv.js";
-import "./send-B-iqUzW_.js";
-import "./github-copilot-token-xlpfBCoP.js";
-import "./paths-DwfZiSgf.js";
-import "./send-az6YxO90.js";
-import { r as resolveWhatsAppHeartbeatRecipients } from "./channel-web-BkEhd3cz.js";
-import "./tokens-LXOQssY5.js";
-import "./audio-transcription-runner-CMFpaLik.js";
-import "./image-Dw_VV5GX.js";
-import "./chrome-DRzdWmwZ.js";
-import "./skills-vjz-0HPp.js";
-import "./path-alias-guards-Dywum8G4.js";
-import "./redact-CZjQ8w3O.js";
-import "./errors-CQhfHGMe.js";
-import "./fs-safe-CXkgQ8co.js";
-import "./proxy-env-PEwNOXYQ.js";
-import "./store-CMI_Rnl1.js";
-import "./tool-images-BzlEjYsv.js";
-import "./fetch-guard-BXVdW236.js";
-import "./api-key-rotation-2VNaavMq.js";
-import "./local-roots-CgwThsXp.js";
-import "./proxy-fetch-DiCaeBOd.js";
-import "./deliver-HViWwarc.js";
-import "./commands-registry-DN5y3EJX.js";
-import "./skill-commands-BwE6x5Sq.js";
-import "./diagnostic-CG95bfAa.js";
-import "./pi-model-discovery-DF6BztWV.js";
-import "./ir-DDXPBasF.js";
-import "./render-B80HZuem.js";
-import "./send-ClFQXTvi.js";
-import "./outbound-attachment-CqHD3bZJ.js";
-import "./fetch-DzQnPMng.js";
-import "./send-0GP6Ajqo.js";
-import "./channel-activity-BpQQBsEh.js";
-import "./tables-MCIG1Jmo.js";
-import "./proxy-DIJcVZli.js";
-import "./manager-DsyshIX7.js";
-import "./query-expansion-DDmE34s4.js";
-import "./outbound-CnihpGRD.js";
-import "./session-DVJqjUNI.js";
-import { t as loginWeb } from "./login-8GCzKKzj.js";
+import "./proxy-env-CPkMxkgh.js";
+import "./send-BqFVHaea.js";
+import { f as readStringParam, r as createActionGate } from "./common-BcK3DJSq.js";
+import { t as resolveWhatsAppOutboundTarget } from "./resolve-outbound-target-BNnTur1o.js";
+import { Ft as resolveDefaultGroupPolicy, Pt as resolveAllowlistProviderRuntimeGroupPolicy } from "./send-CSrx1pFH.js";
+import { u as formatDocsLink } from "./reply-BbE6opdK.js";
+import "./github-copilot-token-CADMCozq.js";
+import "./send-C-Ikhq95.js";
+import { r as resolveWhatsAppHeartbeatRecipients } from "./channel-web-H7a8Sgga.js";
+import "./tokens-GU_qmEbP.js";
+import "./audio-transcription-runner-DM2M2LHO.js";
+import "./image-CUG-eamj.js";
+import "./fetch-guard-Dm6vpPzM.js";
+import "./api-key-rotation-uPQnE4Qn.js";
+import "./local-roots-DHnjkpBt.js";
+import "./proxy-fetch-B4DWbXI5.js";
+import "./deliver-DjRb6JIU.js";
+import "./commands-registry-D950Y47c.js";
+import "./pi-model-discovery-DBJmBb0m.js";
+import "./ir-BpLZsbM6.js";
+import "./render-CypHTXnD.js";
+import "./diagnostic-jEWWhgja.js";
+import "./send-n-q2SA5v.js";
+import "./outbound-attachment-CmYPoqur.js";
+import "./fetch-DtWWTpmG.js";
+import "./send-CYqtmh5L2.js";
+import "./sqlite-DdUKW9qm.js";
+import "./channel-activity-PH2eZEQk.js";
+import "./tables-BCFwI5tJ.js";
+import "./fetch-DsGM-FBt.js";
+import "./skill-commands-BATheoLh.js";
+import "./manager-CeQ_ouem.js";
+import "./outbound-BmP1W6o4.js";
+import "./session-CWoWc5LK.js";
+import { t as loginWeb } from "./login-VtGwH_7w.js";
+import { z } from "zod";
 import path from "node:path";
 //#region src/plugins/config-schema.ts
 function error(message) {
@@ -165,6 +150,8 @@ function migrateBaseNameToDefaultAccount(params) {
 }
 //#endregion
 //#region src/channels/plugins/config-schema.ts
+const AllowFromEntrySchema = z.union([z.string(), z.number()]);
+z.array(AllowFromEntrySchema).optional();
 function buildChannelConfigSchema(schema) {
 	const schemaWithJson = schema;
 	if (typeof schemaWithJson.toJSONSchema === "function") return { schema: schemaWithJson.toJSONSchema({
@@ -175,11 +162,6 @@ function buildChannelConfigSchema(schema) {
 		type: "object",
 		additionalProperties: true
 	} };
-}
-//#endregion
-//#region src/channels/plugins/helpers.ts
-function formatPairingApproveHint(channelId) {
-	return `Approve via: ${formatCliCommand(`openclaw pairing list ${channelId}`)} / ${formatCliCommand(`openclaw pairing approve ${channelId} <code>`)}`;
 }
 //#endregion
 //#region src/config/merge-config.ts
@@ -203,6 +185,56 @@ function mergeWhatsAppConfig(cfg, patch, options) {
 		}
 	};
 }
+//#endregion
+//#region src/secrets/provider-env-vars.ts
+const PROVIDER_ENV_VARS = {
+	openai: ["OPENAI_API_KEY"],
+	anthropic: ["ANTHROPIC_API_KEY"],
+	google: ["GEMINI_API_KEY"],
+	minimax: ["MINIMAX_API_KEY"],
+	"minimax-cn": ["MINIMAX_API_KEY"],
+	moonshot: ["MOONSHOT_API_KEY"],
+	"kimi-coding": ["KIMI_API_KEY", "KIMICODE_API_KEY"],
+	synthetic: ["SYNTHETIC_API_KEY"],
+	venice: ["VENICE_API_KEY"],
+	zai: ["ZAI_API_KEY", "Z_AI_API_KEY"],
+	xiaomi: ["XIAOMI_API_KEY"],
+	openrouter: ["OPENROUTER_API_KEY"],
+	"cloudflare-ai-gateway": ["CLOUDFLARE_AI_GATEWAY_API_KEY"],
+	litellm: ["LITELLM_API_KEY"],
+	"vercel-ai-gateway": ["AI_GATEWAY_API_KEY"],
+	opencode: ["OPENCODE_API_KEY", "OPENCODE_ZEN_API_KEY"],
+	"opencode-go": ["OPENCODE_API_KEY", "OPENCODE_ZEN_API_KEY"],
+	together: ["TOGETHER_API_KEY"],
+	huggingface: ["HUGGINGFACE_HUB_TOKEN", "HF_TOKEN"],
+	qianfan: ["QIANFAN_API_KEY"],
+	xai: ["XAI_API_KEY"],
+	mistral: ["MISTRAL_API_KEY"],
+	kilocode: ["KILOCODE_API_KEY"],
+	modelstudio: ["MODELSTUDIO_API_KEY"],
+	volcengine: ["VOLCANO_ENGINE_API_KEY"],
+	byteplus: ["BYTEPLUS_API_KEY"]
+};
+const EXTRA_PROVIDER_AUTH_ENV_VARS = [
+	"VOYAGE_API_KEY",
+	"GROQ_API_KEY",
+	"DEEPGRAM_API_KEY",
+	"CEREBRAS_API_KEY",
+	"NVIDIA_API_KEY",
+	"COPILOT_GITHUB_TOKEN",
+	"GH_TOKEN",
+	"GITHUB_TOKEN",
+	"ANTHROPIC_OAUTH_TOKEN",
+	"CHUTES_OAUTH_TOKEN",
+	"CHUTES_API_KEY",
+	"QWEN_OAUTH_TOKEN",
+	"QWEN_PORTAL_API_KEY",
+	"MINIMAX_OAUTH_TOKEN",
+	"OLLAMA_API_KEY",
+	"VLLM_API_KEY"
+];
+const KNOWN_SECRET_ENV_VARS = [...new Set(Object.values(PROVIDER_ENV_VARS).flatMap((keys) => keys))];
+[...new Set([...KNOWN_SECRET_ENV_VARS, ...EXTRA_PROVIDER_AUTH_ENV_VARS])];
 //#endregion
 //#region src/plugin-sdk/onboarding.ts
 async function promptAccountId$1(params) {

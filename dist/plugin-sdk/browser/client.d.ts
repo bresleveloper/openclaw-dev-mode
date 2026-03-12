@@ -27,6 +27,8 @@ export type ProfileStatus = {
     tabCount: number;
     isDefault: boolean;
     isRemote: boolean;
+    missingFromConfig?: boolean;
+    reconcileReason?: string | null;
 };
 export type BrowserResetProfileResult = {
     ok: true;
@@ -131,7 +133,7 @@ export declare function browserTabAction(baseUrl: string | undefined, opts: {
     profile?: string;
 }): Promise<unknown>;
 export declare function browserSnapshot(baseUrl: string | undefined, opts: {
-    format: "aria" | "ai";
+    format?: "aria" | "ai";
     targetId?: string;
     limit?: number;
     maxChars?: number;

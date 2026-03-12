@@ -3,12 +3,12 @@ import path from "node:path";
 import fs from "node:fs";
 import os from "node:os";
 import fs$1 from "node:fs/promises";
-import { execFile, spawn } from "node:child_process";
-import process$1 from "node:process";
-import { promisify } from "node:util";
 import "tslog";
 import "json5";
 import chalk, { Chalk } from "chalk";
+import { execFile, spawn } from "node:child_process";
+import process$1 from "node:process";
+import { promisify } from "node:util";
 //#region src/plugins/config-schema.ts
 function error(message) {
 	return {
@@ -161,7 +161,7 @@ function newStateDir(homedir = resolveDefaultHomeDir) {
 function resolveStateDir(env = process.env, homedir = envHomedir(env)) {
 	const effectiveHomedir = () => resolveRequiredHomeDir(env, homedir);
 	const override = env.OPENCLAW_STATE_DIR?.trim() || env.CLAWDBOT_STATE_DIR?.trim();
-	if (override) return resolveUserPath(override, env, effectiveHomedir);
+	if (override) return resolveUserPath$1(override, env, effectiveHomedir);
 	const newDir = newStateDir(effectiveHomedir);
 	if (env.OPENCLAW_TEST_FAST === "1") return newDir;
 	const legacyDirs = legacyStateDirs(effectiveHomedir);
@@ -176,7 +176,7 @@ function resolveStateDir(env = process.env, homedir = envHomedir(env)) {
 	if (existingLegacy) return existingLegacy;
 	return newDir;
 }
-function resolveUserPath(input, env = process.env, homedir = envHomedir(env)) {
+function resolveUserPath$1(input, env = process.env, homedir = envHomedir(env)) {
 	const trimmed = input.trim();
 	if (!trimmed) return trimmed;
 	if (trimmed.startsWith("~")) {
@@ -197,7 +197,7 @@ resolveStateDir();
 */
 function resolveCanonicalConfigPath(env = process.env, stateDir = resolveStateDir(env, envHomedir(env))) {
 	const override = env.OPENCLAW_CONFIG_PATH?.trim() || env.CLAWDBOT_CONFIG_PATH?.trim();
-	if (override) return resolveUserPath(override, env, envHomedir(env));
+	if (override) return resolveUserPath$1(override, env, envHomedir(env));
 	return path.join(stateDir, CONFIG_FILENAME);
 }
 /**
@@ -224,11 +224,11 @@ resolveConfigPathCandidate();
 function resolveDefaultConfigCandidates(env = process.env, homedir = envHomedir(env)) {
 	const effectiveHomedir = () => resolveRequiredHomeDir(env, homedir);
 	const explicit = env.OPENCLAW_CONFIG_PATH?.trim() || env.CLAWDBOT_CONFIG_PATH?.trim();
-	if (explicit) return [resolveUserPath(explicit, env, effectiveHomedir)];
+	if (explicit) return [resolveUserPath$1(explicit, env, effectiveHomedir)];
 	const candidates = [];
 	const openclawStateDir = env.OPENCLAW_STATE_DIR?.trim() || env.CLAWDBOT_STATE_DIR?.trim();
 	if (openclawStateDir) {
-		const resolved = resolveUserPath(openclawStateDir, env, effectiveHomedir);
+		const resolved = resolveUserPath$1(openclawStateDir, env, effectiveHomedir);
 		candidates.push(path.join(resolved, CONFIG_FILENAME));
 		candidates.push(...LEGACY_CONFIG_FILENAMES.map((name) => path.join(resolved, name)));
 	}
@@ -596,6 +596,214 @@ theme.warn;
 theme.info;
 theme.error;
 //#endregion
+//#region src/utils.ts
+function resolveUserPath(input) {
+	if (!input) return "";
+	const trimmed = input.trim();
+	if (!trimmed) return trimmed;
+	if (trimmed.startsWith("~")) {
+		const expanded = expandHomePrefix(trimmed, {
+			home: resolveRequiredHomeDir(process.env, os.homedir),
+			env: process.env,
+			homedir: os.homedir
+		});
+		return path.resolve(expanded);
+	}
+	return path.resolve(trimmed);
+}
+function resolveConfigDir(env = process.env, homedir = os.homedir) {
+	const override = env.OPENCLAW_STATE_DIR?.trim() || env.CLAWDBOT_STATE_DIR?.trim();
+	if (override) return resolveUserPath(override);
+	const newDir = path.join(resolveRequiredHomeDir(env, homedir), ".openclaw");
+	try {
+		if (fs.existsSync(newDir)) return newDir;
+	} catch {}
+	return newDir;
+}
+resolveConfigDir();
+//#endregion
+//#region src/infra/file-identity.ts
+function isZero(value) {
+	return value === 0 || value === 0n;
+}
+function sameFileIdentity$1(left, right, platform = process.platform) {
+	if (left.ino !== right.ino) return false;
+	if (left.dev === right.dev) return true;
+	return platform === "win32" && (isZero(left.dev) || isZero(right.dev));
+}
+//#endregion
+//#region src/infra/safe-open-sync.ts
+function isExpectedPathError(error) {
+	const code = typeof error === "object" && error !== null && "code" in error ? String(error.code) : "";
+	return code === "ENOENT" || code === "ENOTDIR" || code === "ELOOP";
+}
+function sameFileIdentity(left, right) {
+	return sameFileIdentity$1(left, right);
+}
+function openVerifiedFileSync(params) {
+	const ioFs = params.ioFs ?? fs;
+	const allowedType = params.allowedType ?? "file";
+	const openReadFlags = ioFs.constants.O_RDONLY | (typeof ioFs.constants.O_NOFOLLOW === "number" ? ioFs.constants.O_NOFOLLOW : 0);
+	let fd = null;
+	try {
+		if (params.rejectPathSymlink) {
+			if (ioFs.lstatSync(params.filePath).isSymbolicLink()) return {
+				ok: false,
+				reason: "validation"
+			};
+		}
+		const realPath = params.resolvedPath ?? ioFs.realpathSync(params.filePath);
+		const preOpenStat = ioFs.lstatSync(realPath);
+		if (!isAllowedType(preOpenStat, allowedType)) return {
+			ok: false,
+			reason: "validation"
+		};
+		if (params.rejectHardlinks && preOpenStat.isFile() && preOpenStat.nlink > 1) return {
+			ok: false,
+			reason: "validation"
+		};
+		if (params.maxBytes !== void 0 && preOpenStat.isFile() && preOpenStat.size > params.maxBytes) return {
+			ok: false,
+			reason: "validation"
+		};
+		fd = ioFs.openSync(realPath, openReadFlags);
+		const openedStat = ioFs.fstatSync(fd);
+		if (!isAllowedType(openedStat, allowedType)) return {
+			ok: false,
+			reason: "validation"
+		};
+		if (params.rejectHardlinks && openedStat.isFile() && openedStat.nlink > 1) return {
+			ok: false,
+			reason: "validation"
+		};
+		if (params.maxBytes !== void 0 && openedStat.isFile() && openedStat.size > params.maxBytes) return {
+			ok: false,
+			reason: "validation"
+		};
+		if (!sameFileIdentity(preOpenStat, openedStat)) return {
+			ok: false,
+			reason: "validation"
+		};
+		const opened = {
+			ok: true,
+			path: realPath,
+			fd,
+			stat: openedStat
+		};
+		fd = null;
+		return opened;
+	} catch (error) {
+		if (isExpectedPathError(error)) return {
+			ok: false,
+			reason: "path",
+			error
+		};
+		return {
+			ok: false,
+			reason: "io",
+			error
+		};
+	} finally {
+		if (fd !== null) ioFs.closeSync(fd);
+	}
+}
+function isAllowedType(stat, allowedType) {
+	if (allowedType === "directory") return stat.isDirectory();
+	return stat.isFile();
+}
+//#endregion
+//#region src/infra/secret-file.ts
+const DEFAULT_SECRET_FILE_MAX_BYTES = 16 * 1024;
+function loadSecretFileSync(filePath, label, options = {}) {
+	const resolvedPath = resolveUserPath(filePath.trim());
+	if (!resolvedPath) return {
+		ok: false,
+		message: `${label} file path is empty.`
+	};
+	const maxBytes = options.maxBytes ?? 16384;
+	let previewStat;
+	try {
+		previewStat = fs.lstatSync(resolvedPath);
+	} catch (error) {
+		return {
+			ok: false,
+			resolvedPath,
+			error,
+			message: `Failed to inspect ${label} file at ${resolvedPath}: ${String(error)}`
+		};
+	}
+	if (options.rejectSymlink && previewStat.isSymbolicLink()) return {
+		ok: false,
+		resolvedPath,
+		message: `${label} file at ${resolvedPath} must not be a symlink.`
+	};
+	if (!previewStat.isFile()) return {
+		ok: false,
+		resolvedPath,
+		message: `${label} file at ${resolvedPath} must be a regular file.`
+	};
+	if (previewStat.size > maxBytes) return {
+		ok: false,
+		resolvedPath,
+		message: `${label} file at ${resolvedPath} exceeds ${maxBytes} bytes.`
+	};
+	const opened = openVerifiedFileSync({
+		filePath: resolvedPath,
+		rejectPathSymlink: options.rejectSymlink,
+		maxBytes
+	});
+	if (!opened.ok) {
+		const error = opened.reason === "validation" ? /* @__PURE__ */ new Error("security validation failed") : opened.error;
+		return {
+			ok: false,
+			resolvedPath,
+			error,
+			message: `Failed to read ${label} file at ${resolvedPath}: ${String(error)}`
+		};
+	}
+	try {
+		const secret = fs.readFileSync(opened.fd, "utf8").trim();
+		if (!secret) return {
+			ok: false,
+			resolvedPath,
+			message: `${label} file at ${resolvedPath} is empty.`
+		};
+		return {
+			ok: true,
+			secret,
+			resolvedPath
+		};
+	} catch (error) {
+		return {
+			ok: false,
+			resolvedPath,
+			error,
+			message: `Failed to read ${label} file at ${resolvedPath}: ${String(error)}`
+		};
+	} finally {
+		fs.closeSync(opened.fd);
+	}
+}
+function readSecretFileSync(filePath, label, options = {}) {
+	const result = loadSecretFileSync(filePath, label, options);
+	if (result.ok) return result.secret;
+	throw new Error(result.message, result.error ? { cause: result.error } : void 0);
+}
+function tryReadSecretFileSync(filePath, label, options = {}) {
+	if (!filePath?.trim()) return;
+	const result = loadSecretFileSync(filePath, label, options);
+	return result.ok ? result.secret : void 0;
+}
+//#endregion
+//#region src/infra/openclaw-exec-env.ts
+const OPENCLAW_CLI_ENV_VAR = "OPENCLAW_CLI";
+function markOpenClawExecEnv(env) {
+	return {
+		...env,
+		[OPENCLAW_CLI_ENV_VAR]: "1"
+	};
+}
+//#endregion
 //#region src/terminal/progress-line.ts
 let activeStream = null;
 function clearActiveProgressLine() {
@@ -629,6 +837,7 @@ const ANSI_SGR_PATTERN = "\\x1b\\[[0-9;]*m";
 const OSC8_PATTERN = "\\x1b\\]8;;.*?\\x1b\\\\|\\x1b\\]8;;\\x1b\\\\";
 new RegExp(ANSI_SGR_PATTERN, "g");
 new RegExp(OSC8_PATTERN, "g");
+typeof Intl !== "undefined" && "Segmenter" in Intl && new Intl.Segmenter(void 0, { granularity: "grapheme" });
 resolveNodeRequireFromMeta(import.meta.url);
 (() => {
 	const getBuiltinModule = process.getBuiltinModule;
@@ -648,6 +857,15 @@ function resolveCommandStdio(params) {
 		"pipe",
 		"pipe"
 	];
+}
+//#endregion
+//#region src/process/windows-command.ts
+function resolveWindowsCommandShim(params) {
+	if ((params.platform ?? process$1.platform) !== "win32") return params.command;
+	const basename = path.basename(params.command).toLowerCase();
+	if (path.extname(basename)) return params.command;
+	if (params.cmdCommands.includes(basename)) return `${params.command}.cmd`;
+	return params.command;
 }
 promisify(execFile);
 const WINDOWS_UNSAFE_CMD_CHARS_RE = /[&|<>^%\r\n]/;
@@ -692,11 +910,10 @@ function resolveNpmArgvForWindows(argv) {
 * are handled by resolveNpmArgvForWindows to avoid spawn EINVAL (no direct .cmd).
 */
 function resolveCommand(command) {
-	if (process$1.platform !== "win32") return command;
-	const basename = path.basename(command).toLowerCase();
-	if (path.extname(basename)) return command;
-	if (["pnpm", "yarn"].includes(basename)) return `${command}.cmd`;
-	return command;
+	return resolveWindowsCommandShim({
+		command,
+		cmdCommands: ["pnpm", "yarn"]
+	});
 }
 function shouldSpawnWithShell(params) {
 	return false;
@@ -719,7 +936,7 @@ function resolveCommandEnv(params) {
 		if (resolvedEnv.NPM_CONFIG_FUND == null) resolvedEnv.NPM_CONFIG_FUND = "false";
 		if (resolvedEnv.npm_config_fund == null) resolvedEnv.npm_config_fund = "false";
 	}
-	return resolvedEnv;
+	return markOpenClawExecEnv(resolvedEnv);
 }
 async function runCommandWithTimeout(argv, optionsOrTimeout) {
 	const options = typeof optionsOrTimeout === "number" ? { timeoutMs: optionsOrTimeout } : optionsOrTimeout;
@@ -916,4 +1133,4 @@ async function resolveTailnetHostWithRunner(runCommandWithTimeout) {
 	return null;
 }
 //#endregion
-export { approveDevicePairing, buildOauthProviderAuthResult, emptyPluginConfigSchema, listDevicePairing, rejectDevicePairing, resolveGatewayBindUrl, resolvePreferredOpenClawTmpDir, resolveTailnetHostWithRunner, runPluginCommandWithTimeout };
+export { DEFAULT_SECRET_FILE_MAX_BYTES, approveDevicePairing, buildOauthProviderAuthResult, emptyPluginConfigSchema, listDevicePairing, loadSecretFileSync, readSecretFileSync, rejectDevicePairing, resolveGatewayBindUrl, resolvePreferredOpenClawTmpDir, resolveTailnetHostWithRunner, runPluginCommandWithTimeout, tryReadSecretFileSync };

@@ -32,13 +32,16 @@ export declare function releaseWsSession(sessionId: string): void;
  * Returns true if a live WebSocket session exists for the given sessionId.
  */
 export declare function hasWsSession(sessionId: string): boolean;
+type ReplayModelInfo = {
+    input?: ReadonlyArray<string>;
+};
 /** Convert pi-ai tool array to OpenAI FunctionToolDefinition[]. */
 export declare function convertTools(tools: Context["tools"]): FunctionToolDefinition[];
 /**
  * Convert the full pi-ai message history to an OpenAI `input` array.
  * Handles user messages, assistant text+tool-call messages, and tool results.
  */
-export declare function convertMessagesToInputItems(messages: Message[]): InputItem[];
+export declare function convertMessagesToInputItems(messages: Message[], modelOverride?: ReplayModelInfo): InputItem[];
 export declare function buildAssistantMessageFromResponse(response: ResponseObject, modelInfo: {
     api: string;
     provider: string;
@@ -64,3 +67,4 @@ export interface OpenAIWebSocketStreamOptions {
  * @param opts       Optional manager + abort signal overrides
  */
 export declare function createOpenAIWebSocketStreamFn(apiKey: string, sessionId: string, opts?: OpenAIWebSocketStreamOptions): StreamFn;
+export {};

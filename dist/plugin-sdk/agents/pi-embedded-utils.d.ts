@@ -9,6 +9,7 @@ export declare function isAssistantMessage(msg: AgentMessage | undefined): msg i
  * - </minimax:tool_call> closing tags
  */
 export declare function stripMinimaxToolCallXml(text: string): string;
+export declare function stripModelSpecialTokens(text: string): string;
 /**
  * Strip downgraded tool call text representations that leak into text content.
  * When replaying history to Gemini, tool calls without `thought_signature` are

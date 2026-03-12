@@ -1,3 +1,4 @@
+import { type EmbeddingInput } from "./embedding-inputs.js";
 import { type MemoryFileEntry } from "./internal.js";
 import { MemoryManagerSyncOps } from "./manager-sync-ops.js";
 import type { SessionFileEntry } from "./session-files.js";
@@ -24,6 +25,7 @@ export declare abstract class MemoryManagerEmbeddingOps extends MemoryManagerSyn
     private embedChunksWithOpenAiBatch;
     private embedChunksWithGeminiBatch;
     protected embedBatchWithRetry(texts: string[]): Promise<number[][]>;
+    protected embedBatchInputsWithRetry(inputs: EmbeddingInput[]): Promise<number[][]>;
     private isRetryableEmbeddingError;
     private resolveEmbeddingTimeout;
     protected embedQueryWithTimeout(text: string): Promise<number[]>;
@@ -35,6 +37,10 @@ export declare abstract class MemoryManagerEmbeddingOps extends MemoryManagerSyn
     private runBatchWithTimeoutRetry;
     private runBatchWithFallback;
     protected getIndexConcurrency(): number;
+    private clearIndexedFileData;
+    private upsertFileRecord;
+    private deleteFileRecord;
+    private isStructuredInputTooLargeError;
     protected indexFile(entry: MemoryFileEntry | SessionFileEntry, options: {
         source: MemorySource;
         content?: string;

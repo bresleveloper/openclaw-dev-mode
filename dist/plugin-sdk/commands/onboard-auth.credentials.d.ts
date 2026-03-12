@@ -3,7 +3,7 @@ import { type SecretInput } from "../config/types.secrets.js";
 import { KILOCODE_DEFAULT_MODEL_REF } from "../providers/kilocode-shared.js";
 import type { SecretInputMode } from "./onboard-types.js";
 export { CLOUDFLARE_AI_GATEWAY_DEFAULT_MODEL_REF } from "../agents/cloudflare-ai-gateway.js";
-export { MISTRAL_DEFAULT_MODEL_REF, XAI_DEFAULT_MODEL_REF } from "./onboard-auth.models.js";
+export { MISTRAL_DEFAULT_MODEL_REF, XAI_DEFAULT_MODEL_REF, MODELSTUDIO_DEFAULT_MODEL_REF, } from "./onboard-auth.models.js";
 export { KILOCODE_DEFAULT_MODEL_REF };
 export type ApiKeyStorageOptions = {
     secretInputMode?: SecretInputMode;
@@ -36,9 +36,11 @@ export declare function setCloudflareAiGatewayConfig(accountId: string, gatewayI
 export declare function setLitellmApiKey(key: SecretInput, agentDir?: string, options?: ApiKeyStorageOptions): Promise<void>;
 export declare function setVercelAiGatewayApiKey(key: SecretInput, agentDir?: string, options?: ApiKeyStorageOptions): Promise<void>;
 export declare function setOpencodeZenApiKey(key: SecretInput, agentDir?: string, options?: ApiKeyStorageOptions): Promise<void>;
+export declare function setOpencodeGoApiKey(key: SecretInput, agentDir?: string, options?: ApiKeyStorageOptions): Promise<void>;
 export declare function setTogetherApiKey(key: SecretInput, agentDir?: string, options?: ApiKeyStorageOptions): Promise<void>;
 export declare function setHuggingfaceApiKey(key: SecretInput, agentDir?: string, options?: ApiKeyStorageOptions): Promise<void>;
 export declare function setQianfanApiKey(key: SecretInput, agentDir?: string, options?: ApiKeyStorageOptions): void;
+export declare function setModelStudioApiKey(key: SecretInput, agentDir?: string, options?: ApiKeyStorageOptions): void;
 export declare function setXaiApiKey(key: SecretInput, agentDir?: string, options?: ApiKeyStorageOptions): void;
 export declare function setMistralApiKey(key: SecretInput, agentDir?: string, options?: ApiKeyStorageOptions): Promise<void>;
 export declare function setKilocodeApiKey(key: SecretInput, agentDir?: string, options?: ApiKeyStorageOptions): Promise<void>;

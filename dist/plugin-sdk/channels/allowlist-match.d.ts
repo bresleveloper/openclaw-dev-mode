@@ -4,19 +4,31 @@ export type AllowlistMatch<TSource extends string = AllowlistMatchSource> = {
     matchKey?: string;
     matchSource?: TSource;
 };
+export type CompiledAllowlist = {
+    set: ReadonlySet<string>;
+    wildcard: boolean;
+};
 export declare function formatAllowlistMatchMeta(match?: {
     matchKey?: string;
     matchSource?: string;
 } | null): string;
+export declare function compileAllowlist(entries: ReadonlyArray<string>): CompiledAllowlist;
+export declare function resolveAllowlistCandidates<TSource extends string>(params: {
+    compiledAllowlist: CompiledAllowlist;
+    candidates: Array<{
+        value?: string;
+        source: TSource;
+    }>;
+}): AllowlistMatch<TSource>;
 export declare function resolveAllowlistMatchByCandidates<TSource extends string>(params: {
-    allowList: string[];
+    allowList: ReadonlyArray<string>;
     candidates: Array<{
         value?: string;
         source: TSource;
     }>;
 }): AllowlistMatch<TSource>;
 export declare function resolveAllowlistMatchSimple(params: {
-    allowFrom: Array<string | number>;
+    allowFrom: ReadonlyArray<string | number>;
     senderId: string;
     senderName?: string | null;
     allowNameMatching?: boolean;

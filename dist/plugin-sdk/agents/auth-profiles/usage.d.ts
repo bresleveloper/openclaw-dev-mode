@@ -63,6 +63,7 @@ export declare function markAuthProfileFailure(params: {
     reason: AuthProfileFailureReason;
     cfg?: OpenClawConfig;
     agentDir?: string;
+    runId?: string;
 }): Promise<void>;
 /**
  * Mark a profile as transiently failed. Applies exponential backoff cooldown.
@@ -73,6 +74,7 @@ export declare function markAuthProfileCooldown(params: {
     store: AuthProfileStore;
     profileId: string;
     agentDir?: string;
+    runId?: string;
 }): Promise<void>;
 /**
  * Clear cooldown for a profile (e.g., manual reset).

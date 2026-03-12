@@ -15,11 +15,8 @@ export type ArchiveExtractLimits = {
     /** Max extracted bytes for a single file entry. */
     maxEntryBytes?: number;
 };
-export type ArchiveSecurityErrorCode = "destination-not-directory" | "destination-symlink" | "destination-symlink-traversal";
-export declare class ArchiveSecurityError extends Error {
-    code: ArchiveSecurityErrorCode;
-    constructor(code: ArchiveSecurityErrorCode, message: string, options?: ErrorOptions);
-}
+export { ArchiveSecurityError, type ArchiveSecurityErrorCode } from "./archive-staging.js";
+export { mergeExtractedTreeIntoDestination, prepareArchiveDestinationDir, prepareArchiveOutputPath, withStagedArchiveDestination, } from "./archive-staging.js";
 /** @internal */
 export declare const DEFAULT_MAX_ARCHIVE_BYTES_ZIP: number;
 /** @internal */
@@ -36,7 +33,7 @@ export type TarEntryInfo = {
     type: string;
     size: number;
 };
-export declare function createTarEntrySafetyChecker(params: {
+export declare function createTarEntryPreflightChecker(params: {
     rootDir: string;
     stripComponents?: number;
     limits?: ArchiveExtractLimits;

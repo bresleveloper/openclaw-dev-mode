@@ -1,3 +1,4 @@
+import { z } from "zod";
 import path from "node:path";
 import chalk, { Chalk } from "chalk";
 import fs from "node:fs";
@@ -42,7 +43,566 @@ function setAccountEnabledInConfigSection(params) {
 	};
 }
 //#endregion
+//#region src/infra/exec-safety.ts
+const SHELL_METACHARS = /[;&|`$<>]/;
+const CONTROL_CHARS = /[\r\n]/;
+const QUOTE_CHARS = /["']/;
+const BARE_NAME_PATTERN = /^[A-Za-z0-9._+-]+$/;
+function isLikelyPath(value) {
+	if (value.startsWith(".") || value.startsWith("~")) return true;
+	if (value.includes("/") || value.includes("\\")) return true;
+	return /^[A-Za-z]:[\\/]/.test(value);
+}
+function isSafeExecutableValue(value) {
+	if (!value) return false;
+	const trimmed = value.trim();
+	if (!trimmed) return false;
+	if (trimmed.includes("\0")) return false;
+	if (CONTROL_CHARS.test(trimmed)) return false;
+	if (SHELL_METACHARS.test(trimmed)) return false;
+	if (QUOTE_CHARS.test(trimmed)) return false;
+	if (isLikelyPath(trimmed)) return true;
+	if (trimmed.startsWith("-")) return false;
+	return BARE_NAME_PATTERN.test(trimmed);
+}
+//#endregion
+//#region src/secrets/ref-contract.ts
+const FILE_SECRET_REF_SEGMENT_PATTERN = /^(?:[^~]|~0|~1)*$/;
+const EXEC_SECRET_REF_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$/;
+function isValidFileSecretRefId(value) {
+	if (value === "value") return true;
+	if (!value.startsWith("/")) return false;
+	return value.slice(1).split("/").every((segment) => FILE_SECRET_REF_SEGMENT_PATTERN.test(segment));
+}
+function validateExecSecretRefId(value) {
+	if (!EXEC_SECRET_REF_ID_PATTERN.test(value)) return {
+		ok: false,
+		reason: "pattern"
+	};
+	for (const segment of value.split("/")) if (segment === "." || segment === "..") return {
+		ok: false,
+		reason: "traversal-segment"
+	};
+	return { ok: true };
+}
+function isValidExecSecretRefId(value) {
+	return validateExecSecretRefId(value).ok;
+}
+function formatExecSecretRefIdValidationMessage() {
+	return [
+		"Exec secret reference id must match /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$/",
+		"and must not include \".\" or \"..\" path segments",
+		"(example: \"vault/openai/api-key\")."
+	].join(" ");
+}
+//#endregion
+//#region src/config/types.models.ts
+const MODEL_APIS = [
+	"openai-completions",
+	"openai-responses",
+	"openai-codex-responses",
+	"anthropic-messages",
+	"google-generative-ai",
+	"github-copilot",
+	"bedrock-converse-stream",
+	"ollama"
+];
+//#endregion
+//#region src/config/zod-schema.allowdeny.ts
+const AllowDenyActionSchema = z.union([z.literal("allow"), z.literal("deny")]);
+const AllowDenyChatTypeSchema = z.union([
+	z.literal("direct"),
+	z.literal("group"),
+	z.literal("channel"),
+	z.literal("dm")
+]).optional();
+function createAllowDenyChannelRulesSchema() {
+	return z.object({
+		default: AllowDenyActionSchema.optional(),
+		rules: z.array(z.object({
+			action: AllowDenyActionSchema,
+			match: z.object({
+				channel: z.string().optional(),
+				chatType: AllowDenyChatTypeSchema,
+				keyPrefix: z.string().optional(),
+				rawKeyPrefix: z.string().optional()
+			}).strict().optional()
+		}).strict()).optional()
+	}).strict().optional();
+}
+//#endregion
+//#region src/config/zod-schema.sensitive.ts
+const sensitive = z.registry();
+//#endregion
+//#region src/config/zod-schema.core.ts
+const ENV_SECRET_REF_ID_PATTERN = /^[A-Z][A-Z0-9_]{0,127}$/;
+const SECRET_PROVIDER_ALIAS_PATTERN = /^[a-z][a-z0-9_-]{0,63}$/;
+const WINDOWS_ABS_PATH_PATTERN = /^[A-Za-z]:[\\/]/;
+const WINDOWS_UNC_PATH_PATTERN = /^\\\\[^\\]+\\[^\\]+/;
+function isAbsolutePath(value) {
+	return path.isAbsolute(value) || WINDOWS_ABS_PATH_PATTERN.test(value) || WINDOWS_UNC_PATH_PATTERN.test(value);
+}
+const EnvSecretRefSchema = z.object({
+	source: z.literal("env"),
+	provider: z.string().regex(SECRET_PROVIDER_ALIAS_PATTERN, "Secret reference provider must match /^[a-z][a-z0-9_-]{0,63}$/ (example: \"default\")."),
+	id: z.string().regex(ENV_SECRET_REF_ID_PATTERN, "Env secret reference id must match /^[A-Z][A-Z0-9_]{0,127}$/ (example: \"OPENAI_API_KEY\").")
+}).strict();
+const FileSecretRefSchema = z.object({
+	source: z.literal("file"),
+	provider: z.string().regex(SECRET_PROVIDER_ALIAS_PATTERN, "Secret reference provider must match /^[a-z][a-z0-9_-]{0,63}$/ (example: \"default\")."),
+	id: z.string().refine(isValidFileSecretRefId, "File secret reference id must be an absolute JSON pointer (example: \"/providers/openai/apiKey\"), or \"value\" for singleValue mode.")
+}).strict();
+const ExecSecretRefSchema = z.object({
+	source: z.literal("exec"),
+	provider: z.string().regex(SECRET_PROVIDER_ALIAS_PATTERN, "Secret reference provider must match /^[a-z][a-z0-9_-]{0,63}$/ (example: \"default\")."),
+	id: z.string().refine(isValidExecSecretRefId, formatExecSecretRefIdValidationMessage())
+}).strict();
+const SecretRefSchema = z.discriminatedUnion("source", [
+	EnvSecretRefSchema,
+	FileSecretRefSchema,
+	ExecSecretRefSchema
+]);
+const SecretInputSchema = z.union([z.string(), SecretRefSchema]);
+const SecretsEnvProviderSchema = z.object({
+	source: z.literal("env"),
+	allowlist: z.array(z.string().regex(ENV_SECRET_REF_ID_PATTERN)).max(256).optional()
+}).strict();
+const SecretsFileProviderSchema = z.object({
+	source: z.literal("file"),
+	path: z.string().min(1),
+	mode: z.union([z.literal("singleValue"), z.literal("json")]).optional(),
+	timeoutMs: z.number().int().positive().max(12e4).optional(),
+	maxBytes: z.number().int().positive().max(20 * 1024 * 1024).optional()
+}).strict();
+const SecretsExecProviderSchema = z.object({
+	source: z.literal("exec"),
+	command: z.string().min(1).refine((value) => isSafeExecutableValue(value), "secrets.providers.*.command is unsafe.").refine((value) => isAbsolutePath(value), "secrets.providers.*.command must be an absolute path."),
+	args: z.array(z.string().max(1024)).max(128).optional(),
+	timeoutMs: z.number().int().positive().max(12e4).optional(),
+	noOutputTimeoutMs: z.number().int().positive().max(12e4).optional(),
+	maxOutputBytes: z.number().int().positive().max(20 * 1024 * 1024).optional(),
+	jsonOnly: z.boolean().optional(),
+	env: z.record(z.string(), z.string()).optional(),
+	passEnv: z.array(z.string().regex(ENV_SECRET_REF_ID_PATTERN)).max(128).optional(),
+	trustedDirs: z.array(z.string().min(1).refine((value) => isAbsolutePath(value), "trustedDirs entries must be absolute paths.")).max(64).optional(),
+	allowInsecurePath: z.boolean().optional(),
+	allowSymlinkCommand: z.boolean().optional()
+}).strict();
+const SecretProviderSchema = z.discriminatedUnion("source", [
+	SecretsEnvProviderSchema,
+	SecretsFileProviderSchema,
+	SecretsExecProviderSchema
+]);
+z.object({
+	providers: z.object({}).catchall(SecretProviderSchema).optional(),
+	defaults: z.object({
+		env: z.string().regex(SECRET_PROVIDER_ALIAS_PATTERN).optional(),
+		file: z.string().regex(SECRET_PROVIDER_ALIAS_PATTERN).optional(),
+		exec: z.string().regex(SECRET_PROVIDER_ALIAS_PATTERN).optional()
+	}).strict().optional(),
+	resolution: z.object({
+		maxProviderConcurrency: z.number().int().positive().max(16).optional(),
+		maxRefsPerProvider: z.number().int().positive().max(4096).optional(),
+		maxBatchBytes: z.number().int().positive().max(5 * 1024 * 1024).optional()
+	}).strict().optional()
+}).strict().optional();
+const ModelApiSchema = z.enum(MODEL_APIS);
+const ModelCompatSchema = z.object({
+	supportsStore: z.boolean().optional(),
+	supportsDeveloperRole: z.boolean().optional(),
+	supportsReasoningEffort: z.boolean().optional(),
+	supportsUsageInStreaming: z.boolean().optional(),
+	supportsTools: z.boolean().optional(),
+	supportsStrictMode: z.boolean().optional(),
+	maxTokensField: z.union([z.literal("max_completion_tokens"), z.literal("max_tokens")]).optional(),
+	thinkingFormat: z.union([
+		z.literal("openai"),
+		z.literal("zai"),
+		z.literal("qwen")
+	]).optional(),
+	requiresToolResultName: z.boolean().optional(),
+	requiresAssistantAfterToolResult: z.boolean().optional(),
+	requiresThinkingAsText: z.boolean().optional(),
+	requiresMistralToolIds: z.boolean().optional(),
+	requiresOpenAiAnthropicToolPayload: z.boolean().optional()
+}).strict().optional();
+const ModelDefinitionSchema = z.object({
+	id: z.string().min(1),
+	name: z.string().min(1),
+	api: ModelApiSchema.optional(),
+	reasoning: z.boolean().optional(),
+	input: z.array(z.union([z.literal("text"), z.literal("image")])).optional(),
+	cost: z.object({
+		input: z.number().optional(),
+		output: z.number().optional(),
+		cacheRead: z.number().optional(),
+		cacheWrite: z.number().optional()
+	}).strict().optional(),
+	contextWindow: z.number().positive().optional(),
+	maxTokens: z.number().positive().optional(),
+	headers: z.record(z.string(), z.string()).optional(),
+	compat: ModelCompatSchema
+}).strict();
+const ModelProviderSchema = z.object({
+	baseUrl: z.string().min(1),
+	apiKey: SecretInputSchema.optional().register(sensitive),
+	auth: z.union([
+		z.literal("api-key"),
+		z.literal("aws-sdk"),
+		z.literal("oauth"),
+		z.literal("token")
+	]).optional(),
+	api: ModelApiSchema.optional(),
+	injectNumCtxForOpenAICompat: z.boolean().optional(),
+	headers: z.record(z.string(), SecretInputSchema.register(sensitive)).optional(),
+	authHeader: z.boolean().optional(),
+	models: z.array(ModelDefinitionSchema)
+}).strict();
+const BedrockDiscoverySchema = z.object({
+	enabled: z.boolean().optional(),
+	region: z.string().optional(),
+	providerFilter: z.array(z.string()).optional(),
+	refreshInterval: z.number().int().nonnegative().optional(),
+	defaultContextWindow: z.number().int().positive().optional(),
+	defaultMaxTokens: z.number().int().positive().optional()
+}).strict().optional();
+z.object({
+	mode: z.union([z.literal("merge"), z.literal("replace")]).optional(),
+	providers: z.record(z.string(), ModelProviderSchema).optional(),
+	bedrockDiscovery: BedrockDiscoverySchema
+}).strict().optional();
+z.object({
+	mentionPatterns: z.array(z.string()).optional(),
+	historyLimit: z.number().int().positive().optional()
+}).strict().optional();
+const DmConfigSchema = z.object({ historyLimit: z.number().int().min(0).optional() }).strict();
+z.object({
+	name: z.string().optional(),
+	theme: z.string().optional(),
+	emoji: z.string().optional(),
+	avatar: z.string().optional()
+}).strict().optional();
+const QueueModeSchema = z.union([
+	z.literal("steer"),
+	z.literal("followup"),
+	z.literal("collect"),
+	z.literal("steer-backlog"),
+	z.literal("steer+backlog"),
+	z.literal("queue"),
+	z.literal("interrupt")
+]);
+const QueueDropSchema = z.union([
+	z.literal("old"),
+	z.literal("new"),
+	z.literal("summarize")
+]);
+z.union([
+	z.literal("off"),
+	z.literal("first"),
+	z.literal("all")
+]);
+z.union([
+	z.literal("never"),
+	z.literal("instant"),
+	z.literal("thinking"),
+	z.literal("message")
+]);
+z.enum([
+	"open",
+	"disabled",
+	"allowlist"
+]);
+z.enum([
+	"pairing",
+	"allowlist",
+	"open",
+	"disabled"
+]);
+const BlockStreamingCoalesceSchema = z.object({
+	minChars: z.number().int().positive().optional(),
+	maxChars: z.number().int().positive().optional(),
+	idleMs: z.number().int().nonnegative().optional()
+}).strict();
+z.number().int().min(0).optional(), z.number().int().min(0).optional(), z.record(z.string(), DmConfigSchema.optional()).optional(), z.number().int().positive().optional(), z.enum(["length", "newline"]).optional(), z.boolean().optional(), BlockStreamingCoalesceSchema.optional(), z.string().optional(), z.number().positive().optional();
+z.object({
+	minChars: z.number().int().positive().optional(),
+	maxChars: z.number().int().positive().optional(),
+	breakPreference: z.union([
+		z.literal("paragraph"),
+		z.literal("newline"),
+		z.literal("sentence")
+	]).optional()
+}).strict();
+const MarkdownTableModeSchema = z.enum([
+	"off",
+	"bullets",
+	"code"
+]);
+z.object({ tables: MarkdownTableModeSchema.optional() }).strict().optional();
+const TtsProviderSchema = z.enum([
+	"elevenlabs",
+	"openai",
+	"edge"
+]);
+const TtsModeSchema = z.enum(["final", "all"]);
+const TtsAutoSchema = z.enum([
+	"off",
+	"always",
+	"inbound",
+	"tagged"
+]);
+z.object({
+	auto: TtsAutoSchema.optional(),
+	enabled: z.boolean().optional(),
+	mode: TtsModeSchema.optional(),
+	provider: TtsProviderSchema.optional(),
+	summaryModel: z.string().optional(),
+	modelOverrides: z.object({
+		enabled: z.boolean().optional(),
+		allowText: z.boolean().optional(),
+		allowProvider: z.boolean().optional(),
+		allowVoice: z.boolean().optional(),
+		allowModelId: z.boolean().optional(),
+		allowVoiceSettings: z.boolean().optional(),
+		allowNormalization: z.boolean().optional(),
+		allowSeed: z.boolean().optional()
+	}).strict().optional(),
+	elevenlabs: z.object({
+		apiKey: SecretInputSchema.optional().register(sensitive),
+		baseUrl: z.string().optional(),
+		voiceId: z.string().optional(),
+		modelId: z.string().optional(),
+		seed: z.number().int().min(0).max(4294967295).optional(),
+		applyTextNormalization: z.enum([
+			"auto",
+			"on",
+			"off"
+		]).optional(),
+		languageCode: z.string().optional(),
+		voiceSettings: z.object({
+			stability: z.number().min(0).max(1).optional(),
+			similarityBoost: z.number().min(0).max(1).optional(),
+			style: z.number().min(0).max(1).optional(),
+			useSpeakerBoost: z.boolean().optional(),
+			speed: z.number().min(.5).max(2).optional()
+		}).strict().optional()
+	}).strict().optional(),
+	openai: z.object({
+		apiKey: SecretInputSchema.optional().register(sensitive),
+		baseUrl: z.string().optional(),
+		model: z.string().optional(),
+		voice: z.string().optional(),
+		speed: z.number().min(.25).max(4).optional(),
+		instructions: z.string().optional()
+	}).strict().optional(),
+	edge: z.object({
+		enabled: z.boolean().optional(),
+		voice: z.string().optional(),
+		lang: z.string().optional(),
+		outputFormat: z.string().optional(),
+		pitch: z.string().optional(),
+		rate: z.string().optional(),
+		volume: z.string().optional(),
+		saveSubtitles: z.boolean().optional(),
+		proxy: z.string().optional(),
+		timeoutMs: z.number().int().min(1e3).max(12e4).optional()
+	}).strict().optional(),
+	prefsPath: z.string().optional(),
+	maxTextLength: z.number().int().min(1).optional(),
+	timeoutMs: z.number().int().min(1e3).max(12e4).optional()
+}).strict().optional();
+z.object({
+	mode: z.union([
+		z.literal("off"),
+		z.literal("natural"),
+		z.literal("custom")
+	]).optional(),
+	minMs: z.number().int().nonnegative().optional(),
+	maxMs: z.number().int().nonnegative().optional()
+}).strict();
+const CliBackendWatchdogModeSchema = z.object({
+	noOutputTimeoutMs: z.number().int().min(1e3).optional(),
+	noOutputTimeoutRatio: z.number().min(.05).max(.95).optional(),
+	minMs: z.number().int().min(1e3).optional(),
+	maxMs: z.number().int().min(1e3).optional()
+}).strict().optional();
+z.object({
+	command: z.string(),
+	args: z.array(z.string()).optional(),
+	output: z.union([
+		z.literal("json"),
+		z.literal("text"),
+		z.literal("jsonl")
+	]).optional(),
+	resumeOutput: z.union([
+		z.literal("json"),
+		z.literal("text"),
+		z.literal("jsonl")
+	]).optional(),
+	input: z.union([z.literal("arg"), z.literal("stdin")]).optional(),
+	maxPromptArgChars: z.number().int().positive().optional(),
+	env: z.record(z.string(), z.string()).optional(),
+	clearEnv: z.array(z.string()).optional(),
+	modelArg: z.string().optional(),
+	modelAliases: z.record(z.string(), z.string()).optional(),
+	sessionArg: z.string().optional(),
+	sessionArgs: z.array(z.string()).optional(),
+	resumeArgs: z.array(z.string()).optional(),
+	sessionMode: z.union([
+		z.literal("always"),
+		z.literal("existing"),
+		z.literal("none")
+	]).optional(),
+	sessionIdFields: z.array(z.string()).optional(),
+	systemPromptArg: z.string().optional(),
+	systemPromptMode: z.union([z.literal("append"), z.literal("replace")]).optional(),
+	systemPromptWhen: z.union([
+		z.literal("first"),
+		z.literal("always"),
+		z.literal("never")
+	]).optional(),
+	imageArg: z.string().optional(),
+	imageMode: z.union([z.literal("repeat"), z.literal("list")]).optional(),
+	serialize: z.boolean().optional(),
+	reliability: z.object({ watchdog: z.object({
+		fresh: CliBackendWatchdogModeSchema,
+		resume: CliBackendWatchdogModeSchema
+	}).strict().optional() }).strict().optional()
+}).strict();
+z.enum(["thread", "top-level"]);
+z.object({
+	attempts: z.number().int().min(1).optional(),
+	minDelayMs: z.number().int().min(0).optional(),
+	maxDelayMs: z.number().int().min(0).optional(),
+	jitter: z.number().min(0).max(1).optional()
+}).strict().optional();
+const QueueModeBySurfaceSchema = z.object({
+	whatsapp: QueueModeSchema.optional(),
+	telegram: QueueModeSchema.optional(),
+	discord: QueueModeSchema.optional(),
+	irc: QueueModeSchema.optional(),
+	slack: QueueModeSchema.optional(),
+	mattermost: QueueModeSchema.optional(),
+	signal: QueueModeSchema.optional(),
+	imessage: QueueModeSchema.optional(),
+	msteams: QueueModeSchema.optional(),
+	webchat: QueueModeSchema.optional()
+}).strict().optional();
+const DebounceMsBySurfaceSchema = z.record(z.string(), z.number().int().nonnegative()).optional();
+z.object({
+	mode: QueueModeSchema.optional(),
+	byChannel: QueueModeBySurfaceSchema,
+	debounceMs: z.number().int().nonnegative().optional(),
+	debounceMsByChannel: DebounceMsBySurfaceSchema,
+	cap: z.number().int().positive().optional(),
+	drop: QueueDropSchema.optional()
+}).strict().optional();
+z.object({
+	debounceMs: z.number().int().nonnegative().optional(),
+	byChannel: DebounceMsBySurfaceSchema
+}).strict().optional();
+z.object({
+	command: z.array(z.string()).superRefine((value, ctx) => {
+		const executable = value[0];
+		if (!isSafeExecutableValue(executable)) ctx.addIssue({
+			code: z.ZodIssueCode.custom,
+			path: [0],
+			message: "expected safe executable name or path"
+		});
+	}),
+	timeoutSeconds: z.number().int().positive().optional()
+}).strict().optional();
+z.string().regex(/^#?[0-9a-fA-F]{6}$/, "expected hex color (RRGGBB)");
+z.string().refine(isSafeExecutableValue, "expected safe executable name or path");
+const MediaUnderstandingScopeSchema = createAllowDenyChannelRulesSchema();
+const MediaUnderstandingCapabilitiesSchema = z.array(z.union([
+	z.literal("image"),
+	z.literal("audio"),
+	z.literal("video")
+])).optional();
+const MediaUnderstandingAttachmentsSchema = z.object({
+	mode: z.union([z.literal("first"), z.literal("all")]).optional(),
+	maxAttachments: z.number().int().positive().optional(),
+	prefer: z.union([
+		z.literal("first"),
+		z.literal("last"),
+		z.literal("path"),
+		z.literal("url")
+	]).optional()
+}).strict().optional();
+const DeepgramAudioSchema = z.object({
+	detectLanguage: z.boolean().optional(),
+	punctuate: z.boolean().optional(),
+	smartFormat: z.boolean().optional()
+}).strict().optional();
+const ProviderOptionValueSchema = z.union([
+	z.string(),
+	z.number(),
+	z.boolean()
+]);
+const ProviderOptionsSchema = z.record(z.string(), z.record(z.string(), ProviderOptionValueSchema)).optional();
+const MediaUnderstandingRuntimeFields = {
+	prompt: z.string().optional(),
+	timeoutSeconds: z.number().int().positive().optional(),
+	language: z.string().optional(),
+	providerOptions: ProviderOptionsSchema,
+	deepgram: DeepgramAudioSchema,
+	baseUrl: z.string().optional(),
+	headers: z.record(z.string(), z.string()).optional()
+};
+const MediaUnderstandingModelSchema = z.object({
+	provider: z.string().optional(),
+	model: z.string().optional(),
+	capabilities: MediaUnderstandingCapabilitiesSchema,
+	type: z.union([z.literal("provider"), z.literal("cli")]).optional(),
+	command: z.string().optional(),
+	args: z.array(z.string()).optional(),
+	maxChars: z.number().int().positive().optional(),
+	maxBytes: z.number().int().positive().optional(),
+	...MediaUnderstandingRuntimeFields,
+	profile: z.string().optional(),
+	preferredProfile: z.string().optional()
+}).strict().optional();
+const ToolsMediaUnderstandingSchema = z.object({
+	enabled: z.boolean().optional(),
+	scope: MediaUnderstandingScopeSchema,
+	maxBytes: z.number().int().positive().optional(),
+	maxChars: z.number().int().positive().optional(),
+	...MediaUnderstandingRuntimeFields,
+	attachments: MediaUnderstandingAttachmentsSchema,
+	models: z.array(MediaUnderstandingModelSchema).optional(),
+	echoTranscript: z.boolean().optional(),
+	echoFormat: z.string().optional()
+}).strict().optional();
+z.object({
+	models: z.array(MediaUnderstandingModelSchema).optional(),
+	concurrency: z.number().int().positive().optional(),
+	image: ToolsMediaUnderstandingSchema.optional(),
+	audio: ToolsMediaUnderstandingSchema.optional(),
+	video: ToolsMediaUnderstandingSchema.optional()
+}).strict().optional();
+const LinkModelSchema = z.object({
+	type: z.literal("cli").optional(),
+	command: z.string().min(1),
+	args: z.array(z.string()).optional(),
+	timeoutSeconds: z.number().int().positive().optional()
+}).strict();
+z.object({
+	enabled: z.boolean().optional(),
+	scope: MediaUnderstandingScopeSchema,
+	maxLinks: z.number().int().positive().optional(),
+	timeoutSeconds: z.number().int().positive().optional(),
+	models: z.array(LinkModelSchema).optional()
+}).strict().optional();
+const NativeCommandsSettingSchema = z.union([z.boolean(), z.literal("auto")]);
+z.object({
+	native: NativeCommandsSettingSchema.optional(),
+	nativeSkills: NativeCommandsSettingSchema.optional()
+}).strict().optional();
+//#endregion
 //#region src/channels/plugins/config-schema.ts
+const AllowFromEntrySchema = z.union([z.string(), z.number()]);
+z.array(AllowFromEntrySchema).optional();
 function buildChannelConfigSchema(schema) {
 	const schemaWithJson = schema;
 	if (typeof schemaWithJson.toJSONSchema === "function") return { schema: schemaWithJson.toJSONSchema({
@@ -207,6 +767,83 @@ function normalizePluginHttpPath(path, fallback) {
 		return fallbackTrimmed.startsWith("/") ? fallbackTrimmed : `/${fallbackTrimmed}`;
 	}
 	return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+}
+//#endregion
+//#region src/gateway/security-path.ts
+const MAX_PATH_DECODE_PASSES = 32;
+function normalizePathSeparators(pathname) {
+	const collapsed = pathname.replace(/\/{2,}/g, "/");
+	if (collapsed.length <= 1) return collapsed;
+	return collapsed.replace(/\/+$/, "");
+}
+function resolveDotSegments(pathname) {
+	try {
+		return new URL(pathname, "http://localhost").pathname;
+	} catch {
+		return pathname;
+	}
+}
+function normalizePathForSecurity(pathname) {
+	return normalizePathSeparators(resolveDotSegments(pathname).toLowerCase()) || "/";
+}
+function pushNormalizedCandidate(candidates, seen, value) {
+	const normalized = normalizePathForSecurity(value);
+	if (seen.has(normalized)) return;
+	seen.add(normalized);
+	candidates.push(normalized);
+}
+function buildCanonicalPathCandidates(pathname, maxDecodePasses = MAX_PATH_DECODE_PASSES) {
+	const candidates = [];
+	const seen = /* @__PURE__ */ new Set();
+	pushNormalizedCandidate(candidates, seen, pathname);
+	let decoded = pathname;
+	let malformedEncoding = false;
+	let decodePasses = 0;
+	for (let pass = 0; pass < maxDecodePasses; pass++) {
+		let nextDecoded = decoded;
+		try {
+			nextDecoded = decodeURIComponent(decoded);
+		} catch {
+			malformedEncoding = true;
+			break;
+		}
+		if (nextDecoded === decoded) break;
+		decodePasses += 1;
+		decoded = nextDecoded;
+		pushNormalizedCandidate(candidates, seen, decoded);
+	}
+	let decodePassLimitReached = false;
+	if (!malformedEncoding) try {
+		decodePassLimitReached = decodeURIComponent(decoded) !== decoded;
+	} catch {
+		malformedEncoding = true;
+	}
+	return {
+		candidates,
+		decodePasses,
+		decodePassLimitReached,
+		malformedEncoding
+	};
+}
+function canonicalizePathVariant(pathname) {
+	const { candidates } = buildCanonicalPathCandidates(pathname);
+	return candidates[candidates.length - 1] ?? "/";
+}
+//#endregion
+//#region src/plugins/http-route-overlap.ts
+function prefixMatchPath(pathname, prefix) {
+	return pathname === prefix || pathname.startsWith(`${prefix}/`) || pathname.startsWith(`${prefix}%`);
+}
+function doPluginHttpRoutesOverlap(a, b) {
+	const aPath = canonicalizePathVariant(a.path);
+	const bPath = canonicalizePathVariant(b.path);
+	if (a.match === "exact" && b.match === "exact") return aPath === bPath;
+	if (a.match === "prefix" && b.match === "prefix") return prefixMatchPath(aPath, bPath) || prefixMatchPath(bPath, aPath);
+	const prefixRoute = a.match === "prefix" ? a : b;
+	return prefixMatchPath(canonicalizePathVariant((a.match === "exact" ? a : b).path), canonicalizePathVariant(prefixRoute.path));
+}
+function findOverlappingPluginHttpRoute(routes, candidate) {
+	return routes.find((route) => doPluginHttpRoutesOverlap(route, candidate));
 }
 const ROOT_BOOLEAN_FLAGS = new Set(["--dev", "--no-color"]);
 const ROOT_VALUE_FLAGS = new Set(["--profile", "--log-level"]);
@@ -892,6 +1529,7 @@ const ANSI_SGR_PATTERN = "\\x1b\\[[0-9;]*m";
 const OSC8_PATTERN = "\\x1b\\]8;;.*?\\x1b\\\\|\\x1b\\]8;;\\x1b\\\\";
 new RegExp(ANSI_SGR_PATTERN, "g");
 new RegExp(OSC8_PATTERN, "g");
+typeof Intl !== "undefined" && "Segmenter" in Intl && new Intl.Segmenter(void 0, { granularity: "grapheme" });
 //#endregion
 //#region src/logging/console.ts
 const requireConfig = resolveNodeRequireFromMeta(import.meta.url);
@@ -1070,6 +1708,13 @@ function writeConsoleLine(level, line) {
 	else if (level === "warn") (sink.warn ?? console.warn)(sanitized);
 	else (sink.log ?? console.log)(sanitized);
 }
+function shouldSuppressProbeConsoleLine(params) {
+	if (isVerbose()) return false;
+	if (params.level === "error" || params.level === "fatal") return false;
+	if (!(params.subsystem === "agent/embedded" || params.subsystem.startsWith("agent/embedded/") || params.subsystem === "model-fallback" || params.subsystem.startsWith("model-fallback/"))) return false;
+	if ((typeof params.meta?.runId === "string" ? params.meta.runId : typeof params.meta?.sessionId === "string" ? params.meta.sessionId : void 0)?.startsWith("probe-")) return true;
+	return /(sessionId|runId)=probe-/.test(params.message);
+}
 function logToFile(fileLogger, level, message, meta) {
 	if (level === "silent") return;
 	const method = fileLogger[level];
@@ -1098,7 +1743,12 @@ function createSubsystemLogger(subsystem) {
 		if (fileEnabled) logToFile(getFileLogger(), level, message, fileMeta);
 		if (!consoleEnabled) return;
 		const consoleMessage = consoleMessageOverride ?? message;
-		if (!isVerbose() && subsystem === "agent/embedded" && /(sessionId|runId)=probe-/.test(consoleMessage)) return;
+		if (shouldSuppressProbeConsoleLine({
+			level,
+			subsystem,
+			message: consoleMessage,
+			meta: fileMeta
+		})) return;
 		writeConsoleLine(level, formatConsoleLine({
 			level,
 			subsystem,
@@ -1127,7 +1777,11 @@ function createSubsystemLogger(subsystem) {
 		raw: (message) => {
 			if (isFileEnabled("info")) logToFile(getFileLogger(), "info", message, { raw: true });
 			if (isConsoleEnabled("info")) {
-				if (!isVerbose() && subsystem === "agent/embedded" && /(sessionId|runId)=probe-/.test(message)) return;
+				if (shouldSuppressProbeConsoleLine({
+					level: "info",
+					subsystem,
+					message
+				})) return;
 				writeConsoleLine("info", message);
 			}
 		},
@@ -1225,6 +1879,14 @@ function registerPluginHttpRoute(params) {
 		return () => {};
 	}
 	const routeMatch = params.match ?? "exact";
+	const overlappingRoute = findOverlappingPluginHttpRoute(routes, {
+		path: normalizedPath,
+		match: routeMatch
+	});
+	if (overlappingRoute && overlappingRoute.auth !== params.auth) {
+		params.log?.(`plugin: route overlap denied at ${normalizedPath} (${routeMatch}, ${params.auth})${suffix}; overlaps ${overlappingRoute.path} (${overlappingRoute.match}, ${overlappingRoute.auth}) owned by ${overlappingRoute.pluginId ?? "unknown-plugin"} (${overlappingRoute.source ?? "unknown-source"})`);
+		return () => {};
+	}
 	const existingIndex = routes.findIndex((entry) => entry.path === normalizedPath && entry.match === routeMatch);
 	if (existingIndex >= 0) {
 		const existing = routes[existingIndex];

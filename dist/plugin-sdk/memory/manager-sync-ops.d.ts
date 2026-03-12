@@ -11,6 +11,7 @@ type MemoryIndexMeta = {
     provider: string;
     providerKey?: string;
     sources?: MemorySource[];
+    scopeHash?: string;
     chunkTokens: number;
     chunkOverlap: number;
     vectorDims?: number;
@@ -134,6 +135,7 @@ export declare abstract class MemoryManagerSyncOps {
     protected writeMeta(meta: MemoryIndexMeta): void;
     private resolveConfiguredSourcesForMeta;
     private normalizeMetaSources;
+    private resolveConfiguredScopeHash;
     private metaSourcesDiffer;
 }
 export {};

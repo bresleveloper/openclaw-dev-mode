@@ -9,6 +9,7 @@ export { listSlackDirectoryGroupsFromConfig, listSlackDirectoryPeersFromConfig, 
 export { looksLikeSlackTargetId, normalizeSlackMessagingTarget, } from "../channels/plugins/normalize/slack.js";
 export { extractSlackToolSend, listSlackMessageActions } from "../slack/message-actions.js";
 export { buildSlackThreadingToolContext } from "../slack/threading-tool-context.js";
+export { buildComputedAccountStatusSnapshot } from "./status-helpers.js";
 export { resolveDefaultGroupPolicy, resolveOpenProviderRuntimeGroupPolicy, } from "../config/runtime-group-policy.js";
 export { resolveSlackGroupRequireMention, resolveSlackGroupToolPolicy, } from "../channels/plugins/group-mentions.js";
 export { slackOnboardingAdapter } from "../channels/plugins/onboarding/slack.js";

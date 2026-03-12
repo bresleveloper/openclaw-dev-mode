@@ -2,6 +2,7 @@ import type { OpenClawConfig } from "../config/config.js";
 import type { AnyAgentTool } from "./pi-tools.types.js";
 import type { SandboxToolPolicy } from "./sandbox.js";
 export declare function resolveSubagentToolPolicy(cfg?: OpenClawConfig, depth?: number): SandboxToolPolicy;
+export declare function resolveSubagentToolPolicyForSession(cfg: OpenClawConfig | undefined, sessionKey: string): SandboxToolPolicy;
 export declare function isToolAllowedByPolicyName(name: string, policy?: SandboxToolPolicy): boolean;
 export declare function filterToolsByPolicy(tools: AnyAgentTool[], policy?: SandboxToolPolicy): AnyAgentTool[];
 export declare function resolveEffectiveToolPolicy(params: {
@@ -16,7 +17,7 @@ export declare function resolveEffectiveToolPolicy(params: {
     globalProviderPolicy: SandboxToolPolicy | undefined;
     agentPolicy: SandboxToolPolicy | undefined;
     agentProviderPolicy: SandboxToolPolicy | undefined;
-    profile: import("../config/types.tools.ts").ToolProfileId | undefined;
+    profile: import("../config/types.tools.js").ToolProfileId | undefined;
     providerProfile: string | undefined;
     profileAlsoAllow: string[] | undefined;
     providerProfileAlsoAllow: string[] | undefined;

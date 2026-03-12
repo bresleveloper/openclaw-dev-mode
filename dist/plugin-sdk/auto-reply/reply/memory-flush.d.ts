@@ -4,6 +4,10 @@ export declare const DEFAULT_MEMORY_FLUSH_SOFT_TOKENS = 4000;
 export declare const DEFAULT_MEMORY_FLUSH_FORCE_TRANSCRIPT_BYTES: number;
 export declare const DEFAULT_MEMORY_FLUSH_PROMPT: string;
 export declare const DEFAULT_MEMORY_FLUSH_SYSTEM_PROMPT: string;
+export declare function resolveMemoryFlushRelativePathForRun(params: {
+    cfg?: OpenClawConfig;
+    nowMs?: number;
+}): string;
 export declare function resolveMemoryFlushPromptForRun(params: {
     prompt: string;
     cfg?: OpenClawConfig;

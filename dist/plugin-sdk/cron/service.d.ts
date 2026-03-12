@@ -34,25 +34,28 @@ export declare class CronService {
         readonly removed: boolean;
     }>;
     run(id: string, mode?: "due" | "force"): Promise<{
-        ok: boolean;
-        ran: boolean;
-        reason: "already-running";
-        readonly jobId?: undefined;
-        readonly startedAt?: undefined;
-        readonly executionJob?: undefined;
+        ok: true;
+        ran: false;
+        reason: "already-running" | "not-due";
     } | {
-        ok: boolean;
-        ran: boolean;
-        reason: "not-due";
-        readonly jobId?: undefined;
-        readonly startedAt?: undefined;
-        readonly executionJob?: undefined;
-    } | {
-        readonly ok: false;
-        readonly ran?: undefined;
+        ok: false;
     } | {
         readonly ok: true;
         readonly ran: true;
+    }>;
+    enqueueRun(id: string, mode?: "due" | "force"): Promise<{
+        ok: true;
+        ran: false;
+        reason: "already-running" | "not-due";
+    } | {
+        ok: true;
+        runnable: true;
+    } | {
+        ok: false;
+    } | {
+        readonly ok: true;
+        readonly enqueued: true;
+        readonly runId: string;
     }>;
     getJob(id: string): CronJob | undefined;
     wake(opts: {

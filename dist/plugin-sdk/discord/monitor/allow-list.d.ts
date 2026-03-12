@@ -26,6 +26,7 @@ export type DiscordGuildEntryResolved = {
         systemPrompt?: string;
         includeThreadStarter?: boolean;
         autoThread?: boolean;
+        autoArchiveDuration?: "60" | "1440" | "4320" | "10080" | 60 | 1440 | 4320 | 10080;
     }>;
 };
 export type DiscordChannelConfigResolved = {
@@ -39,6 +40,7 @@ export type DiscordChannelConfigResolved = {
     systemPrompt?: string;
     includeThreadStarter?: boolean;
     autoThread?: boolean;
+    autoArchiveDuration?: "60" | "1440" | "4320" | "10080" | 60 | 1440 | 4320 | 10080;
     matchKey?: string;
     matchSource?: ChannelMatchSource;
 };
@@ -185,6 +187,9 @@ export declare function shouldEmitDiscordReactionNotification(params: {
     userId: string;
     userName?: string;
     userTag?: string;
+    channelConfig?: DiscordChannelConfigResolved | null;
+    guildInfo?: DiscordGuildEntryResolved | null;
+    memberRoleIds?: string[];
     allowlist?: string[];
     allowNameMatching?: boolean;
 }): boolean;

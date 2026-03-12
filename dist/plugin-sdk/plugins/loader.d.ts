@@ -13,7 +13,23 @@ export type PluginLoadOptions = {
     cache?: boolean;
     mode?: "full" | "validate";
 };
+type PluginSdkAliasCandidateKind = "dist" | "src";
+declare function resolvePluginSdkAliasCandidateOrder(params: {
+    modulePath: string;
+    isProduction: boolean;
+}): PluginSdkAliasCandidateKind[];
+declare function listPluginSdkAliasCandidates(params: {
+    srcFile: string;
+    distFile: string;
+    modulePath: string;
+}): string[];
+declare function listPluginSdkExportedSubpaths(params?: {
+    modulePath?: string;
+}): string[];
 export declare const __testing: {
+    listPluginSdkAliasCandidates: typeof listPluginSdkAliasCandidates;
+    listPluginSdkExportedSubpaths: typeof listPluginSdkExportedSubpaths;
+    resolvePluginSdkAliasCandidateOrder: typeof resolvePluginSdkAliasCandidateOrder;
     resolvePluginSdkAliasFile: (params: {
         srcFile: string;
         distFile: string;
@@ -21,3 +37,4 @@ export declare const __testing: {
     }) => string | null;
 };
 export declare function loadOpenClawPlugins(options?: PluginLoadOptions): PluginRegistry;
+export {};

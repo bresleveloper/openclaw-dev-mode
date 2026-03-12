@@ -1,6 +1,7 @@
 export declare const HOST_DANGEROUS_ENV_KEY_VALUES: readonly string[];
 export declare const HOST_DANGEROUS_ENV_PREFIXES: readonly string[];
 export declare const HOST_DANGEROUS_OVERRIDE_ENV_KEY_VALUES: readonly string[];
+export declare const HOST_DANGEROUS_OVERRIDE_ENV_PREFIXES: readonly string[];
 export declare const HOST_SHELL_WRAPPER_ALLOWED_OVERRIDE_ENV_KEY_VALUES: readonly string[];
 export declare const HOST_DANGEROUS_ENV_KEYS: Set<string>;
 export declare const HOST_DANGEROUS_OVERRIDE_ENV_KEYS: Set<string>;

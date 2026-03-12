@@ -1,0 +1,15 @@
+import { h as sendMessageDiscord } from "./send-t5C202Ty.js";
+import "./paths-DS13uuuA.js";
+import "./model-auth-CMFG2SyH.js";
+import "./logger-BpQI0P1g.js";
+import "./paths-akVZbnot.js";
+import "./proxy-env-BB7xUpNQ.js";
+import "./github-copilot-token-CM4Lzz86.js";
+import "./fetch-guard-D2YK65wa.js";
+import "./local-roots-BxK9yVdB.js";
+import "./ir-DY88SlWI.js";
+import "./render-Cky8fVYO.js";
+import "./fetch-izzwjkvs.js";
+import "./channel-activity-BGgvQFSB.js";
+import "./tables-WxuKo12O.js";
+export { sendMessageDiscord };

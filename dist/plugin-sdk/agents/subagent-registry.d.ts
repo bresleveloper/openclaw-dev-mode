@@ -13,6 +13,7 @@ export declare function replaceSubagentRunAfterSteer(params: {
 export declare function registerSubagentRun(params: {
     runId: string;
     childSessionKey: string;
+    controllerSessionKey?: string;
     requesterSessionKey: string;
     requesterOrigin?: DeliveryContext;
     requesterDisplayKey: string;
@@ -20,6 +21,7 @@ export declare function registerSubagentRun(params: {
     cleanup: "delete" | "keep";
     label?: string;
     model?: string;
+    workspaceDir?: string;
     runTimeoutSeconds?: number;
     expectsCompletionMessage?: boolean;
     spawnMode?: "run" | "session";
@@ -46,6 +48,7 @@ export declare function markSubagentRunTerminated(params: {
 export declare function listSubagentRunsForRequester(requesterSessionKey: string, options?: {
     requesterRunId?: string;
 }): SubagentRunRecord[];
+export declare function listSubagentRunsForController(controllerSessionKey: string): SubagentRunRecord[];
 export declare function countActiveRunsForSession(requesterSessionKey: string): number;
 export declare function countActiveDescendantRuns(rootSessionKey: string): number;
 export declare function countPendingDescendantRuns(rootSessionKey: string): number;

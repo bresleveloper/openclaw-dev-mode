@@ -35,8 +35,19 @@ export declare function createOpenClawCodingTools(options?: {
     sessionId?: string;
     /** Stable run identifier for this agent invocation. */
     runId?: string;
+    /** What initiated this run (for trigger-specific tool restrictions). */
+    trigger?: string;
+    /** Relative workspace path that memory-triggered writes may append to. */
+    memoryFlushWritePath?: string;
     agentDir?: string;
     workspaceDir?: string;
+    /**
+     * Workspace directory that spawned subagents should inherit.
+     * When sandboxing uses a copied workspace (`ro` or `none`), workspaceDir is the
+     * sandbox copy but subagents should inherit the real agent workspace instead.
+     * Defaults to workspaceDir when not set.
+     */
+    spawnWorkspaceDir?: string;
     config?: OpenClawConfig;
     abortSignal?: AbortSignal;
     /**

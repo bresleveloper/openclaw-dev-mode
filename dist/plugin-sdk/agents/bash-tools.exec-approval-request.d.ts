@@ -1,7 +1,7 @@
 import type { ExecAsk, ExecSecurity, SystemRunApprovalPlan } from "../infra/exec-approvals.js";
 export type RequestExecApprovalDecisionParams = {
     id: string;
-    command: string;
+    command?: string;
     commandArgv?: string[];
     systemRunPlan?: SystemRunApprovalPlan;
     env?: Record<string, string>;
@@ -32,7 +32,7 @@ export declare function resolveRegisteredExecApprovalDecision(params: {
 export declare function requestExecApprovalDecision(params: RequestExecApprovalDecisionParams): Promise<string | null>;
 type HostExecApprovalParams = {
     approvalId: string;
-    command: string;
+    command?: string;
     commandArgv?: string[];
     systemRunPlan?: SystemRunApprovalPlan;
     env?: Record<string, string>;

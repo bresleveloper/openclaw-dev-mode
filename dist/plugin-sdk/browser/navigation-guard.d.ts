@@ -5,7 +5,12 @@ export declare class InvalidBrowserNavigationUrlError extends Error {
 export type BrowserNavigationPolicyOptions = {
     ssrfPolicy?: SsrFPolicy;
 };
+export type BrowserNavigationRequestLike = {
+    url(): string;
+    redirectedFrom(): BrowserNavigationRequestLike | null;
+};
 export declare function withBrowserNavigationPolicy(ssrfPolicy?: SsrFPolicy): BrowserNavigationPolicyOptions;
+export declare function requiresInspectableBrowserNavigationRedirects(ssrfPolicy?: SsrFPolicy): boolean;
 export declare function assertBrowserNavigationAllowed(opts: {
     url: string;
     lookupFn?: LookupFn;
@@ -17,5 +22,9 @@ export declare function assertBrowserNavigationAllowed(opts: {
  */
 export declare function assertBrowserNavigationResultAllowed(opts: {
     url: string;
+    lookupFn?: LookupFn;
+} & BrowserNavigationPolicyOptions): Promise<void>;
+export declare function assertBrowserNavigationRedirectChainAllowed(opts: {
+    request?: BrowserNavigationRequestLike | null;
     lookupFn?: LookupFn;
 } & BrowserNavigationPolicyOptions): Promise<void>;

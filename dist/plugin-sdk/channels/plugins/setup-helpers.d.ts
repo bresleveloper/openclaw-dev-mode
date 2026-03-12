@@ -11,6 +11,21 @@ export declare function migrateBaseNameToDefaultAccount(params: {
     channelKey: string;
     alwaysUseAccounts?: boolean;
 }): OpenClawConfig;
+export declare function applySetupAccountConfigPatch(params: {
+    cfg: OpenClawConfig;
+    channelKey: string;
+    accountId: string;
+    patch: Record<string, unknown>;
+}): OpenClawConfig;
+export declare function patchScopedAccountConfig(params: {
+    cfg: OpenClawConfig;
+    channelKey: string;
+    accountId: string;
+    patch: Record<string, unknown>;
+    accountPatch?: Record<string, unknown>;
+    ensureChannelEnabled?: boolean;
+    ensureAccountEnabled?: boolean;
+}): OpenClawConfig;
 export declare function shouldMoveSingleAccountChannelKey(params: {
     channelKey: string;
     key: string;

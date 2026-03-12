@@ -5,7 +5,7 @@ export declare const DEFAULT_SANDBOX_WORKDIR = "/workspace";
 export declare const DEFAULT_SANDBOX_IDLE_HOURS = 24;
 export declare const DEFAULT_SANDBOX_MAX_AGE_DAYS = 7;
 export declare const DEFAULT_TOOL_ALLOW: readonly ["exec", "process", "read", "write", "edit", "apply_patch", "image", "sessions_list", "sessions_history", "sessions_send", "sessions_spawn", "subagents", "session_status"];
-export declare const DEFAULT_TOOL_DENY: readonly ["browser", "canvas", "nodes", "cron", "gateway", "telegram", "whatsapp", "discord", "irc", "googlechat", "slack", "signal", "imessage"];
+export declare const DEFAULT_TOOL_DENY: readonly ["browser", "canvas", "nodes", "cron", "gateway", "telegram", "whatsapp", "discord", "irc", "googlechat", "slack", "signal", "imessage", "line"];
 export declare const DEFAULT_SANDBOX_BROWSER_IMAGE = "openclaw-sandbox-browser:bookworm-slim";
 export declare const DEFAULT_SANDBOX_COMMON_IMAGE = "openclaw-sandbox-common:bookworm-slim";
 export declare const SANDBOX_BROWSER_SECURITY_HASH_EPOCH = "2026-02-28-no-sandbox-env";

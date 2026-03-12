@@ -1,3 +1,4 @@
+import type { ResolvedSubagentController } from "../../../agents/subagent-control.js";
 import { type SubagentRunRecord } from "../../../agents/subagent-registry.js";
 import { extractAssistantText, stripToolMessages } from "../../../agents/tools/sessions-helpers.js";
 import type { SessionEntry, loadSessionStore as loadSessionStoreFn, resolveStorePath as resolveStorePathFn } from "../../../config/sessions.js";
@@ -48,6 +49,7 @@ export declare function resolveSubagentEntryForToken(runs: SubagentRunRecord[], 
 export declare function resolveRequesterSessionKey(params: SubagentsCommandParams, opts?: {
     preferCommandTarget?: boolean;
 }): string | undefined;
+export declare function resolveCommandSubagentController(params: SubagentsCommandParams, requesterKey: string): ResolvedSubagentController;
 export declare function resolveHandledPrefix(normalized: string): string | null;
 export declare function resolveSubagentsAction(params: {
     handledPrefix: string;

@@ -1,10 +1,12 @@
-import { A as resolvePollMaxSelections, C as resolveChunkMode, F as normalizeDiscordToken, M as createDiscordActionGate, N as listEnabledDiscordAccounts, O as normalizePollDurationHours, P as resolveDiscordAccount, S as chunkMarkdownTextWithMode, T as loadWebMediaRaw, a as renderMarkdownWithMarkers, c as resolveMarkdownTableMode, i as readBooleanParam, j as buildOutboundMediaLoadOptions, k as normalizePollInput, m as createDiscordRetryRunner, n as listTokenSourcedAccounts, r as assertMediaNotDataUrl, s as markdownToIRWithMeta, t as createUnionActionGate, w as loadWebMedia } from "../../../shared-CYx-fjNv.js";
-import { n as normalizeAccountId } from "../../../account-id-DQE6gyMr.js";
-import { a as parseAvailableTags, c as readStringArrayParam, g as extensionForMime, i as jsonResult, n as resolveFetch, o as readNumberParam, s as readReactionParams, t as resolveReactionMessageId, u as readStringParam, x as maxBytesForKind } from "../../../reaction-message-id-BVitotVc.js";
-import { N as resolvePreferredOpenClawTmpDir } from "../../../utils-BbRI5lJQ.js";
-import { t as loadConfig, v as resolveRetryConfig, y as retryAsync } from "../../../config-Dwr16T28.js";
-import "../../../accounts-BQSekhlL.js";
-import { t as recordChannelActivity } from "../../../channel-activity-DG1U3WvI.js";
+import { $ as maxBytesForKind, J as extensionForMime, R as assertMediaNotDataUrl, et as createDiscordActionGate, it as normalizeDiscordToken, nt as mergeDiscordAccountConfig, o as resolveRetryConfig, rt as resolveDiscordAccount, s as retryAsync, t as loadConfig, tt as listEnabledDiscordAccounts } from "../../../config-PNq54kcT.js";
+import { a as normalizeAccountId } from "../../../secret-file-Cr5SygBE.js";
+import "../../../token-BA_9UjDk.js";
+import { L as resolvePreferredOpenClawTmpDir } from "../../../utils-dNeyb1Bh.js";
+import "../../../proxy-env-CyeMyCNO.js";
+import { a as readNumberParam, i as parseAvailableTags, l as readStringParam, o as readReactionParams, r as jsonResult, s as readStringArrayParam, t as resolveReactionMessageId } from "../../../reaction-message-id-V4_iQt49.js";
+import { _ as resolvePollMaxSelections, c as createDiscordRetryRunner, d as resolveChunkMode, f as loadWebMedia, g as normalizePollInput, h as normalizePollDurationHours, i as renderMarkdownWithMarkers, n as listTokenSourcedAccounts, o as markdownToIRWithMeta, p as loadWebMediaRaw, r as readBooleanParam, s as resolveMarkdownTableMode, t as createUnionActionGate, u as chunkMarkdownTextWithMode, v as buildOutboundMediaLoadOptions } from "../../../shared-CwULRPvC.js";
+import { t as resolveFetch } from "../../../fetch-BDoq8YLo.js";
+import { t as recordChannelActivity } from "../../../channel-activity-DAYlQSjv.js";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
@@ -28,6 +30,75 @@ function resolveAccountKey$1(accountId) {
 /** Get cached presence for a user. Returns undefined if not cached. */
 function getPresence(accountId, userId) {
 	return presenceCache.get(resolveAccountKey$1(accountId))?.get(userId);
+}
+//#endregion
+//#region src/channels/targets.ts
+function normalizeTargetId(kind, id) {
+	return `${kind}:${id}`.toLowerCase();
+}
+function buildMessagingTarget(kind, id, raw) {
+	return {
+		kind,
+		id,
+		raw,
+		normalized: normalizeTargetId(kind, id)
+	};
+}
+function ensureTargetId(params) {
+	if (!params.pattern.test(params.candidate)) throw new Error(params.errorMessage);
+	return params.candidate;
+}
+function parseTargetMention(params) {
+	const match = params.raw.match(params.mentionPattern);
+	if (!match?.[1]) return;
+	return buildMessagingTarget(params.kind, match[1], params.raw);
+}
+function parseTargetPrefix(params) {
+	if (!params.raw.startsWith(params.prefix)) return;
+	const id = params.raw.slice(params.prefix.length).trim();
+	return id ? buildMessagingTarget(params.kind, id, params.raw) : void 0;
+}
+function parseTargetPrefixes(params) {
+	for (const entry of params.prefixes) {
+		const parsed = parseTargetPrefix({
+			raw: params.raw,
+			prefix: entry.prefix,
+			kind: entry.kind
+		});
+		if (parsed) return parsed;
+	}
+}
+function parseAtUserTarget(params) {
+	if (!params.raw.startsWith("@")) return;
+	return buildMessagingTarget("user", ensureTargetId({
+		candidate: params.raw.slice(1).trim(),
+		pattern: params.pattern,
+		errorMessage: params.errorMessage
+	}), params.raw);
+}
+function parseMentionPrefixOrAtUserTarget(params) {
+	const mentionTarget = parseTargetMention({
+		raw: params.raw,
+		mentionPattern: params.mentionPattern,
+		kind: "user"
+	});
+	if (mentionTarget) return mentionTarget;
+	const prefixedTarget = parseTargetPrefixes({
+		raw: params.raw,
+		prefixes: params.prefixes
+	});
+	if (prefixedTarget) return prefixedTarget;
+	return parseAtUserTarget({
+		raw: params.raw,
+		pattern: params.atUserPattern,
+		errorMessage: params.atUserErrorMessage
+	});
+}
+function requireTargetKind(params) {
+	const kindLabel = params.kind;
+	if (!params.target) throw new Error(`${params.platform} ${kindLabel} id is required.`);
+	if (params.target.kind !== params.kind) throw new Error(`${params.platform} ${kindLabel} id is required (use ${kindLabel}:<id>).`);
+	return params.target.id;
 }
 //#endregion
 //#region src/discord/chunk.ts
@@ -183,8 +254,6 @@ function rebalanceReasoningItalics(source, chunks) {
 //#endregion
 //#region src/discord/client.ts
 function resolveToken(params) {
-	const explicit = normalizeDiscordToken(params.explicit, "channels.discord.token");
-	if (explicit) return explicit;
 	const fallback = normalizeDiscordToken(params.fallbackToken, "channels.discord.token");
 	if (!fallback) throw new Error(`Discord bot token missing for account "${params.accountId}" (set discord.accounts.${params.accountId}.token or DISCORD_BOT_TOKEN for default).`);
 	return fallback;
@@ -192,13 +261,31 @@ function resolveToken(params) {
 function resolveRest(token, rest) {
 	return rest ?? new RequestClient(token);
 }
-function createDiscordRestClient(opts, cfg = loadConfig()) {
-	const account = resolveDiscordAccount({
-		cfg,
+function resolveAccountWithoutToken(params) {
+	const accountId = normalizeAccountId(params.accountId);
+	const merged = mergeDiscordAccountConfig(params.cfg, accountId);
+	const baseEnabled = params.cfg.channels?.discord?.enabled !== false;
+	const accountEnabled = merged.enabled !== false;
+	return {
+		accountId,
+		enabled: baseEnabled && accountEnabled,
+		name: merged.name?.trim() || void 0,
+		token: "",
+		tokenSource: "none",
+		config: merged
+	};
+}
+function createDiscordRestClient(opts, cfg) {
+	const resolvedCfg = opts.cfg ?? cfg ?? loadConfig();
+	const explicitToken = normalizeDiscordToken(opts.token, "channels.discord.token");
+	const account = explicitToken ? resolveAccountWithoutToken({
+		cfg: resolvedCfg,
+		accountId: opts.accountId
+	}) : resolveDiscordAccount({
+		cfg: resolvedCfg,
 		accountId: opts.accountId
 	});
-	const token = resolveToken({
-		explicit: opts.token,
+	const token = explicitToken ?? resolveToken({
 		accountId: account.accountId,
 		fallbackToken: account.token
 	});
@@ -208,8 +295,8 @@ function createDiscordRestClient(opts, cfg = loadConfig()) {
 		account
 	};
 }
-function createDiscordClient(opts, cfg = loadConfig()) {
-	const { token, rest, account } = createDiscordRestClient(opts, cfg);
+function createDiscordClient(opts, cfg) {
+	const { token, rest, account } = createDiscordRestClient(opts, opts.cfg ?? cfg);
 	return {
 		token,
 		rest,
@@ -221,7 +308,7 @@ function createDiscordClient(opts, cfg = loadConfig()) {
 	};
 }
 function resolveDiscordRest(opts) {
-	return createDiscordRestClient(opts).rest;
+	return createDiscordRestClient(opts, opts.cfg).rest;
 }
 //#endregion
 //#region src/discord/send.permissions.ts
@@ -356,75 +443,6 @@ var DiscordSendError = class extends Error {
 };
 const DISCORD_MAX_EMOJI_BYTES = 256 * 1024;
 const DISCORD_MAX_STICKER_BYTES = 512 * 1024;
-//#endregion
-//#region src/channels/targets.ts
-function normalizeTargetId(kind, id) {
-	return `${kind}:${id}`.toLowerCase();
-}
-function buildMessagingTarget(kind, id, raw) {
-	return {
-		kind,
-		id,
-		raw,
-		normalized: normalizeTargetId(kind, id)
-	};
-}
-function ensureTargetId(params) {
-	if (!params.pattern.test(params.candidate)) throw new Error(params.errorMessage);
-	return params.candidate;
-}
-function parseTargetMention(params) {
-	const match = params.raw.match(params.mentionPattern);
-	if (!match?.[1]) return;
-	return buildMessagingTarget(params.kind, match[1], params.raw);
-}
-function parseTargetPrefix(params) {
-	if (!params.raw.startsWith(params.prefix)) return;
-	const id = params.raw.slice(params.prefix.length).trim();
-	return id ? buildMessagingTarget(params.kind, id, params.raw) : void 0;
-}
-function parseTargetPrefixes(params) {
-	for (const entry of params.prefixes) {
-		const parsed = parseTargetPrefix({
-			raw: params.raw,
-			prefix: entry.prefix,
-			kind: entry.kind
-		});
-		if (parsed) return parsed;
-	}
-}
-function parseAtUserTarget(params) {
-	if (!params.raw.startsWith("@")) return;
-	return buildMessagingTarget("user", ensureTargetId({
-		candidate: params.raw.slice(1).trim(),
-		pattern: params.pattern,
-		errorMessage: params.errorMessage
-	}), params.raw);
-}
-function parseMentionPrefixOrAtUserTarget(params) {
-	const mentionTarget = parseTargetMention({
-		raw: params.raw,
-		mentionPattern: params.mentionPattern,
-		kind: "user"
-	});
-	if (mentionTarget) return mentionTarget;
-	const prefixedTarget = parseTargetPrefixes({
-		raw: params.raw,
-		prefixes: params.prefixes
-	});
-	if (prefixedTarget) return prefixedTarget;
-	return parseAtUserTarget({
-		raw: params.raw,
-		pattern: params.atUserPattern,
-		errorMessage: params.atUserErrorMessage
-	});
-}
-function requireTargetKind(params) {
-	const kindLabel = params.kind;
-	if (!params.target) throw new Error(`${params.platform} ${kindLabel} id is required.`);
-	if (params.target.kind !== params.kind) throw new Error(`${params.platform} ${kindLabel} id is required (use ${kindLabel}:<id>).`);
-	return params.target.id;
-}
 //#endregion
 //#region src/discord/directory-cache.ts
 const DISCORD_DIRECTORY_CACHE_MAX_ENTRIES = 4e3;

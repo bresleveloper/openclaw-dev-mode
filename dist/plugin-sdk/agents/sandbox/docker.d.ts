@@ -1,3 +1,4 @@
+import type { EnvSanitizationOptions } from "./sanitize-env-vars.js";
 type ExecDockerRawOptions = {
     allowFailure?: boolean;
     input?: Buffer | string;
@@ -47,6 +48,7 @@ export declare function buildSandboxCreateArgs(params: {
     allowSourcesOutsideAllowedRoots?: boolean;
     allowReservedContainerTargets?: boolean;
     allowContainerNamespaceJoin?: boolean;
+    envSanitizationOptions?: EnvSanitizationOptions;
 }): string[];
 export declare function ensureSandboxContainer(params: {
     sessionKey: string;

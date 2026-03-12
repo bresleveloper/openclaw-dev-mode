@@ -28,6 +28,9 @@ export declare const NodeRenameParamsSchema: import("@sinclair/typebox").TObject
     displayName: import("@sinclair/typebox").TString;
 }>;
 export declare const NodeListParamsSchema: import("@sinclair/typebox").TObject<{}>;
+export declare const NodePendingAckParamsSchema: import("@sinclair/typebox").TObject<{
+    ids: import("@sinclair/typebox").TArray<import("@sinclair/typebox").TString>;
+}>;
 export declare const NodeDescribeParamsSchema: import("@sinclair/typebox").TObject<{
     nodeId: import("@sinclair/typebox").TString;
 }>;
@@ -53,6 +56,50 @@ export declare const NodeEventParamsSchema: import("@sinclair/typebox").TObject<
     event: import("@sinclair/typebox").TString;
     payload: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TUnknown>;
     payloadJSON: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TString>;
+}>;
+export declare const NodePendingDrainParamsSchema: import("@sinclair/typebox").TObject<{
+    maxItems: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TInteger>;
+}>;
+export declare const NodePendingDrainItemSchema: import("@sinclair/typebox").TObject<{
+    id: import("@sinclair/typebox").TString;
+    type: import("@sinclair/typebox").TString;
+    priority: import("@sinclair/typebox").TString;
+    createdAtMs: import("@sinclair/typebox").TInteger;
+    expiresAtMs: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TUnion<[import("@sinclair/typebox").TInteger, import("@sinclair/typebox").TNull]>>;
+    payload: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TRecord<import("@sinclair/typebox").TString, import("@sinclair/typebox").TUnknown>>;
+}>;
+export declare const NodePendingDrainResultSchema: import("@sinclair/typebox").TObject<{
+    nodeId: import("@sinclair/typebox").TString;
+    revision: import("@sinclair/typebox").TInteger;
+    items: import("@sinclair/typebox").TArray<import("@sinclair/typebox").TObject<{
+        id: import("@sinclair/typebox").TString;
+        type: import("@sinclair/typebox").TString;
+        priority: import("@sinclair/typebox").TString;
+        createdAtMs: import("@sinclair/typebox").TInteger;
+        expiresAtMs: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TUnion<[import("@sinclair/typebox").TInteger, import("@sinclair/typebox").TNull]>>;
+        payload: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TRecord<import("@sinclair/typebox").TString, import("@sinclair/typebox").TUnknown>>;
+    }>>;
+    hasMore: import("@sinclair/typebox").TBoolean;
+}>;
+export declare const NodePendingEnqueueParamsSchema: import("@sinclair/typebox").TObject<{
+    nodeId: import("@sinclair/typebox").TString;
+    type: import("@sinclair/typebox").TString;
+    priority: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TString>;
+    expiresInMs: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TInteger>;
+    wake: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TBoolean>;
+}>;
+export declare const NodePendingEnqueueResultSchema: import("@sinclair/typebox").TObject<{
+    nodeId: import("@sinclair/typebox").TString;
+    revision: import("@sinclair/typebox").TInteger;
+    queued: import("@sinclair/typebox").TObject<{
+        id: import("@sinclair/typebox").TString;
+        type: import("@sinclair/typebox").TString;
+        priority: import("@sinclair/typebox").TString;
+        createdAtMs: import("@sinclair/typebox").TInteger;
+        expiresAtMs: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TUnion<[import("@sinclair/typebox").TInteger, import("@sinclair/typebox").TNull]>>;
+        payload: import("@sinclair/typebox").TOptional<import("@sinclair/typebox").TRecord<import("@sinclair/typebox").TString, import("@sinclair/typebox").TUnknown>>;
+    }>;
+    wakeTriggered: import("@sinclair/typebox").TBoolean;
 }>;
 export declare const NodeInvokeRequestEventSchema: import("@sinclair/typebox").TObject<{
     id: import("@sinclair/typebox").TString;

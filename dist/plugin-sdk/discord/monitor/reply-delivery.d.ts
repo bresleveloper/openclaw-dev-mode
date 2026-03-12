@@ -1,6 +1,7 @@
 import type { RequestClient } from "@buape/carbon";
 import type { ChunkMode } from "../../auto-reply/chunk.js";
 import type { ReplyPayload } from "../../auto-reply/types.js";
+import type { OpenClawConfig } from "../../config/config.js";
 import type { MarkdownTableMode, ReplyToMode } from "../../config/types.base.js";
 import type { RuntimeEnv } from "../../runtime.js";
 export type DiscordThreadBindingLookupRecord = {
@@ -20,6 +21,7 @@ export type DiscordThreadBindingLookup = {
     }) => unknown;
 };
 export declare function deliverDiscordReply(params: {
+    cfg: OpenClawConfig;
     replies: ReplyPayload[];
     target: string;
     token: string;

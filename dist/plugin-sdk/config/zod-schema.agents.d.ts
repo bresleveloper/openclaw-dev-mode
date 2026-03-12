@@ -75,6 +75,11 @@ export declare const AgentsSchema: z.ZodOptional<z.ZodObject<{
             enabled: z.ZodOptional<z.ZodBoolean>;
             sources: z.ZodOptional<z.ZodArray<z.ZodUnion<readonly [z.ZodLiteral<"memory">, z.ZodLiteral<"sessions">]>>>;
             extraPaths: z.ZodOptional<z.ZodArray<z.ZodString>>;
+            multimodal: z.ZodOptional<z.ZodObject<{
+                enabled: z.ZodOptional<z.ZodBoolean>;
+                modalities: z.ZodOptional<z.ZodArray<z.ZodUnion<readonly [z.ZodLiteral<"image">, z.ZodLiteral<"audio">, z.ZodLiteral<"all">]>>>;
+                maxFileBytes: z.ZodOptional<z.ZodNumber>;
+            }, z.core.$strict>>;
             experimental: z.ZodOptional<z.ZodObject<{
                 sessionMemory: z.ZodOptional<z.ZodBoolean>;
             }, z.core.$strict>>;
@@ -105,6 +110,7 @@ export declare const AgentsSchema: z.ZodOptional<z.ZodObject<{
             }, z.core.$strict>>;
             fallback: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"openai">, z.ZodLiteral<"gemini">, z.ZodLiteral<"local">, z.ZodLiteral<"voyage">, z.ZodLiteral<"mistral">, z.ZodLiteral<"ollama">, z.ZodLiteral<"none">]>>;
             model: z.ZodOptional<z.ZodString>;
+            outputDimensionality: z.ZodOptional<z.ZodNumber>;
             local: z.ZodOptional<z.ZodObject<{
                 modelPath: z.ZodOptional<z.ZodString>;
                 modelCacheDir: z.ZodOptional<z.ZodString>;
@@ -190,6 +196,7 @@ export declare const AgentsSchema: z.ZodOptional<z.ZodObject<{
                 maxRetries: z.ZodOptional<z.ZodNumber>;
             }, z.core.$strict>>;
             postCompactionSections: z.ZodOptional<z.ZodArray<z.ZodString>>;
+            model: z.ZodOptional<z.ZodString>;
             memoryFlush: z.ZodOptional<z.ZodObject<{
                 enabled: z.ZodOptional<z.ZodBoolean>;
                 softThresholdTokens: z.ZodOptional<z.ZodNumber>;
@@ -331,6 +338,11 @@ export declare const AgentsSchema: z.ZodOptional<z.ZodObject<{
             enabled: z.ZodOptional<z.ZodBoolean>;
             sources: z.ZodOptional<z.ZodArray<z.ZodUnion<readonly [z.ZodLiteral<"memory">, z.ZodLiteral<"sessions">]>>>;
             extraPaths: z.ZodOptional<z.ZodArray<z.ZodString>>;
+            multimodal: z.ZodOptional<z.ZodObject<{
+                enabled: z.ZodOptional<z.ZodBoolean>;
+                modalities: z.ZodOptional<z.ZodArray<z.ZodUnion<readonly [z.ZodLiteral<"image">, z.ZodLiteral<"audio">, z.ZodLiteral<"all">]>>>;
+                maxFileBytes: z.ZodOptional<z.ZodNumber>;
+            }, z.core.$strict>>;
             experimental: z.ZodOptional<z.ZodObject<{
                 sessionMemory: z.ZodOptional<z.ZodBoolean>;
             }, z.core.$strict>>;
@@ -361,6 +373,7 @@ export declare const AgentsSchema: z.ZodOptional<z.ZodObject<{
             }, z.core.$strict>>;
             fallback: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"openai">, z.ZodLiteral<"gemini">, z.ZodLiteral<"local">, z.ZodLiteral<"voyage">, z.ZodLiteral<"mistral">, z.ZodLiteral<"ollama">, z.ZodLiteral<"none">]>>;
             model: z.ZodOptional<z.ZodString>;
+            outputDimensionality: z.ZodOptional<z.ZodNumber>;
             local: z.ZodOptional<z.ZodObject<{
                 modelPath: z.ZodOptional<z.ZodString>;
                 modelCacheDir: z.ZodOptional<z.ZodString>;

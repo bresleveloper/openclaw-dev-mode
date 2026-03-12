@@ -25,3 +25,4 @@
  */
 export declare function stripInboundMetadata(text: string): string;
 export declare function stripLeadingInboundMetadata(text: string): string;
+export declare function extractInboundSenderLabel(text: string): string | null;

@@ -1,54 +1,41 @@
-import { nt as DEFAULT_ACCOUNT_ID, rt as normalizeAccountId } from "./run-with-concurrency-Do_Mn3XJ.js";
-import "./paths-B9fwHuf0.js";
-import { C as sleep } from "./logger-jRwfXfR1.js";
-import "./accounts-Bt8sAcSN.js";
-import { x as resolveToolsBySender } from "./thinking-C_2FZt-A.js";
-import { Mr as hasConfiguredSecretInput, N as MSTeamsConfigSchema, Nr as normalizeResolvedSecretInputString, Pr as normalizeSecretInputString, hn as withFileLock } from "./model-auth-B8ugbJXc.js";
-import "./plugins-CvsECvRM.js";
-import "./accounts-DSEesV_S.js";
-import "./accounts-BEFHz71r.js";
-import "./send-BFnYrUvE.js";
-import { At as resolveChannelEntryMatchWithFallback, Ot as buildChannelKeyCandidates, jt as resolveNestedAllowlistDecision, kt as normalizeChannelSlug } from "./send-Dh2-Au8i.js";
-import { $ as resolveMentionGating, B as resolveEffectiveAllowFromLists, H as DEFAULT_WEBHOOK_MAX_BODY_BYTES, I as formatDocsLink, J as createTypingCallbacks, L as readStoreAllowFromForDmPolicy, Q as buildMediaPayload, U as resolveAllowlistProviderRuntimeGroupPolicy, W as resolveDefaultGroupPolicy, Y as createReplyPrefixOptions, at as DEFAULT_GROUP_HISTORY_LIMIT, ct as clearHistoryEntriesIfEnabled, et as logInboundDrop, ft as formatAllowlistMatchMeta, it as summarizeMapping, lt as recordPendingHistoryEntryIfEnabled, n as dispatchReplyFromConfig, nt as resolveControlCommandGate, pt as resolveAllowlistMatchSimple, q as isDangerousNameMatchingEnabled, rt as mergeAllowlist, st as buildPendingHistoryContextFromMap, t as withReplyDispatcher, tt as logTypingFailure, v as resolveInboundSessionEnvelopeContext, z as resolveDmGroupAccessWithLists } from "./dispatch-CDU-3T4v.js";
-import { i as isSilentReplyText, n as SILENT_REPLY_TOKEN } from "./tokens-8uMLzUXo.js";
-import { j as resolveChannelMediaMaxBytes } from "./deliver-CzhC6_px.js";
-import "./github-copilot-token-B2m7CSyP.js";
-import { a as isPrivateIpAddress } from "./ssrf-CwSOAd1A.js";
-import { t as fetchWithSsrFGuard } from "./fetch-guard-DvUQDdzE.js";
-import { S as getFileExtension, b as detectMime, x as extensionForMime } from "./message-channel-CFGJ-htG.js";
-import "./path-alias-guards-RlW5D-tr.js";
-import "./fs-safe-SS3zkVfa.js";
-import { r as extractOriginalFilename } from "./store-DVjcJNfv.js";
-import { $ as writeJsonFileAtomically, Q as readJsonFileWithFallback } from "./send-IFpEwWIL.js";
-import "./local-roots-B7KvdGPO.js";
-import { _ as loadWebMedia } from "./ir-CeAesa9r.js";
-import "./pi-embedded-helpers-uxhPbY5P.js";
-import "./paths-BGxsuUSa.js";
-import "./diagnostic-DcN9OqeK.js";
-import "./pi-model-discovery-DHTwzem5.js";
-import "./audio-transcription-runner-D9h7krgR.js";
-import "./image-OUryi-wd.js";
-import "./chrome-BwCaKFTM.js";
-import "./skills-4FOtj1d1.js";
-import "./redact-oygOkZ9l.js";
-import "./errors-CegfyFZB.js";
-import "./tool-images-Bj5YTmU7.js";
-import "./api-key-rotation-Dgnf7urJ.js";
-import "./proxy-fetch-C-cD3Yym.js";
-import "./commands-registry-mtnW2QuP.js";
-import "./skill-commands-CJy69-wd.js";
-import "./render-hUn-4tdL.js";
-import "./target-errors-DEKHQRR1.js";
-import "./channel-activity-CBdS4PQp.js";
-import "./fetch-DIILzBoT.js";
-import "./tables-CegWYfKA.js";
-import "./send-CpHPr42N.js";
-import "./proxy-CgXTW63Y.js";
-import "./outbound-attachment-CiqGLTEy.js";
-import "./send-pCY16_0F.js";
-import "./manager-BqBzUbXI.js";
-import "./query-expansion-Bu2Pld3R.js";
+import { Bt as DEFAULT_ACCOUNT_ID, Tt as normalizeStringEntries, Vt as normalizeAccountId, d as extensionForMime, f as getFileExtension, u as detectMime } from "./paths-BPFh8Kvv.js";
+import "./paths-DinMprTu.js";
+import { C as sleep } from "./logger-J22gODrQ.js";
+import { Ci as MSTeamsConfigSchema, Ua as withFileLock, Zn as extractOriginalFilename, ac as hasConfiguredSecretInput, fc as resolveToolsBySender, oc as normalizeResolvedSecretInputString, sc as normalizeSecretInputString, vr as isPrivateIpAddress } from "./model-auth-RrhBttaV.js";
+import "./proxy-env-Di_Io86L.js";
+import "./send-D--Xwhi1.js";
+import { At as resolveSenderScopedGroupPolicy, Bt as resolveNestedAllowlistDecision, Lt as buildChannelKeyCandidates, Mt as resolveAllowlistProviderRuntimeGroupPolicy, Nt as resolveDefaultGroupPolicy, Rt as normalizeChannelSlug, kt as evaluateSenderGroupAccessForPolicy, zt as resolveChannelEntryMatchWithFallback } from "./send-48kBOsTM.js";
+import { $ as logTypingFailure, G as isDangerousNameMatchingEnabled, H as resolveEffectiveAllowFromLists, K as createTypingCallbacks, Q as logInboundDrop, R as formatDocsLink, V as resolveDmGroupAccessWithLists, W as DEFAULT_WEBHOOK_MAX_BODY_BYTES, X as buildMediaPayload, Z as resolveMentionGating, at as buildPendingHistoryContextFromMap, dt as resolveAllowlistMatchSimple, et as resolveControlCommandGate, m as resolveInboundSessionEnvelopeContext, n as dispatchReplyFromConfig, nt as summarizeMapping, ot as clearHistoryEntriesIfEnabled, q as createReplyPrefixOptions, rt as DEFAULT_GROUP_HISTORY_LIMIT, st as recordPendingHistoryEntryIfEnabled, t as withReplyDispatcher, tt as mergeAllowlist, ut as formatAllowlistMatchMeta, z as readStoreAllowFromForDmPolicy } from "./dispatch-BFA44ns-.js";
+import { i as isSilentReplyText, n as SILENT_REPLY_TOKEN } from "./tokens-vYf8rspx.js";
+import { P as resolveChannelMediaMaxBytes } from "./deliver-B-0sfre_.js";
+import "./github-copilot-token-CHD9No4C.js";
+import { t as fetchWithSsrFGuard } from "./fetch-guard-8bPXIYJU.js";
+import { nt as readJsonFileWithFallback, rt as writeJsonFileAtomically } from "./send-CFGLFpDc.js";
+import "./local-roots-mc__9cOJ.js";
+import { _ as loadWebMedia } from "./ir-DGWx-OAQ.js";
+import "./diagnostic-D3aa75C6.js";
+import "./pi-model-discovery-E44lG-bp.js";
+import "./audio-transcription-runner-hKcggx_m.js";
+import "./image-DYtutRZH.js";
+import "./api-key-rotation-dzVFLOwh.js";
+import "./proxy-fetch-BIK4n_-0.js";
+import "./commands-registry-D4_iqcDD.js";
+import "./render-Cky8fVYO.js";
+import "./target-errors-DqWbHJ78.js";
+import "./send-CoF0OW0j.js";
+import "./outbound-attachment-D9My4cAS.js";
+import "./fetch-DdpSxwwg.js";
+import "./send-B9UwkGBf.js";
+import "./sqlite-DTC9h9Dn.js";
+import "./channel-activity-9VG7p-hY.js";
+import "./tables-8yVsxglH.js";
+import "./fetch-C3PSPXBU.js";
+import "./skill-commands-Br83eQn7.js";
+import "./manager-CN57BN7i.js";
+import { z } from "zod";
 //#region src/channels/plugins/config-schema.ts
+const AllowFromEntrySchema = z.union([z.string(), z.number()]);
+z.array(AllowFromEntrySchema).optional();
 function buildChannelConfigSchema(schema) {
 	const schemaWithJson = schema;
 	if (typeof schemaWithJson.toJSONSchema === "function") return { schema: schemaWithJson.toJSONSchema({
@@ -60,6 +47,56 @@ function buildChannelConfigSchema(schema) {
 		additionalProperties: true
 	} };
 }
+//#endregion
+//#region src/secrets/provider-env-vars.ts
+const PROVIDER_ENV_VARS = {
+	openai: ["OPENAI_API_KEY"],
+	anthropic: ["ANTHROPIC_API_KEY"],
+	google: ["GEMINI_API_KEY"],
+	minimax: ["MINIMAX_API_KEY"],
+	"minimax-cn": ["MINIMAX_API_KEY"],
+	moonshot: ["MOONSHOT_API_KEY"],
+	"kimi-coding": ["KIMI_API_KEY", "KIMICODE_API_KEY"],
+	synthetic: ["SYNTHETIC_API_KEY"],
+	venice: ["VENICE_API_KEY"],
+	zai: ["ZAI_API_KEY", "Z_AI_API_KEY"],
+	xiaomi: ["XIAOMI_API_KEY"],
+	openrouter: ["OPENROUTER_API_KEY"],
+	"cloudflare-ai-gateway": ["CLOUDFLARE_AI_GATEWAY_API_KEY"],
+	litellm: ["LITELLM_API_KEY"],
+	"vercel-ai-gateway": ["AI_GATEWAY_API_KEY"],
+	opencode: ["OPENCODE_API_KEY", "OPENCODE_ZEN_API_KEY"],
+	"opencode-go": ["OPENCODE_API_KEY", "OPENCODE_ZEN_API_KEY"],
+	together: ["TOGETHER_API_KEY"],
+	huggingface: ["HUGGINGFACE_HUB_TOKEN", "HF_TOKEN"],
+	qianfan: ["QIANFAN_API_KEY"],
+	xai: ["XAI_API_KEY"],
+	mistral: ["MISTRAL_API_KEY"],
+	kilocode: ["KILOCODE_API_KEY"],
+	modelstudio: ["MODELSTUDIO_API_KEY"],
+	volcengine: ["VOLCANO_ENGINE_API_KEY"],
+	byteplus: ["BYTEPLUS_API_KEY"]
+};
+const EXTRA_PROVIDER_AUTH_ENV_VARS = [
+	"VOYAGE_API_KEY",
+	"GROQ_API_KEY",
+	"DEEPGRAM_API_KEY",
+	"CEREBRAS_API_KEY",
+	"NVIDIA_API_KEY",
+	"COPILOT_GITHUB_TOKEN",
+	"GH_TOKEN",
+	"GITHUB_TOKEN",
+	"ANTHROPIC_OAUTH_TOKEN",
+	"CHUTES_OAUTH_TOKEN",
+	"CHUTES_API_KEY",
+	"QWEN_OAUTH_TOKEN",
+	"QWEN_PORTAL_API_KEY",
+	"MINIMAX_OAUTH_TOKEN",
+	"OLLAMA_API_KEY",
+	"VLLM_API_KEY"
+];
+const KNOWN_SECRET_ENV_VARS = [...new Set(Object.values(PROVIDER_ENV_VARS).flatMap((keys) => keys))];
+[...new Set([...KNOWN_SECRET_ENV_VARS, ...EXTRA_PROVIDER_AUTH_ENV_VARS])];
 //#endregion
 //#region src/channels/plugins/onboarding/helpers.ts
 function addWildcardAllowFrom(allowFrom) {
@@ -73,6 +110,50 @@ function mergeAllowFromEntries(current, additions) {
 }
 function splitOnboardingEntries(raw) {
 	return raw.split(/[\n,;]+/g).map((entry) => entry.trim()).filter(Boolean);
+}
+function setTopLevelChannelAllowFrom(params) {
+	const channelConfig = params.cfg.channels?.[params.channel] ?? {};
+	return {
+		...params.cfg,
+		channels: {
+			...params.cfg.channels,
+			[params.channel]: {
+				...channelConfig,
+				...params.enabled ? { enabled: true } : {},
+				allowFrom: params.allowFrom
+			}
+		}
+	};
+}
+function setTopLevelChannelDmPolicyWithAllowFrom(params) {
+	const channelConfig = params.cfg.channels?.[params.channel] ?? {};
+	const existingAllowFrom = params.getAllowFrom?.(params.cfg) ?? channelConfig.allowFrom ?? void 0;
+	const allowFrom = params.dmPolicy === "open" ? addWildcardAllowFrom(existingAllowFrom) : void 0;
+	return {
+		...params.cfg,
+		channels: {
+			...params.cfg.channels,
+			[params.channel]: {
+				...channelConfig,
+				dmPolicy: params.dmPolicy,
+				...allowFrom ? { allowFrom } : {}
+			}
+		}
+	};
+}
+function setTopLevelChannelGroupPolicy(params) {
+	const channelConfig = params.cfg.channels?.[params.channel] ?? {};
+	return {
+		...params.cfg,
+		channels: {
+			...params.cfg.channels,
+			[params.channel]: {
+				...channelConfig,
+				...params.enabled ? { enabled: true } : {},
+				groupPolicy: params.groupPolicy
+			}
+		}
+	};
 }
 //#endregion
 //#region src/channels/plugins/onboarding/channel-access.ts
@@ -333,4 +414,4 @@ function buildRuntimeAccountStatusSnapshot(params) {
 	};
 }
 //#endregion
-export { DEFAULT_ACCOUNT_ID, DEFAULT_GROUP_HISTORY_LIMIT, DEFAULT_WEBHOOK_MAX_BODY_BYTES, MSTeamsConfigSchema, PAIRING_APPROVED_MESSAGE, SILENT_REPLY_TOKEN, addWildcardAllowFrom, buildBaseChannelStatusSummary, buildChannelConfigSchema, buildChannelKeyCandidates, buildHostnameAllowlistPolicyFromSuffixAllowlist, buildMediaPayload, buildPendingHistoryContextFromMap, buildProbeChannelStatusSummary, buildRuntimeAccountStatusSnapshot, clearHistoryEntriesIfEnabled, createDefaultChannelRuntimeState, createReplyPrefixOptions, createScopedPairingAccess, createTypingCallbacks, detectMime, dispatchReplyFromConfigWithSettledDispatcher, emptyPluginConfigSchema, extensionForMime, extractOriginalFilename, fetchWithSsrFGuard, formatAllowlistMatchMeta, formatDocsLink, getFileExtension, hasConfiguredSecretInput, isDangerousNameMatchingEnabled, isHttpsUrlAllowedByHostnameSuffixAllowlist, isPrivateIpAddress, isSilentReplyText, keepHttpServerTaskAlive, loadOutboundMediaFromUrl, loadWebMedia, logInboundDrop, logTypingFailure, mergeAllowFromEntries, mergeAllowlist, normalizeChannelSlug, normalizeHostnameSuffixAllowlist, normalizeResolvedSecretInputString, normalizeSecretInputString, promptChannelAccessConfig, readJsonFileWithFallback, readStoreAllowFromForDmPolicy, recordPendingHistoryEntryIfEnabled, resolveAllowlistMatchSimple, resolveAllowlistProviderRuntimeGroupPolicy, resolveChannelEntryMatchWithFallback, resolveChannelMediaMaxBytes, resolveControlCommandGate, resolveDefaultGroupPolicy, resolveDmGroupAccessWithLists, resolveEffectiveAllowFromLists, resolveInboundSessionEnvelopeContext, resolveMentionGating, resolveNestedAllowlistDecision, resolveToolsBySender, sleep, summarizeMapping, withFileLock, writeJsonFileAtomically };
+export { DEFAULT_ACCOUNT_ID, DEFAULT_GROUP_HISTORY_LIMIT, DEFAULT_WEBHOOK_MAX_BODY_BYTES, MSTeamsConfigSchema, PAIRING_APPROVED_MESSAGE, SILENT_REPLY_TOKEN, addWildcardAllowFrom, buildBaseChannelStatusSummary, buildChannelConfigSchema, buildChannelKeyCandidates, buildHostnameAllowlistPolicyFromSuffixAllowlist, buildMediaPayload, buildPendingHistoryContextFromMap, buildProbeChannelStatusSummary, buildRuntimeAccountStatusSnapshot, clearHistoryEntriesIfEnabled, createDefaultChannelRuntimeState, createReplyPrefixOptions, createScopedPairingAccess, createTypingCallbacks, detectMime, dispatchReplyFromConfigWithSettledDispatcher, emptyPluginConfigSchema, evaluateSenderGroupAccessForPolicy, extensionForMime, extractOriginalFilename, fetchWithSsrFGuard, formatAllowlistMatchMeta, formatDocsLink, getFileExtension, hasConfiguredSecretInput, isDangerousNameMatchingEnabled, isHttpsUrlAllowedByHostnameSuffixAllowlist, isPrivateIpAddress, isSilentReplyText, keepHttpServerTaskAlive, loadOutboundMediaFromUrl, loadWebMedia, logInboundDrop, logTypingFailure, mergeAllowFromEntries, mergeAllowlist, normalizeChannelSlug, normalizeHostnameSuffixAllowlist, normalizeResolvedSecretInputString, normalizeSecretInputString, normalizeStringEntries, promptChannelAccessConfig, readJsonFileWithFallback, readStoreAllowFromForDmPolicy, recordPendingHistoryEntryIfEnabled, resolveAllowlistMatchSimple, resolveAllowlistProviderRuntimeGroupPolicy, resolveChannelEntryMatchWithFallback, resolveChannelMediaMaxBytes, resolveControlCommandGate, resolveDefaultGroupPolicy, resolveDmGroupAccessWithLists, resolveEffectiveAllowFromLists, resolveInboundSessionEnvelopeContext, resolveMentionGating, resolveNestedAllowlistDecision, resolveSenderScopedGroupPolicy, resolveToolsBySender, setTopLevelChannelAllowFrom, setTopLevelChannelDmPolicyWithAllowFrom, setTopLevelChannelGroupPolicy, sleep, splitOnboardingEntries, summarizeMapping, withFileLock, writeJsonFileAtomically };

@@ -12,6 +12,15 @@ export type ExecApprovalRecord = {
     decision?: ExecApprovalDecision;
     resolvedBy?: string | null;
 };
+export type ExecApprovalIdLookupResult = {
+    kind: "exact" | "prefix";
+    id: string;
+} | {
+    kind: "ambiguous";
+    ids: string[];
+} | {
+    kind: "none";
+};
 export declare class ExecApprovalManager {
     private pending;
     create(request: ExecApprovalRequestPayload, timeoutMs: number, id?: string | null): ExecApprovalRecord;
@@ -34,4 +43,5 @@ export declare class ExecApprovalManager {
      * Returns the decision promise if the ID is pending, null otherwise.
      */
     awaitDecision(recordId: string): Promise<ExecApprovalDecision | null> | null;
+    lookupPendingId(input: string): ExecApprovalIdLookupResult;
 }

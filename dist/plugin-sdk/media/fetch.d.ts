@@ -17,6 +17,8 @@ type FetchMediaOptions = {
     filePathHint?: string;
     maxBytes?: number;
     maxRedirects?: number;
+    /** Abort if the response body stops yielding data for this long (ms). */
+    readIdleTimeoutMs?: number;
     ssrfPolicy?: SsrFPolicy;
     lookupFn?: LookupFn;
 };

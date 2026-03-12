@@ -6,3 +6,7 @@ export type BasicAllowlistResolutionEntry = {
     note?: string;
 };
 export declare function mapBasicAllowlistResolutionEntries(entries: BasicAllowlistResolutionEntry[]): BasicAllowlistResolutionEntry[];
+export declare function mapAllowlistResolutionInputs<T>(params: {
+    inputs: string[];
+    mapInput: (input: string) => Promise<T> | T;
+}): Promise<T[]>;

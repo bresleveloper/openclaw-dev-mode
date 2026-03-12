@@ -31,6 +31,18 @@ export type ReadConfigFileSnapshotForWriteResult = {
     snapshot: ConfigFileSnapshot;
     writeOptions: ConfigWriteOptions;
 };
+export type RuntimeConfigSnapshotRefreshParams = {
+    sourceConfig: OpenClawConfig;
+};
+export type RuntimeConfigSnapshotRefreshHandler = {
+    refresh: (params: RuntimeConfigSnapshotRefreshParams) => boolean | Promise<boolean>;
+    clearOnRefreshFailure?: () => void;
+};
+export declare class ConfigRuntimeRefreshError extends Error {
+    constructor(message: string, options?: {
+        cause?: unknown;
+    });
+}
 export declare function resolveConfigSnapshotHash(snapshot: {
     hash?: string;
     raw?: string | null;
@@ -58,7 +70,10 @@ export declare function setRuntimeConfigSnapshot(config: OpenClawConfig, sourceC
 export declare function clearRuntimeConfigSnapshot(): void;
 export declare function getRuntimeConfigSnapshot(): OpenClawConfig | null;
 export declare function getRuntimeConfigSourceSnapshot(): OpenClawConfig | null;
+export declare function projectConfigOntoRuntimeSourceSnapshot(config: OpenClawConfig): OpenClawConfig;
+export declare function setRuntimeConfigSnapshotRefreshHandler(refreshHandler: RuntimeConfigSnapshotRefreshHandler | null): void;
 export declare function loadConfig(): OpenClawConfig;
+export declare function readBestEffortConfig(): Promise<OpenClawConfig>;
 export declare function readConfigFileSnapshot(): Promise<ConfigFileSnapshot>;
 export declare function readConfigFileSnapshotForWrite(): Promise<ReadConfigFileSnapshotForWriteResult>;
 export declare function writeConfigFile(cfg: OpenClawConfig, options?: ConfigWriteOptions): Promise<void>;

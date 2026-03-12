@@ -26,6 +26,10 @@ type ValidateConfigWithPluginsResult = {
     issues: ConfigValidationIssue[];
     warnings: ConfigValidationIssue[];
 };
-export declare function validateConfigObjectWithPlugins(raw: unknown): ValidateConfigWithPluginsResult;
-export declare function validateConfigObjectRawWithPlugins(raw: unknown): ValidateConfigWithPluginsResult;
+export declare function validateConfigObjectWithPlugins(raw: unknown, params?: {
+    env?: NodeJS.ProcessEnv;
+}): ValidateConfigWithPluginsResult;
+export declare function validateConfigObjectRawWithPlugins(raw: unknown, params?: {
+    env?: NodeJS.ProcessEnv;
+}): ValidateConfigWithPluginsResult;
 export {};

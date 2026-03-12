@@ -8,8 +8,8 @@ import type { MessagingToolSend } from "./pi-embedded-messaging.js";
 import type { BlockReplyChunking, SubscribeEmbeddedPiSessionParams } from "./pi-embedded-subscribe.types.js";
 import type { NormalizedUsage } from "./usage.js";
 export type EmbeddedSubscribeLogger = {
-    debug: (message: string) => void;
-    warn: (message: string) => void;
+    debug: (message: string, meta?: Record<string, unknown>) => void;
+    warn: (message: string, meta?: Record<string, unknown>) => void;
 };
 export type ToolErrorSummary = {
     toolName: string;
@@ -76,6 +76,7 @@ export type EmbeddedPiSubscribeState = {
     pendingMessagingTargets: Map<string, MessagingToolSend>;
     successfulCronAdds: number;
     pendingMessagingMediaUrls: Map<string, string[]>;
+    deterministicApprovalPromptSent: boolean;
     lastAssistant?: AgentMessage;
 };
 export type EmbeddedPiSubscribeContext = {
@@ -127,7 +128,7 @@ export type EmbeddedPiSubscribeContext = {
  * without needing the full `EmbeddedPiSubscribeContext`.
  */
 export type ToolHandlerParams = Pick<SubscribeEmbeddedPiSessionParams, "runId" | "onBlockReplyFlush" | "onAgentEvent" | "onToolResult" | "sessionKey" | "sessionId" | "agentId">;
-export type ToolHandlerState = Pick<EmbeddedPiSubscribeState, "toolMetaById" | "toolMetas" | "toolSummaryById" | "lastToolError" | "pendingMessagingTargets" | "pendingMessagingTexts" | "pendingMessagingMediaUrls" | "messagingToolSentTexts" | "messagingToolSentTextsNormalized" | "messagingToolSentMediaUrls" | "messagingToolSentTargets" | "successfulCronAdds">;
+export type ToolHandlerState = Pick<EmbeddedPiSubscribeState, "toolMetaById" | "toolMetas" | "toolSummaryById" | "lastToolError" | "pendingMessagingTargets" | "pendingMessagingTexts" | "pendingMessagingMediaUrls" | "messagingToolSentTexts" | "messagingToolSentTextsNormalized" | "messagingToolSentMediaUrls" | "messagingToolSentTargets" | "successfulCronAdds" | "deterministicApprovalPromptSent">;
 export type ToolHandlerContext = {
     params: ToolHandlerParams;
     state: ToolHandlerState;

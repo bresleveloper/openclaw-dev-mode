@@ -1,0 +1,747 @@
+import { Aa as normalizeToolName, Ia as compileGlobPatterns, La as matchesAnyGlobPattern, Ot as loadSessionStore, Vn as resolveChannelGroupToolsPolicy, ka as expandToolGroups, kn as getChannelDock, tr as normalizeMessageChannel } from "./auth-profiles-CIqoN6FN.js";
+import { f as resolveDefaultAgentId, i as resolveAgentConfig } from "./agent-scope-BAb0j1gt.js";
+import { E as resolveThreadParentSessionKey, T as parseAgentSessionKey, b as getSubagentDepth, c as normalizeAgentId, u as resolveAgentIdFromSessionKey, w as isSubagentSessionKey } from "./session-key-DmlQCuju.js";
+import { r as normalizeStringEntries } from "./string-normalization-C37X3fMr.js";
+import { T as inspectSlackAccount, a as inspectTelegramAccount, ut as inspectDiscordAccount } from "./plugins-CjLMQbHJ.js";
+import { c as resolveStorePath } from "./paths-B52CESY4.js";
+import { n as evaluateMatchedGroupAccessForPolicy } from "./group-access-Du4DfpHm.js";
+import { i as readChannelAllowFromStore } from "./pairing-store-afyqjg4D.js";
+import { i as resolveGroupAllowFromSources, r as mergeDmAllowFromSources } from "./allow-from-B8u3j6-m.js";
+import fs from "node:fs";
+import JSON5 from "json5";
+//#region src/agents/subagent-depth.ts
+function normalizeSpawnDepth(value) {
+	if (typeof value === "number") return Number.isInteger(value) && value >= 0 ? value : void 0;
+	if (typeof value === "string") {
+		const trimmed = value.trim();
+		if (!trimmed) return;
+		const numeric = Number(trimmed);
+		return Number.isInteger(numeric) && numeric >= 0 ? numeric : void 0;
+	}
+}
+function normalizeSessionKey$1(value) {
+	if (typeof value !== "string") return;
+	return value.trim() || void 0;
+}
+function readSessionStore$1(storePath) {
+	try {
+		const raw = fs.readFileSync(storePath, "utf-8");
+		const parsed = JSON5.parse(raw);
+		if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return parsed;
+	} catch {}
+	return {};
+}
+function buildKeyCandidates(rawKey, cfg) {
+	if (!cfg) return [rawKey];
+	if (rawKey === "global" || rawKey === "unknown") return [rawKey];
+	if (parseAgentSessionKey(rawKey)) return [rawKey];
+	const prefixed = `agent:${resolveDefaultAgentId(cfg)}:${rawKey}`;
+	return prefixed === rawKey ? [rawKey] : [rawKey, prefixed];
+}
+function findEntryBySessionId$1(store, sessionId) {
+	const normalizedSessionId = normalizeSessionKey$1(sessionId);
+	if (!normalizedSessionId) return;
+	for (const entry of Object.values(store)) {
+		const candidateSessionId = normalizeSessionKey$1(entry?.sessionId);
+		if (candidateSessionId && candidateSessionId === normalizedSessionId) return entry;
+	}
+}
+function resolveEntryForSessionKey(params) {
+	const candidates = buildKeyCandidates(params.sessionKey, params.cfg);
+	if (params.store) {
+		for (const key of candidates) {
+			const entry = params.store[key];
+			if (entry) return entry;
+		}
+		return findEntryBySessionId$1(params.store, params.sessionKey);
+	}
+	if (!params.cfg) return;
+	for (const key of candidates) {
+		const parsed = parseAgentSessionKey(key);
+		if (!parsed?.agentId) continue;
+		const storePath = resolveStorePath(params.cfg.session?.store, { agentId: parsed.agentId });
+		let store = params.cache.get(storePath);
+		if (!store) {
+			store = readSessionStore$1(storePath);
+			params.cache.set(storePath, store);
+		}
+		const entry = store[key] ?? findEntryBySessionId$1(store, params.sessionKey);
+		if (entry) return entry;
+	}
+}
+function getSubagentDepthFromSessionStore(sessionKey, opts) {
+	const raw = (sessionKey ?? "").trim();
+	const fallbackDepth = getSubagentDepth(raw);
+	if (!raw) return fallbackDepth;
+	const cache = /* @__PURE__ */ new Map();
+	const visited = /* @__PURE__ */ new Set();
+	const depthFromStore = (key) => {
+		const normalizedKey = normalizeSessionKey$1(key);
+		if (!normalizedKey) return;
+		if (visited.has(normalizedKey)) return;
+		visited.add(normalizedKey);
+		const entry = resolveEntryForSessionKey({
+			sessionKey: normalizedKey,
+			cfg: opts?.cfg,
+			store: opts?.store,
+			cache
+		});
+		const storedDepth = normalizeSpawnDepth(entry?.spawnDepth);
+		if (storedDepth !== void 0) return storedDepth;
+		const spawnedBy = normalizeSessionKey$1(entry?.spawnedBy);
+		if (!spawnedBy) return;
+		const parentDepth = depthFromStore(spawnedBy);
+		if (parentDepth !== void 0) return parentDepth + 1;
+		return getSubagentDepth(spawnedBy) + 1;
+	};
+	return depthFromStore(raw) ?? fallbackDepth;
+}
+//#endregion
+//#region src/agents/subagent-capabilities.ts
+const SUBAGENT_SESSION_ROLES = [
+	"main",
+	"orchestrator",
+	"leaf"
+];
+const SUBAGENT_CONTROL_SCOPES = ["children", "none"];
+function normalizeSessionKey(value) {
+	if (typeof value !== "string") return;
+	return value.trim() || void 0;
+}
+function normalizeSubagentRole(value) {
+	if (typeof value !== "string") return;
+	const trimmed = value.trim().toLowerCase();
+	return SUBAGENT_SESSION_ROLES.find((entry) => entry === trimmed);
+}
+function normalizeSubagentControlScope(value) {
+	if (typeof value !== "string") return;
+	const trimmed = value.trim().toLowerCase();
+	return SUBAGENT_CONTROL_SCOPES.find((entry) => entry === trimmed);
+}
+function readSessionStore(storePath) {
+	try {
+		return loadSessionStore(storePath);
+	} catch {
+		return {};
+	}
+}
+function findEntryBySessionId(store, sessionId) {
+	const normalizedSessionId = normalizeSessionKey(sessionId);
+	if (!normalizedSessionId) return;
+	for (const entry of Object.values(store)) if (normalizeSessionKey(entry?.sessionId) === normalizedSessionId) return entry;
+}
+function resolveSessionCapabilityEntry(params) {
+	if (params.store) return params.store[params.sessionKey] ?? findEntryBySessionId(params.store, params.sessionKey);
+	if (!params.cfg) return;
+	const parsed = parseAgentSessionKey(params.sessionKey);
+	if (!parsed?.agentId) return;
+	const store = readSessionStore(resolveStorePath(params.cfg.session?.store, { agentId: parsed.agentId }));
+	return store[params.sessionKey] ?? findEntryBySessionId(store, params.sessionKey);
+}
+function resolveSubagentRoleForDepth(params) {
+	const depth = Number.isInteger(params.depth) ? Math.max(0, params.depth) : 0;
+	const maxSpawnDepth = typeof params.maxSpawnDepth === "number" && Number.isFinite(params.maxSpawnDepth) ? Math.max(1, Math.floor(params.maxSpawnDepth)) : 1;
+	if (depth <= 0) return "main";
+	return depth < maxSpawnDepth ? "orchestrator" : "leaf";
+}
+function resolveSubagentControlScopeForRole(role) {
+	return role === "leaf" ? "none" : "children";
+}
+function resolveSubagentCapabilities(params) {
+	const role = resolveSubagentRoleForDepth(params);
+	const controlScope = resolveSubagentControlScopeForRole(role);
+	return {
+		depth: Math.max(0, Math.floor(params.depth)),
+		role,
+		controlScope,
+		canSpawn: role === "main" || role === "orchestrator",
+		canControlChildren: controlScope === "children"
+	};
+}
+function resolveStoredSubagentCapabilities(sessionKey, opts) {
+	const normalizedSessionKey = normalizeSessionKey(sessionKey);
+	const maxSpawnDepth = opts?.cfg?.agents?.defaults?.subagents?.maxSpawnDepth ?? 1;
+	const depth = getSubagentDepthFromSessionStore(normalizedSessionKey, {
+		cfg: opts?.cfg,
+		store: opts?.store
+	});
+	if (!normalizedSessionKey || !isSubagentSessionKey(normalizedSessionKey)) return resolveSubagentCapabilities({
+		depth,
+		maxSpawnDepth
+	});
+	const entry = resolveSessionCapabilityEntry({
+		sessionKey: normalizedSessionKey,
+		cfg: opts?.cfg,
+		store: opts?.store
+	});
+	const storedRole = normalizeSubagentRole(entry?.subagentRole);
+	const storedControlScope = normalizeSubagentControlScope(entry?.subagentControlScope);
+	const fallback = resolveSubagentCapabilities({
+		depth,
+		maxSpawnDepth
+	});
+	const role = storedRole ?? fallback.role;
+	const controlScope = storedControlScope ?? resolveSubagentControlScopeForRole(role);
+	return {
+		depth,
+		role,
+		controlScope,
+		canSpawn: role === "main" || role === "orchestrator",
+		canControlChildren: controlScope === "children"
+	};
+}
+//#endregion
+//#region src/channels/account-snapshot-fields.ts
+const CREDENTIAL_STATUS_KEYS = [
+	"tokenStatus",
+	"botTokenStatus",
+	"appTokenStatus",
+	"signingSecretStatus",
+	"userTokenStatus"
+];
+function asRecord(value) {
+	if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+	return value;
+}
+function readTrimmedString(record, key) {
+	const value = record[key];
+	if (typeof value !== "string") return;
+	const trimmed = value.trim();
+	return trimmed.length > 0 ? trimmed : void 0;
+}
+function readBoolean(record, key) {
+	return typeof record[key] === "boolean" ? record[key] : void 0;
+}
+function readNumber(record, key) {
+	const value = record[key];
+	return typeof value === "number" && Number.isFinite(value) ? value : void 0;
+}
+function readStringArray(record, key) {
+	const value = record[key];
+	if (!Array.isArray(value)) return;
+	const normalized = value.map((entry) => typeof entry === "string" || typeof entry === "number" ? String(entry) : "").map((entry) => entry.trim()).filter(Boolean);
+	return normalized.length > 0 ? normalized : void 0;
+}
+function readCredentialStatus(record, key) {
+	const value = record[key];
+	return value === "available" || value === "configured_unavailable" || value === "missing" ? value : void 0;
+}
+function hasConfiguredUnavailableCredentialStatus(account) {
+	const record = asRecord(account);
+	if (!record) return false;
+	return CREDENTIAL_STATUS_KEYS.some((key) => readCredentialStatus(record, key) === "configured_unavailable");
+}
+function hasResolvedCredentialValue(account) {
+	const record = asRecord(account);
+	if (!record) return false;
+	return [
+		"token",
+		"botToken",
+		"appToken",
+		"signingSecret",
+		"userToken"
+	].some((key) => {
+		const value = record[key];
+		return typeof value === "string" && value.trim().length > 0;
+	}) || CREDENTIAL_STATUS_KEYS.some((key) => readCredentialStatus(record, key) === "available");
+}
+function projectCredentialSnapshotFields(account) {
+	const record = asRecord(account);
+	if (!record) return {};
+	return {
+		...readTrimmedString(record, "tokenSource") ? { tokenSource: readTrimmedString(record, "tokenSource") } : {},
+		...readTrimmedString(record, "botTokenSource") ? { botTokenSource: readTrimmedString(record, "botTokenSource") } : {},
+		...readTrimmedString(record, "appTokenSource") ? { appTokenSource: readTrimmedString(record, "appTokenSource") } : {},
+		...readTrimmedString(record, "signingSecretSource") ? { signingSecretSource: readTrimmedString(record, "signingSecretSource") } : {},
+		...readCredentialStatus(record, "tokenStatus") ? { tokenStatus: readCredentialStatus(record, "tokenStatus") } : {},
+		...readCredentialStatus(record, "botTokenStatus") ? { botTokenStatus: readCredentialStatus(record, "botTokenStatus") } : {},
+		...readCredentialStatus(record, "appTokenStatus") ? { appTokenStatus: readCredentialStatus(record, "appTokenStatus") } : {},
+		...readCredentialStatus(record, "signingSecretStatus") ? { signingSecretStatus: readCredentialStatus(record, "signingSecretStatus") } : {},
+		...readCredentialStatus(record, "userTokenStatus") ? { userTokenStatus: readCredentialStatus(record, "userTokenStatus") } : {}
+	};
+}
+function projectSafeChannelAccountSnapshotFields(account) {
+	const record = asRecord(account);
+	if (!record) return {};
+	return {
+		...readTrimmedString(record, "name") ? { name: readTrimmedString(record, "name") } : {},
+		...readBoolean(record, "linked") !== void 0 ? { linked: readBoolean(record, "linked") } : {},
+		...readBoolean(record, "running") !== void 0 ? { running: readBoolean(record, "running") } : {},
+		...readBoolean(record, "connected") !== void 0 ? { connected: readBoolean(record, "connected") } : {},
+		...readNumber(record, "reconnectAttempts") !== void 0 ? { reconnectAttempts: readNumber(record, "reconnectAttempts") } : {},
+		...readTrimmedString(record, "mode") ? { mode: readTrimmedString(record, "mode") } : {},
+		...readTrimmedString(record, "dmPolicy") ? { dmPolicy: readTrimmedString(record, "dmPolicy") } : {},
+		...readStringArray(record, "allowFrom") ? { allowFrom: readStringArray(record, "allowFrom") } : {},
+		...projectCredentialSnapshotFields(account),
+		...readTrimmedString(record, "baseUrl") ? { baseUrl: readTrimmedString(record, "baseUrl") } : {},
+		...readBoolean(record, "allowUnmentionedGroups") !== void 0 ? { allowUnmentionedGroups: readBoolean(record, "allowUnmentionedGroups") } : {},
+		...readTrimmedString(record, "cliPath") ? { cliPath: readTrimmedString(record, "cliPath") } : {},
+		...readTrimmedString(record, "dbPath") ? { dbPath: readTrimmedString(record, "dbPath") } : {},
+		...readNumber(record, "port") !== void 0 ? { port: readNumber(record, "port") } : {}
+	};
+}
+//#endregion
+//#region src/channels/read-only-account-inspect.ts
+function inspectReadOnlyChannelAccount(params) {
+	if (params.channelId === "discord") return inspectDiscordAccount({
+		cfg: params.cfg,
+		accountId: params.accountId
+	});
+	if (params.channelId === "slack") return inspectSlackAccount({
+		cfg: params.cfg,
+		accountId: params.accountId
+	});
+	if (params.channelId === "telegram") return inspectTelegramAccount({
+		cfg: params.cfg,
+		accountId: params.accountId
+	});
+	return null;
+}
+//#endregion
+//#region src/channels/command-gating.ts
+function resolveCommandAuthorizedFromAuthorizers(params) {
+	const { useAccessGroups, authorizers } = params;
+	const mode = params.modeWhenAccessGroupsOff ?? "allow";
+	if (!useAccessGroups) {
+		if (mode === "allow") return true;
+		if (mode === "deny") return false;
+		if (!authorizers.some((entry) => entry.configured)) return true;
+		return authorizers.some((entry) => entry.configured && entry.allowed);
+	}
+	return authorizers.some((entry) => entry.configured && entry.allowed);
+}
+function resolveControlCommandGate(params) {
+	const commandAuthorized = resolveCommandAuthorizedFromAuthorizers({
+		useAccessGroups: params.useAccessGroups,
+		authorizers: params.authorizers,
+		modeWhenAccessGroupsOff: params.modeWhenAccessGroupsOff
+	});
+	return {
+		commandAuthorized,
+		shouldBlock: params.allowTextCommands && params.hasControlCommand && !commandAuthorized
+	};
+}
+//#endregion
+//#region src/security/dm-policy-shared.ts
+function resolvePinnedMainDmOwnerFromAllowlist(params) {
+	if ((params.dmScope ?? "main") !== "main") return null;
+	const rawAllowFrom = Array.isArray(params.allowFrom) ? params.allowFrom : [];
+	if (rawAllowFrom.some((entry) => String(entry).trim() === "*")) return null;
+	const normalizedOwners = Array.from(new Set(rawAllowFrom.map((entry) => params.normalizeEntry(String(entry))).filter((entry) => Boolean(entry))));
+	return normalizedOwners.length === 1 ? normalizedOwners[0] : null;
+}
+function resolveEffectiveAllowFromLists(params) {
+	const allowFrom = Array.isArray(params.allowFrom) ? params.allowFrom : void 0;
+	const groupAllowFrom = Array.isArray(params.groupAllowFrom) ? params.groupAllowFrom : void 0;
+	return {
+		effectiveAllowFrom: normalizeStringEntries(mergeDmAllowFromSources({
+			allowFrom,
+			storeAllowFrom: Array.isArray(params.storeAllowFrom) ? params.storeAllowFrom : void 0,
+			dmPolicy: params.dmPolicy ?? void 0
+		})),
+		effectiveGroupAllowFrom: normalizeStringEntries(resolveGroupAllowFromSources({
+			allowFrom,
+			groupAllowFrom,
+			fallbackToAllowFrom: params.groupAllowFromFallbackToAllowFrom ?? void 0
+		}))
+	};
+}
+const DM_GROUP_ACCESS_REASON = {
+	GROUP_POLICY_ALLOWED: "group_policy_allowed",
+	GROUP_POLICY_DISABLED: "group_policy_disabled",
+	GROUP_POLICY_EMPTY_ALLOWLIST: "group_policy_empty_allowlist",
+	GROUP_POLICY_NOT_ALLOWLISTED: "group_policy_not_allowlisted",
+	DM_POLICY_OPEN: "dm_policy_open",
+	DM_POLICY_DISABLED: "dm_policy_disabled",
+	DM_POLICY_ALLOWLISTED: "dm_policy_allowlisted",
+	DM_POLICY_PAIRING_REQUIRED: "dm_policy_pairing_required",
+	DM_POLICY_NOT_ALLOWLISTED: "dm_policy_not_allowlisted"
+};
+async function readStoreAllowFromForDmPolicy(params) {
+	if (params.shouldRead === false || params.dmPolicy === "allowlist") return [];
+	return await (params.readStore ?? ((provider, accountId) => readChannelAllowFromStore(provider, process.env, accountId)))(params.provider, params.accountId).catch(() => []);
+}
+function resolveDmGroupAccessDecision(params) {
+	const dmPolicy = params.dmPolicy ?? "pairing";
+	const groupPolicy = params.groupPolicy === "open" || params.groupPolicy === "disabled" ? params.groupPolicy : "allowlist";
+	const effectiveAllowFrom = normalizeStringEntries(params.effectiveAllowFrom);
+	const effectiveGroupAllowFrom = normalizeStringEntries(params.effectiveGroupAllowFrom);
+	if (params.isGroup) {
+		const groupAccess = evaluateMatchedGroupAccessForPolicy({
+			groupPolicy,
+			allowlistConfigured: effectiveGroupAllowFrom.length > 0,
+			allowlistMatched: params.isSenderAllowed(effectiveGroupAllowFrom)
+		});
+		if (!groupAccess.allowed) {
+			if (groupAccess.reason === "disabled") return {
+				decision: "block",
+				reasonCode: DM_GROUP_ACCESS_REASON.GROUP_POLICY_DISABLED,
+				reason: "groupPolicy=disabled"
+			};
+			if (groupAccess.reason === "empty_allowlist") return {
+				decision: "block",
+				reasonCode: DM_GROUP_ACCESS_REASON.GROUP_POLICY_EMPTY_ALLOWLIST,
+				reason: "groupPolicy=allowlist (empty allowlist)"
+			};
+			if (groupAccess.reason === "not_allowlisted") return {
+				decision: "block",
+				reasonCode: DM_GROUP_ACCESS_REASON.GROUP_POLICY_NOT_ALLOWLISTED,
+				reason: "groupPolicy=allowlist (not allowlisted)"
+			};
+		}
+		return {
+			decision: "allow",
+			reasonCode: DM_GROUP_ACCESS_REASON.GROUP_POLICY_ALLOWED,
+			reason: `groupPolicy=${groupPolicy}`
+		};
+	}
+	if (dmPolicy === "disabled") return {
+		decision: "block",
+		reasonCode: DM_GROUP_ACCESS_REASON.DM_POLICY_DISABLED,
+		reason: "dmPolicy=disabled"
+	};
+	if (dmPolicy === "open") return {
+		decision: "allow",
+		reasonCode: DM_GROUP_ACCESS_REASON.DM_POLICY_OPEN,
+		reason: "dmPolicy=open"
+	};
+	if (params.isSenderAllowed(effectiveAllowFrom)) return {
+		decision: "allow",
+		reasonCode: DM_GROUP_ACCESS_REASON.DM_POLICY_ALLOWLISTED,
+		reason: `dmPolicy=${dmPolicy} (allowlisted)`
+	};
+	if (dmPolicy === "pairing") return {
+		decision: "pairing",
+		reasonCode: DM_GROUP_ACCESS_REASON.DM_POLICY_PAIRING_REQUIRED,
+		reason: "dmPolicy=pairing (not allowlisted)"
+	};
+	return {
+		decision: "block",
+		reasonCode: DM_GROUP_ACCESS_REASON.DM_POLICY_NOT_ALLOWLISTED,
+		reason: `dmPolicy=${dmPolicy} (not allowlisted)`
+	};
+}
+function resolveDmGroupAccessWithLists(params) {
+	const { effectiveAllowFrom, effectiveGroupAllowFrom } = resolveEffectiveAllowFromLists({
+		allowFrom: params.allowFrom,
+		groupAllowFrom: params.groupAllowFrom,
+		storeAllowFrom: params.storeAllowFrom,
+		dmPolicy: params.dmPolicy,
+		groupAllowFromFallbackToAllowFrom: params.groupAllowFromFallbackToAllowFrom
+	});
+	return {
+		...resolveDmGroupAccessDecision({
+			isGroup: params.isGroup,
+			dmPolicy: params.dmPolicy,
+			groupPolicy: params.groupPolicy,
+			effectiveAllowFrom,
+			effectiveGroupAllowFrom,
+			isSenderAllowed: params.isSenderAllowed
+		}),
+		effectiveAllowFrom,
+		effectiveGroupAllowFrom
+	};
+}
+function resolveDmGroupAccessWithCommandGate(params) {
+	const access = resolveDmGroupAccessWithLists({
+		isGroup: params.isGroup,
+		dmPolicy: params.dmPolicy,
+		groupPolicy: params.groupPolicy,
+		allowFrom: params.allowFrom,
+		groupAllowFrom: params.groupAllowFrom,
+		storeAllowFrom: params.storeAllowFrom,
+		groupAllowFromFallbackToAllowFrom: params.groupAllowFromFallbackToAllowFrom,
+		isSenderAllowed: params.isSenderAllowed
+	});
+	const configuredAllowFrom = normalizeStringEntries(params.allowFrom ?? []);
+	const configuredGroupAllowFrom = normalizeStringEntries(resolveGroupAllowFromSources({
+		allowFrom: configuredAllowFrom,
+		groupAllowFrom: normalizeStringEntries(params.groupAllowFrom ?? []),
+		fallbackToAllowFrom: params.groupAllowFromFallbackToAllowFrom ?? void 0
+	}));
+	const commandDmAllowFrom = params.isGroup ? configuredAllowFrom : access.effectiveAllowFrom;
+	const commandGroupAllowFrom = params.isGroup ? configuredGroupAllowFrom : access.effectiveGroupAllowFrom;
+	const ownerAllowedForCommands = params.isSenderAllowed(commandDmAllowFrom);
+	const groupAllowedForCommands = params.isSenderAllowed(commandGroupAllowFrom);
+	const commandGate = params.command ? resolveControlCommandGate({
+		useAccessGroups: params.command.useAccessGroups,
+		authorizers: [{
+			configured: commandDmAllowFrom.length > 0,
+			allowed: ownerAllowedForCommands
+		}, {
+			configured: commandGroupAllowFrom.length > 0,
+			allowed: groupAllowedForCommands
+		}],
+		allowTextCommands: params.command.allowTextCommands,
+		hasControlCommand: params.command.hasControlCommand
+	}) : {
+		commandAuthorized: false,
+		shouldBlock: false
+	};
+	return {
+		...access,
+		commandAuthorized: commandGate.commandAuthorized,
+		shouldBlockControlCommand: params.isGroup && commandGate.shouldBlock
+	};
+}
+async function resolveDmAllowState(params) {
+	const configAllowFrom = normalizeStringEntries(Array.isArray(params.allowFrom) ? params.allowFrom : void 0);
+	const hasWildcard = configAllowFrom.includes("*");
+	const storeAllowFrom = await readStoreAllowFromForDmPolicy({
+		provider: params.provider,
+		accountId: params.accountId,
+		readStore: params.readStore
+	});
+	const normalizeEntry = params.normalizeEntry ?? ((value) => value);
+	const normalizedCfg = configAllowFrom.filter((value) => value !== "*").map((value) => normalizeEntry(value)).map((value) => value.trim()).filter(Boolean);
+	const normalizedStore = storeAllowFrom.map((value) => normalizeEntry(value)).map((value) => value.trim()).filter(Boolean);
+	const allowCount = Array.from(new Set([...normalizedCfg, ...normalizedStore])).length;
+	return {
+		configAllowFrom,
+		hasWildcard,
+		allowCount,
+		isMultiUserDm: hasWildcard || allowCount > 1
+	};
+}
+//#endregion
+//#region src/agents/sandbox-tool-policy.ts
+function unionAllow(base, extra) {
+	if (!Array.isArray(extra) || extra.length === 0) return base;
+	if (!Array.isArray(base) || base.length === 0) return Array.from(new Set(["*", ...extra]));
+	return Array.from(new Set([...base, ...extra]));
+}
+function pickSandboxToolPolicy(config) {
+	if (!config) return;
+	const allow = Array.isArray(config.allow) ? unionAllow(config.allow, config.alsoAllow) : Array.isArray(config.alsoAllow) && config.alsoAllow.length > 0 ? unionAllow(void 0, config.alsoAllow) : void 0;
+	const deny = Array.isArray(config.deny) ? config.deny : void 0;
+	if (!allow && !deny) return;
+	return {
+		allow,
+		deny
+	};
+}
+//#endregion
+//#region src/agents/pi-tools.policy.ts
+function makeToolPolicyMatcher(policy) {
+	const deny = compileGlobPatterns({
+		raw: expandToolGroups(policy.deny ?? []),
+		normalize: normalizeToolName
+	});
+	const allow = compileGlobPatterns({
+		raw: expandToolGroups(policy.allow ?? []),
+		normalize: normalizeToolName
+	});
+	return (name) => {
+		const normalized = normalizeToolName(name);
+		if (matchesAnyGlobPattern(normalized, deny)) return false;
+		if (allow.length === 0) return true;
+		if (matchesAnyGlobPattern(normalized, allow)) return true;
+		if (normalized === "apply_patch" && matchesAnyGlobPattern("exec", allow)) return true;
+		return false;
+	};
+}
+/**
+* Tools always denied for sub-agents regardless of depth.
+* These are system-level or interactive tools that sub-agents should never use.
+*/
+const SUBAGENT_TOOL_DENY_ALWAYS = [
+	"gateway",
+	"agents_list",
+	"whatsapp_login",
+	"session_status",
+	"cron",
+	"memory_search",
+	"memory_get",
+	"sessions_send"
+];
+/**
+* Additional tools denied for leaf sub-agents (depth >= maxSpawnDepth).
+* These are tools that only make sense for orchestrator sub-agents that can spawn children.
+*/
+const SUBAGENT_TOOL_DENY_LEAF = [
+	"subagents",
+	"sessions_list",
+	"sessions_history",
+	"sessions_spawn"
+];
+/**
+* Build the deny list for a sub-agent at a given depth.
+*
+* - Depth 1 with maxSpawnDepth >= 2 (orchestrator): allowed to use sessions_spawn,
+*   subagents, sessions_list, sessions_history so it can manage its children.
+* - Depth >= maxSpawnDepth (leaf): denied subagents, sessions_spawn, and
+*   session management tools.
+*/
+function resolveSubagentDenyList(depth, maxSpawnDepth) {
+	if (depth >= Math.max(1, Math.floor(maxSpawnDepth))) return [...SUBAGENT_TOOL_DENY_ALWAYS, ...SUBAGENT_TOOL_DENY_LEAF];
+	return [...SUBAGENT_TOOL_DENY_ALWAYS];
+}
+function resolveSubagentDenyListForRole(role) {
+	if (role === "leaf") return [...SUBAGENT_TOOL_DENY_ALWAYS, ...SUBAGENT_TOOL_DENY_LEAF];
+	return [...SUBAGENT_TOOL_DENY_ALWAYS];
+}
+function resolveSubagentToolPolicy(cfg, depth) {
+	const configured = cfg?.tools?.subagents?.tools;
+	const maxSpawnDepth = cfg?.agents?.defaults?.subagents?.maxSpawnDepth ?? 1;
+	const baseDeny = resolveSubagentDenyList(typeof depth === "number" && depth >= 0 ? depth : 1, maxSpawnDepth);
+	const allow = Array.isArray(configured?.allow) ? configured.allow : void 0;
+	const alsoAllow = Array.isArray(configured?.alsoAllow) ? configured.alsoAllow : void 0;
+	const explicitAllow = new Set([...allow ?? [], ...alsoAllow ?? []].map((toolName) => normalizeToolName(toolName)));
+	const deny = [...baseDeny.filter((toolName) => !explicitAllow.has(normalizeToolName(toolName))), ...Array.isArray(configured?.deny) ? configured.deny : []];
+	return {
+		allow: allow && alsoAllow ? Array.from(new Set([...allow, ...alsoAllow])) : allow,
+		deny
+	};
+}
+function resolveSubagentToolPolicyForSession(cfg, sessionKey) {
+	const configured = cfg?.tools?.subagents?.tools;
+	const capabilities = resolveStoredSubagentCapabilities(sessionKey, { cfg });
+	const allow = Array.isArray(configured?.allow) ? configured.allow : void 0;
+	const alsoAllow = Array.isArray(configured?.alsoAllow) ? configured.alsoAllow : void 0;
+	const explicitAllow = new Set([...allow ?? [], ...alsoAllow ?? []].map((toolName) => normalizeToolName(toolName)));
+	const deny = [...resolveSubagentDenyListForRole(capabilities.role).filter((toolName) => !explicitAllow.has(normalizeToolName(toolName))), ...Array.isArray(configured?.deny) ? configured.deny : []];
+	return {
+		allow: allow && alsoAllow ? Array.from(new Set([...allow, ...alsoAllow])) : allow,
+		deny
+	};
+}
+function isToolAllowedByPolicyName(name, policy) {
+	if (!policy) return true;
+	return makeToolPolicyMatcher(policy)(name);
+}
+function filterToolsByPolicy(tools, policy) {
+	if (!policy) return tools;
+	const matcher = makeToolPolicyMatcher(policy);
+	return tools.filter((tool) => matcher(tool.name));
+}
+function normalizeProviderKey(value) {
+	return value.trim().toLowerCase();
+}
+function resolveGroupContextFromSessionKey(sessionKey) {
+	const raw = (sessionKey ?? "").trim();
+	if (!raw) return {};
+	const parts = (resolveThreadParentSessionKey(raw) ?? raw).split(":").filter(Boolean);
+	let body = parts[0] === "agent" ? parts.slice(2) : parts;
+	if (body[0] === "subagent") body = body.slice(1);
+	if (body.length < 3) return {};
+	const [channel, kind, ...rest] = body;
+	if (kind !== "group" && kind !== "channel") return {};
+	const groupId = rest.join(":").trim();
+	if (!groupId) return {};
+	return {
+		channel: channel.trim().toLowerCase(),
+		groupId
+	};
+}
+function resolveProviderToolPolicy(params) {
+	const provider = params.modelProvider?.trim();
+	if (!provider || !params.byProvider) return;
+	const entries = Object.entries(params.byProvider);
+	if (entries.length === 0) return;
+	const lookup = /* @__PURE__ */ new Map();
+	for (const [key, value] of entries) {
+		const normalized = normalizeProviderKey(key);
+		if (!normalized) continue;
+		lookup.set(normalized, value);
+	}
+	const normalizedProvider = normalizeProviderKey(provider);
+	const rawModelId = params.modelId?.trim().toLowerCase();
+	const fullModelId = rawModelId && !rawModelId.includes("/") ? `${normalizedProvider}/${rawModelId}` : rawModelId;
+	const candidates = [...fullModelId ? [fullModelId] : [], normalizedProvider];
+	for (const key of candidates) {
+		const match = lookup.get(key);
+		if (match) return match;
+	}
+}
+function resolveExplicitProfileAlsoAllow(tools) {
+	return Array.isArray(tools?.alsoAllow) ? tools.alsoAllow : void 0;
+}
+function hasExplicitToolSection(section) {
+	return section !== void 0 && section !== null;
+}
+function resolveImplicitProfileAlsoAllow(params) {
+	const implicit = /* @__PURE__ */ new Set();
+	if (hasExplicitToolSection(params.agentTools?.exec) || hasExplicitToolSection(params.globalTools?.exec)) {
+		implicit.add("exec");
+		implicit.add("process");
+	}
+	if (hasExplicitToolSection(params.agentTools?.fs) || hasExplicitToolSection(params.globalTools?.fs)) {
+		implicit.add("read");
+		implicit.add("write");
+		implicit.add("edit");
+	}
+	return implicit.size > 0 ? Array.from(implicit) : void 0;
+}
+function resolveEffectiveToolPolicy(params) {
+	const agentId = (typeof params.agentId === "string" && params.agentId.trim() ? normalizeAgentId(params.agentId) : void 0) ?? (params.sessionKey ? resolveAgentIdFromSessionKey(params.sessionKey) : void 0);
+	const agentTools = (params.config && agentId ? resolveAgentConfig(params.config, agentId) : void 0)?.tools;
+	const globalTools = params.config?.tools;
+	const profile = agentTools?.profile ?? globalTools?.profile;
+	const providerPolicy = resolveProviderToolPolicy({
+		byProvider: globalTools?.byProvider,
+		modelProvider: params.modelProvider,
+		modelId: params.modelId
+	});
+	const agentProviderPolicy = resolveProviderToolPolicy({
+		byProvider: agentTools?.byProvider,
+		modelProvider: params.modelProvider,
+		modelId: params.modelId
+	});
+	const explicitProfileAlsoAllow = resolveExplicitProfileAlsoAllow(agentTools) ?? resolveExplicitProfileAlsoAllow(globalTools);
+	const implicitProfileAlsoAllow = resolveImplicitProfileAlsoAllow({
+		globalTools,
+		agentTools
+	});
+	const profileAlsoAllow = explicitProfileAlsoAllow || implicitProfileAlsoAllow ? Array.from(new Set([...explicitProfileAlsoAllow ?? [], ...implicitProfileAlsoAllow ?? []])) : void 0;
+	return {
+		agentId,
+		globalPolicy: pickSandboxToolPolicy(globalTools),
+		globalProviderPolicy: pickSandboxToolPolicy(providerPolicy),
+		agentPolicy: pickSandboxToolPolicy(agentTools),
+		agentProviderPolicy: pickSandboxToolPolicy(agentProviderPolicy),
+		profile,
+		providerProfile: agentProviderPolicy?.profile ?? providerPolicy?.profile,
+		profileAlsoAllow,
+		providerProfileAlsoAllow: Array.isArray(agentProviderPolicy?.alsoAllow) ? agentProviderPolicy?.alsoAllow : Array.isArray(providerPolicy?.alsoAllow) ? providerPolicy?.alsoAllow : void 0
+	};
+}
+function resolveGroupToolPolicy(params) {
+	if (!params.config) return;
+	const sessionContext = resolveGroupContextFromSessionKey(params.sessionKey);
+	const spawnedContext = resolveGroupContextFromSessionKey(params.spawnedBy);
+	const groupId = params.groupId ?? sessionContext.groupId ?? spawnedContext.groupId;
+	if (!groupId) return;
+	const channel = normalizeMessageChannel(params.messageProvider ?? sessionContext.channel ?? spawnedContext.channel);
+	if (!channel) return;
+	let dock;
+	try {
+		dock = getChannelDock(channel);
+	} catch {
+		dock = void 0;
+	}
+	return pickSandboxToolPolicy(dock?.groups?.resolveToolPolicy?.({
+		cfg: params.config,
+		groupId,
+		groupChannel: params.groupChannel,
+		groupSpace: params.groupSpace,
+		accountId: params.accountId,
+		senderId: params.senderId,
+		senderName: params.senderName,
+		senderUsername: params.senderUsername,
+		senderE164: params.senderE164
+	}) ?? resolveChannelGroupToolsPolicy({
+		cfg: params.config,
+		channel,
+		groupId,
+		accountId: params.accountId,
+		senderId: params.senderId,
+		senderName: params.senderName,
+		senderUsername: params.senderUsername,
+		senderE164: params.senderE164
+	}));
+}
+function isToolAllowedByPolicies(name, policies) {
+	return policies.every((policy) => isToolAllowedByPolicyName(name, policy));
+}
+//#endregion
+export { getSubagentDepthFromSessionStore as S, hasConfiguredUnavailableCredentialStatus as _, resolveSubagentToolPolicy as a, resolveStoredSubagentCapabilities as b, DM_GROUP_ACCESS_REASON as c, resolveDmGroupAccessWithCommandGate as d, resolveDmGroupAccessWithLists as f, inspectReadOnlyChannelAccount as g, resolveControlCommandGate as h, resolveGroupToolPolicy as i, readStoreAllowFromForDmPolicy as l, resolveCommandAuthorizedFromAuthorizers as m, isToolAllowedByPolicies as n, resolveSubagentToolPolicyForSession as o, resolvePinnedMainDmOwnerFromAllowlist as p, resolveEffectiveToolPolicy as r, pickSandboxToolPolicy as s, filterToolsByPolicy as t, resolveDmAllowState as u, hasResolvedCredentialValue as v, resolveSubagentCapabilities as x, projectSafeChannelAccountSnapshotFields as y };

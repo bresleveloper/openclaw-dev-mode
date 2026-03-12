@@ -24,13 +24,22 @@ export declare class MissingEnvVarError extends Error {
     readonly configPath: string;
     constructor(varName: string, configPath: string);
 }
+export type EnvSubstitutionWarning = {
+    varName: string;
+    configPath: string;
+};
+export type SubstituteOptions = {
+    /** When set, missing vars call this instead of throwing and the original placeholder is preserved. */
+    onMissing?: (warning: EnvSubstitutionWarning) => void;
+};
 export declare function containsEnvVarReference(value: string): boolean;
 /**
  * Resolves `${VAR_NAME}` environment variable references in config values.
  *
  * @param obj - The parsed config object (after JSON5 parse and $include resolution)
  * @param env - Environment variables to use for substitution (defaults to process.env)
+ * @param opts - Options: `onMissing` callback to collect warnings instead of throwing.
  * @returns The config object with env vars substituted
- * @throws {MissingEnvVarError} If a referenced env var is not set or empty
+ * @throws {MissingEnvVarError} If a referenced env var is not set or empty (unless `onMissing` is set)
  */
-export declare function resolveConfigEnvVars(obj: unknown, env?: NodeJS.ProcessEnv): unknown;
+export declare function resolveConfigEnvVars(obj: unknown, env?: NodeJS.ProcessEnv, opts?: SubstituteOptions): unknown;

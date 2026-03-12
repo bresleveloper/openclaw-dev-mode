@@ -24,6 +24,7 @@ export declare function listThreadBindingsBySessionKey(params: {
     targetKind?: ThreadBindingTargetKind;
 }): ThreadBindingRecord[];
 export declare function autoBindSpawnedDiscordSubagent(params: {
+    cfg?: OpenClawConfig;
     accountId?: string;
     channel?: string;
     to?: string;

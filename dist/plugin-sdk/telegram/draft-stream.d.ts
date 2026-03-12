@@ -13,6 +13,8 @@ export type TelegramDraftStream = {
     materialize?: () => Promise<number | undefined>;
     /** Reset internal state so the next update creates a new message instead of editing. */
     forceNewMessage: () => void;
+    /** True when a preview sendMessage was attempted but the response was lost. */
+    sendMayHaveLanded?: () => boolean;
 };
 type TelegramDraftPreview = {
     text: string;

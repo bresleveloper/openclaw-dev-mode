@@ -1,3 +1,4 @@
+import type { OpenClawConfig } from "../config/config.js";
 export declare const ACP_SPAWN_MODES: readonly ["run", "session"];
 export type SpawnAcpMode = (typeof ACP_SPAWN_MODES)[number];
 export declare const ACP_SPAWN_SANDBOX_MODES: readonly ["inherit", "require"];
@@ -8,6 +9,7 @@ export type SpawnAcpParams = {
     task: string;
     label?: string;
     agentId?: string;
+    resumeSessionId?: string;
     cwd?: string;
     mode?: SpawnAcpMode;
     thread?: boolean;
@@ -33,4 +35,10 @@ export type SpawnAcpResult = {
 };
 export declare const ACP_SPAWN_ACCEPTED_NOTE = "initial ACP task queued in isolated session; follow-ups continue in the bound thread.";
 export declare const ACP_SPAWN_SESSION_ACCEPTED_NOTE = "thread-bound ACP session stays active after this task; continue in-thread for follow-ups.";
+export declare function resolveAcpSpawnRuntimePolicyError(params: {
+    cfg: OpenClawConfig;
+    requesterSessionKey?: string;
+    requesterSandboxed?: boolean;
+    sandbox?: SpawnAcpSandboxMode;
+}): string | undefined;
 export declare function spawnAcpDirect(params: SpawnAcpParams, ctx: SpawnAcpContext): Promise<SpawnAcpResult>;

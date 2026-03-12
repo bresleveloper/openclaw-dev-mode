@@ -1,74 +1,12 @@
-import path from "node:path";
 import { z } from "zod";
+import path from "node:path";
 import "undici";
 import ipaddr from "ipaddr.js";
-//#region src/channels/plugins/config-schema.ts
-function buildChannelConfigSchema(schema) {
-	const schemaWithJson = schema;
-	if (typeof schemaWithJson.toJSONSchema === "function") return { schema: schemaWithJson.toJSONSchema({
-		target: "draft-07",
-		unrepresentable: "any"
-	}) };
-	return { schema: {
-		type: "object",
-		additionalProperties: true
-	} };
-}
-//#endregion
-//#region src/cli/cli-name.ts
-const DEFAULT_CLI_NAME = "openclaw";
-const KNOWN_CLI_NAMES = new Set([DEFAULT_CLI_NAME]);
-const CLI_PREFIX_RE$1 = /^(?:((?:pnpm|npm|bunx|npx)\s+))?(openclaw)\b/;
-function resolveCliName(argv = process.argv) {
-	const argv1 = argv[1];
-	if (!argv1) return DEFAULT_CLI_NAME;
-	const base = path.basename(argv1).trim();
-	if (KNOWN_CLI_NAMES.has(base)) return base;
-	return DEFAULT_CLI_NAME;
-}
-function replaceCliName(command, cliName = resolveCliName()) {
-	if (!command.trim()) return command;
-	if (!CLI_PREFIX_RE$1.test(command)) return command;
-	return command.replace(CLI_PREFIX_RE$1, (_match, runner) => {
-		return `${runner ?? ""}${cliName}`;
-	});
-}
-//#endregion
-//#region src/cli/profile-utils.ts
-const PROFILE_NAME_RE = /^[a-z0-9][a-z0-9_-]{0,63}$/i;
-function isValidProfileName(value) {
-	if (!value) return false;
-	return PROFILE_NAME_RE.test(value);
-}
-function normalizeProfileName(raw) {
-	const profile = raw?.trim();
-	if (!profile) return null;
-	if (profile.toLowerCase() === "default") return null;
-	if (!isValidProfileName(profile)) return null;
-	return profile;
-}
-//#endregion
-//#region src/cli/command-format.ts
-const CLI_PREFIX_RE = /^(?:pnpm|npm|bunx|npx)\s+openclaw\b|^openclaw\b/;
-const PROFILE_FLAG_RE = /(?:^|\s)--profile(?:\s|=|$)/;
-const DEV_FLAG_RE = /(?:^|\s)--dev(?:\s|$)/;
-function formatCliCommand(command, env = process.env) {
-	const normalizedCommand = replaceCliName(command, resolveCliName());
-	const profile = normalizeProfileName(env.OPENCLAW_PROFILE);
-	if (!profile) return normalizedCommand;
-	if (!CLI_PREFIX_RE.test(normalizedCommand)) return normalizedCommand;
-	if (PROFILE_FLAG_RE.test(normalizedCommand) || DEV_FLAG_RE.test(normalizedCommand)) return normalizedCommand;
-	return normalizedCommand.replace(CLI_PREFIX_RE, (match) => `${match} --profile ${profile}`);
-}
-//#endregion
-//#region src/routing/account-id.ts
-const DEFAULT_ACCOUNT_ID = "default";
-//#endregion
-//#region src/channels/plugins/helpers.ts
-function formatPairingApproveHint(channelId) {
-	return `Approve via: ${formatCliCommand(`openclaw pairing list ${channelId}`)} / ${formatCliCommand(`openclaw pairing approve ${channelId} <code>`)}`;
-}
-//#endregion
+import fs from "node:fs";
+import os from "node:os";
+import "tslog";
+import "json5";
+import chalk, { Chalk } from "chalk";
 //#region src/infra/exec-safety.ts
 const SHELL_METACHARS = /[;&|`$<>]/;
 const CONTROL_CHARS = /[\r\n]/;
@@ -94,10 +32,32 @@ function isSafeExecutableValue(value) {
 //#endregion
 //#region src/secrets/ref-contract.ts
 const FILE_SECRET_REF_SEGMENT_PATTERN = /^(?:[^~]|~0|~1)*$/;
+const EXEC_SECRET_REF_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$/;
 function isValidFileSecretRefId(value) {
 	if (value === "value") return true;
 	if (!value.startsWith("/")) return false;
 	return value.slice(1).split("/").every((segment) => FILE_SECRET_REF_SEGMENT_PATTERN.test(segment));
+}
+function validateExecSecretRefId(value) {
+	if (!EXEC_SECRET_REF_ID_PATTERN.test(value)) return {
+		ok: false,
+		reason: "pattern"
+	};
+	for (const segment of value.split("/")) if (segment === "." || segment === "..") return {
+		ok: false,
+		reason: "traversal-segment"
+	};
+	return { ok: true };
+}
+function isValidExecSecretRefId(value) {
+	return validateExecSecretRefId(value).ok;
+}
+function formatExecSecretRefIdValidationMessage() {
+	return [
+		"Exec secret reference id must match /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$/",
+		"and must not include \".\" or \"..\" path segments",
+		"(example: \"vault/openai/api-key\")."
+	].join(" ");
 }
 //#endregion
 //#region src/config/types.models.ts
@@ -141,7 +101,6 @@ const sensitive = z.registry();
 //#region src/config/zod-schema.core.ts
 const ENV_SECRET_REF_ID_PATTERN = /^[A-Z][A-Z0-9_]{0,127}$/;
 const SECRET_PROVIDER_ALIAS_PATTERN = /^[a-z][a-z0-9_-]{0,63}$/;
-const EXEC_SECRET_REF_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$/;
 const WINDOWS_ABS_PATH_PATTERN = /^[A-Za-z]:[\\/]/;
 const WINDOWS_UNC_PATH_PATTERN = /^\\\\[^\\]+\\[^\\]+/;
 function isAbsolutePath(value) {
@@ -160,7 +119,7 @@ const FileSecretRefSchema = z.object({
 const ExecSecretRefSchema = z.object({
 	source: z.literal("exec"),
 	provider: z.string().regex(SECRET_PROVIDER_ALIAS_PATTERN, "Secret reference provider must match /^[a-z][a-z0-9_-]{0,63}$/ (example: \"default\")."),
-	id: z.string().regex(EXEC_SECRET_REF_ID_PATTERN, "Exec secret reference id must match /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$/ (example: \"vault/openai/api-key\").")
+	id: z.string().refine(isValidExecSecretRefId, formatExecSecretRefIdValidationMessage())
 }).strict();
 const SecretRefSchema = z.discriminatedUnion("source", [
 	EnvSecretRefSchema,
@@ -228,7 +187,8 @@ const ModelCompatSchema = z.object({
 	requiresToolResultName: z.boolean().optional(),
 	requiresAssistantAfterToolResult: z.boolean().optional(),
 	requiresThinkingAsText: z.boolean().optional(),
-	requiresMistralToolIds: z.boolean().optional()
+	requiresMistralToolIds: z.boolean().optional(),
+	requiresOpenAiAnthropicToolPayload: z.boolean().optional()
 }).strict().optional();
 const ModelDefinitionSchema = z.object({
 	id: z.string().min(1),
@@ -395,7 +355,9 @@ z.object({
 		apiKey: SecretInputSchema.optional().register(sensitive),
 		baseUrl: z.string().optional(),
 		model: z.string().optional(),
-		voice: z.string().optional()
+		voice: z.string().optional(),
+		speed: z.number().min(.25).max(4).optional(),
+		instructions: z.string().optional()
 	}).strict().optional(),
 	edge: z.object({
 		enabled: z.boolean().optional(),
@@ -601,6 +563,124 @@ z.object({
 	native: NativeCommandsSettingSchema.optional(),
 	nativeSkills: NativeCommandsSettingSchema.optional()
 }).strict().optional();
+//#endregion
+//#region src/channels/plugins/config-schema.ts
+const AllowFromEntrySchema = z.union([z.string(), z.number()]);
+z.array(AllowFromEntrySchema).optional();
+function buildChannelConfigSchema(schema) {
+	const schemaWithJson = schema;
+	if (typeof schemaWithJson.toJSONSchema === "function") return { schema: schemaWithJson.toJSONSchema({
+		target: "draft-07",
+		unrepresentable: "any"
+	}) };
+	return { schema: {
+		type: "object",
+		additionalProperties: true
+	} };
+}
+//#endregion
+//#region src/cli/cli-name.ts
+const DEFAULT_CLI_NAME = "openclaw";
+const KNOWN_CLI_NAMES = new Set([DEFAULT_CLI_NAME]);
+const CLI_PREFIX_RE$1 = /^(?:((?:pnpm|npm|bunx|npx)\s+))?(openclaw)\b/;
+function resolveCliName(argv = process.argv) {
+	const argv1 = argv[1];
+	if (!argv1) return DEFAULT_CLI_NAME;
+	const base = path.basename(argv1).trim();
+	if (KNOWN_CLI_NAMES.has(base)) return base;
+	return DEFAULT_CLI_NAME;
+}
+function replaceCliName(command, cliName = resolveCliName()) {
+	if (!command.trim()) return command;
+	if (!CLI_PREFIX_RE$1.test(command)) return command;
+	return command.replace(CLI_PREFIX_RE$1, (_match, runner) => {
+		return `${runner ?? ""}${cliName}`;
+	});
+}
+//#endregion
+//#region src/cli/profile-utils.ts
+const PROFILE_NAME_RE = /^[a-z0-9][a-z0-9_-]{0,63}$/i;
+function isValidProfileName(value) {
+	if (!value) return false;
+	return PROFILE_NAME_RE.test(value);
+}
+function normalizeProfileName(raw) {
+	const profile = raw?.trim();
+	if (!profile) return null;
+	if (profile.toLowerCase() === "default") return null;
+	if (!isValidProfileName(profile)) return null;
+	return profile;
+}
+//#endregion
+//#region src/cli/command-format.ts
+const CLI_PREFIX_RE = /^(?:pnpm|npm|bunx|npx)\s+openclaw\b|^openclaw\b/;
+const PROFILE_FLAG_RE = /(?:^|\s)--profile(?:\s|=|$)/;
+const DEV_FLAG_RE = /(?:^|\s)--dev(?:\s|$)/;
+function formatCliCommand(command, env = process.env) {
+	const normalizedCommand = replaceCliName(command, resolveCliName());
+	const profile = normalizeProfileName(env.OPENCLAW_PROFILE);
+	if (!profile) return normalizedCommand;
+	if (!CLI_PREFIX_RE.test(normalizedCommand)) return normalizedCommand;
+	if (PROFILE_FLAG_RE.test(normalizedCommand) || DEV_FLAG_RE.test(normalizedCommand)) return normalizedCommand;
+	return normalizedCommand.replace(CLI_PREFIX_RE, (match) => `${match} --profile ${profile}`);
+}
+//#endregion
+//#region src/infra/prototype-keys.ts
+const BLOCKED_OBJECT_KEYS = new Set([
+	"__proto__",
+	"prototype",
+	"constructor"
+]);
+function isBlockedObjectKey(key) {
+	return BLOCKED_OBJECT_KEYS.has(key);
+}
+//#endregion
+//#region src/routing/account-id.ts
+const DEFAULT_ACCOUNT_ID = "default";
+const VALID_ID_RE = /^[a-z0-9][a-z0-9_-]{0,63}$/i;
+const INVALID_CHARS_RE = /[^a-z0-9_-]+/g;
+const LEADING_DASH_RE = /^-+/;
+const TRAILING_DASH_RE = /-+$/;
+const ACCOUNT_ID_CACHE_MAX = 512;
+const normalizeAccountIdCache = /* @__PURE__ */ new Map();
+const normalizeOptionalAccountIdCache = /* @__PURE__ */ new Map();
+function canonicalizeAccountId(value) {
+	if (VALID_ID_RE.test(value)) return value.toLowerCase();
+	return value.toLowerCase().replace(INVALID_CHARS_RE, "-").replace(LEADING_DASH_RE, "").replace(TRAILING_DASH_RE, "").slice(0, 64);
+}
+function normalizeCanonicalAccountId(value) {
+	const canonical = canonicalizeAccountId(value);
+	if (!canonical || isBlockedObjectKey(canonical)) return;
+	return canonical;
+}
+function normalizeAccountId(value) {
+	const trimmed = (value ?? "").trim();
+	if (!trimmed) return DEFAULT_ACCOUNT_ID;
+	const cached = normalizeAccountIdCache.get(trimmed);
+	if (cached) return cached;
+	const normalized = normalizeCanonicalAccountId(trimmed) || "default";
+	setNormalizeCache(normalizeAccountIdCache, trimmed, normalized);
+	return normalized;
+}
+function normalizeOptionalAccountId(value) {
+	const trimmed = (value ?? "").trim();
+	if (!trimmed) return;
+	if (normalizeOptionalAccountIdCache.has(trimmed)) return normalizeOptionalAccountIdCache.get(trimmed);
+	const normalized = normalizeCanonicalAccountId(trimmed) || void 0;
+	setNormalizeCache(normalizeOptionalAccountIdCache, trimmed, normalized);
+	return normalized;
+}
+function setNormalizeCache(cache, key, value) {
+	cache.set(key, value);
+	if (cache.size <= ACCOUNT_ID_CACHE_MAX) return;
+	const oldest = cache.keys().next();
+	if (!oldest.done) cache.delete(oldest.value);
+}
+//#endregion
+//#region src/channels/plugins/helpers.ts
+function formatPairingApproveHint(channelId) {
+	return `Approve via: ${formatCliCommand(`openclaw pairing list ${channelId}`)} / ${formatCliCommand(`openclaw pairing approve ${channelId} <code>`)}`;
+}
 const DEFAULT_WEBHOOK_BODY_TIMEOUT_MS = 3e4;
 const DEFAULT_ERROR_MESSAGE = {
 	PAYLOAD_TOO_LARGE: "PayloadTooLarge",
@@ -1065,4 +1145,456 @@ function createFixedWindowRateLimiter(options) {
 	};
 }
 //#endregion
-export { DEFAULT_ACCOUNT_ID, MarkdownConfigSchema, buildChannelConfigSchema, collectStatusIssuesFromLastError, createDefaultChannelRuntimeState, createFixedWindowRateLimiter, emptyPluginConfigSchema, formatPairingApproveHint, isBlockedHostnameOrIp, readJsonBodyWithLimit, requestBodyErrorToText };
+//#region src/infra/home-dir.ts
+function normalize(value) {
+	const trimmed = value?.trim();
+	return trimmed ? trimmed : void 0;
+}
+function resolveEffectiveHomeDir(env = process.env, homedir = os.homedir) {
+	const raw = resolveRawHomeDir(env, homedir);
+	return raw ? path.resolve(raw) : void 0;
+}
+function resolveRawHomeDir(env, homedir) {
+	const explicitHome = normalize(env.OPENCLAW_HOME);
+	if (explicitHome) {
+		if (explicitHome === "~" || explicitHome.startsWith("~/") || explicitHome.startsWith("~\\")) {
+			const fallbackHome = normalize(env.HOME) ?? normalize(env.USERPROFILE) ?? normalizeSafe(homedir);
+			if (fallbackHome) return explicitHome.replace(/^~(?=$|[\\/])/, fallbackHome);
+			return;
+		}
+		return explicitHome;
+	}
+	const envHome = normalize(env.HOME);
+	if (envHome) return envHome;
+	const userProfile = normalize(env.USERPROFILE);
+	if (userProfile) return userProfile;
+	return normalizeSafe(homedir);
+}
+function normalizeSafe(homedir) {
+	try {
+		return normalize(homedir());
+	} catch {
+		return;
+	}
+}
+function resolveRequiredHomeDir(env = process.env, homedir = os.homedir) {
+	return resolveEffectiveHomeDir(env, homedir) ?? path.resolve(process.cwd());
+}
+function expandHomePrefix(input, opts) {
+	if (!input.startsWith("~")) return input;
+	const home = normalize(opts?.home) ?? resolveEffectiveHomeDir(opts?.env ?? process.env, opts?.homedir ?? os.homedir);
+	if (!home) return input;
+	return input.replace(/^~(?=$|[\\/])/, home);
+}
+//#endregion
+//#region src/config/paths.ts
+/**
+* Nix mode detection: When OPENCLAW_NIX_MODE=1, the gateway is running under Nix.
+* In this mode:
+* - No auto-install flows should be attempted
+* - Missing dependencies should produce actionable Nix-specific error messages
+* - Config is managed externally (read-only from Nix perspective)
+*/
+function resolveIsNixMode(env = process.env) {
+	return env.OPENCLAW_NIX_MODE === "1";
+}
+resolveIsNixMode();
+const LEGACY_STATE_DIRNAMES = [
+	".clawdbot",
+	".moldbot",
+	".moltbot"
+];
+const NEW_STATE_DIRNAME = ".openclaw";
+const CONFIG_FILENAME = "openclaw.json";
+const LEGACY_CONFIG_FILENAMES = [
+	"clawdbot.json",
+	"moldbot.json",
+	"moltbot.json"
+];
+function resolveDefaultHomeDir() {
+	return resolveRequiredHomeDir(process.env, os.homedir);
+}
+/** Build a homedir thunk that respects OPENCLAW_HOME for the given env. */
+function envHomedir(env) {
+	return () => resolveRequiredHomeDir(env, os.homedir);
+}
+function legacyStateDirs(homedir = resolveDefaultHomeDir) {
+	return LEGACY_STATE_DIRNAMES.map((dir) => path.join(homedir(), dir));
+}
+function newStateDir(homedir = resolveDefaultHomeDir) {
+	return path.join(homedir(), NEW_STATE_DIRNAME);
+}
+/**
+* State directory for mutable data (sessions, logs, caches).
+* Can be overridden via OPENCLAW_STATE_DIR.
+* Default: ~/.openclaw
+*/
+function resolveStateDir(env = process.env, homedir = envHomedir(env)) {
+	const effectiveHomedir = () => resolveRequiredHomeDir(env, homedir);
+	const override = env.OPENCLAW_STATE_DIR?.trim() || env.CLAWDBOT_STATE_DIR?.trim();
+	if (override) return resolveUserPath$1(override, env, effectiveHomedir);
+	const newDir = newStateDir(effectiveHomedir);
+	if (env.OPENCLAW_TEST_FAST === "1") return newDir;
+	const legacyDirs = legacyStateDirs(effectiveHomedir);
+	if (fs.existsSync(newDir)) return newDir;
+	const existingLegacy = legacyDirs.find((dir) => {
+		try {
+			return fs.existsSync(dir);
+		} catch {
+			return false;
+		}
+	});
+	if (existingLegacy) return existingLegacy;
+	return newDir;
+}
+function resolveUserPath$1(input, env = process.env, homedir = envHomedir(env)) {
+	const trimmed = input.trim();
+	if (!trimmed) return trimmed;
+	if (trimmed.startsWith("~")) {
+		const expanded = expandHomePrefix(trimmed, {
+			home: resolveRequiredHomeDir(env, homedir),
+			env,
+			homedir
+		});
+		return path.resolve(expanded);
+	}
+	return path.resolve(trimmed);
+}
+resolveStateDir();
+/**
+* Config file path (JSON5).
+* Can be overridden via OPENCLAW_CONFIG_PATH.
+* Default: ~/.openclaw/openclaw.json (or $OPENCLAW_STATE_DIR/openclaw.json)
+*/
+function resolveCanonicalConfigPath(env = process.env, stateDir = resolveStateDir(env, envHomedir(env))) {
+	const override = env.OPENCLAW_CONFIG_PATH?.trim() || env.CLAWDBOT_CONFIG_PATH?.trim();
+	if (override) return resolveUserPath$1(override, env, envHomedir(env));
+	return path.join(stateDir, CONFIG_FILENAME);
+}
+/**
+* Resolve the active config path by preferring existing config candidates
+* before falling back to the canonical path.
+*/
+function resolveConfigPathCandidate(env = process.env, homedir = envHomedir(env)) {
+	if (env.OPENCLAW_TEST_FAST === "1") return resolveCanonicalConfigPath(env, resolveStateDir(env, homedir));
+	const existing = resolveDefaultConfigCandidates(env, homedir).find((candidate) => {
+		try {
+			return fs.existsSync(candidate);
+		} catch {
+			return false;
+		}
+	});
+	if (existing) return existing;
+	return resolveCanonicalConfigPath(env, resolveStateDir(env, homedir));
+}
+resolveConfigPathCandidate();
+/**
+* Resolve default config path candidates across default locations.
+* Order: explicit config path → state-dir-derived paths → new default.
+*/
+function resolveDefaultConfigCandidates(env = process.env, homedir = envHomedir(env)) {
+	const effectiveHomedir = () => resolveRequiredHomeDir(env, homedir);
+	const explicit = env.OPENCLAW_CONFIG_PATH?.trim() || env.CLAWDBOT_CONFIG_PATH?.trim();
+	if (explicit) return [resolveUserPath$1(explicit, env, effectiveHomedir)];
+	const candidates = [];
+	const openclawStateDir = env.OPENCLAW_STATE_DIR?.trim() || env.CLAWDBOT_STATE_DIR?.trim();
+	if (openclawStateDir) {
+		const resolved = resolveUserPath$1(openclawStateDir, env, effectiveHomedir);
+		candidates.push(path.join(resolved, CONFIG_FILENAME));
+		candidates.push(...LEGACY_CONFIG_FILENAMES.map((name) => path.join(resolved, name)));
+	}
+	const defaultDirs = [newStateDir(effectiveHomedir), ...legacyStateDirs(effectiveHomedir)];
+	for (const dir of defaultDirs) {
+		candidates.push(path.join(dir, CONFIG_FILENAME));
+		candidates.push(...LEGACY_CONFIG_FILENAMES.map((name) => path.join(dir, name)));
+	}
+	return candidates;
+}
+/**
+* OAuth credentials storage directory.
+*
+* Precedence:
+* - `OPENCLAW_OAUTH_DIR` (explicit override)
+* - `$*_STATE_DIR/credentials` (canonical server/default)
+*/
+function resolveOAuthDir(env = process.env, stateDir = resolveStateDir(env, envHomedir(env))) {
+	const override = env.OPENCLAW_OAUTH_DIR?.trim();
+	if (override) return resolveUserPath$1(override, env, envHomedir(env));
+	return path.join(stateDir, "credentials");
+}
+//#endregion
+//#region src/infra/tmp-openclaw-dir.ts
+const POSIX_OPENCLAW_TMP_DIR = "/tmp/openclaw";
+const TMP_DIR_ACCESS_MODE = fs.constants.W_OK | fs.constants.X_OK;
+function isNodeErrorWithCode(err, code) {
+	return typeof err === "object" && err !== null && "code" in err && err.code === code;
+}
+function resolvePreferredOpenClawTmpDir(options = {}) {
+	const accessSync = options.accessSync ?? fs.accessSync;
+	const chmodSync = options.chmodSync ?? fs.chmodSync;
+	const lstatSync = options.lstatSync ?? fs.lstatSync;
+	const mkdirSync = options.mkdirSync ?? fs.mkdirSync;
+	const warn = options.warn ?? ((message) => console.warn(message));
+	const getuid = options.getuid ?? (() => {
+		try {
+			return typeof process.getuid === "function" ? process.getuid() : void 0;
+		} catch {
+			return;
+		}
+	});
+	const tmpdir = options.tmpdir ?? os.tmpdir;
+	const uid = getuid();
+	const isSecureDirForUser = (st) => {
+		if (uid === void 0) return true;
+		if (typeof st.uid === "number" && st.uid !== uid) return false;
+		if (typeof st.mode === "number" && (st.mode & 18) !== 0) return false;
+		return true;
+	};
+	const fallback = () => {
+		const base = tmpdir();
+		const suffix = uid === void 0 ? "openclaw" : `openclaw-${uid}`;
+		return path.join(base, suffix);
+	};
+	const isTrustedTmpDir = (st) => {
+		return st.isDirectory() && !st.isSymbolicLink() && isSecureDirForUser(st);
+	};
+	const resolveDirState = (candidatePath) => {
+		try {
+			if (!isTrustedTmpDir(lstatSync(candidatePath))) return "invalid";
+			accessSync(candidatePath, TMP_DIR_ACCESS_MODE);
+			return "available";
+		} catch (err) {
+			if (isNodeErrorWithCode(err, "ENOENT")) return "missing";
+			return "invalid";
+		}
+	};
+	const tryRepairWritableBits = (candidatePath) => {
+		try {
+			const st = lstatSync(candidatePath);
+			if (!st.isDirectory() || st.isSymbolicLink()) return false;
+			if (uid !== void 0 && typeof st.uid === "number" && st.uid !== uid) return false;
+			if (typeof st.mode !== "number" || (st.mode & 18) === 0) return false;
+			chmodSync(candidatePath, 448);
+			warn(`[openclaw] tightened permissions on temp dir: ${candidatePath}`);
+			return resolveDirState(candidatePath) === "available";
+		} catch {
+			return false;
+		}
+	};
+	const ensureTrustedFallbackDir = () => {
+		const fallbackPath = fallback();
+		const state = resolveDirState(fallbackPath);
+		if (state === "available") return fallbackPath;
+		if (state === "invalid") {
+			if (tryRepairWritableBits(fallbackPath)) return fallbackPath;
+			throw new Error(`Unsafe fallback OpenClaw temp dir: ${fallbackPath}`);
+		}
+		try {
+			mkdirSync(fallbackPath, {
+				recursive: true,
+				mode: 448
+			});
+			chmodSync(fallbackPath, 448);
+		} catch {
+			throw new Error(`Unable to create fallback OpenClaw temp dir: ${fallbackPath}`);
+		}
+		if (resolveDirState(fallbackPath) !== "available" && !tryRepairWritableBits(fallbackPath)) throw new Error(`Unsafe fallback OpenClaw temp dir: ${fallbackPath}`);
+		return fallbackPath;
+	};
+	const existingPreferredState = resolveDirState(POSIX_OPENCLAW_TMP_DIR);
+	if (existingPreferredState === "available") return POSIX_OPENCLAW_TMP_DIR;
+	if (existingPreferredState === "invalid") {
+		if (tryRepairWritableBits("/tmp/openclaw")) return POSIX_OPENCLAW_TMP_DIR;
+		return ensureTrustedFallbackDir();
+	}
+	try {
+		accessSync("/tmp", TMP_DIR_ACCESS_MODE);
+		mkdirSync(POSIX_OPENCLAW_TMP_DIR, {
+			recursive: true,
+			mode: 448
+		});
+		chmodSync(POSIX_OPENCLAW_TMP_DIR, 448);
+		if (resolveDirState("/tmp/openclaw") !== "available" && !tryRepairWritableBits("/tmp/openclaw")) return ensureTrustedFallbackDir();
+		return POSIX_OPENCLAW_TMP_DIR;
+	} catch {
+		return ensureTrustedFallbackDir();
+	}
+}
+//#endregion
+//#region src/logging/node-require.ts
+function resolveNodeRequireFromMeta(metaUrl) {
+	const getBuiltinModule = process.getBuiltinModule;
+	if (typeof getBuiltinModule !== "function") return null;
+	try {
+		const moduleNamespace = getBuiltinModule("module");
+		const createRequire = typeof moduleNamespace.createRequire === "function" ? moduleNamespace.createRequire : null;
+		return createRequire ? createRequire(metaUrl) : null;
+	} catch {
+		return null;
+	}
+}
+//#endregion
+//#region src/logging/logger.ts
+const DEFAULT_LOG_DIR = resolvePreferredOpenClawTmpDir();
+path.join(DEFAULT_LOG_DIR, "openclaw.log");
+resolveNodeRequireFromMeta(import.meta.url);
+//#endregion
+//#region src/terminal/palette.ts
+const LOBSTER_PALETTE = {
+	accent: "#FF5A2D",
+	accentBright: "#FF7A3D",
+	accentDim: "#D14A22",
+	info: "#FF8A5B",
+	success: "#2FBF71",
+	warn: "#FFB020",
+	error: "#E23D2D",
+	muted: "#8B7F77"
+};
+//#endregion
+//#region src/terminal/theme.ts
+const hasForceColor = typeof process.env.FORCE_COLOR === "string" && process.env.FORCE_COLOR.trim().length > 0 && process.env.FORCE_COLOR.trim() !== "0";
+const baseChalk = process.env.NO_COLOR && !hasForceColor ? new Chalk({ level: 0 }) : chalk;
+const hex = (value) => baseChalk.hex(value);
+const theme = {
+	accent: hex(LOBSTER_PALETTE.accent),
+	accentBright: hex(LOBSTER_PALETTE.accentBright),
+	accentDim: hex(LOBSTER_PALETTE.accentDim),
+	info: hex(LOBSTER_PALETTE.info),
+	success: hex(LOBSTER_PALETTE.success),
+	warn: hex(LOBSTER_PALETTE.warn),
+	error: hex(LOBSTER_PALETTE.error),
+	muted: hex(LOBSTER_PALETTE.muted),
+	heading: baseChalk.bold.hex(LOBSTER_PALETTE.accent),
+	command: hex(LOBSTER_PALETTE.accentBright),
+	option: hex(LOBSTER_PALETTE.warn)
+};
+theme.success;
+theme.warn;
+theme.info;
+theme.error;
+//#endregion
+//#region src/utils.ts
+function resolveUserPath(input) {
+	if (!input) return "";
+	const trimmed = input.trim();
+	if (!trimmed) return trimmed;
+	if (trimmed.startsWith("~")) {
+		const expanded = expandHomePrefix(trimmed, {
+			home: resolveRequiredHomeDir(process.env, os.homedir),
+			env: process.env,
+			homedir: os.homedir
+		});
+		return path.resolve(expanded);
+	}
+	return path.resolve(trimmed);
+}
+function resolveConfigDir(env = process.env, homedir = os.homedir) {
+	const override = env.OPENCLAW_STATE_DIR?.trim() || env.CLAWDBOT_STATE_DIR?.trim();
+	if (override) return resolveUserPath(override);
+	const newDir = path.join(resolveRequiredHomeDir(env, homedir), ".openclaw");
+	try {
+		if (fs.existsSync(newDir)) return newDir;
+	} catch {}
+	return newDir;
+}
+resolveConfigDir();
+//#endregion
+//#region src/channels/plugins/account-helpers.ts
+function createAccountListHelpers(channelKey, options) {
+	function resolveConfiguredDefaultAccountId(cfg) {
+		const channel = cfg.channels?.[channelKey];
+		const preferred = normalizeOptionalAccountId(typeof channel?.defaultAccount === "string" ? channel.defaultAccount : void 0);
+		if (!preferred) return;
+		if (listAccountIds(cfg).some((id) => normalizeAccountId(id) === preferred)) return preferred;
+	}
+	function listConfiguredAccountIds(cfg) {
+		const accounts = (cfg.channels?.[channelKey])?.accounts;
+		if (!accounts || typeof accounts !== "object") return [];
+		const ids = Object.keys(accounts).filter(Boolean);
+		const normalizeConfiguredAccountId = options?.normalizeAccountId;
+		if (!normalizeConfiguredAccountId) return ids;
+		return [...new Set(ids.map((id) => normalizeConfiguredAccountId(id)).filter(Boolean))];
+	}
+	function listAccountIds(cfg) {
+		const ids = listConfiguredAccountIds(cfg);
+		if (ids.length === 0) return [DEFAULT_ACCOUNT_ID];
+		return ids.toSorted((a, b) => a.localeCompare(b));
+	}
+	function resolveDefaultAccountId(cfg) {
+		const preferred = resolveConfiguredDefaultAccountId(cfg);
+		if (preferred) return preferred;
+		const ids = listAccountIds(cfg);
+		if (ids.includes("default")) return DEFAULT_ACCOUNT_ID;
+		return ids[0] ?? "default";
+	}
+	return {
+		listConfiguredAccountIds,
+		listAccountIds,
+		resolveDefaultAccountId
+	};
+}
+//#endregion
+//#region src/imessage/accounts.ts
+const { listAccountIds: listAccountIds$1, resolveDefaultAccountId: resolveDefaultAccountId$1 } = createAccountListHelpers("imessage");
+//#endregion
+//#region src/terminal/ansi.ts
+const ANSI_SGR_PATTERN = "\\x1b\\[[0-9;]*m";
+const OSC8_PATTERN = "\\x1b\\]8;;.*?\\x1b\\\\|\\x1b\\]8;;\\x1b\\\\";
+new RegExp(ANSI_SGR_PATTERN, "g");
+new RegExp(OSC8_PATTERN, "g");
+typeof Intl !== "undefined" && "Segmenter" in Intl && new Intl.Segmenter(void 0, { granularity: "grapheme" });
+resolveNodeRequireFromMeta(import.meta.url);
+//#endregion
+//#region src/terminal/progress-line.ts
+let activeStream = null;
+function clearActiveProgressLine() {
+	if (!activeStream?.isTTY) return;
+	activeStream.write("\r\x1B[2K");
+}
+//#endregion
+//#region src/runtime.ts
+function shouldEmitRuntimeLog(env = process.env) {
+	if (env.VITEST !== "true") return true;
+	if (env.OPENCLAW_TEST_RUNTIME_LOG === "1") return true;
+	return typeof console.log.mock === "object";
+}
+function createRuntimeIo() {
+	return {
+		log: (...args) => {
+			if (!shouldEmitRuntimeLog()) return;
+			clearActiveProgressLine();
+			console.log(...args);
+		},
+		error: (...args) => {
+			clearActiveProgressLine();
+			console.error(...args);
+		}
+	};
+}
+({ ...createRuntimeIo() });
+(() => {
+	const getBuiltinModule = process.getBuiltinModule;
+	if (typeof getBuiltinModule !== "function") return null;
+	try {
+		const utilNamespace = getBuiltinModule("util");
+		return typeof utilNamespace.inspect === "function" ? utilNamespace.inspect : null;
+	} catch {
+		return null;
+	}
+})();
+//#endregion
+//#region src/web/auth-store.ts
+function resolveDefaultWebAuthDir() {
+	return path.join(resolveOAuthDir(), "whatsapp", DEFAULT_ACCOUNT_ID);
+}
+resolveDefaultWebAuthDir();
+//#endregion
+//#region src/web/accounts.ts
+const { listConfiguredAccountIds, listAccountIds, resolveDefaultAccountId } = createAccountListHelpers("whatsapp");
+//#endregion
+//#region src/plugin-sdk/channel-config-helpers.ts
+function mapAllowFromEntries(allowFrom) {
+	return (allowFrom ?? []).map((entry) => String(entry));
+}
+//#endregion
+export { DEFAULT_ACCOUNT_ID, MarkdownConfigSchema, buildChannelConfigSchema, collectStatusIssuesFromLastError, createDefaultChannelRuntimeState, createFixedWindowRateLimiter, emptyPluginConfigSchema, formatPairingApproveHint, isBlockedHostnameOrIp, mapAllowFromEntries, readJsonBodyWithLimit, requestBodyErrorToText };

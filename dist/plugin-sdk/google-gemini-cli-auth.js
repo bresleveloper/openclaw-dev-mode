@@ -737,6 +737,7 @@ const ANSI_SGR_PATTERN = "\\x1b\\[[0-9;]*m";
 const OSC8_PATTERN = "\\x1b\\]8;;.*?\\x1b\\\\|\\x1b\\]8;;\\x1b\\\\";
 new RegExp(ANSI_SGR_PATTERN, "g");
 new RegExp(OSC8_PATTERN, "g");
+typeof Intl !== "undefined" && "Segmenter" in Intl && new Intl.Segmenter(void 0, { granularity: "grapheme" });
 //#endregion
 //#region src/logging/console.ts
 const requireConfig = resolveNodeRequireFromMeta(import.meta.url);
@@ -915,6 +916,13 @@ function writeConsoleLine(level, line) {
 	else if (level === "warn") (sink.warn ?? console.warn)(sanitized);
 	else (sink.log ?? console.log)(sanitized);
 }
+function shouldSuppressProbeConsoleLine(params) {
+	if (isVerbose()) return false;
+	if (params.level === "error" || params.level === "fatal") return false;
+	if (!(params.subsystem === "agent/embedded" || params.subsystem.startsWith("agent/embedded/") || params.subsystem === "model-fallback" || params.subsystem.startsWith("model-fallback/"))) return false;
+	if ((typeof params.meta?.runId === "string" ? params.meta.runId : typeof params.meta?.sessionId === "string" ? params.meta.sessionId : void 0)?.startsWith("probe-")) return true;
+	return /(sessionId|runId)=probe-/.test(params.message);
+}
 function logToFile(fileLogger, level, message, meta) {
 	if (level === "silent") return;
 	const method = fileLogger[level];
@@ -943,7 +951,12 @@ function createSubsystemLogger(subsystem) {
 		if (fileEnabled) logToFile(getFileLogger(), level, message, fileMeta);
 		if (!consoleEnabled) return;
 		const consoleMessage = consoleMessageOverride ?? message;
-		if (!isVerbose() && subsystem === "agent/embedded" && /(sessionId|runId)=probe-/.test(consoleMessage)) return;
+		if (shouldSuppressProbeConsoleLine({
+			level,
+			subsystem,
+			message: consoleMessage,
+			meta: fileMeta
+		})) return;
 		writeConsoleLine(level, formatConsoleLine({
 			level,
 			subsystem,
@@ -972,7 +985,11 @@ function createSubsystemLogger(subsystem) {
 		raw: (message) => {
 			if (isFileEnabled("info")) logToFile(getFileLogger(), "info", message, { raw: true });
 			if (isConsoleEnabled("info")) {
-				if (!isVerbose() && subsystem === "agent/embedded" && /(sessionId|runId)=probe-/.test(message)) return;
+				if (shouldSuppressProbeConsoleLine({
+					level: "info",
+					subsystem,
+					message
+				})) return;
 				writeConsoleLine("info", message);
 			}
 		},
@@ -1348,12 +1365,21 @@ const GUARDED_FETCH_MODE = {
 	TRUSTED_ENV_PROXY: "trusted_env_proxy"
 };
 const DEFAULT_MAX_REDIRECTS = 3;
-const CROSS_ORIGIN_REDIRECT_SENSITIVE_HEADERS = [
-	"authorization",
-	"proxy-authorization",
-	"cookie",
-	"cookie2"
-];
+const CROSS_ORIGIN_REDIRECT_SAFE_HEADERS = new Set([
+	"accept",
+	"accept-encoding",
+	"accept-language",
+	"cache-control",
+	"content-language",
+	"content-type",
+	"if-match",
+	"if-modified-since",
+	"if-none-match",
+	"if-unmodified-since",
+	"pragma",
+	"range",
+	"user-agent"
+]);
 function resolveGuardedFetchMode(params) {
 	if (params.mode) return params.mode;
 	if (params.proxy === "env" && params.dangerouslyAllowEnvProxyWithoutPinnedDns === true) return GUARDED_FETCH_MODE.TRUSTED_ENV_PROXY;
@@ -1362,10 +1388,11 @@ function resolveGuardedFetchMode(params) {
 function isRedirectStatus(status) {
 	return status === 301 || status === 302 || status === 303 || status === 307 || status === 308;
 }
-function stripSensitiveHeadersForCrossOriginRedirect(init) {
+function retainSafeHeadersForCrossOriginRedirect(init) {
 	if (!init?.headers) return init;
-	const headers = new Headers(init.headers);
-	for (const header of CROSS_ORIGIN_REDIRECT_SENSITIVE_HEADERS) headers.delete(header);
+	const incoming = new Headers(init.headers);
+	const headers = new Headers();
+	for (const [key, value] of incoming.entries()) if (CROSS_ORIGIN_REDIRECT_SAFE_HEADERS.has(key.toLowerCase())) headers.set(key, value);
 	return {
 		...init,
 		headers
@@ -1459,7 +1486,7 @@ async function fetchWithSsrFGuard(params) {
 					await release(dispatcher);
 					throw new Error("Redirect loop detected");
 				}
-				if (nextParsedUrl.origin !== parsedUrl.origin) currentInit = stripSensitiveHeadersForCrossOriginRedirect(currentInit);
+				if (nextParsedUrl.origin !== parsedUrl.origin) currentInit = retainSafeHeadersForCrossOriginRedirect(currentInit);
 				visited.add(nextUrl);
 				response.body?.cancel();
 				await closeDispatcher(dispatcher);

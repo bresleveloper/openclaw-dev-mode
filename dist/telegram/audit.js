@@ -27,7 +27,7 @@ function collectTelegramUnmentionedGroupIds(groups) {
 }
 let auditMembershipRuntimePromise = null;
 function loadAuditMembershipRuntime() {
-	auditMembershipRuntimePromise ??= import("../audit-membership-runtime-B8U9BHOz.js");
+	auditMembershipRuntimePromise ??= import("../audit-membership-runtime-CsWOftDF.js");
 	return auditMembershipRuntimePromise;
 }
 async function auditTelegramGroupMembership(params) {

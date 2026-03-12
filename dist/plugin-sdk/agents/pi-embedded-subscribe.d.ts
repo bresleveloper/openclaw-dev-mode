@@ -14,6 +14,7 @@ export declare function subscribeEmbeddedPiSession(params: SubscribeEmbeddedPiSe
     getMessagingToolSentTargets: () => import("./pi-embedded-messaging.ts").MessagingToolSend[];
     getSuccessfulCronAdds: () => number;
     didSendViaMessagingTool: () => boolean;
+    didSendDeterministicApprovalPrompt: () => boolean;
     getLastToolError: () => {
         toolName: string;
         meta?: string;

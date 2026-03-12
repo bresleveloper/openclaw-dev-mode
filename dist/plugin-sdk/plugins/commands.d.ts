@@ -76,7 +76,7 @@ export declare function listPluginCommands(): Array<{
 /**
  * Get plugin command specs for native command registration (e.g., Telegram).
  */
-export declare function getPluginCommandSpecs(): Array<{
+export declare function getPluginCommandSpecs(provider?: string): Array<{
     name: string;
     description: string;
     acceptsArgs: boolean;

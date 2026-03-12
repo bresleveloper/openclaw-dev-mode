@@ -11,3 +11,4 @@ export type { OpenClawPluginApi } from "../plugins/types.js";
 export { DEFAULT_ACCOUNT_ID } from "../routing/session-key.js";
 export { collectStatusIssuesFromLastError, createDefaultChannelRuntimeState, } from "./status-helpers.js";
 export { createFixedWindowRateLimiter } from "./webhook-memory-guards.js";
+export { mapAllowFromEntries } from "./channel-config-helpers.js";

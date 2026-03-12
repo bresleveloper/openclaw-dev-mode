@@ -1,127 +1,11 @@
-import type { Bot } from "grammy";
-import { type HistoryEntry } from "../auto-reply/reply/history.js";
-import type { MsgContext } from "../auto-reply/templating.js";
 import { type StatusReactionController } from "../channels/status-reactions.js";
-import type { OpenClawConfig } from "../config/config.js";
-import type { DmPolicy, TelegramDirectConfig, TelegramGroupConfig, TelegramTopicConfig } from "../config/types.js";
-import type { StickerMetadata, TelegramContext } from "./bot/types.js";
-export type TelegramMediaRef = {
-    path: string;
-    contentType?: string;
-    stickerMetadata?: StickerMetadata;
-};
-type TelegramMessageContextOptions = {
-    forceWasMentioned?: boolean;
-    messageIdOverride?: string;
-};
-type TelegramLogger = {
-    info: (obj: Record<string, unknown>, msg: string) => void;
-};
-type ResolveTelegramGroupConfig = (chatId: string | number, messageThreadId?: number) => {
-    groupConfig?: TelegramGroupConfig | TelegramDirectConfig;
-    topicConfig?: TelegramTopicConfig;
-};
-type ResolveGroupActivation = (params: {
-    chatId: string | number;
-    agentId?: string;
-    messageThreadId?: number;
-    sessionKey?: string;
-}) => boolean | undefined;
-type ResolveGroupRequireMention = (chatId: string | number) => boolean;
-export type BuildTelegramMessageContextParams = {
-    primaryCtx: TelegramContext;
-    allMedia: TelegramMediaRef[];
-    replyMedia?: TelegramMediaRef[];
-    storeAllowFrom: string[];
-    options?: TelegramMessageContextOptions;
-    bot: Bot;
-    cfg: OpenClawConfig;
-    account: {
-        accountId: string;
-    };
-    historyLimit: number;
-    groupHistories: Map<string, HistoryEntry[]>;
-    dmPolicy: DmPolicy;
-    allowFrom?: Array<string | number>;
-    groupAllowFrom?: Array<string | number>;
-    ackReactionScope: "off" | "none" | "group-mentions" | "group-all" | "direct" | "all";
-    logger: TelegramLogger;
-    resolveGroupActivation: ResolveGroupActivation;
-    resolveGroupRequireMention: ResolveGroupRequireMention;
-    resolveTelegramGroupConfig: ResolveTelegramGroupConfig;
-    /** Global (per-account) handler for sendChatAction 401 backoff (#27092). */
-    sendChatActionHandler: import("./sendchataction-401-backoff.js").TelegramSendChatActionHandler;
-};
+import type { BuildTelegramMessageContextParams } from "./bot-message-context.types.js";
+export type { BuildTelegramMessageContextParams, TelegramMediaRef, } from "./bot-message-context.types.js";
 export declare const buildTelegramMessageContext: ({ primaryCtx, allMedia, replyMedia, storeAllowFrom, options, bot, cfg, account, historyLimit, groupHistories, dmPolicy, allowFrom, groupAllowFrom, ackReactionScope, logger, resolveGroupActivation, resolveGroupRequireMention, resolveTelegramGroupConfig, sendChatActionHandler, }: BuildTelegramMessageContextParams) => Promise<{
-    ctxPayload: {
-        CommandAuthorized: boolean;
-        MessageThreadId: number | undefined;
-        IsForum: boolean;
-        OriginatingChannel: "telegram";
-        OriginatingTo: string;
-        LocationLat?: number | undefined;
-        LocationLon?: number | undefined;
-        LocationAccuracy?: number;
-        LocationName?: string;
-        LocationAddress?: string;
-        LocationSource?: import("../channels/location.js").LocationSource | undefined;
-        LocationIsLive?: boolean | undefined;
-        Body: string;
-        BodyForAgent: string;
-        InboundHistory: {
-            sender: string;
-            body: string;
-            timestamp: number | undefined;
-        }[] | undefined;
-        RawBody: string;
-        CommandBody: string;
-        From: string;
-        To: string;
-        SessionKey: string;
-        AccountId: string;
-        ChatType: string;
-        ConversationLabel: string;
-        GroupSubject: string | undefined;
-        GroupSystemPrompt: string | undefined;
-        SenderName: string | undefined;
-        SenderId: string | undefined;
-        SenderUsername: string | undefined;
-        Provider: string;
-        Surface: string;
-        MessageSid: string;
-        ReplyToId: string | undefined;
-        ReplyToBody: string | undefined;
-        ReplyToSender: string | undefined;
-        ReplyToIsQuote: boolean | undefined;
-        ReplyToForwardedFrom: string | undefined;
-        ReplyToForwardedFromType: string | undefined;
-        ReplyToForwardedFromId: string | undefined;
-        ReplyToForwardedFromUsername: string | undefined;
-        ReplyToForwardedFromTitle: string | undefined;
-        ReplyToForwardedDate: number | undefined;
-        ForwardedFrom: string | undefined;
-        ForwardedFromType: string | undefined;
-        ForwardedFromId: string | undefined;
-        ForwardedFromUsername: string | undefined;
-        ForwardedFromTitle: string | undefined;
-        ForwardedFromSignature: string | undefined;
-        ForwardedFromChatType: "group" | "channel" | "private" | "supergroup" | undefined;
-        ForwardedFromMessageId: number | undefined;
-        ForwardedDate: number | undefined;
-        Timestamp: number | undefined;
-        WasMentioned: boolean | undefined;
-        MediaPath: string | undefined;
-        MediaType: string | undefined;
-        MediaUrl: string | undefined;
-        MediaPaths: string[] | undefined;
-        MediaUrls: string[] | undefined;
-        MediaTypes: string[] | undefined;
-        Sticker: StickerMetadata | undefined;
-        StickerMediaIncluded: boolean | undefined;
-    } & Omit<MsgContext, "CommandAuthorized"> & {
+    ctxPayload: Record<string, unknown> & Omit<import("../auto-reply/templating.ts").MsgContext, "CommandAuthorized"> & {
         CommandAuthorized: boolean;
     };
-    primaryCtx: TelegramContext;
+    primaryCtx: import("./bot/types.ts").TelegramContext;
     msg: import("@grammyjs/types").Message;
     chatId: number;
     isGroup: boolean;
@@ -131,8 +15,8 @@ export declare const buildTelegramMessageContext: ({ primaryCtx, allMedia, reply
     isForum: boolean;
     historyKey: string | undefined;
     historyLimit: number;
-    groupHistories: Map<string, HistoryEntry[]>;
-    route: import("../routing/resolve-route.ts").ResolvedAgentRoute;
+    groupHistories: Map<string, import("../plugin-sdk/index.ts").HistoryEntry[]>;
+    route: import("../routing/resolve-route.js").ResolvedAgentRoute;
     skillFilter: string[] | undefined;
     sendTyping: () => Promise<void>;
     sendRecordVoice: () => Promise<void>;
@@ -146,4 +30,3 @@ export declare const buildTelegramMessageContext: ({ primaryCtx, allMedia, reply
     accountId: string;
 } | null>;
 export type TelegramMessageContext = NonNullable<Awaited<ReturnType<typeof buildTelegramMessageContext>>>;
-export {};
