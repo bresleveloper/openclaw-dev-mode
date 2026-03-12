@@ -7,10 +7,10 @@
 - **Repo**: https://github.com/bresleveloper/openclaw-dev-mode
 - **Fork of**: https://github.com/openclaw/openclaw
 - **Fork point**: commit `029c47372` (V2026.3.2)
-- **Current base**: V2026.3.7 (merged 2026-03-07, 251 upstream commits)
+- **Current base**: V2026.3.11 (merged 2026-03-12, 893 upstream commits)
 - **PR**: https://github.com/openclaw/openclaw/pull/37337
 - **Purpose**: Add dev-mode flag to OpenClaw that relaxes security features for dev environments
-- **Status**: PR submitted, updated to v2026.3.7, config persistence removed
+- **Status**: PR submitted, updated to V2026.3.11, config persistence removed
 
 ## Branches
 
@@ -19,11 +19,12 @@
 
 ## Build & Deploy
 
-- **Build**: `pnpm build`
+- **Build**: `pnpm build` (then `pnpm ui:build` for Control UI)
 - **Build tool**: tsdown (esbuild-based), output in `dist/`
 - **Formatter**: oxfmt (`pnpm format` / `pnpm format:check`)
 - **Linter**: oxlint (`pnpm lint` runs `oxlint --type-aware`)
 - **dist/ is committed** on `main` branch (so VPS can clone and run without building)
+- **Control UI**: `dist/control-ui/` — also committed on `main`, built separately via `pnpm ui:build`
 - **Package manager**: pnpm locally, npm on VPS
 - **Platform**: Build output is platform-independent JS — build on Windows, deploy to Linux
 
@@ -98,36 +99,61 @@ Each one is a minimal `if (isDevMode()) { ... }` check in the relevant source fi
 - **Gateway integration**: Hub POSTs to `/v1/chat/completions` to wake the agent, which then forwards via the configured channel
 - **Not in npm artifacts**: Hub files only exist in the source tree / fork. If missing, plugin silently doesn't load.
 
+## Upstream Merge History
+
+### V2026.3.11 (2026-03-12, 893 commits)
+
+3 merge conflicts resolved, all import/constant collisions:
+
+| File                            | Conflict                                                                                            | Resolution                                            |
+| ------------------------------- | --------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| `src/acp/translator.ts`        | (1) Our `isDevMode` import vs their new `GatewaySessionRow` import. (2) Our `getMaxPromptBytes()` function vs their new ACP config constants. | Kept both: their expanded imports + our function + their new constants |
+| `src/agents/tools/web-fetch.ts` | Our `isDevMode` import vs their new `normalizeResolvedSecretInputString` import                     | Kept both imports                                     |
+| `src/gateway/startup-auth.ts`   | Our `isDevMode` import vs their refactored secret-resolution imports (consolidated into `resolveRequiredConfiguredSecretRefInputString`) | Took upstream's refactored imports + kept our `isDevMode` import |
+
+7 auto-merged files (no conflicts): `zod-schema.ts`, `run-main.ts`, `preaction.ts`, `server.impl.ts`, `system-prompt.ts`, `navigation-guard.ts`, `host-env-security.ts`
+
+### V2026.3.7 (2026-03-06, 251 commits)
+
+No merge conflicts. Clean merge. Also removed config persistence (env var only).
+
 ## PR Review History
 
 ### Round 1 — Greptile + Codex (automated reviewers)
 
 9 issues flagged (R1-R9). All addressed:
 
-| ID  | Issue                                                                 | Fix                                                                         |
-| --- | --------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| R1  | Security concern about bypassing all checks                           | Added warning banner in README                                              |
-| R2  | README.md conflicts with upstream                                     | Moved our README to `dev-mode/README.md`, restored upstream root README     |
-| R3  | Hardcoded "Jarvis" name and WhatsApp channel                          | Renamed to generic terms, added `OPENCLAW_AGENT` and `HUB_CHANNEL` env vars |
-| R4  | server.py broken indentation (GitHub suggestion acceptance bug)       | Restored proper Python indentation                                          |
-| R5  | Personal branding in docs                                             | Removed personal references from all tracked files                          |
-| R6  | Hub auto-start in preAction hook (runs every CLI command, 1s latency) | Moved to `server.impl.ts` — runs once at gateway start only                 |
-| R7  | Silent failures in dev-mode activation                                | Added try-catch with clear `console.error` messages                         |
-| R8  | loadConfig called before loadDotEnv (route-first commands)            | Fixed ordering in `run-main.ts`                                             |
-| R9  | No error handling for missing python3                                 | Added ENOENT detection with clear dependency message                        |
+| ID  | Issue                                                                 | Fix                                                                                |
+| --- | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| R1  | Security concern about bypassing all checks                           | Added warning banner in README                                                     |
+| R2  | README.md conflicts with upstream                                     | Moved our README to `dev-mode/README.md`, restored upstream root README            |
+| R3  | Hardcoded "Jarvis" name and WhatsApp channel                          | Renamed to generic terms, added `OPENCLAW_AGENT` and `HUB_CHANNEL` env vars        |
+| R4  | server.py broken indentation (GitHub suggestion acceptance bug)       | Restored proper Python indentation                                                 |
+| R5  | Personal branding in docs                                             | Removed personal references from all tracked files                                 |
+| R6  | Hub auto-start in preAction hook (runs every CLI command, 1s latency) | Moved to `server.impl.ts` — runs once at gateway start only                        |
+| R7  | Silent failures in dev-mode activation                                | Added try-catch with clear `console.error` messages                                |
+| R8  | loadConfig called before loadDotEnv (route-first commands)            | Added dev-mode env var block in `run-main.ts` after dotenv, before `tryRouteCli()` |
+| R9  | No error handling for missing python3                                 | Added ENOENT detection with clear dependency message                               |
 
 ### Round 2 — CI failures + Codex P1/P2 comments
 
-| ID  | Issue                                                                | Fix                                                              |
-| --- | -------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| F1  | Test `run-main.profile-env.test.ts` failed — loadDotEnv called twice | Fixed config loading ordering                                    |
-| F2  | oxfmt formatter failures (30 files)                                  | Ran `pnpm format` — all cosmetic (import sorting, line wrapping) |
-| C1  | P1: config write on broken config clobbers settings                  | Initially added guard, later removed config write entirely       |
-| C2  | P2: Hub plugin only loaded from config, not env var                  | Hub registration now only uses `isDevMode()` (env var)           |
+| ID  | Issue                                                                | Fix                                                                                    |
+| --- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| F1  | Test `run-main.profile-env.test.ts` failed — loadDotEnv called twice | Moved dev-mode config block after `loadDotEnv()` in run-main.ts                        |
+| F2  | oxfmt formatter failures (30 files)                                  | Ran `pnpm format` — all cosmetic (import sorting, line wrapping)                       |
+| C1  | P1: `--dev-mode 1` on broken config clobbers all settings            | Initially added guard, later removed config write entirely                             |
+| C2  | P2: Hub plugin only loaded from config, not env var                  | Split logic: `cfg.cli?.devMode` sets global flag, `isDevMode()` gates hub registration |
 
 ### Round 3 — Config persistence removed
 
 Removed all config persistence (`cli.devMode`, `--dev-mode` CLI flag, config write/read) to avoid schema validation crashes. Dev mode now uses `OPENCLAW_DEV_MODE=1` env var exclusively.
+
+### Codex comments we replied to (not code changes)
+
+| Comment                                                                     | Our reply                                                                                                                                                                                                   |
+| --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P2: Fresh install can't enable dev mode (empty config guard too aggressive) | Non-issue: fresh installs have no API keys/gateway/agent config. Users must `openclaw configure` first. By the time `--dev-mode` is relevant, config exists. Guard protects broken configs from clobbering. |
+| P2: Hub plugin path not in npm release artifacts                            | By design: hub is a runtime addon for source-tree/fork users. Path resolved via `import.meta.url`, `fs.existsSync` skips silently if missing. All 12 SEC items work regardless.                             |
 
 ### Human reviewer (sxu75374)
 
@@ -158,6 +184,12 @@ if (isDevMode()) {
 
 The config schema uses `.strict()` on every object. Adding fields to the config JSON that aren't in the schema will crash the gateway. This is why we removed config persistence.
 
+### loadDotEnv duplication
+
+`loadConfig()` (via `src/config/io.ts` → `createConfigIO` → `maybeLoadDotEnvForConfig`) internally calls `loadDotEnv({ quiet: true })` when `env === process.env` (reference equality check). This means any `loadConfig()` call in `run-main.ts` triggers a second `loadDotEnv` after our explicit one.
+
+**Solution**: Use `createConfigIO({ env: { ...process.env } })` — spreading creates a copy, so the reference check `env !== process.env` is true, and the internal loadDotEnv is skipped.
+
 ## Project File Structure (our additions)
 
 ```
@@ -187,7 +219,7 @@ Infrastructure (3 files):
 
 Security items (14 files): 4. `src/agents/system-prompt.ts` — SEC-15a 5. `src/security/channel-metadata.ts` — SEC-27 6. `src/auto-reply/reply/untrusted-context.ts` — SEC-27 7. `src/commands/onboard-config.ts` — SEC-59 8. `src/agents/pi-embedded-runner/extensions.ts` — SEC-67 9. `src/browser/navigation-guard.ts` — SEC-70 10. `src/agents/tools/web-fetch.ts` — SEC-71 11. `src/cli/config-cli.ts` — SEC-72 12. `src/gateway/control-plane-rate-limit.ts` — SEC-78 13. `src/acp/translator.ts` — SEC-79 14. `src/gateway/startup-auth.ts` — SEC-80 15. `src/infra/host-env-security.ts` — SEC-96 16. `src/agents/workspace.ts` — FIX-01
 
-Files we REMOVED vs previous version (no longer modified):
+Files removed vs V2026.3.2 original (no longer modified):
 
 - `src/config/types.cli.ts` — was `devMode?: boolean`, reverted to upstream
 - `src/config/zod-schema.ts` — was `devMode: z.boolean().optional()`, reverted to upstream
@@ -199,12 +231,18 @@ Files we REMOVED vs previous version (no longer modified):
 - **Commander.js** for CLI parsing
 - **tsdown** (esbuild-based) for building
 - **oxfmt** for formatting (`pnpm format`) — CI runs `pnpm format:check`
-- **oxlint** for linting (`pnpm lint`) — CI runs `oxlint --type-aware`
+- **oxlint** for linting (`pnpm lint`) — CI runs `oxlint --type-aware`, enforces curly braces and strict template expressions
 - **Zod** for config schema validation (`.strict()` rejects unknown keys!)
 - **Config flow**: JSON5 file -> Zod validation -> runtime defaults merge -> `loadConfig()`
+- **`loadConfig()` internally calls `loadDotEnv`** when using real `process.env` — use `createConfigIO({ env: { ...process.env } })` to avoid this
 - **Runtime overrides**: `setConfigOverride(key, value)` — runtime-only, not persisted
 - **Plugin system**: `openclaw.plugin.json` manifest + `register(api)` entry point
+- **Plugins discovered from**: `plugins.load.paths` config + `extensions/` directory
+- **Route-first commands**: `tryRouteCli()` handles `config get`, `health`, `status`, etc. — these bypass Commander preAction hooks
+- **Pre-action hooks**: `src/cli/program/preaction.ts` runs before every Commander CLI command
+- **Profile parsing**: `src/cli/profile.ts` runs before Commander, extracts early flags
 - **Gateway**: systemd service, runs `dist/index.js gateway --port PORT`
+- **Bootstrap files**: MEMORY.md etc, injected into agent context, max 20K chars per file
 - **.env loading**: `loadDotEnv()` loads CWD `.env` first, then `~/.openclaw/.env` (global fallback)
 
 ## CI Pipeline
@@ -218,3 +256,4 @@ The PR runs these checks (all must pass):
 - `bunx vitest run` — bun test runner
 - `pnpm protocol:check` — protocol compliance
 - Build artifacts, Android build/test, install smoke test, secrets scan, actionlint, no-tabs, check-docs
+- `check` umbrella job — gates on all above, fails if any sub-job fails

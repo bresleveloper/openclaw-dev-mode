@@ -15,9 +15,9 @@
 
 [HTML with --dev-mode list](https://htmlpreview.github.io/?https://github.com/bresleveloper/openclaw-dev-mode/blob/main/dev-mode/yes.2026.03.06.html)
 
-- 2026-03-05 - created dev mode on V2026.3.2
-- 2026-03-06 - updated to mains V2026.3.7 + removed interactions with openclaw.json (now saves devMode in .env)
 - 2026-03-12 - updated to mains V2026.3.11
+- 2026-03-06 - updated to mains V2026.3.7 + removed interactions with openclaw.json (now saves devMode in .env)
+- 2026-03-05 - created dev mode on V2026.3.2
 
 ## How to install
 
