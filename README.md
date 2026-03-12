@@ -17,6 +17,7 @@
 
 - 2026-03-05 - created dev mode on V2026.3.2
 - 2026-03-06 - updated to mains V2026.3.7 + removed interactions with openclaw.json (now saves devMode in .env)
+- 2026-03-12 - updated to mains V2026.3.11
 
 ## How to install
 
@@ -63,8 +64,10 @@ openclaw gateway start
 ### Updating
 
 ```bash
-cd /opt/openclaw-dev-mode && git pull && openclaw gateway restart
+cd /opt/openclaw-dev-mode && git pull && npm install --ignore-scripts && openclaw gateway restart
 ```
+
+The `main` branch ships with pre-built `dist/`, so no build step is needed on the VPS. Just pull, install any new dependencies, and restart.
 
 ### Reverting to original openclaw
 
