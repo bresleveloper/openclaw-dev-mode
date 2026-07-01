@@ -12,17 +12,17 @@ import { n as resolveXaiForwardCompatModel, t as isModernXaiModel } from "../../
 import { r as resolveXaiTransport } from "../../api-GWozOaeq.js";
 import { n as createCodeExecutionToolDefinition, t as buildMissingCodeExecutionApiKeyPayload } from "../../code-execution-tool-shared-CeAkKo1Y.js";
 import { t as resolveThinkingProfile } from "../../provider-policy-api-Bj_cAKkz.js";
-import { t as buildXaiRealtimeTranscriptionProvider } from "../../realtime-transcription-provider-_Mrb1iAH.js";
-import { t as buildXaiSpeechProvider } from "../../speech-provider-CVonbtpV.js";
+import { t as buildXaiRealtimeTranscriptionProvider } from "../../realtime-transcription-provider-DnZI9Se7.js";
+import { t as buildXaiSpeechProvider } from "../../speech-provider-BY0hCX6k.js";
 import { n as resolveFallbackXaiAuth, t as isXaiToolEnabled } from "../../tool-auth-shared-Bwn30W-v.js";
 import { n as readPluginCodeExecutionConfig, r as resolveCodeExecutionEnabled } from "../../code-execution-config-BKPG8SHG.js";
 import { t as resolveEffectiveXSearchConfig } from "../../x-search-config-Blo74jb6.js";
 import { r as wrapXaiProviderStream } from "../../stream-swtGlnFi.js";
 import { n as buildXaiMediaUnderstandingProvider } from "../../stt-C-EmSI3D.js";
 import { t as buildXaiVideoGenerationProvider } from "../../video-generation-provider-C8q6jeci.js";
-import { t as createXaiWebSearchProvider } from "../../web-search-Dt4bAUr1.js";
+import { t as createXaiWebSearchProvider } from "../../web-search-BhaWY2dr.js";
 import { n as createXSearchToolDefinition, t as buildMissingXSearchApiKeyPayload } from "../../x-search-tool-shared-CF3dGCVO.js";
-import { S as refreshXaiOAuthCredential, _ as createXaiOAuthAuthMethod, g as createXaiDeviceCodeAuthMethod } from "../../xai-oauth-4KNdozEH.js";
+import { S as refreshXaiOAuthCredential, _ as createXaiOAuthAuthMethod, g as createXaiDeviceCodeAuthMethod } from "../../xai-oauth-DEpNKFIr.js";
 //#region extensions/xai/index.ts
 const PROVIDER_ID = "xai";
 const XAI_CREDIT_OR_SPENDING_LIMIT_RE = /\b(?:used all available credits|monthly spending limit|purchase more credits|raise your spending limit)\b/i;

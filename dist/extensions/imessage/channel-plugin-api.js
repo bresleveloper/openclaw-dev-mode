@@ -1,2 +1,2 @@
-import { t as imessagePlugin } from "../../channel-B1t0XAM9.js";
+import { t as imessagePlugin } from "../../channel-CwbIcw5t.js";
 export { imessagePlugin };

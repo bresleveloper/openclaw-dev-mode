@@ -3,10 +3,10 @@ import { a as resolveIMessageAccount, i as resolveDefaultIMessageAccountId, n as
 import { n as IMESSAGE_ACTIONS, r as IMESSAGE_ACTION_NAMES } from "../../message-tool-api-BNgEK_8R.js";
 import { n as DEFAULT_IMESSAGE_PROBE_TIMEOUT_MS } from "../../client-tfL3dsE6.js";
 import { a as looksLikeIMessageExplicitTargetId, c as parseIMessageTarget, i as isAllowedIMessageSender, n as inferIMessageTargetChatType, o as normalizeIMessageHandle, s as parseIMessageAllowTarget, t as formatIMessageChatTarget } from "../../targets-ClqZDav8.js";
-import { a as resolveIMessageConversationIdFromTarget, i as normalizeIMessageAcpConversationId, n as resolveIMessageInboundConversationId, o as probeIMessage, r as matchIMessageAcpConversation } from "../../sanitize-outbound-BWydy43H.js";
-import { n as resolveIMessageGroupToolPolicy, t as resolveIMessageGroupRequireMention } from "../../group-policy-RkNd4gQe.js";
+import { a as resolveIMessageConversationIdFromTarget, i as normalizeIMessageAcpConversationId, n as resolveIMessageInboundConversationId, o as probeIMessage, r as matchIMessageAcpConversation } from "../../sanitize-outbound-DZalZwFQ.js";
+import { n as resolveIMessageGroupToolPolicy, t as resolveIMessageGroupRequireMention } from "../../group-policy-BeRlFbIe.js";
 import { n as normalizeIMessageMessagingTarget, t as looksLikeIMessageTargetId } from "../../normalize-C2UJdO1F.js";
-import { n as createIMessagePluginBase, r as imessageSetupWizard, t as imessagePlugin } from "../../channel-B1t0XAM9.js";
+import { n as createIMessagePluginBase, r as imessageSetupWizard, t as imessagePlugin } from "../../channel-CwbIcw5t.js";
 import { n as testing, t as createIMessageConversationBindingManager } from "../../conversation-bindings-CfYO9aJY.js";
 import { a as imessageSetupAdapter } from "../../setup-core-DcoxKyX7.js";
 import { t as IMESSAGE_LEGACY_OUTBOUND_SEND_DEP_KEYS } from "../../outbound-send-deps-B-QEsLSM.js";

@@ -17,20 +17,20 @@ import { d as buildOpenAICodexCredentialExtra, h as resolveOpenAICodexImportProf
 import { n as readJsonFileWithFallback } from "../../json-store-CWaMsrLM.js";
 import { n as resolveLivePluginConfigObject, r as resolvePluginConfigObject } from "../../plugin-config-runtime-DWfSLpLu.js";
 import "../../config-mutation-6lHNauPf.js";
-import "../../agent-runtime-Dcp8a_4-.js";
+import "../../agent-runtime-DqzB3bun.js";
 import { c as hasMigrationConfigPatchConflict, d as markMigrationItemSkipped, i as applyMigrationManualItem, l as markMigrationItemConflict, m as readMigrationConfigPath, n as MIGRATION_REASON_TARGET_EXISTS, o as createMigrationItem, s as createMigrationManualItem, u as markMigrationItemError, v as summarizeMigrationItems, y as writeMigrationConfigPath } from "../../migration-CRXv-K-p.js";
 import { i as writeMigrationReport, n as copyMigrationFileItem, r as withCachedMigrationConfigRuntime, t as archiveMigrationItem } from "../../migration-runtime-MU8xUQdp.js";
-import { t as createCodexAppServerAgentHarness } from "../../harness-BZCjPjJM.js";
-import { F as ensureCodexPluginActivation, I as pluginReadParams, R as defaultCodexAppInventoryCache } from "../../thread-lifecycle-h0GhA0Qx.js";
-import { d as resolveCodexAppServerRuntimeOptions, t as CODEX_PLUGINS_MARKETPLACE_NAME, u as readCodexPluginConfig } from "../../config-aGxLKWj0.js";
-import { t as buildCodexProvider } from "../../provider-Cr3LCuqs.js";
-import { t as buildCodexMediaUnderstandingProvider } from "../../media-understanding-provider-BpibEswt.js";
-import { n as describeControlFailure } from "../../capabilities-BnKX6qhJ.js";
-import { a as formatCodexDisplayText } from "../../app-server-policy-CEpP7ja-.js";
-import { a as clearSharedCodexAppServerClientIfCurrentAndWait, c as getLeasedSharedCodexAppServerClient, g as resolveCodexAppServerAuthAccountCacheKey, u as releaseLeasedSharedCodexAppServerClient, v as resolveCodexAppServerAuthProfileIdForAgent, y as resolveCodexAppServerFallbackApiKeyCacheKey } from "../../shared-client-ChYWHlb8.js";
-import { a as createCodexCliSessionNodeInvokePolicies, c as resolveCodexCliSessionForBindingOnNode, i as createCodexCliSessionNodeHostCommands, l as resumeCodexCliSessionOnNode, n as handleCodexConversationInboundClaim, s as listCodexCliSessionsOnNode, t as handleCodexConversationBindingResolved } from "../../conversation-binding-BsX137_x.js";
-import { n as buildCodexPluginAppCacheKey } from "../../plugin-app-cache-key-DZtcPd7b.js";
-import { t as requestCodexAppServerJson } from "../../request-Cl_cXg2e.js";
+import { t as createCodexAppServerAgentHarness } from "../../harness-BfF04JpM.js";
+import { F as ensureCodexPluginActivation, I as pluginReadParams, R as defaultCodexAppInventoryCache } from "../../thread-lifecycle-Dape8CUT.js";
+import { d as resolveCodexAppServerRuntimeOptions, t as CODEX_PLUGINS_MARKETPLACE_NAME, u as readCodexPluginConfig } from "../../config-B52T5EfS.js";
+import { t as buildCodexProvider } from "../../provider-PJ2ka3OC.js";
+import { t as buildCodexMediaUnderstandingProvider } from "../../media-understanding-provider-D0FPAsPD.js";
+import { n as describeControlFailure } from "../../capabilities-DVSErJ3h.js";
+import { a as formatCodexDisplayText } from "../../app-server-policy-D-Qy38y2.js";
+import { a as clearSharedCodexAppServerClientIfCurrentAndWait, c as getLeasedSharedCodexAppServerClient, g as resolveCodexAppServerAuthAccountCacheKey, u as releaseLeasedSharedCodexAppServerClient, v as resolveCodexAppServerAuthProfileIdForAgent, y as resolveCodexAppServerFallbackApiKeyCacheKey } from "../../shared-client-BpxMm0zG.js";
+import { a as createCodexCliSessionNodeInvokePolicies, c as resolveCodexCliSessionForBindingOnNode, i as createCodexCliSessionNodeHostCommands, l as resumeCodexCliSessionOnNode, n as handleCodexConversationInboundClaim, s as listCodexCliSessionsOnNode, t as handleCodexConversationBindingResolved } from "../../conversation-binding-CGFCha8s.js";
+import { n as buildCodexPluginAppCacheKey } from "../../plugin-app-cache-key-D4QHg5Mh.js";
+import { t as requestCodexAppServerJson } from "../../request-Pn4QVQR1.js";
 import { t as createCodexWebSearchProviderBase } from "../../web-search-provider.shared-C7eio53H.js";
 import path from "node:path";
 import fs from "node:fs/promises";
@@ -64,7 +64,7 @@ async function handleCodexCommand(ctx, options = {}) {
 	}
 }
 async function loadDefaultCodexSubcommandHandler() {
-	const { handleCodexSubcommand } = await import("../../command-handlers-BqFcn3MP.js");
+	const { handleCodexSubcommand } = await import("../../command-handlers-_694RISq.js");
 	return handleCodexSubcommand;
 }
 //#endregion
@@ -1554,7 +1554,7 @@ function buildCodexMigrationProvider(params = {}) {
 //#region extensions/codex/src/web-search-provider.ts
 let codexWebSearchRuntimePromise;
 function loadCodexWebSearchRuntime() {
-	codexWebSearchRuntimePromise ??= import("../../web-search-provider.runtime-DOXz-Eq6.js");
+	codexWebSearchRuntimePromise ??= import("../../web-search-provider.runtime-CabZBRGV.js");
 	return codexWebSearchRuntimePromise;
 }
 const CodexWebSearchSchema = {

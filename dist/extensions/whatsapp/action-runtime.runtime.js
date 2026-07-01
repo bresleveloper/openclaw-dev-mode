@@ -1,2 +1,2 @@
-import { t as handleWhatsAppAction } from "../../action-runtime-XmKfWZrg.js";
+import { t as handleWhatsAppAction } from "../../action-runtime-C2TtAn6o.js";
 export { handleWhatsAppAction };

@@ -18,7 +18,7 @@ import "../../string-coerce-runtime-BiZzULo_.js";
 import { t as definePluginEntry } from "../../plugin-entry-BZpzqykQ.js";
 import "../../routing-DGrdyZ4S.js";
 import { n as resolveLivePluginConfigObject, r as resolvePluginConfigObject } from "../../plugin-config-runtime-DWfSLpLu.js";
-import "../../agent-runtime-Dcp8a_4-.js";
+import "../../agent-runtime-DqzB3bun.js";
 import { t as closeActiveMemorySearchManager } from "../../memory-host-search-D1liFc-B.js";
 import fs from "node:fs";
 import path from "node:path";

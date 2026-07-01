@@ -36,7 +36,7 @@ async function runLegacyCliEntry(argv = process.argv, deps) {
 	await runCli(argv);
 }
 const isMain = isMainModule({ currentFile: fileURLToPath(import.meta.url) });
-if (!isMain) ({applyTemplate, createDefaultDeps, deriveSessionKey, describePortOwner, ensureBinary, ensurePortAvailable, getReplyFromConfig, handlePortError, loadConfig, loadSessionStore, monitorWebChannel, normalizeE164, PortInUseError, promptYesNo, resolveSessionKey, resolveStorePath, runCommandWithTimeout, runExec, saveSessionStore, waitForever} = await import("./library-CuMk9FBy.js"));
+if (!isMain) ({applyTemplate, createDefaultDeps, deriveSessionKey, describePortOwner, ensureBinary, ensurePortAvailable, getReplyFromConfig, handlePortError, loadConfig, loadSessionStore, monitorWebChannel, normalizeE164, PortInUseError, promptYesNo, resolveSessionKey, resolveStorePath, runCommandWithTimeout, runExec, saveSessionStore, waitForever} = await import("./library-BMU86mzy.js"));
 if (isMain) {
 	const { restoreTerminalState } = await import("./terminal-core/restore.js");
 	installUnhandledRejectionHandler();

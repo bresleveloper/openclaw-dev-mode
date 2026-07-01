@@ -11,7 +11,7 @@ import { a as createWebhookInFlightLimiter, n as WEBHOOK_IN_FLIGHT_DEFAULTS, s a
 import { a as createFixedWindowRateLimiter, r as WEBHOOK_RATE_LIMIT_DEFAULTS } from "../../webhook-ingress-CW_aYwbA.js";
 import { t as normalizeWebhookPath } from "../../webhook-path-CaYfbDPb.js";
 import { l as withResolvedWebhookRequestPipeline, o as resolveWebhookTargetWithAuthOrReject } from "../../webhook-targets-DcjmmS1z.js";
-import "../../api-DuMoruyz2.js";
+import "../../api-CafTTuPY2.js";
 import "../../runtime-api-DwuwTZLF2.js";
 //#region extensions/webhooks/src/config.ts
 const secretRefSchema = object({

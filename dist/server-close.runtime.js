@@ -11,7 +11,7 @@ import "./agent-bundle-mcp-tools-CJT5lUbs.js";
 import { n as createChatAbortMarker } from "./server-chat-state-COF_MGQr.js";
 import { r as abortTrackedChatRunById } from "./chat-abort-CHoKqMso.js";
 import { n as collectGatewayProcessMemoryUsageMb, o as measureGatewayRestartTrace, s as recordGatewayRestartTrace } from "./restart-trace-DiCKFe9a.js";
-import { r as drainActiveSessionsForShutdown } from "./session-reset-service-BbnN63A9.js";
+import { r as drainActiveSessionsForShutdown } from "./session-reset-service-CytMD-cI.js";
 //#region src/gateway/server-close.ts
 const shutdownLog = createSubsystemLogger("gateway/shutdown");
 const GATEWAY_SHUTDOWN_HOOK_TIMEOUT_MS = 5e3;

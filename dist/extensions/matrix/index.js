@@ -1,6 +1,6 @@
 import { t as defineBundledChannelEntry } from "../../channel-entry-contract-Cwo7pmF2.js";
-import { n as registerMatrixCliMetadata } from "../../cli-metadata-DsxWqkCQ.js";
-import { t as registerMatrixSubagentHooks } from "../../subagent-hooks-api-Dx9ciCap.js";
+import { n as registerMatrixCliMetadata } from "../../cli-metadata-DY0oZiCC.js";
+import { t as registerMatrixSubagentHooks } from "../../subagent-hooks-api-DP8Ggm8O.js";
 //#region extensions/matrix/index.ts
 let matrixHandlersRuntimePromise = null;
 function loadMatrixHandlersRuntimeModule() {
