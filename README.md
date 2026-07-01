@@ -24,6 +24,10 @@ saving full log to enjoy my journey with OC ♥
 
 ## CHANGE LOG
 
+- 2026-07-01
+  - updated to v2026.6.11
+  - added SEC-100, SEC-101, SEC-102, FIX-05, FIX-06, removed SEC-80, FIX-02, read below
+  - highligh: disabled force reset session, added auto-flush to memory file on `/new` and `/compact`
 - 2026-05-25 - MAJOR -> [`openclaw-whatsapp-claw`](https://github.com/bresleveloper/openclaw-dev-mode/tree/main/dev-mode/openclaw-whatsapp-claw/docs) v0.2.1 - confirmed working WA auto-response
 - 2026-05-21 - MAJOR -> [`openclaw-whatsapp-claw`](https://github.com/bresleveloper/openclaw-dev-mode/tree/main/dev-mode/openclaw-whatsapp-claw/docs) v0.2 - upgraded panel to be readonly to real resources (automated work)
 - 2026-05-17 - Upgraded to V2026.5.12
