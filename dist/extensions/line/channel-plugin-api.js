@@ -1,2 +1,2 @@
-import { t as linePlugin } from "../../channel-CLsRU1CE.js";
+import { t as linePlugin } from "../../channel-jVEaSX0T.js";
 export { linePlugin };

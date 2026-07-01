@@ -1,7 +1,7 @@
 import { b as readStringParam, l as jsonResult } from "../../common-B2QjWqqG.js";
 import { t as buildJsonPluginConfigSchema } from "../../config-schema-nMrjYIPk.js";
 import { t as definePluginEntry } from "../../plugin-entry-BZpzqykQ.js";
-import "../../core-D6I8wZcD.js";
+import "../../core-etcZhDYQ.js";
 import * as path$1 from "node:path";
 import * as os$1 from "node:os";
 import { spawn } from "node:child_process";

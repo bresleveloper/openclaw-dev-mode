@@ -1,1 +1,1 @@
-export * from "./bot-native-commands.runtime-DSxWlaIa.js";
+export * from "./bot-native-commands.runtime-JBdlBhjf.js";

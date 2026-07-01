@@ -2,7 +2,7 @@ import { c as normalizeWhatsAppTarget$1, t as isWhatsAppGroupJid$1 } from "../..
 import { t as whatsappCommandPolicy$1 } from "../../command-policy-BIOSHySD.js";
 import { t as resolveLegacyGroupSessionKey$1 } from "../../group-session-contract-CIN88htq.js";
 import { r as isLegacyGroupSessionKey$1, t as canonicalizeLegacySessionKey$1 } from "../../session-contract-BCuaoNn0.js";
-import { a as resolveWhatsAppRuntimeGroupPolicy$1, n as testing } from "../../access-control-qn6ZIOQQ.js";
+import { a as resolveWhatsAppRuntimeGroupPolicy$1, n as testing } from "../../access-control-DWgcP3EX.js";
 //#region extensions/whatsapp/contract-api.ts
 const canonicalizeLegacySessionKey = canonicalizeLegacySessionKey$1;
 const isLegacyGroupSessionKey = isLegacyGroupSessionKey$1;

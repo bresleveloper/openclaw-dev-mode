@@ -4,5 +4,5 @@ import { a as warnMissingProviderGroupPolicyFallbackOnce, n as resolveAllowlistP
 import { t as createChannelReplyPipeline } from "../../reply-pipeline-up_QEfXn.js";
 import { n as logInboundDrop } from "../../logging-gUWPKC5g.js";
 import { n as createChannelPairingController } from "../../channel-pairing-BhZI8NmU.js";
-import { n as setNextcloudTalkRuntime } from "../../runtime-api-CWX0gjBM.js";
+import { n as setNextcloudTalkRuntime } from "../../runtime-api-KOyjOehO.js";
 export { GROUP_POLICY_BLOCKED_LABEL, createChannelReplyPipeline as createChannelMessageReplyPipeline, createChannelPairingController, deliverFormattedTextWithAttachments, fetchWithSsrFGuard, logInboundDrop, resolveAllowlistProviderRuntimeGroupPolicy, resolveDefaultGroupPolicy, setNextcloudTalkRuntime, warnMissingProviderGroupPolicyFallbackOnce };

@@ -8,7 +8,7 @@ import { b as toAgentStoreSessionKey, p as resolveAgentIdFromSessionKey } from "
 import { o as resolveAgentWorkspaceDir } from "../../agent-scope-config-C3ijpoNo.js";
 import { i as hasInterSessionUserProvenance } from "../../input-provenance-CQSqbDss.js";
 import { i as sanitizeModelSpecialTokens } from "../../external-content-CycSUXwl.js";
-import { t as generateSlugViaLLM } from "../../llm-slug-generator-BGqFJzQ1.js";
+import { t as generateSlugViaLLM } from "../../llm-slug-generator-CTzKNgy_.js";
 import { r as resolveHookConfig } from "../../config-_93bMNlC.js";
 import path from "node:path";
 import fs from "node:fs/promises";

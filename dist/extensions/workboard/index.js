@@ -1,6 +1,6 @@
 import { b as readStringParam, l as jsonResult } from "../../common-B2QjWqqG.js";
 import { t as definePluginEntry } from "../../plugin-entry-BZpzqykQ.js";
-import "../../core-D6I8wZcD.js";
+import "../../core-etcZhDYQ.js";
 import "../../api-D-v1UwDH.js";
 import { n as dispatchAndStartWorkboardCards, r as WorkboardStore, t as registerWorkboardGatewayMethods } from "../../runtime-api-Brl8Y5ZT.js";
 import { t as resolveWorkboardCardByIdOrPrefix } from "../../card-lookup-BoXKYGHH.js";

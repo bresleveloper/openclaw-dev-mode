@@ -16,7 +16,7 @@ const CANVAS_NODE_COMMANDS = [
 function createLazyCanvasTool(params) {
 	let toolPromise;
 	const loadTool = async () => {
-		toolPromise ??= import("../../tool-s6AzivTH.js").then(({ createCanvasTool }) => createCanvasTool({
+		toolPromise ??= import("../../tool-487PBl72.js").then(({ createCanvasTool }) => createCanvasTool({
 			config: params.config,
 			workspaceDir: params.workspaceDir
 		}));

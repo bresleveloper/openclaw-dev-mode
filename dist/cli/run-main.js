@@ -202,7 +202,7 @@ async function tryRunGatewayRunFastPath(argv, startupTrace) {
 	if (!isGatewayRunFastPathArgv(argv)) return false;
 	const [{ Command }, { addGatewayRunCommand }, { VERSION }, { emitCliBanner }, { resolveCliStartupPolicy }, { enableConsoleCapture }, { ensureCliExecutionBootstrap }, { defaultRuntime }] = await startupTrace.measure("gateway-run-imports", () => Promise.all([
 		import("commander"),
-		import("../run-command-Btv7XjgK.js"),
+		import("../run-command-BtGFkZtX.js"),
 		import("../version-BmsGkjsI.js"),
 		import("../banner-CZIsxBTj.js"),
 		import("../command-startup-policy-JX0coEfz.js"),
@@ -689,7 +689,7 @@ async function runCli(argv = process$1.argv) {
 		if (!bootstrapProxyBeforeFastPath && await tryRunGatewayRunFastPath(normalizedArgv, startupTrace)) return;
 		if (!isHelpOrVersionInvocation) await bootstrapCliProxyCaptureAndDispatcher(startupTrace, { ensureDispatcher: shouldUseCliEnvProxy });
 		if (bootstrapProxyBeforeFastPath && await tryRunGatewayRunFastPath(normalizedArgv, startupTrace)) return;
-		const { tryRouteCli } = await startupTrace.measure("route-import", () => import("../route-IbC_DJaQ.js"));
+		const { tryRouteCli } = await startupTrace.measure("route-import", () => import("../route-BbK24nWZ.js"));
 		if (await startupTrace.measure("route", () => tryRouteCli(normalizedArgv))) return;
 		let parseArgv = normalizeGeneratedHelpCommandArgv(rewriteUpdateFlagArgv(normalizedArgv));
 		const suppressStartupProgress = hasJsonOutputFlag(parseArgv);
@@ -710,7 +710,7 @@ async function runCli(argv = process$1.argv) {
 			const { enableConsoleCapture } = await loadLoggingModule();
 			enableConsoleCapture();
 			const [{ buildProgram }, { formatUncaughtError }, { formatCliFailureLines }, { runFatalErrorHooks }, { installUnhandledRejectionHandler, isBenignUncaughtExceptionError, isUncaughtExceptionHandled }, { restoreTerminalState }] = await startupTrace.measure("core-imports", () => Promise.all([
-				import("../program-gAC8C4QI.js"),
+				import("../program-ClG2IMc3.js"),
 				import("../infra/errors.js"),
 				import("../failure-output-xG8Rgpml.js"),
 				import("../fatal-error-hooks-BiXaGF_Q.js"),
@@ -742,10 +742,10 @@ async function runCli(argv = process$1.argv) {
 				const { getProgramContext } = await import("../program-context-C5CVUqfZ.js");
 				const ctx = getProgramContext(program);
 				if (ctx) {
-					const { registerCoreCliByName } = await import("../command-registry-CDzV-JYP.js");
+					const { registerCoreCliByName } = await import("../command-registry-rBxWbiqy.js");
 					await registerCoreCliByName(program, ctx, primary, parseArgv);
 				}
-				const { registerSubCliByName } = await import("../register.subclis-Zl8q308c.js");
+				const { registerSubCliByName } = await import("../register.subclis-DGzIzL49.js");
 				await registerSubCliByName(program, primary, parseArgv);
 			});
 			const hasBuiltinPrimary = primary !== null && program.commands.some((command) => command.name() === primary || command.aliases().includes(primary));
