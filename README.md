@@ -27,7 +27,7 @@ saving full log to enjoy my journey with OC ♥
 - 2026-07-01
   - updated to v2026.6.11
   - added SEC-100, SEC-101, SEC-102, FIX-05, FIX-06, removed SEC-80, FIX-02, read below
-  - highligh: disabled force reset session, added auto-flush to memory file on `/new` and `/compact`
+  - highligh: disabled force reset session (FIX-05), added auto-flush to memory file on `/new` and `/compact` (FIX-06)
 - 2026-05-25 - MAJOR -> [`openclaw-whatsapp-claw`](https://github.com/bresleveloper/openclaw-dev-mode/tree/main/dev-mode/openclaw-whatsapp-claw/docs) v0.2.1 - confirmed working WA auto-response
 - 2026-05-21 - MAJOR -> [`openclaw-whatsapp-claw`](https://github.com/bresleveloper/openclaw-dev-mode/tree/main/dev-mode/openclaw-whatsapp-claw/docs) v0.2 - upgraded panel to be readonly to real resources (automated work)
 - 2026-05-17 - Upgraded to V2026.5.12
@@ -93,22 +93,22 @@ Because the beauty of any opensource project is that it's MINE and I am allowed 
 
 Gated by `OPENCLAW_DEV_MODE=1`. Each is a minimal `if (isDevMode()) { … }` check.
 
-| ID         | What it does                                                                               |
-| ---------- | ------------------------------------------------------------------------------------------ |
-| SEC-15a    | Lighter safety section in system prompt                                                    |
-| SEC-27     | Channel metadata treated as trusted (no "UNTRUSTED" wrapper)                               |
-| SEC-59     | Skip messaging profile default in onboarding                                               |
-| SEC-67     | Default compaction mode (no safeguard)                                                     |
-| SEC-70     | Skip browser navigation URL checks                                                         |
-| SEC-71     | 50MB web fetch cap (instead of 2MB)                                                        |
-| SEC-72     | Unredacted config in CLI (API keys visible)                                                |
-| SEC-78     | No control plane rate limiting                                                             |
-| SEC-79     | 50MB prompt cap (instead of 2MB)                                                           |
-| SEC-80     | Skip hooks token uniqueness check                                                          |
-| SEC-97     | Always show raw config in web GUI (skip round-trip check)                                  |
-| SEC-98     | Remove restrictive prompt sections (approval, config caution) + add permissive safety line |
-| SEC-99     | Skip elevated permission gates when dev-mode + Full profile                                |
-| ~~SEC-96~~ | ~~All env vars passed through to child processes~~ — dropped in V2026.3.22                 |
+| ID      | What it does                                                                                          |
+| ------- | ----------------------------------------------------------------------------------------------------- |
+| SEC-15a | Lighter safety section in system prompt                                                               |
+| SEC-27  | Channel metadata treated as trusted (no "UNTRUSTED" wrapper)                                          |
+| SEC-59  | Skip messaging profile default in onboarding                                                          |
+| SEC-70  | Skip browser navigation URL checks                                                                    |
+| SEC-71  | 50MB web fetch cap (instead of 2MB)                                                                   |
+| SEC-72  | Unredacted config in CLI (API keys visible)                                                           |
+| SEC-78  | No control plane rate limiting                                                                        |
+| SEC-79  | 50MB prompt cap (instead of 2MB)                                                                      |
+| SEC-97  | Always show raw config in web GUI (skip round-trip check)                                             |
+| SEC-98  | Remove restrictive prompt sections (approval, config caution) + add permissive safety line            |
+| SEC-99  | Skip elevated permission gates when dev-mode + Full profile                                           |
+| SEC-100 | `cron`, `gateway`, `nodes` tools available to non-owner callers in dev-mode                           |
+| SEC-101 | Skip message-provider tool filtering in dev-mode — all tools on all channels (Discord, node, etc.)    |
+| SEC-102 | `assertLocalMediaAllowed()` returns immediately in dev-mode — file/media tools can read from any path |
 
 ### WhatsApp features
 
@@ -124,10 +124,9 @@ Each opt-in via its own env var (requires `OPENCLAW_DEV_MODE=1` first).
 
 Both gated by `OPENCLAW_DEV_MODE=1`.
 
-| ID        | What it does                                                                                                                                                                                          |
-| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| OLL-THINK | Send `think: true` in the Ollama API request body so the model actually generates reasoning                                                                                                           |
-| OAI-SUM   | Inject `reasoning.summary: "auto"` into OpenAI WebSocket stream requests — implementation is in place but OpenAI returns empty reasoning for gpt-5.3-codex regardless, so this is effectively dormant |
+| ID        | What it does                                                                                |
+| --------- | ------------------------------------------------------------------------------------------- |
+| OLL-THINK | Send `think: true` in the Ollama API request body so the model actually generates reasoning |
 
 ### Control UI (always on, hardcoded into the UI build)
 
@@ -141,9 +140,10 @@ Both gated by `OPENCLAW_DEV_MODE=1`.
 | ID     | What it does                                                                                                                                                                                                                                                                                                           |
 | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | FIX-01 | Auto-bootstrap `MEMORY.md` alongside heartbeat template in new workspaces                                                                                                                                                                                                                                              |
-| FIX-02 | Fix doubled reasoning text in Ollama thinking (duplicate accumulation from V2026.4.9 merge)                                                                                                                                                                                                                            |
 | FIX-03 | `/status` now merges global `agents.defaults` before model resolution (no more spurious `gpt-5.5` fallback) and renders an `⚙️ Runtime:` line below `🧠 Model:` so config-vs-runtime mismatches are visible at a glance                                                                                                |
 | FIX-04 | Inbound `/new` and `/reset` restore the bare-reset greeting (`BARE_SESSION_RESET_PROMPT_BASE`) instead of the hardcoded `"✅ New session started."` ACK that upstream introduced in V2026.5.4 (commit `a68ca1ae0b`). Affects WhatsApp + any inbound channel; TUI `/new` is unaffected (always silent since V2026.3.22) |
+| FIX-05 | `skipImplicitExpiry` includes `isDevMode()` when `session.reset` is not explicitly set — prevents the daily session rollover so the agent piles up its session indefinitely (until `session.reset` is configured)                                                                                                      |
+| FIX-06 | Best-effort memory flush on `/compact` and `/new` — flushes a dated `memory/YYYY-MM-DD.md` immediately instead of waiting for the next inbound message (which for `/new` never comes, since the session is wiped first); skips silently if the session lane is busy                                                    |
 
 ## How to install
 
