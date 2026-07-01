@@ -13,6 +13,17 @@
 - `main` — Ariel's only branch. Has `dist/` committed for easy VPS deployment, includes `dev-mode/rejects/` folder. Deployed to VPS. This is about making life easier — experimental, practical, no polish needed.
 - `pr-ready` — DELETED (2026-03-23). Upstream PR abandoned.
 
+## Post-Merge Cleanup Checklist (run after EVERY upstream merge)
+
+Upstream re-introduces things this fork doesn't want. Each item below is recurring — verify and fix after every merge, before pushing/deploying:
+
+1. **Remove GitHub Actions workflows** — `git rm -r .github/workflows`. Upstream carries ~64 CI workflow files (`ci.yml`, `codeql.yml`, `docker-release.yml`, `mantis-*.yml`, `windows-*.yml`, `stale.yml`, etc.); this fork has no CI. Leave non-workflow `.github/` content (issue templates, `dependabot.yml`, `CODEOWNERS`, `codeql/` query packs, `actions/` composite actions) alone. (2026-07-01: removed 64 files / 30K lines.)
+2. **Keep-ours on WhatsApp build-exclusion lists** — `scripts/lib/bundled-plugin-build-entries.mjs` (`EXCLUDED_CORE_BUNDLED_PLUGIN_DIRS`) + `package.json` `files` (`!dist/extensions/whatsapp/**`). If an upgrade slips `whatsapp` back into either, the fork's WhatsApp patches silently revert to the stock ClawHub package. See "WhatsApp Extension — The Heart of This Fork".
+3. **Keep-ours on `README.md`** — the fork's "OpenClaw Dev Mode" landing page (NOT a SEC patch).
+4. **Stage dist with `git add -f dist/`** — `dist/` is in `.gitignore` but tracked; `git add -A` skips NEW dist chunks from the build and the first VPS gateway start fails with `Cannot find module`. See the ⚠️ note in Build & Deploy.
+5. **Restore `dist/extensions/tlon` from git** before committing — pnpm build on Windows dirties those files as a symlink artifact. `git checkout -- dist/extensions/tlon`.
+6. **Re-verify dev-mode patches survived** — quick grep for a few `isDevMode()` anchors in src/ and `grep -rl attachWaHistoryLogger /opt/openclaw-dev-mode/dist/` on the VPS after deploy.
+
 ## Dev Environment
 
 - **This PC**: Windows, Claude Code only. No OpenClaw installed. Do NOT run/test openclaw locally, but ALWAYS build (`pnpm build`) before pushing to validate the dist.
