@@ -7,7 +7,11 @@ import type { TemplateContext } from "../templating.js";
 import { runMemoryFlushIfNeeded } from "./agent-runner-memory.js";
 import type { HandleCommandsParams } from "./commands-types.js";
 import type { FollowupRun } from "./queue/types.js";
-import { createReplyOperation, ReplyRunAlreadyActiveError } from "./reply-run-registry.js";
+import {
+  createReplyOperation,
+  replyRunRegistry,
+  ReplyRunAlreadyActiveError,
+} from "./reply-run-registry.js";
 
 export async function runDevModeCommandMemoryFlush(
   params: HandleCommandsParams,
@@ -65,19 +69,27 @@ export async function runDevModeCommandMemoryFlush(
     },
   };
 
+  const existingOp = replyRunRegistry.get(params.sessionKey);
   let flushReplyOperation;
-  try {
-    flushReplyOperation = createReplyOperation({
-      sessionKey: params.sessionKey,
-      sessionId,
-      resetTriggered: false,
-    });
-  } catch (err) {
-    if (err instanceof ReplyRunAlreadyActiveError) {
-      logVerbose(`[dev-mode] memory flush: session lane busy for ${params.sessionKey}, skipping`);
-      return;
+  let ownsOperation = false;
+
+  if (existingOp) {
+    flushReplyOperation = existingOp;
+  } else {
+    try {
+      flushReplyOperation = createReplyOperation({
+        sessionKey: params.sessionKey,
+        sessionId,
+        resetTriggered: false,
+      });
+      ownsOperation = true;
+    } catch (err) {
+      if (err instanceof ReplyRunAlreadyActiveError) {
+        logVerbose(`[dev-mode] memory flush: session lane busy for ${params.sessionKey}, skipping`);
+        return;
+      }
+      throw err;
     }
-    throw err;
   }
 
   try {
@@ -102,6 +114,8 @@ export async function runDevModeCommandMemoryFlush(
       `[dev-mode] memory flush failed: ${err instanceof Error ? err.message : String(err)}`,
     );
   } finally {
-    flushReplyOperation.complete();
+    if (ownsOperation) {
+      flushReplyOperation.complete();
+    }
   }
 }
