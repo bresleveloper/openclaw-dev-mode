@@ -61,6 +61,7 @@ Never log VPS connection details (IP, port) in commits or output.
 - **Formatter**: oxfmt (`pnpm format` / `pnpm format:check`)
 - **Linter**: oxlint (`pnpm lint` runs `oxlint --type-aware`)
 - **dist/ is committed** on `main` branch (~2996 files, 1.5M lines — drowns out real changes in PR diffs)
+- **⚠️ `dist/` is in `.gitignore`** (line 7) but tracked files persist from a prior `git add -f`. This means `git add -A` updates already-tracked dist files (modifications + deletions) but **silently skips NEW dist files** created by a build (e.g. new hashed chunks like `dist/route-IbC_DJaQ.js`). A deploy that only runs `git add -A` will push a dist/ missing the new chunks → first gateway start fails with `Cannot find module .../<new-chunk>.js`. **Always stage dist with `git add -f dist/` after a build** so new files are included. (Learned during FIX-06 deploy: needed a second commit `e2441cf1d9` to force-add 626 missing chunks after the first gateway start failed.)
 - **Package manager**: pnpm locally, npm on VPS
 - **Platform**: Build output is platform-independent JS — build on Windows, deploy to Linux
 - **Prerequisites**: Node.js 22.12+, Git
