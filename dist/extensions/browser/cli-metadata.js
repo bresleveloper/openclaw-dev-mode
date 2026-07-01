@@ -11,7 +11,7 @@ var cli_metadata_default = definePluginEntry({
 	description: "Default browser tool plugin",
 	register(api) {
 		api.registerCli(async ({ program }) => {
-			const { registerBrowserCli } = await import("../../browser-cli-CdIiKrml.js");
+			const { registerBrowserCli } = await import("../../browser-cli-wsIUx5VW.js");
 			registerBrowserCli(program);
 		}, { commands: ["browser"] });
 	}

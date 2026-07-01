@@ -1,5 +1,5 @@
-import { t as tryDispatchAcpReplyHook } from "../../acp-runtime-backend-CDZgSrKN.js";
-import { t as createAcpxRuntimeService } from "../../register.runtime-D5_t_TUk.js";
+import { t as tryDispatchAcpReplyHook } from "../../acp-runtime-backend-BKQ109Qr.js";
+import { t as createAcpxRuntimeService } from "../../register.runtime-DPBcoFaJ.js";
 //#region extensions/acpx/index.ts
 /**
 * ACPX runtime plugin entry. It registers the embedded ACP backend service and

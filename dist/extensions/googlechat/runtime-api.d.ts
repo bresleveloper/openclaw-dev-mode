@@ -17,7 +17,7 @@ import { i as WebhookInFlightLimiter, l as readJsonWebhookBodyOrReject, s as cre
 import { o as registerWebhookTargetWithPluginRoute, p as withResolvedWebhookRequestPipeline, u as resolveWebhookTargetWithAuthOrReject } from "../../webhook-targets-Cg8Opr56.js";
 import { n as resolveWebhookPath } from "../../webhook-path-DJByLAD7.js";
 import { t as PAIRING_APPROVED_MESSAGE } from "../../pairing-message-CFjlYpMw.js";
-import { n as GoogleChatConfigSchema } from "../../bundled-channel-config-schema-DgAQzgVe.js";
+import { n as GoogleChatConfigSchema } from "../../bundled-channel-config-schema-CSnYxYZB.js";
 import { i as createAccountStatusSink, s as runPassiveAccountLifecycle } from "../../channel-lifecycle.core-D-RO4UEV.js";
 import { l as loadOutboundMediaFromUrl } from "../../outbound-media-CeKausQf.js";
 import { r as createChannelPairingController } from "../../channel-pairing-6yTLvDE1.js";

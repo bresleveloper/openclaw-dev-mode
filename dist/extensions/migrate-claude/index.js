@@ -1,5 +1,5 @@
 import { t as definePluginEntry } from "../../plugin-entry-BZpzqykQ.js";
-import { t as buildClaudeMigrationProvider } from "../../provider-CT3_dVsD.js";
+import { t as buildClaudeMigrationProvider } from "../../provider-bjjwFwHG.js";
 //#region extensions/migrate-claude/index.ts
 var migrate_claude_default = definePluginEntry({
 	id: "migrate-claude",

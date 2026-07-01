@@ -6,5 +6,5 @@ import { n as DEFAULT_MODEL, r as DEFAULT_PROVIDER } from "./defaults-6FEupg54.j
 import { N as resolveAgentDir, P as resolveAgentWorkspaceDir } from "./agent-scope-ypEaRyWn.js";
 import { d as resolveAgentIdentity } from "./ack-reactions-CYVkDIRy.js";
 import { k as resolveThinkingDefault } from "./model-selection-dctpK3UE.js";
-import { t as runEmbeddedAgent } from "./embedded-agent-CDG_Ja8q.js";
+import { t as runEmbeddedAgent } from "./embedded-agent-runner-CDG_Ja8q.js";
 export { DEFAULT_MODEL, DEFAULT_PROVIDER, ensureAgentWorkspace, loadSessionStore, resolveAgentDir, resolveAgentIdentity, resolveAgentTimeoutMs, resolveAgentWorkspaceDir, resolveSessionFilePath, resolveStorePath, resolveThinkingDefault, runEmbeddedAgent, runEmbeddedAgent as runEmbeddedPiAgent, saveSessionStore, updateSessionStore, updateSessionStoreEntry };

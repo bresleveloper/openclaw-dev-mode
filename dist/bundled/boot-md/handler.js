@@ -10,10 +10,10 @@ import { _ as updateSessionStore, b as loadSessionStore } from "../../store-DJ7w
 import { d as resolveStorePath } from "../../paths-CHZBIGhF.js";
 import { a as OPENCLAW_RUNTIME_CONTEXT_NOTICE, n as INTERNAL_RUNTIME_CONTEXT_END, s as escapeInternalRuntimeContextDelimiters, t as INTERNAL_RUNTIME_CONTEXT_BEGIN } from "../../internal-runtime-context-BH_40W4f.js";
 import { n as SILENT_REPLY_TOKEN } from "../../tokens-Zsy11rTo.js";
-import { c as setBootEchoContextForSession, s as clearBootEchoContextForSession } from "../../openclaw-tools-VdzehAgr.js";
-import { t as agentCommand } from "../../agent-command-BsXozNMX.js";
+import { c as setBootEchoContextForSession, s as clearBootEchoContextForSession } from "../../openclaw-tools-CHWXpPwX.js";
+import { t as agentCommand } from "../../agent-command-VVdCAxOe.js";
 import { t as createDefaultDeps } from "../../deps-B92jeXR9.js";
-import "../../agent-2BU9iGee.js";
+import "../../agent-CASFGBWA.js";
 import { t as runStartupTasks } from "../../startup-tasks-CsdE10-q.js";
 import path from "node:path";
 import fs from "node:fs/promises";
