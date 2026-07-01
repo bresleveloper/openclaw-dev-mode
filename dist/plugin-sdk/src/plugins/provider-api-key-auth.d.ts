@@ -1,0 +1,25 @@
+import type { OpenClawConfig } from "../config/types.openclaw.js";
+import type { ProviderAuthMethod, ProviderPluginWizardSetup } from "./types.js";
+type ProviderApiKeyAuthMethodOptions = {
+    providerId: string;
+    methodId: string;
+    label: string;
+    hint?: string;
+    wizard?: ProviderPluginWizardSetup;
+    optionKey: string;
+    flagName: `--${string}`;
+    envVar: string;
+    promptMessage: string;
+    profileId?: string;
+    profileIds?: string[];
+    allowProfile?: boolean;
+    defaultModel?: string;
+    expectedProviders?: string[];
+    metadata?: Record<string, string>;
+    noteMessage?: string;
+    noteTitle?: string;
+    applyConfig?: (cfg: OpenClawConfig) => OpenClawConfig;
+};
+/** Creates a provider auth method that captures, stores, and configures API-key credentials. */
+export declare function createProviderApiKeyAuthMethod(params: ProviderApiKeyAuthMethodOptions): ProviderAuthMethod;
+export {};

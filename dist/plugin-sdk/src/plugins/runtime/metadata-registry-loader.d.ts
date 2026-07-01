@@ -1,0 +1,17 @@
+import type { OpenClawConfig } from "../../config/types.openclaw.js";
+import type { PluginManifestRegistry } from "../manifest-registry.js";
+import type { PluginRegistry } from "../registry.js";
+import type { PluginLogger } from "../types.js";
+import { type PluginRuntimeLoadContext } from "./load-context.js";
+/** Loads a non-activated plugin metadata registry snapshot for validation/status callers. */
+export declare function loadPluginMetadataRegistrySnapshot(options?: {
+    config?: OpenClawConfig;
+    activationSourceConfig?: OpenClawConfig;
+    env?: NodeJS.ProcessEnv;
+    logger?: PluginLogger;
+    workspaceDir?: string;
+    onlyPluginIds?: string[];
+    loadModules?: boolean;
+    manifestRegistry?: PluginManifestRegistry;
+    runtimeContext?: PluginRuntimeLoadContext;
+}): PluginRegistry;

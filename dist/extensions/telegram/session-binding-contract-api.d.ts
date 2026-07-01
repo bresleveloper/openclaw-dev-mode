@@ -1,0 +1,2 @@
+import { r as resetTelegramThreadBindingsForTests, t as createTelegramThreadBindingManager } from "../../thread-bindings-Dycu_oPX.js";
+export { createTelegramThreadBindingManager, resetTelegramThreadBindingsForTests };

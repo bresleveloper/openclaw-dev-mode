@@ -1,0 +1,45 @@
+import { type WizardPrompter } from "./prompts.js";
+type WizardStepOption = {
+    value: unknown;
+    label: string;
+    hint?: string;
+};
+type WizardStep = {
+    id: string;
+    type: "note" | "select" | "text" | "confirm" | "multiselect" | "progress" | "action";
+    title?: string;
+    message?: string;
+    format?: "plain";
+    options?: WizardStepOption[];
+    initialValue?: unknown;
+    placeholder?: string;
+    sensitive?: boolean;
+    executor?: "gateway" | "client";
+};
+type WizardSessionStatus = "running" | "done" | "cancelled" | "error";
+type WizardNextResult = {
+    done: boolean;
+    step?: WizardStep;
+    status: WizardSessionStatus;
+    error?: string;
+};
+export declare class WizardSession {
+    private runner;
+    private currentStep;
+    private stepDeferred;
+    private pendingTerminalResolution;
+    private answerDeferred;
+    private status;
+    private error;
+    constructor(runner: (prompter: WizardPrompter) => Promise<void>);
+    next(): Promise<WizardNextResult>;
+    answer(stepId: string, value: unknown): Promise<void>;
+    cancel(): void;
+    pushStep(step: WizardStep): void;
+    private run;
+    awaitAnswer(step: WizardStep): Promise<unknown>;
+    private resolveStep;
+    getStatus(): WizardSessionStatus;
+    getError(): string | undefined;
+}
+export {};

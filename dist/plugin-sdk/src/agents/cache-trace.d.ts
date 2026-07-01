@@ -1,0 +1,50 @@
+import type { OpenClawConfig } from "../config/types.openclaw.js";
+import { type QueuedFileWriter } from "./queued-file-writer.js";
+import type { AgentMessage, StreamFn } from "./runtime/index.js";
+type CacheTraceStage = "cache:result" | "cache:state" | "session:loaded" | "session:raw-model-run" | "session:sanitized" | "session:limited" | "prompt:before" | "prompt:images" | "stream:context" | "session:after";
+type CacheTraceEvent = {
+    ts: string;
+    seq: number;
+    stage: CacheTraceStage;
+    runId?: string;
+    sessionId?: string;
+    sessionKey?: string;
+    provider?: string;
+    modelId?: string;
+    modelApi?: string | null;
+    workspaceDir?: string;
+    prompt?: string;
+    system?: unknown;
+    options?: Record<string, unknown>;
+    model?: Record<string, unknown>;
+    messages?: AgentMessage[];
+    messageCount?: number;
+    messageRoles?: Array<string | undefined>;
+    messageFingerprints?: string[];
+    messagesDigest?: string;
+    systemDigest?: string;
+    note?: string;
+    error?: string;
+};
+type CacheTrace = {
+    enabled: true;
+    filePath: string;
+    recordStage: (stage: CacheTraceStage, payload?: Partial<CacheTraceEvent>) => void;
+    wrapStreamFn: (streamFn: StreamFn) => StreamFn;
+};
+type CacheTraceInit = {
+    cfg?: OpenClawConfig;
+    env?: NodeJS.ProcessEnv;
+    runId?: string;
+    sessionId?: string;
+    sessionKey?: string;
+    provider?: string;
+    modelId?: string;
+    modelApi?: string | null;
+    workspaceDir?: string;
+    writer?: CacheTraceWriter;
+};
+type CacheTraceWriter = QueuedFileWriter;
+/** Create a cache trace recorder when diagnostics config/env enables it. */
+export declare function createCacheTrace(params: CacheTraceInit): CacheTrace | null;
+export {};

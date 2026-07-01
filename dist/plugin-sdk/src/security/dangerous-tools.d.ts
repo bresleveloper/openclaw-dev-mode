@@ -1,0 +1,12 @@
+/**
+ * Tools denied via Gateway HTTP `POST /tools/invoke` by default.
+ * These are high-risk because they enable session orchestration, control-plane actions,
+ * or interactive flows that don't make sense over a non-interactive HTTP surface.
+ */
+export declare const DEFAULT_GATEWAY_HTTP_TOOL_DENY: readonly ["exec", "spawn", "shell", "fs_write", "fs_delete", "fs_move", "apply_patch", "sessions_spawn", "sessions_send", "cron", "gateway", "nodes"];
+/**
+ * Core tools that require sender owner identity on Gateway-scoped surfaces.
+ * `gateway.tools.allow` can remove the default HTTP deny only for owner/trusted-operator
+ * callers; non-owner identity-bearing callers must not receive server-credential wrappers.
+ */
+export declare const GATEWAY_OWNER_ONLY_CORE_TOOLS: readonly ["cron", "gateway", "nodes"];

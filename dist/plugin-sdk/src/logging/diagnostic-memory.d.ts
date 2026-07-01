@@ -1,0 +1,25 @@
+import { type DiagnosticMemoryUsage } from "../infra/diagnostic-events.js";
+type DiagnosticMemoryThresholds = {
+    rssWarningBytes?: number;
+    rssCriticalBytes?: number;
+    heapUsedWarningBytes?: number;
+    heapUsedCriticalBytes?: number;
+    rssGrowthWarningBytes?: number;
+    rssGrowthCriticalBytes?: number;
+    growthWindowMs?: number;
+    pressureRepeatMs?: number;
+};
+export declare function emitDiagnosticMemorySample(options?: {
+    now?: number;
+    memoryUsage?: NodeJS.MemoryUsage;
+    uptimeMs?: number;
+    thresholds?: DiagnosticMemoryThresholds;
+    emitSample?: boolean;
+    writeCriticalBundle?: boolean;
+    stateDir?: string;
+    sessionStorePaths?: string[];
+    resolveSessionStorePaths?: () => string[] | undefined;
+}): DiagnosticMemoryUsage;
+/** Clears process-local memory diagnostic state for isolated tests. */
+export declare function resetDiagnosticMemoryForTest(): void;
+export {};

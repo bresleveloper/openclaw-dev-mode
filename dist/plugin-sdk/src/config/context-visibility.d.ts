@@ -1,0 +1,26 @@
+import type { OpenClawConfig } from "./config.js";
+import type { ContextVisibilityMode } from "./types.base.js";
+type ContextVisibilityDefaultsConfig = {
+    channels?: {
+        defaults?: {
+            /**
+             * Global default supplemental context visibility for channels without a local override.
+             */
+            contextVisibility?: ContextVisibilityMode;
+        };
+    };
+};
+/** Reads the global channel default supplemental context visibility mode. */
+export declare function resolveDefaultContextVisibility(cfg: ContextVisibilityDefaultsConfig): ContextVisibilityMode | undefined;
+/** Resolves supplemental context visibility using explicit, account, channel, default precedence. */
+export declare function resolveChannelContextVisibilityMode(params: {
+    /** Full OpenClaw config containing channel defaults and per-channel overrides. */
+    cfg: OpenClawConfig;
+    /** Channel id whose visibility policy is being resolved. */
+    channel: string;
+    /** Optional channel account id used for account-specific overrides. */
+    accountId?: string | null;
+    /** Runtime adapter override that takes precedence over config-backed policy. */
+    configuredContextVisibility?: ContextVisibilityMode;
+}): ContextVisibilityMode;
+export {};

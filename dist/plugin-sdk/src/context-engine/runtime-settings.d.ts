@@ -1,0 +1,21 @@
+import type { ContextEngineHostSupport } from "./host-compat.js";
+import type { ContextEngineSelectionSource, ContextEngineRuntimeMode, ContextEngineRuntimeSettings } from "./types.js";
+type OptionalString = string | null | undefined;
+type OptionalReason = string | null | undefined;
+export declare function buildContextEngineRuntimeSettings(params: {
+    mode?: ContextEngineRuntimeMode;
+    harnessId?: OptionalString;
+    runtimeId?: OptionalString;
+    requestedModel?: OptionalString;
+    resolvedModel?: OptionalString;
+    provider?: OptionalString;
+    modelFamily?: OptionalString;
+    selectedContextEngineId?: OptionalString;
+    contextEngineSelectionSource?: ContextEngineSelectionSource;
+    fallbackReason?: OptionalReason;
+    degradedReason?: OptionalReason;
+    promptTokenBudget?: number | null;
+    maxOutputTokens?: number | null;
+    contextEngineHost: ContextEngineHostSupport;
+}): ContextEngineRuntimeSettings;
+export {};

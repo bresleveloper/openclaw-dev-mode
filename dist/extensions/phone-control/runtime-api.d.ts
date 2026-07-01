@@ -1,0 +1,2 @@
+import { L as PluginCommandContext, O as OpenClawPluginService, _ as OpenClawPluginCommandDefinition, dn as definePluginEntry, g as OpenClawPluginApi } from "../../plugin-entry-DpILbQ7M.js";
+export { type OpenClawPluginApi, type OpenClawPluginCommandDefinition, type OpenClawPluginService, type PluginCommandContext, definePluginEntry };

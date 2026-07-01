@@ -1,0 +1,11 @@
+import type { ToolDescriptor } from "./types.js";
+/**
+ * Identity helpers for authoring tool descriptors with stable inferred types.
+ *
+ * Callers use these at declaration sites so descriptor arrays keep readonly
+ * shapes while still validating against the public ToolDescriptor contract.
+ */
+/** Define one tool descriptor without changing its runtime shape. */
+export declare function defineToolDescriptor(descriptor: ToolDescriptor): ToolDescriptor;
+/** Define a readonly descriptor list without changing runtime order or entries. */
+export declare function defineToolDescriptors(descriptors: readonly ToolDescriptor[]): readonly ToolDescriptor[];

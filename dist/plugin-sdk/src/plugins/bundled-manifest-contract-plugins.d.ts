@@ -1,0 +1,19 @@
+/** Resolves enabled bundled plugins that advertise a specific manifest contract list. */
+import type { OpenClawConfig } from "../config/types.openclaw.js";
+import { type PluginActivationBundledCompatMode } from "./activation-context.js";
+import type { PluginManifestContractListKey, PluginManifestRecord } from "./manifest-registry.js";
+/** Lists bundled plugin ids with a non-empty contract contribution in a manifest snapshot. */
+export declare function listBundledManifestContractPluginIds(params: {
+    plugins: readonly PluginManifestRecord[];
+    contract: PluginManifestContractListKey;
+    onlyPluginIds?: readonly string[];
+}): string[];
+/** Applies config activation and compatibility rules before returning bundled contract owners. */
+export declare function resolveEnabledBundledManifestContractPlugins(params: {
+    config?: OpenClawConfig;
+    workspaceDir?: string;
+    env?: NodeJS.ProcessEnv;
+    onlyPluginIds?: readonly string[];
+    contract: PluginManifestContractListKey;
+    compatMode: PluginActivationBundledCompatMode;
+}): PluginManifestRecord[];

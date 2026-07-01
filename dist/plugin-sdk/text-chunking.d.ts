@@ -1,0 +1,15 @@
+import { t as convertMarkdownTables } from "./tables-BBMGs0qO.js";
+import { a as stripAssistantInternalScaffolding, i as sanitizeAssistantVisibleTextWithProfile, n as sanitizeAssistantVisibleText, r as sanitizeAssistantVisibleTextWithOptions, t as AssistantVisibleTextSanitizerProfile, u as stripToolCallXmlTags } from "./assistant-visible-text-BkPy-bj_.js";
+import { n as hasSystemMark, r as prefixSystemMessage, t as SYSTEM_MARK } from "./system-message-BaqODHMh.js";
+import { n as isAutoLinkedFileRef, t as FILE_REF_EXTENSIONS_WITH_TLD } from "./auto-linked-file-ref-5zRwmLog.js";
+import { A as MarkdownStyleSpan, C as RenderMarkdownIRChunksWithinLimitOptions, D as MarkdownLinkSpan, E as MarkdownIR, F as markdownToIR, I as markdownToIRWithMeta, L as sliceMarkdownIR, N as MarkdownTableMeta, O as MarkdownParseOptions, P as chunkMarkdownIR, S as renderMarkdownWithMarkers, T as renderMarkdownIRChunksWithinLimit, _ as isInsideCode, b as RenderStyleMap, c as stripInlineDirectiveTagsFromMessageForDisplay, d as ReasoningTagMode, f as ReasoningTagTrim, g as findCodeRegions, h as CodeRegion, j as MarkdownTableCell, k as MarkdownStyle, l as sanitizeTerminalText, m as stripReasoningTagsFromText, n as DisplayMessageWithContent, o as stripInlineDirectiveTagsForDelivery, r as InlineDirectiveParseResult, s as stripInlineDirectiveTagsForDisplay, t as chunkItems, u as stripMarkdown, v as RenderLink, x as RenderStyleMarker, y as RenderOptions } from "./chunk-items-DszNsY2v.js";
+
+//#region src/plugin-sdk/text-chunking.d.ts
+/**
+ * Splits outbound channel text into chunks no longer than the requested limit.
+ * Newline boundaries win over spaces; text without usable separators falls back
+ * to a hard character split so channel senders always receive bounded strings.
+ */
+declare function chunkTextForOutbound(text: string, limit: number): string[];
+//#endregion
+export { type AssistantVisibleTextSanitizerProfile, type CodeRegion, type DisplayMessageWithContent, FILE_REF_EXTENSIONS_WITH_TLD, type InlineDirectiveParseResult, type MarkdownIR, type MarkdownLinkSpan, type MarkdownParseOptions, type MarkdownStyle, type MarkdownStyleSpan, type MarkdownTableCell, type MarkdownTableMeta, type ReasoningTagMode, type ReasoningTagTrim, type RenderLink, type RenderMarkdownIRChunksWithinLimitOptions, type RenderOptions, type RenderStyleMap, type RenderStyleMarker, SYSTEM_MARK, chunkItems, chunkMarkdownIR, chunkTextForOutbound, convertMarkdownTables, findCodeRegions, hasSystemMark, isAutoLinkedFileRef, isInsideCode, markdownToIR, markdownToIRWithMeta, prefixSystemMessage, renderMarkdownIRChunksWithinLimit, renderMarkdownWithMarkers, sanitizeAssistantVisibleText, sanitizeAssistantVisibleTextWithOptions, sanitizeAssistantVisibleTextWithProfile, sanitizeTerminalText, sliceMarkdownIR, stripAssistantInternalScaffolding, stripInlineDirectiveTagsForDelivery, stripInlineDirectiveTagsForDisplay, stripInlineDirectiveTagsFromMessageForDisplay, stripMarkdown, stripReasoningTagsFromText, stripToolCallXmlTags };

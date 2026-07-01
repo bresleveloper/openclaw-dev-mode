@@ -1,0 +1,11 @@
+import { z } from "zod";
+/** Schema for agent model config accepting a string or fallback object. */
+export declare const AgentModelSchema: z.ZodUnion<readonly [z.ZodString, z.ZodObject<{
+    primary: z.ZodOptional<z.ZodString>;
+    fallbacks: z.ZodOptional<z.ZodArray<z.ZodString>>;
+}, z.core.$strict>]>;
+export declare const AgentToolModelSchema: z.ZodUnion<readonly [z.ZodString, z.ZodObject<{
+    primary: z.ZodOptional<z.ZodString>;
+    fallbacks: z.ZodOptional<z.ZodArray<z.ZodString>>;
+    timeoutMs: z.ZodOptional<z.ZodNumber>;
+}, z.core.$strict>]>;

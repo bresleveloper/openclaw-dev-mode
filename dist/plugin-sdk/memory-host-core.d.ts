@@ -1,0 +1,23 @@
+import { i as OpenClawConfig } from "./types.openclaw-R57aE8ho.js";
+import { M as MemoryCitationsMode } from "./types.tools-tYxTcHXF.js";
+import { a as loadConfig, i as getRuntimeConfig } from "./io-De2i7kBd.js";
+import { i as resolveStateDir } from "./paths-BrMQAmyZ.js";
+import { p as parseAgentSessionKey } from "./session-key-fJM_U9Lv.js";
+import { C as OpenClawPluginApi, Cs as emptyPluginConfigSchema, Ds as parseNonNegativeByteSize, Is as resolveMemorySearchConfig, Rs as DEFAULT_AGENT_COMPACTION_RESERVE_TOKENS_FLOOR, Vs as resolveCronStyleNow } from "./types-CXLy55Xw.js";
+import { C as readPositiveIntegerParam, D as readStringParam, S as readNumberParam, b as readFiniteNumberParam, g as jsonResult, r as AnyAgentTool, u as asToolParamsRecord } from "./common-DDc8qh0a.js";
+import { a as resolveSessionTranscriptsDirForAgent } from "./sessions-BvW5Smbp.js";
+import { C as resolveSessionAgentIds, I as resolveDefaultAgentId, S as resolveSessionAgentId } from "./agent-scope-BAv_on9b.js";
+import { _ as listMemoryCorpusSupplements, a as MemoryFlushPlan, c as MemoryPluginPublicArtifact, d as MemoryPromptSectionBuilder, g as listActiveMemoryPublicArtifacts, h as getMemoryCapabilityRegistration, i as MemoryCorpusSupplementRegistration, l as MemoryPluginPublicArtifactsProvider, m as clearMemoryPluginState, n as MemoryCorpusSearchResult, o as MemoryFlushPlanResolver, p as buildMemoryPromptSection, r as MemoryCorpusSupplement, s as MemoryPluginCapability, t as MemoryCorpusGetResult, u as MemoryPluginRuntime, v as registerMemoryCapability, y as registerMemoryCorpusSupplement } from "./memory-state-DUeMsJ8-.js";
+import { n as SILENT_REPLY_TOKEN } from "./tokens-CLx0Aap_.js";
+//#region src/plugin-sdk/memory-host-core.d.ts
+/** Lists public memory artifacts for one workspace, including notes and event logs. */
+declare function listMemoryWorkspacePublicArtifacts(params: {
+  workspaceDir: string;
+  agentIds: string[];
+}): Promise<MemoryPluginPublicArtifact[]>;
+/** Lists public memory artifacts across all configured memory workspaces. */
+declare function listMemoryHostPublicArtifacts(params: {
+  cfg: OpenClawConfig;
+}): Promise<MemoryPluginPublicArtifact[]>;
+//#endregion
+export { type AnyAgentTool, DEFAULT_AGENT_COMPACTION_RESERVE_TOKENS_FLOOR, DEFAULT_AGENT_COMPACTION_RESERVE_TOKENS_FLOOR as DEFAULT_PI_COMPACTION_RESERVE_TOKENS_FLOOR, type MemoryCitationsMode, type MemoryCorpusGetResult, type MemoryCorpusSearchResult, type MemoryCorpusSupplement, type MemoryCorpusSupplementRegistration, type MemoryFlushPlan, type MemoryFlushPlanResolver, type MemoryPluginCapability, type MemoryPluginPublicArtifact, type MemoryPluginPublicArtifactsProvider, type MemoryPluginRuntime, type MemoryPromptSectionBuilder, type OpenClawConfig, type OpenClawPluginApi, SILENT_REPLY_TOKEN, asToolParamsRecord, buildMemoryPromptSection as buildActiveMemoryPromptSection, clearMemoryPluginState, emptyPluginConfigSchema, getMemoryCapabilityRegistration, getRuntimeConfig, jsonResult, listActiveMemoryPublicArtifacts, listMemoryCorpusSupplements, listMemoryHostPublicArtifacts, listMemoryWorkspacePublicArtifacts, loadConfig, parseAgentSessionKey, parseNonNegativeByteSize, readFiniteNumberParam, readNumberParam, readPositiveIntegerParam, readStringParam, registerMemoryCapability, registerMemoryCorpusSupplement, resolveCronStyleNow, resolveDefaultAgentId, resolveMemorySearchConfig, resolveSessionAgentId, resolveSessionAgentIds, resolveSessionTranscriptsDirForAgent, resolveStateDir };

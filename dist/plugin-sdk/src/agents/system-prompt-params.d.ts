@@ -1,0 +1,37 @@
+import type { ChatType } from "../channels/chat-type.js";
+import type { OpenClawConfig } from "../config/types.openclaw.js";
+import type { ActiveProcessSessionReference } from "./bash-process-references.js";
+import { type ResolvedTimeFormat } from "./date-time.js";
+type RuntimeInfoInput = {
+    agentId?: string;
+    sessionKey?: string;
+    sessionId?: string;
+    host: string;
+    os: string;
+    arch: string;
+    node: string;
+    model: string;
+    defaultModel?: string;
+    shell?: string;
+    channel?: string;
+    chatType?: ChatType;
+    capabilities?: string[];
+    /** Supported message actions for the current channel (e.g., react, edit, unsend) */
+    channelActions?: string[];
+    repoRoot?: string;
+    activeProcessSessions?: ActiveProcessSessionReference[];
+};
+type SystemPromptRuntimeParams = {
+    runtimeInfo: RuntimeInfoInput;
+    userTimezone: string;
+    userTime?: string;
+    userTimeFormat?: ResolvedTimeFormat;
+};
+export declare function buildSystemPromptParams(params: {
+    config?: OpenClawConfig;
+    agentId?: string;
+    runtime: Omit<RuntimeInfoInput, "agentId">;
+    workspaceDir?: string;
+    cwd?: string;
+}): SystemPromptRuntimeParams;
+export {};

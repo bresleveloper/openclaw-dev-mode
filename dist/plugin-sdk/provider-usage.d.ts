@@ -1,0 +1,41 @@
+import { n as UsageProviderId, r as UsageWindow, t as ProviderUsageSnapshot } from "./provider-usage.types-BxukMSHd.js";
+
+//#region src/infra/provider-usage.fetch.claude.d.ts
+declare function fetchClaudeUsage(token: string, timeoutMs: number, fetchFn: typeof fetch): Promise<ProviderUsageSnapshot>;
+//#endregion
+//#region src/infra/provider-usage.fetch.codex.d.ts
+declare function fetchCodexUsage(token: string, accountId: string | undefined, timeoutMs: number, fetchFn: typeof fetch): Promise<ProviderUsageSnapshot>;
+//#endregion
+//#region src/infra/provider-usage.fetch.deepseek.d.ts
+declare function fetchDeepSeekUsage(apiKey: string, timeoutMs: number, fetchFn: typeof fetch): Promise<ProviderUsageSnapshot>;
+//#endregion
+//#region src/infra/provider-usage.fetch.gemini.d.ts
+declare function fetchGeminiUsage(token: string, timeoutMs: number, fetchFn: typeof fetch, provider: UsageProviderId): Promise<ProviderUsageSnapshot>;
+//#endregion
+//#region src/infra/provider-usage.fetch.minimax.d.ts
+type FetchMinimaxUsageOptions = {
+  baseUrl?: string;
+};
+declare function fetchMinimaxUsage(apiKey: string, timeoutMs: number, fetchFn: typeof fetch, options?: FetchMinimaxUsageOptions): Promise<ProviderUsageSnapshot>;
+//#endregion
+//#region src/infra/provider-usage.fetch.zai.d.ts
+declare function fetchZaiUsage(apiKey: string, timeoutMs: number, fetchFn: typeof fetch): Promise<ProviderUsageSnapshot>;
+//#endregion
+//#region src/infra/provider-usage.shared.d.ts
+declare const PROVIDER_LABELS: Record<UsageProviderId, string>;
+declare const clampPercent: (value: number) => number;
+//#endregion
+//#region src/infra/provider-usage.fetch.shared.d.ts
+/** Fetches JSON-compatible provider usage endpoints with an abort timeout. */
+declare function fetchJson(url: string, init: RequestInit, timeoutMs: number, fetchFn: typeof fetch): Promise<Response>;
+type BuildUsageHttpErrorSnapshotOptions = {
+  provider: UsageProviderId;
+  status: number;
+  message?: string;
+  tokenExpiredStatuses?: readonly number[];
+};
+/** Builds a provider usage snapshot for non-HTTP fetch or parse failures. */
+declare function buildUsageErrorSnapshot(provider: UsageProviderId, error: string): ProviderUsageSnapshot;
+declare function buildUsageHttpErrorSnapshot(options: BuildUsageHttpErrorSnapshotOptions): ProviderUsageSnapshot;
+//#endregion
+export { PROVIDER_LABELS, type ProviderUsageSnapshot, type UsageProviderId, type UsageWindow, buildUsageErrorSnapshot, buildUsageHttpErrorSnapshot, clampPercent, fetchClaudeUsage, fetchCodexUsage, fetchDeepSeekUsage, fetchGeminiUsage, fetchJson, fetchMinimaxUsage, fetchZaiUsage };

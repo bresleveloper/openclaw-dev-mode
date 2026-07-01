@@ -1,0 +1,18 @@
+import type { OpenClawConfig } from "../config/types.openclaw.js";
+import { getTailnetHostname } from "../infra/tailscale.js";
+import type { MemoryProviderStatus } from "../memory-host-sdk/engine-storage.js";
+export { getTailnetHostname };
+type StatusMemoryManager = {
+    probeVectorStoreAvailability?(): Promise<boolean>;
+    probeVectorAvailability(): Promise<boolean>;
+    status(): MemoryProviderStatus;
+    close?(): Promise<void>;
+};
+/** Returns a narrow memory manager adapter for status probing. */
+export declare function getMemorySearchManager(params: {
+    cfg: OpenClawConfig;
+    agentId: string;
+    purpose: "status";
+}): Promise<{
+    manager: StatusMemoryManager | null;
+}>;
