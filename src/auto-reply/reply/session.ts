@@ -48,6 +48,7 @@ import {
   forgetActiveSessionForShutdown,
   noteActiveSessionForShutdown,
 } from "../../gateway/active-sessions-shutdown-tracker.js";
+import { isDevMode } from "../../globals.js";
 import { getSessionBindingService } from "../../infra/outbound/session-binding-service.js";
 import { deliverSessionMaintenanceWarning } from "../../infra/session-maintenance-warning.js";
 import { createSubsystemLogger } from "../../logging/subsystem.js";
@@ -465,7 +466,8 @@ async function initSessionStateAttempt(
   // resume signal is allowed to suppress configured idle/daily rollover.
   const reconnectResumeRequested =
     params.resumeRequestedSession === true && requestedCurrentSession;
-  const skipImplicitExpiry = hasProviderOwnedSession(entry) && resetPolicy.configured !== true;
+  const skipImplicitExpiry =
+    resetPolicy.configured !== true && (hasProviderOwnedSession(entry) || isDevMode());
   const lifecycleTimestamps = resolveSessionLifecycleTimestamps({
     entry,
     agentId,

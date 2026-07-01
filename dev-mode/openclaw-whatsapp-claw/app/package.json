@@ -1,0 +1,13 @@
+{
+  "name": "openclaw-whatsapp-claw",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Standalone WhatsApp Claw panel for OpenClaw (dev-mode).",
+  "scripts": {
+    "start": "node src/main.mjs",
+    "test": "node --import tsx --test",
+    "seed": "node scripts/seed-sample-db.mjs",
+    "integration-check": "node scripts/integration-check.mjs"
+  }
+}

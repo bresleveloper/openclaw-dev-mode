@@ -78,15 +78,15 @@ import { normalizeAssistantIdentity } from "./assistant-identity.ts";
 import { restoreChatComposerState } from "./chat/composer-persistence.ts";
 import { exportChatMarkdown } from "./chat/export.ts";
 import {
+  reconcileRealtimeTalkCatalogSelection,
+  type RealtimeTalkCatalogProvider,
+} from "./chat/realtime-talk-catalog.ts";
+import {
   createRealtimeTalkConversationState,
   updateRealtimeTalkConversation,
   type RealtimeTalkConversationEntry,
   type RealtimeTalkConversationState,
 } from "./chat/realtime-talk-conversation.ts";
-import {
-  reconcileRealtimeTalkCatalogSelection,
-  type RealtimeTalkCatalogProvider,
-} from "./chat/realtime-talk-catalog.ts";
 import {
   RealtimeTalkSession,
   type RealtimeTalkLaunchOptions,
@@ -124,6 +124,7 @@ import type {
   SkillMessage,
 } from "./controllers/skills.ts";
 import { importCustomThemeFromUrl } from "./custom-theme.ts";
+import { readBootDevModeFromStorage } from "./dev-mode-boot.ts";
 import {
   clearActiveFloatingTooltips,
   prepareActiveFloatingTooltipsForRender,
@@ -416,8 +417,13 @@ export class OpenClawApp extends LitElement {
   @state() wikiMemoryPalaceError: string | null = null;
   @state() wikiMemoryPalace: WikiMemoryPalace | null = null;
   @state() configFormDirty = false;
-  @state() configSettingsMode: "quick" | "advanced" = "quick";
-  @state() configFormMode: "form" | "raw" = "form";
+  // SEC-97 (dev-mode upgrade): read cached dev-mode hint from localStorage to
+  // pre-flip these defaults before the config snapshot arrives. The live
+  // snapshot still corrects this if dev-mode has been turned off.
+  @state() configSettingsMode: "quick" | "advanced" = readBootDevModeFromStorage()
+    ? "advanced"
+    : "quick";
+  @state() configFormMode: "form" | "raw" = readBootDevModeFromStorage() ? "raw" : "form";
   @state() configSearchQuery = "";
   @state() configActiveSection: string | null = null;
   @state() configActiveSubsection: string | null = null;

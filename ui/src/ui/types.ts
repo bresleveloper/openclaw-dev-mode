@@ -282,6 +282,8 @@ export type ConfigSnapshot = {
   runtimeConfig?: Record<string, unknown> | null;
   config?: Record<string, unknown> | null;
   issues?: ConfigSnapshotIssue[] | null;
+  // SEC-97 (dev-mode upgrade): server-reported dev-mode flag.
+  devMode?: boolean | null;
 };
 
 export type ConfigSchemaResponse = {

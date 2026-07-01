@@ -1,5 +1,6 @@
 // Control UI controller manages config gateway state.
 import { applyMergePatch } from "../../../../src/config/merge-patch.ts";
+import { syncDevModeToStorage } from "../dev-mode-boot.ts";
 import type { GatewayBrowserClient } from "../gateway.ts";
 import type { ConfigSchemaResponse, ConfigSnapshot, ConfigUiHints } from "../types.ts";
 import type { JsonSchema } from "../views/config-form.shared.ts";
@@ -117,6 +118,9 @@ export function applyConfigSnapshot(
   const preservePendingChanges = state.configFormDirty && options.discardPendingChanges !== true;
   const draftBaseHash = state.configDraftBaseHash ?? state.configSnapshot?.hash ?? null;
   state.configSnapshot = snapshot;
+  // SEC-97 (dev-mode upgrade): cache the server-reported dev-mode flag so the
+  // next page load can pre-flip its UI state synchronously.
+  syncDevModeToStorage(snapshot.devMode);
   const editableConfig = resolveEditableSnapshotConfig(snapshot);
   const rawAvailable =
     typeof snapshot.raw === "string" || Boolean(editableConfig) || Boolean(state.configForm);

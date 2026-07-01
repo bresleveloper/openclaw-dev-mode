@@ -3,6 +3,7 @@ import { setConfigValueAtPath } from "../config/config-paths.js";
 import type { DmScope } from "../config/types.base.js";
 import type { OpenClawConfig } from "../config/types.openclaw.js";
 import type { ToolProfileId } from "../config/types.tools.js";
+import { isDevMode } from "../globals.js";
 
 /** Default DM scoping selected during local onboarding. */
 const ONBOARDING_DEFAULT_DM_SCOPE: DmScope = "per-channel-peer";
@@ -33,7 +34,9 @@ export function applyLocalSetupWorkspaceConfig(
     },
     tools: {
       ...baseConfig.tools,
-      profile: baseConfig.tools?.profile ?? ONBOARDING_DEFAULT_TOOLS_PROFILE,
+      profile: isDevMode()
+        ? baseConfig.tools?.profile
+        : (baseConfig.tools?.profile ?? ONBOARDING_DEFAULT_TOOLS_PROFILE),
     },
   };
 }

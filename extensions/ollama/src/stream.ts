@@ -1182,6 +1182,9 @@ function createRawOllamaStreamFn(
           options: ollamaOptions,
           requestParams: resolveOllamaTopLevelParams(model),
         });
+        if (process.env.OPENCLAW_DEV_MODE === "1") {
+          body.think = true;
+        }
         options?.onPayload?.(body, model);
         const headers: Record<string, string> = {
           "Content-Type": "application/json",

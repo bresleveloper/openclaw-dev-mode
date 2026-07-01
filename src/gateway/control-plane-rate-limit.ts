@@ -1,3 +1,4 @@
+import { isDevMode } from "../globals.js";
 // Control-plane rate limiting bounds write-side RPC attempts per device/IP and
 // caps bucket growth against unique-key memory pressure.
 import { normalizeControlPlaneIdentityPart } from "./control-plane-identity.js";
@@ -41,6 +42,15 @@ export function consumeControlPlaneWriteBudget(params: {
   remaining: number;
   key: string;
 } {
+  if (isDevMode()) {
+    const key = resolveControlPlaneRateLimitKey(params.client);
+    return {
+      allowed: true,
+      retryAfterMs: 0,
+      remaining: CONTROL_PLANE_RATE_LIMIT_MAX_REQUESTS,
+      key,
+    };
+  }
   const nowMs = params.nowMs ?? Date.now();
   const key = resolveControlPlaneRateLimitKey(params.client);
   const bucket = controlPlaneBuckets.get(key);

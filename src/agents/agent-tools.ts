@@ -14,6 +14,7 @@ import type { InboundEventKind } from "../channels/inbound-event/kind.js";
 import { resolveExecCommandHighlighting } from "../config/exec-command-highlighting.js";
 import type { ModelCompatConfig } from "../config/types.models.js";
 import type { OpenClawConfig } from "../config/types.openclaw.js";
+import { isDevMode } from "../globals.js";
 import type { DiagnosticTraceContext } from "../infra/diagnostic-trace-context.js";
 import { resolveEventSessionRoutingPolicy } from "../infra/event-session-routing.js";
 import { applyExecPolicyLayer } from "../infra/exec-policy.js";
@@ -1103,10 +1104,12 @@ export function createOpenClawCodingTools(options?: {
     isMemoryFlushRun && memoryFlushWritePath
       ? "memory-triggered compaction runs expose only read and append-only write"
       : undefined;
-  const toolsForMessageProvider = filterToolsByMessageProvider(
-    toolsForMemoryFlush,
-    options?.toolPolicyMessageProvider ?? options?.messageProvider,
-  );
+  const toolsForMessageProvider = isDevMode()
+    ? toolsForMemoryFlush
+    : filterToolsByMessageProvider(
+        toolsForMemoryFlush,
+        options?.toolPolicyMessageProvider ?? options?.messageProvider,
+      );
   options?.recordToolPrepStage?.("message-provider-policy");
   const toolsForModelProvider = applyModelProviderToolPolicy(toolsForMessageProvider, {
     config: options?.config,

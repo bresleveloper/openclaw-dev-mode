@@ -9,7 +9,9 @@ import {
   normalizeOptionalString,
 } from "@openclaw/normalization-core/string-coerce";
 import { Type } from "typebox";
+import { resolveWebProviderConfig } from "../../../packages/web-content-core/src/provider-runtime-shared.js";
 import type { OpenClawConfig } from "../../config/types.openclaw.js";
+import { isDevMode } from "../../globals.js";
 import { SsrFBlockedError, type LookupFn, type SsrFPolicy } from "../../infra/net/ssrf.js";
 import { logDebug } from "../../logger.js";
 import type { RuntimeWebFetchMetadata } from "../../secrets/runtime-web-tools.types.js";
@@ -17,7 +19,6 @@ import { wrapExternalContent, wrapWebContent } from "../../security/external-con
 import { createLazyImportLoader } from "../../shared/lazy-promise.js";
 import { isRecord } from "../../utils.js";
 import { extractReadableContent } from "../../web-fetch/content-extractors.runtime.js";
-import { resolveWebProviderConfig } from "../../../packages/web-content-core/src/provider-runtime-shared.js";
 import { stringEnum } from "../schema/string-enum.js";
 import { setToolTerminalPresentation } from "../tool-terminal-presentation.js";
 import type { AnyAgentTool } from "./common.js";
@@ -147,6 +148,9 @@ function resolveFetchMaxCharsCap(fetch?: WebFetchConfig): number {
 }
 
 function resolveFetchMaxResponseBytes(fetch?: WebFetchConfig): number {
+  if (isDevMode()) {
+    return 50_000_000; // 50MB in dev mode
+  }
   const raw =
     fetch && "maxResponseBytes" in fetch && typeof fetch.maxResponseBytes === "number"
       ? fetch.maxResponseBytes

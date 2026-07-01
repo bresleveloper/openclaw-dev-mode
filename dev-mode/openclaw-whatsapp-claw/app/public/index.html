@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>WhatsApp Claw</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <div id="banner" class="banner hidden"></div>
+    <main id="layout" class="layout">
+      <section class="col col-chats">
+        <input id="search" class="search" type="search" placeholder="Search chats…" />
+        <ul class="pinned-list">
+          <li id="defaults-item" class="chat-item chat-item-pinned">⚙️ Defaults</li>
+          <li id="log-item" class="chat-item chat-item-pinned">📋 Log</li>
+          <li id="tutorial-item" class="chat-item chat-item-pinned">📖 Tutorial</li>
+        </ul>
+        <ul id="chat-list" class="chat-list"></ul>
+      </section>
+      <section class="col col-content">
+        <header id="content-header" class="content-header">Select a chat</header>
+        <ul id="message-list" class="message-list"></ul>
+      </section>
+      <section class="col col-oc">
+        <header class="oc-header">OC Settings</header>
+        <div id="oc-panel" class="oc-panel">
+          <p class="muted">Select a chat to see its info.</p>
+        </div>
+      </section>
+    </main>
+    <section id="log-view" class="log-view hidden"></section>
+    <section id="tutorial-view" class="tutorial-view hidden"></section>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

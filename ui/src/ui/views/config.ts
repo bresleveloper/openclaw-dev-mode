@@ -63,6 +63,9 @@ export type ConfigProps = {
   formMode: "form" | "raw";
   rawAvailable?: boolean;
   showModeToggle?: boolean;
+  // SEC-97 (dev-mode upgrade): when true, force raw view and skip the
+  // sensitive-value reveal blur.
+  devMode?: boolean;
   formValue: Record<string, unknown> | null;
   originalValue: Record<string, unknown> | null;
   searchQuery: string;
@@ -1237,7 +1240,8 @@ export function renderConfig(props: ConfigProps) {
   const analysis = analyzeConfigSchema(scopedSchema);
   const formUnsafe = analysis.schema ? analysis.unsupportedPaths.length > 0 : false;
   const rawAvailable = props.rawAvailable ?? true;
-  const formMode = showModeToggle && rawAvailable ? props.formMode : "form";
+  // SEC-97 (dev-mode upgrade): force raw view in dev-mode.
+  const formMode = props.devMode ? "raw" : showModeToggle && rawAvailable ? props.formMode : "form";
   const requestUpdate = props.onRequestUpdate ?? (() => {});
   // Scroll helper: target-based (nav clicks) with global fallback (form/raw toggle)
   const resetContentScroll = (target: EventTarget | null) => {
@@ -1850,7 +1854,8 @@ export function renderConfig(props: ConfigProps) {
                       [],
                       props.uiHints,
                     );
-                    const blurred = sensitiveCount > 0 && !cvs.rawRevealed;
+                    // SEC-97 (dev-mode upgrade): bypass reveal blur in dev-mode.
+                    const blurred = !props.devMode && sensitiveCount > 0 && !cvs.rawRevealed;
                     return html`
                       ${formUnsafe
                         ? html`

@@ -301,4 +301,7 @@ export type ConfigFileSnapshot = {
   issues: ConfigValidationIssue[];
   warnings: ConfigValidationIssue[];
   legacyIssues: LegacyConfigIssue[];
+  // SEC-97 (dev-mode upgrade): surface dev-mode to the Control UI so it can
+  // skip Quick Settings, default to raw view, and bypass the reveal blur.
+  devMode?: boolean;
 };

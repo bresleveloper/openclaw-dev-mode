@@ -566,7 +566,7 @@ export function buildStatusMessage(args: StatusArgs): string {
   const entry = args.sessionEntry;
   const selectionConfig = {
     agents: {
-      defaults: args.agent ?? {},
+      defaults: { ...(args.config?.agents?.defaults ?? {}), ...(args.agent ?? {}) },
     },
   } as OpenClawConfig;
   const contextConfig = args.config
@@ -1105,11 +1105,18 @@ export function buildStatusMessage(args: StatusArgs): string {
   const mediaLine = formatMediaUnderstandingLine(args.mediaDecisions);
   const voiceLine = formatVoiceModeLine(args.config, args.sessionEntry, args.agentId);
 
+  // FIX-03: always render the runtime model alongside the selected one so users
+  // can spot config-vs-runtime mismatches (e.g. fallbacks engaged, fresh sessions
+  // missing overrides) without tailing logs.
+  const activeAuthLabel = activeAuthLabelValue ? ` · 🔑 ${activeAuthLabelValue}` : "";
+  const runtimeLine = `⚙️ Runtime: ${activeModelLabel}${activeAuthLabel}`;
+
   return [
     versionLine,
     args.timeLine,
     args.uptimeLine,
     ...modelLines,
+    runtimeLine,
     configuredFallbacksLine,
     fallbackLine,
     usageCostLine,

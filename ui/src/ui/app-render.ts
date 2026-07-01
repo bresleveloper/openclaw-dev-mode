@@ -155,6 +155,7 @@ import {
 } from "./controllers/skills.ts";
 import { captureSessionToWorkboard, getWorkboardState } from "./controllers/workboard.ts";
 import { getCronJobPayload } from "./cron-payload.ts";
+import { readBootDevModeFromStorage } from "./dev-mode-boot.ts";
 import { buildExternalLinkRel, EXTERNAL_LINK_TARGET } from "./external-link.ts";
 import { formatTimeMs } from "./format.ts";
 import { formatRelativeTimestamp } from "./format.ts";
@@ -1700,6 +1701,11 @@ export function renderApp(state: AppViewState) {
     onUpdate: () => void runUpdate(state),
     onOpenFile: () => void openConfigFile(state),
     version: state.hello?.server?.version ?? "",
+    // SEC-97 (dev-mode upgrade): forward dev-mode flag from the live snapshot,
+    // or fall back to the localStorage hint while the snapshot is still loading.
+    devMode: state.configSnapshot
+      ? state.configSnapshot.devMode === true
+      : readBootDevModeFromStorage(),
     theme: state.theme,
     themeMode: state.themeMode,
     setTheme: (theme, context) => state.setTheme(theme, context),
@@ -1804,8 +1810,14 @@ export function renderApp(state: AppViewState) {
   const renderConfigTabForActiveTab = () => {
     switch (state.tab) {
       case "config": {
+        // SEC-97 (dev-mode upgrade): in dev-mode, skip Quick Settings entirely
+        // and land directly on the advanced raw view. Use the localStorage
+        // hint until the live snapshot resolves.
+        const configDevMode = state.configSnapshot
+          ? state.configSnapshot.devMode === true
+          : readBootDevModeFromStorage();
         // Quick Settings mode — opinionated card layout
-        if (state.configSettingsMode === "quick") {
+        if (!configDevMode && state.configSettingsMode === "quick") {
           const configObj = state.configForm ?? state.configSnapshot?.config ?? {};
           const assistantAvatarOverride =
             localAssistantAvatarOverride ?? resolveAssistantAvatarOverride(configObj);

@@ -232,6 +232,22 @@ export async function createWaSocket(
     });
   }
 
+  // [dev-mode] Attach WhatsApp history logger
+  if (
+    process.env.OPENCLAW_DEV_MODE === "1" &&
+    process.env.OPENCLAW_DEV_MODE_WA_SAVE_MESSAGES === "1"
+  ) {
+    try {
+      const { attachWaHistoryLogger } = await import("./dev-mode/openclaw-whatsapp-claw.js");
+      attachWaHistoryLogger(sock);
+    } catch (err) {
+      console.error(
+        "[dev-mode] attachWaHistoryLogger failed:",
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  }
+
   return sock;
 }
 

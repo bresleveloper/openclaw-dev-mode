@@ -3,7 +3,7 @@ import { clearBootstrapSnapshot } from "../../agents/bootstrap-cache.js";
 import { clearAllCliSessions } from "../../agents/cli-session.js";
 import { resetConfiguredBindingTargetInPlace } from "../../channels/plugins/binding-targets.js";
 import { updateSessionEntry } from "../../config/sessions/session-accessor.js";
-import { logVerbose } from "../../globals.js";
+import { isDevMode, logVerbose } from "../../globals.js";
 import { isAcpSessionKey } from "../../routing/session-key.js";
 import { resolveBoundAcpThreadSessionKey } from "./commands-acp/targets.js";
 import { emitResetCommandHooks, type ResetCommandAction } from "./commands-reset-hooks.js";
@@ -184,7 +184,7 @@ export async function maybeHandleResetCommand(
     previousSessionEntry: params.previousSessionEntry,
     workspaceDir: params.workspaceDir,
   });
-  if (!resetTail) {
+  if (!isDevMode() && !resetTail) {
     return {
       shouldContinue: false,
       ...(hookResult.routedReply
