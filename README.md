@@ -1,6 +1,6 @@
 # OpenClaw Dev Mode — the Bresleveloper's OpenClaw
 
-## Presenting - Dev Mode, my Dev Frienldy fork, and now FULL local WhatsApps AI-OC-Powered
+## Presenting - Dev Mode, my Dev Frienldy fork
 
 # BACK to FUN LEVEL!
 
@@ -13,12 +13,11 @@
 
 ## What have I done (main features)
 
-1. MAIN & MAJOR -> building local WA framework to power your WA fully by OC and AI (port 17890, need gateway token)
-2. Some Security easings (see below)
-3. WhatsApp features
+1. Some Security easings (see below)
+2. WhatsApp features
    - Show model thinking/reasoning messages (`💭 Reasoning:` prefix, OpenAI + Ollama)
    - Save full WA history to SQLite (at `~/.openclaw/dev-mode/wa-history.db`) so agents can passively query it
-4. Write `MEMORY.md` on agent creation
+3. Write `MEMORY.md` on agent creation
 
 saving full log to enjoy my journey with OC ♥
 
