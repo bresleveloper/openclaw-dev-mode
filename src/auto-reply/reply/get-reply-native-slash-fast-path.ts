@@ -6,6 +6,7 @@ import {
   type ModelAliasIndex,
 } from "../../agents/model-selection.js";
 import type { OpenClawConfig } from "../../config/config.js";
+import { isDevMode } from "../../globals.js";
 import { createLazyImportLoader } from "../../shared/lazy-promise.js";
 import type { SkillCommandSpec } from "../../skills/types.js";
 import { isInternalMessageChannel } from "../../utils/message-channel.js";
@@ -73,6 +74,7 @@ function shouldRunNativeSlashCommandFastPath(ctx: MsgContext): boolean {
     commandName &&
     commandName !== "new" &&
     commandName !== "reset" &&
+    !(isDevMode() && commandName === "compact") &&
     (isNativeCommandTurn(commandTurn) ||
       shouldRunInternalTextSlashCommandFastPath(ctx, commandTurn, commandName)),
   );

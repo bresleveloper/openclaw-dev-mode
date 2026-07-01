@@ -1,387 +1,371 @@
-# FIX-06 — Memory Flush on /compact and /new
+# FIX-06 — Memory Flush + Greet-After-Compact
 
-## Goal
+## Overview
 
-When dev-mode is active, trigger the memory flush immediately when `/compact` or `/new` is manually called, instead of waiting for the next inbound message.
+Two dev-mode features for `/compact` and `/new`:
 
-## Background
+1. **Memory flush** — flush MEMORY.md immediately instead of waiting for next inbound message
+2. **Greet-after-compact** — after successful compaction, the agent produces a persona greeting (same concept as FIX-04 for `/new`)
 
-Auto-compact (preflight) triggers `runMemoryFlushIfNeeded()` automatically on every inbound message turn via `agent-runner.ts`. Manual `/compact` and `/new` bypass this path entirely — they go through `get-reply-native-slash-fast-path.ts` -> `handleInlineActions` -> `handleCommands`, which returns a result and exits WITHOUT going through `agent-runner.ts`. So `runMemoryFlushIfNeeded` is never called.
+## Status
 
-The memory flush (`runMemoryFlushIfNeeded` in `agent-runner-memory.ts`) runs an embedded LLM agent with `trigger: "memory"` to summarize the session transcript into a dated `memory/YYYY-MM-DD.md` file. It requires `FollowupRun` and `ReplyOperation` runtime objects that are NOT available in command handlers.
-
-### Why this matters
-
-- `/compact`: the count IS bumped by `incrementCompactionCount`, so the next message's `runMemoryFlushIfNeeded` WILL flush. But it's delayed by 1 message — not immediate.
-- `/new`: the session is wiped BEFORE the next message arrives. The new session's first message has no old transcript to summarize. Memory of the old session is lost.
-
-## Approach — Option B (standalone helper)
-
-Create a new file `src/auto-reply/reply/dev-mode-memory-flush.ts` that:
-
-1. Constructs a synthetic `FollowupRun` from `HandleCommandsParams`
-2. Creates a fresh `ReplyOperation` via `createReplyOperation()`
-3. Calls `runMemoryFlushIfNeeded()` with the constructed params
-4. Completes the `ReplyOperation` in a finally block
-5. Catches `ReplyRunAlreadyActiveError` (session lane busy) and silently skips
-
-Then call the helper from:
-
-- `commands-compact.ts` — AFTER `incrementCompactionCount()` (line ~314)
-- `commands-reset.ts` — BEFORE `emitResetCommandHooks()` (line ~177)
-
-Both calls gated with `if (isDevMode())`.
-
-## Files to Change
-
-| File                                            | Action                                        |
-| ----------------------------------------------- | --------------------------------------------- |
-| `src/auto-reply/reply/dev-mode-memory-flush.ts` | **CREATE** — the helper                       |
-| `src/auto-reply/reply/commands-compact.ts`      | **EDIT** — add import + call after compaction |
-| `src/auto-reply/reply/commands-reset.ts`        | **EDIT** — add import + call before reset     |
-
-No changes to `agent-runner-memory.ts`, `commands-types.ts`, or `reply-run-registry.ts`.
+- `/new` memory flush: **WORKING** (implemented by prior agent)
+- `/compact` memory flush: **BROKEN** — bug found, fix documented below
+- Greet-after-compact: **NOT IMPLEMENTED** — plan documented below
 
 ---
 
-## Step 1 — Create `src/auto-reply/reply/dev-mode-memory-flush.ts`
+## Part A — Fix /compact Memory Flush Bug
 
-Full file path: `src/auto-reply/reply/dev-mode-memory-flush.ts`
+### Root Cause
 
-```ts
-import { resolveAgentDir } from "../../agents/agent-scope-config.js";
-import { resolveSessionAgentId } from "../../agents/agent-scope.js";
-import { isDevMode, logVerbose } from "../../globals.js";
-import { resolveMemoryFlushPlan } from "../../plugins/memory-state.js";
-import type { TemplateContext } from "../templating.js";
-import { runMemoryFlushIfNeeded } from "./agent-runner-memory.js";
-import type { HandleCommandsParams } from "./commands-types.js";
-import type { FollowupRun } from "./queue/types.js";
-import { createReplyOperation, ReplyRunAlreadyActiveError } from "./reply-run-registry.js";
-import type { SessionEntry } from "../../config/sessions.js";
+The flush call is placed AFTER `incrementCompactionCount()` (line ~317), which writes the small post-compact token count to the session entry. `runMemoryFlushIfNeeded` internally calls `shouldRunMemoryFlush`, which gates on `totalTokens < threshold`. The post-compact count is always below threshold, so it silently skips.
 
-export async function runDevModeCommandMemoryFlush(
-  params: HandleCommandsParams,
-  targetSessionEntry: SessionEntry | undefined,
-): Promise<void> {
-  if (!isDevMode()) {
-    return;
-  }
+The `/new` path works because `runDevModeCommandMemoryFlush` is called BEFORE the reset, with `targetSessionEntry` still holding the full pre-reset token count.
 
-  const sessionId = targetSessionEntry?.sessionId;
-  if (!sessionId) {
-    return;
-  }
+### Fix
 
-  const memoryFlushPlan = resolveMemoryFlushPlan({ cfg: params.cfg });
-  if (!memoryFlushPlan) {
-    return;
-  }
+Move the flush call from AFTER compaction to BEFORE compaction.
 
-  const sessionAgentId = params.sessionKey
-    ? resolveSessionAgentId({ sessionKey: params.sessionKey, config: params.cfg })
-    : (params.agentId ?? "main");
-  const currentAgentId = params.agentId ?? "main";
-  const agentDir =
-    sessionAgentId === currentAgentId && params.agentDir
-      ? params.agentDir
-      : resolveAgentDir(params.cfg, sessionAgentId);
+**File**: `src/auto-reply/reply/commands-compact.ts`
 
-  const synthFollowupRun: FollowupRun = {
-    prompt: "",
-    enqueuedAt: Date.now(),
-    run: {
-      agentId: sessionAgentId,
-      agentDir,
-      sessionId,
-      sessionKey: params.sessionKey,
-      sessionFile: targetSessionEntry.sessionFile ?? "",
-      workspaceDir: params.workspaceDir,
-      config: params.cfg,
-      provider: params.provider,
-      model: params.model,
-      timeoutMs: 0,
-      blockReplyBreak: "text_end",
-      messageProvider: params.command.channel,
-      groupId: targetSessionEntry.groupId,
-      groupChannel: targetSessionEntry.groupChannel,
-      groupSpace: targetSessionEntry.space,
-      senderId: params.command.senderId,
-      senderName: params.ctx.SenderName,
-      senderUsername: params.ctx.SenderUsername,
-      senderE164: params.ctx.SenderE164,
-      skillsSnapshot: targetSessionEntry.skillsSnapshot,
-      ownerNumbers: params.command.ownerList.length > 0 ? params.command.ownerList : undefined,
-      thinkLevel: params.resolvedThinkLevel,
-    },
-  };
-
-  let flushReplyOperation;
-  try {
-    flushReplyOperation = createReplyOperation({
-      sessionKey: params.sessionKey,
-      sessionId,
-      resetTriggered: false,
-    });
-  } catch (err) {
-    if (err instanceof ReplyRunAlreadyActiveError) {
-      logVerbose(`[dev-mode] memory flush: session lane busy for ${params.sessionKey}, skipping`);
-      return;
-    }
-    throw err;
-  }
-
-  try {
-    await runMemoryFlushIfNeeded({
-      cfg: params.cfg,
-      followupRun: synthFollowupRun,
-      sessionCtx: params.ctx as TemplateContext,
-      opts: params.opts,
-      defaultModel: params.model,
-      agentCfgContextTokens: params.contextTokens,
-      resolvedVerboseLevel: params.resolvedVerboseLevel,
-      sessionEntry: targetSessionEntry,
-      sessionStore: params.sessionStore,
-      sessionKey: params.sessionKey,
-      storePath: params.storePath,
-      isHeartbeat: false,
-      replyOperation: flushReplyOperation,
-    });
-    logVerbose("[dev-mode] memory flush: completed");
-  } catch (err) {
-    logVerbose(
-      `[dev-mode] memory flush failed: ${err instanceof Error ? err.message : String(err)}`,
-    );
-  } finally {
-    flushReplyOperation.complete();
-  }
-}
-```
-
-### Why this code is safe
-
-- `isDevMode()` guard at the top — no-op in stock OpenClaw
-- `resolveMemoryFlushPlan` returns null if no memory-core plugin is configured — another no-op guard
-- `ReplyRunAlreadyActiveError` catch — if the session lane is already occupied (e.g. agent is running), skip silently
-- `finally { flushReplyOperation.complete() }` — always releases the session lane
-- `params.ctx as TemplateContext` — safe cast; `TemplateContext = MsgContext & { BodyStripped?: string; SessionId?: string; IsNewSession?: string }` — all extra fields are optional
-- `timeoutMs: 0` and `blockReplyBreak: "text_end"` — not used by the memory flush path, just satisfying required fields
-
----
-
-## Step 2 — Edit `src/auto-reply/reply/commands-compact.ts`
-
-### 2a. Add imports
-
-Current line 17:
+Find the current FIX-06 code (lines ~317-320):
 
 ```ts
-import { logVerbose } from "../../globals.js";
-```
-
-Change to:
-
-```ts
-import { isDevMode, logVerbose } from "../../globals.js";
-```
-
-After line 19 (`import type { CommandHandler } from "./commands-types.js";`), add:
-
-```ts
-import { runDevModeCommandMemoryFlush } from "./dev-mode-memory-flush.js";
-```
-
-### 2b. Add flush call after compaction
-
-Find this block (around lines 303-316):
-
-```ts
-if (result.ok && result.compacted && !codexNativeCompactionStarted) {
-  await runtime.incrementCompactionCount({
-    cfg: params.cfg,
-    sessionEntry: targetSessionEntry,
-    sessionStore: params.sessionStore,
-    sessionKey: params.sessionKey,
-    storePath: params.storePath,
-    // Update token counts after compaction
-    tokensAfter: result.result?.tokensAfter,
-    newSessionId: result.result?.sessionId,
-    newSessionFile: result.result?.sessionFile,
-  });
-}
-// Use the post-compaction token count for context summary if available
-const tokensAfterCompaction = result.result?.tokensAfter;
-```
-
-Replace with:
-
-```ts
-if (result.ok && result.compacted && !codexNativeCompactionStarted) {
-  await runtime.incrementCompactionCount({
-    cfg: params.cfg,
-    sessionEntry: targetSessionEntry,
-    sessionStore: params.sessionStore,
-    sessionKey: params.sessionKey,
-    storePath: params.storePath,
-    // Update token counts after compaction
-    tokensAfter: result.result?.tokensAfter,
-    newSessionId: result.result?.sessionId,
-    newSessionFile: result.result?.sessionFile,
-  });
-}
 if (isDevMode()) {
   const postCompactEntry = params.sessionStore?.[params.sessionKey] ?? targetSessionEntry;
   await runDevModeCommandMemoryFlush(params, postCompactEntry);
 }
-// Use the post-compaction token count for context summary if available
-const tokensAfterCompaction = result.result?.tokensAfter;
+```
+
+**DELETE** that block entirely.
+
+Then find this line (line ~249):
+
+```ts
+  const result = await runtime.compactEmbeddedAgentSession({
+```
+
+**INSERT BEFORE IT**:
+
+```ts
+if (isDevMode()) {
+  await runDevModeCommandMemoryFlush(params, targetSessionEntry);
+}
+```
+
+At this point, `targetSessionEntry` is the pre-compact entry (resolved at line 209), which has the full session history and token count above threshold — exactly the same timing as the `/new` flush.
+
+The full context around the insertion point (lines ~224-249):
+
+```ts
+  if (runtime.isEmbeddedAgentRunAbortableForCompaction(sessionId)) {
+    runtime.abortEmbeddedAgentRun(sessionId);
+    await runtime.waitForEmbeddedAgentRunEnd(sessionId, 15_000);
+  }
+  const sessionAgentId = params.sessionKey
+    ? resolveSessionAgentId({ sessionKey: params.sessionKey, config: params.cfg })
+    : (params.agentId ?? "main");
+  // ... more setup ...
+  const contextTokenBudget = resolveManualCompactContextTokenBudget({
+    // ...
+  });
+  // >>> INSERT HERE <<<
+  if (isDevMode()) {
+    await runDevModeCommandMemoryFlush(params, targetSessionEntry);
+  }
+  const result = await runtime.compactEmbeddedAgentSession({
+```
+
+Use the Edit tool with:
+
+- `old_string`: `  const result = await runtime.compactEmbeddedAgentSession({`
+- `new_string`:
+
+```
+  if (isDevMode()) {
+    await runDevModeCommandMemoryFlush(params, targetSessionEntry);
+  }
+  const result = await runtime.compactEmbeddedAgentSession({
 ```
 
 ---
 
-## Step 3 — Edit `src/auto-reply/reply/commands-reset.ts`
+## Part B — Greet-After-Compact (new feature)
 
-### 3a. Add import
+### How FIX-04 works for /new (reference)
 
-After line 13 (`import { isResetAuthorizedForContext } from "./reset-authorization.js";`), add:
+`/new` and `/reset` are excluded from the native slash command fast path (`shouldRunNativeSlashCommandFastPath` checks `commandName !== "new"` and `commandName !== "reset"`). They go through the full main pipeline.
+
+In FIX-04 (`commands-reset.ts` line ~187), dev-mode skips the hardcoded "New session started" ACK by returning `null` (not handled). `handleCommands` falls through to `{ shouldContinue: true }`. The main pipeline then runs the agent with `BARE_SESSION_RESET_PROMPT_BASE` as the user prompt, producing a persona greeting.
+
+### Why /compact needs a different approach
+
+- `/compact` currently goes through the native fast path (it's not excluded like /new and /reset)
+- The session is NOT reset, so `BARE_SESSION_RESET_PROMPT_BASE` won't apply
+- We need to: (a) exclude /compact from the fast path in dev-mode, (b) mutate the body to a greeting prompt, (c) return `shouldContinue: true` so the agent runs
+
+### Files to Change
+
+| File                                                       | Change                                                         |
+| ---------------------------------------------------------- | -------------------------------------------------------------- |
+| `src/auto-reply/reply/get-reply-native-slash-fast-path.ts` | Exclude `/compact` from fast path in dev-mode                  |
+| `src/auto-reply/reply/commands-compact.ts`                 | Return `shouldContinue: true` with greeting prompt in dev-mode |
+
+### Step 1 — Exclude /compact from fast path in dev-mode
+
+**File**: `src/auto-reply/reply/get-reply-native-slash-fast-path.ts`
+
+Add `isDevMode` to imports. Current imports (line 1-20) do NOT include globals.js. Add:
 
 ```ts
-import { runDevModeCommandMemoryFlush } from "./dev-mode-memory-flush.js";
+import { isDevMode } from "../../globals.js";
 ```
 
-### 3b. Add flush call before session reset
-
-Find this block (around lines 175-177):
+Find the function (lines 69-78):
 
 ```ts
-  const targetSessionEntry = params.sessionStore?.[params.sessionKey] ?? params.sessionEntry;
-
-  const hookResult = await emitResetCommandHooks({
+function shouldRunNativeSlashCommandFastPath(ctx: MsgContext): boolean {
+  const commandTurn = resolveCommandTurnContext(ctx);
+  const commandName = resolveNativeSlashCommandName(ctx);
+  return Boolean(
+    commandName &&
+    commandName !== "new" &&
+    commandName !== "reset" &&
+    (isNativeCommandTurn(commandTurn) ||
+      shouldRunInternalTextSlashCommandFastPath(ctx, commandTurn, commandName)),
+  );
+}
 ```
 
 Replace with:
 
 ```ts
-  const targetSessionEntry = params.sessionStore?.[params.sessionKey] ?? params.sessionEntry;
-
-  if (isDevMode()) {
-    await runDevModeCommandMemoryFlush(params, targetSessionEntry);
-  }
-
-  const hookResult = await emitResetCommandHooks({
+function shouldRunNativeSlashCommandFastPath(ctx: MsgContext): boolean {
+  const commandTurn = resolveCommandTurnContext(ctx);
+  const commandName = resolveNativeSlashCommandName(ctx);
+  return Boolean(
+    commandName &&
+    commandName !== "new" &&
+    commandName !== "reset" &&
+    !(isDevMode() && commandName === "compact") &&
+    (isNativeCommandTurn(commandTurn) ||
+      shouldRunInternalTextSlashCommandFastPath(ctx, commandTurn, commandName)),
+  );
+}
 ```
 
-Note: `isDevMode` is already imported at line 6 of this file.
+Use the Edit tool with:
+
+- `old_string`:
+
+```
+    commandName !== "reset" &&
+    (isNativeCommandTurn(commandTurn) ||
+```
+
+- `new_string`:
+
+```
+    commandName !== "reset" &&
+    !(isDevMode() && commandName === "compact") &&
+    (isNativeCommandTurn(commandTurn) ||
+```
+
+### Step 2 — Return greeting on successful compact
+
+**File**: `src/auto-reply/reply/commands-compact.ts`
+
+Find the return block at the end of `handleCompactCommand` (lines ~333-340):
+
+```ts
+runtime.enqueueSystemEvent(line, { sessionKey: params.sessionKey });
+return {
+  shouldContinue: false,
+  reply: {
+    text: `⚙️ ${line}`,
+    isStatusNotice: true,
+  },
+};
+```
+
+Replace with:
+
+```ts
+runtime.enqueueSystemEvent(line, { sessionKey: params.sessionKey });
+if (isDevMode() && result.ok && result.compacted && !codexNativeCompactionStarted) {
+  const greetPrompt =
+    "The session context was just compacted. Briefly greet the user now. Be yourself — use your configured persona, voice, and mood. Keep it to 1-2 sentences. Do not mention compaction, technical details, internal steps, or files.";
+  const mutableCtx = params.ctx as Record<string, unknown>;
+  mutableCtx.Body = greetPrompt;
+  mutableCtx.BodyForAgent = greetPrompt;
+  mutableCtx.BodyStripped = greetPrompt;
+  return { shouldContinue: true };
+}
+return {
+  shouldContinue: false,
+  reply: {
+    text: `⚙️ ${line}`,
+    isStatusNotice: true,
+  },
+};
+```
+
+Use the Edit tool with:
+
+- `old_string`:
+
+```
+  runtime.enqueueSystemEvent(line, { sessionKey: params.sessionKey });
+  return {
+    shouldContinue: false,
+    reply: {
+      text: `⚙️ ${line}`,
+      isStatusNotice: true,
+    },
+  };
+```
+
+- `new_string`:
+
+```
+  runtime.enqueueSystemEvent(line, { sessionKey: params.sessionKey });
+  if (isDevMode() && result.ok && result.compacted && !codexNativeCompactionStarted) {
+    const greetPrompt =
+      "The session context was just compacted. Briefly greet the user now. Be yourself — use your configured persona, voice, and mood. Keep it to 1-2 sentences. Do not mention compaction, technical details, internal steps, or files.";
+    const mutableCtx = params.ctx as Record<string, unknown>;
+    mutableCtx.Body = greetPrompt;
+    mutableCtx.BodyForAgent = greetPrompt;
+    mutableCtx.BodyStripped = greetPrompt;
+    return { shouldContinue: true };
+  }
+  return {
+    shouldContinue: false,
+    reply: {
+      text: `⚙️ ${line}`,
+      isStatusNotice: true,
+    },
+  };
+```
+
+### How the greeting flow works after these changes
+
+For a successful dev-mode `/compact`:
+
+1. Fast path is SKIPPED (excluded by the new condition)
+2. Full pipeline: `initSessionState` runs, `isNewSession = false`
+3. `handleInlineActions` -> `handleCommands` calls `handleCompactCommand` (once)
+4. Compaction runs. `enqueueSystemEvent("Compacted (X -> Y) ...")` queues the status
+5. Body mutated to greeting prompt. Returns `{ shouldContinue: true }`
+6. `handleInlineActions` returns `{ kind: "continue", cleanedBody: greetPrompt }`
+7. `runPreparedReply` called. `isBareSessionReset = false`, so no BARE_SESSION_RESET_PROMPT_BASE
+8. `drainFormattedSystemEvents` prepends "Compacted (X -> Y)..." as `System:` line
+9. Agent sees: `System: Compacted (X -> Y) ...` + `User: The session context was just compacted...`
+10. Agent produces a greeting in its persona
+
+For failed/skipped compaction or non-dev-mode: falls through to the old `{ shouldContinue: false, reply: "..." }` — unchanged behavior.
+
+### Why the body mutation pattern is safe
+
+- Uses `params.ctx as Record<string, unknown>` — same cast pattern used in `applyAcpResetTailContext` in `commands-reset.ts` lines 20-30
+- Sets `Body`, `BodyForAgent`, and `BodyStripped` so all downstream consumers see the greeting prompt
+- `handleCommands` is called exactly once because the fast path is excluded (no double-invocation risk)
 
 ---
 
-## Step 4 — Build
+## Build & Deploy
 
 ```bash
+# Build locally
 pnpm build
 pnpm ui:build
+
+# Commit (do NOT commit dist/ yet — test source first)
+git add src/auto-reply/reply/dev-mode-memory-flush.ts \
+        src/auto-reply/reply/commands-compact.ts \
+        src/auto-reply/reply/commands-reset.ts \
+        src/auto-reply/reply/get-reply-native-slash-fast-path.ts
+git commit -m "fix(dev-mode): FIX-06 — memory flush before compact + greet-after-compact"
+
+# Add dist/ separately
+git add -f dist/
+git commit -m "chore: rebuild dist/"
+
+# Push (ask Ariel first!)
+git push origin main
 ```
 
-### Likely build errors and fixes
-
-1. **Missing required field in `FollowupRun["run"]`**: If `FollowupRun["run"]` gains new required fields in future upstream merges, the build will fail here. Fix: add the missing field to the `synthFollowupRun.run` object in `dev-mode-memory-flush.ts`, mapping from `HandleCommandsParams` or using a safe default. Check `src/auto-reply/reply/queue/types.ts` lines 95-158 for the full type.
-
-2. **Import path wrong for `FollowupRun`**: The type is exported from `src/auto-reply/reply/queue/types.ts`. The import path in the helper is `./queue/types.js`. If the file structure changes, update accordingly.
-
-3. **`resolveAgentDir` signature changed**: Currently takes `(config, agentId)`. If it changes, check `src/agents/agent-scope-config.ts` line 204.
-
----
-
-## Step 5 — Deploy to VPS
+### Deploy to VPS
 
 SSH into VPS (use Windows OpenSSH, key at `~/.ssh/dev_vps`, port 60022):
 
 ```bash
-# Stop gateway first
 openclaw gateway stop
-
-# Pull latest
 cd /opt/openclaw-dev-mode && git config core.symlinks false && git checkout -- . 2>/dev/null; git pull && git config --unset core.symlinks
-
-# Install deps (in case new ones were added)
 npm install --ignore-scripts
-
-# Restore self-ref symlink
 ln -sf /opt/openclaw-dev-mode /opt/openclaw-dev-mode/node_modules/openclaw
-
-# Remove any stock WA managed install
 rm -rf ~/.openclaw/extensions/whatsapp
-
-# Start gateway
 openclaw gateway start
-
-# Wait for WA warmup
 sleep 120
-
-# Verify gateway is healthy
 openclaw gateway status
 ```
 
 ---
 
-## Step 6 — Test
+## Test Plan
 
-### Test /compact memory flush
+### Test 1 — /compact memory flush (the bug fix)
 
-1. Send a few messages to the agent via WhatsApp to build up conversation context
-2. Send `/compact` via WhatsApp
-3. Check the gateway log for the dev-mode memory flush line:
+1. Send several messages to the agent via WhatsApp to build up conversation
+2. Send `/compact`
+3. Check log:
    ```bash
-   tail -100 /tmp/openclaw/openclaw-$(date +%Y-%m-%d).log | grep -i "dev-mode.*memory"
+   tail -200 /tmp/openclaw/openclaw-$(date +%Y-%m-%d).log | grep -i "dev-mode.*memory"
    ```
-   Expected: `[dev-mode] memory flush: completed`
-4. Check if a dated memory file was created:
+   Expected: `[dev-mode] memory flush: completed` (BEFORE any compaction log lines)
+4. Check for memory file:
    ```bash
-   ls -la ~/.openclaw/workspace/*/memory/$(date +%Y-%m-%d)*.md 2>/dev/null
+   find ~/.openclaw/workspace -name "$(date +%Y-%m-%d)*.md" -path "*/memory/*" 2>/dev/null
    ```
-   (The exact path depends on the agent's workspace dir)
 
-### Test /new memory flush
+### Test 2 — /compact greeting (the new feature)
 
-1. Send a few messages to build up conversation context
-2. Send `/new` via WhatsApp
-3. Check the gateway log — should see the memory flush BEFORE the session reset:
-   ```bash
-   tail -100 /tmp/openclaw/openclaw-$(date +%Y-%m-%d).log | grep -i "dev-mode.*memory\|session.*reset\|new.*session"
-   ```
-   Expected: `[dev-mode] memory flush: completed` appears BEFORE any session reset log lines
-4. Check if a dated memory file was created (same ls command as above)
+1. Send several messages to the agent via WhatsApp
+2. Send `/compact`
+3. Agent should respond with a short persona greeting (1-2 sentences), NOT the old `⚙️ Compacted (X -> Y)...` status message
+4. The compaction info ("Compacted...") should appear as a system event (visible in the dashboard, not in the WA reply)
 
-### Test session-lane-busy path
+### Test 3 — /compact failure/skip (no greeting)
 
-1. Send a long message that the agent is actively processing
-2. While the agent is still responding, send `/compact` from another device/channel
-3. Check the log — should see:
-   ```
-   [dev-mode] memory flush: session lane busy for ..., skipping
-   ```
-   This is the expected graceful degradation — no crash, no hang.
+1. Send `/compact` immediately after a fresh `/new` (nothing to compact)
+2. Should get the old-style `⚙️ Compaction skipped` message (not a greeting)
 
-### Test non-dev-mode (safety check)
+### Test 4 — /new memory flush + greeting (regression check)
 
-1. Temporarily remove `OPENCLAW_DEV_MODE=1` from `~/.openclaw/.env`
+1. Send several messages
+2. Send `/new`
+3. Memory flush should complete (check log)
+4. Agent should produce a greeting (same as before — FIX-04 behavior)
+
+### Test 5 — Non-dev-mode (safety check)
+
+1. Remove `OPENCLAW_DEV_MODE=1` from `~/.openclaw/.env`
 2. Restart gateway
-3. Send `/compact` — should work identically to stock OpenClaw (no memory flush)
-4. Re-add `OPENCLAW_DEV_MODE=1` and restart
+3. Send `/compact` — should get stock `⚙️ Compacted...` message, no greeting
+4. Send `/new` — should get stock `✅ New session started.` message, no greeting
+5. Re-add `OPENCLAW_DEV_MODE=1` and restart
 
 ---
 
-## CLAUDE.md Update
+## CLAUDE.md Updates
 
-After successful implementation, add to the SEC/FIX table:
+Add to SEC/FIX table:
 
 ```
-| FIX-06  | `src/auto-reply/reply/dev-mode-memory-flush.ts` + `commands-compact.ts` + `commands-reset.ts` | Dev-mode best-effort memory flush on `/compact` and `/new` — flushes MEMORY.md immediately instead of waiting for the next inbound message |
+| FIX-06  | `src/auto-reply/reply/dev-mode-memory-flush.ts` + `commands-compact.ts` + `commands-reset.ts` + `get-reply-native-slash-fast-path.ts` | Dev-mode memory flush on `/compact` (before compaction) and `/new` (before reset); greet-after-compact returns `shouldContinue: true` with persona greeting prompt |
 ```
 
-Add `dev-mode-memory-flush.ts` to the "Source Files Modified" section under a new entry.
-
-Add to "Source Files Modified" counts: Security items -- src/ goes from 18 to 19.
+Source Files Modified: add `dev-mode-memory-flush.ts` (our file), `get-reply-native-slash-fast-path.ts` (new patch). Count goes from 18 to 20.
 
 ---
 

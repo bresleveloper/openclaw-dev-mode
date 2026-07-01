@@ -246,6 +246,9 @@ export const handleCompactCommand: CommandHandler = async (params) => {
     liveContextTokens: params.contextTokens,
     persistedContextTokens: targetSessionEntry.contextTokens,
   });
+  if (isDevMode()) {
+    await runDevModeCommandMemoryFlush(params, targetSessionEntry);
+  }
   const result = await runtime.compactEmbeddedAgentSession({
     sessionId,
     sessionKey: params.sessionKey,
@@ -314,10 +317,6 @@ export const handleCompactCommand: CommandHandler = async (params) => {
       newSessionFile: result.result?.sessionFile,
     });
   }
-  if (isDevMode()) {
-    const postCompactEntry = params.sessionStore?.[params.sessionKey] ?? targetSessionEntry;
-    await runDevModeCommandMemoryFlush(params, postCompactEntry);
-  }
   // Use the post-compaction token count for context summary if available
   const tokensAfterCompaction = result.result?.tokensAfter;
   const totalTokens =
@@ -331,6 +330,15 @@ export const handleCompactCommand: CommandHandler = async (params) => {
     ? `${compactLabel}: ${reason} • ${contextSummary}`
     : `${compactLabel} • ${contextSummary}`;
   runtime.enqueueSystemEvent(line, { sessionKey: params.sessionKey });
+  if (isDevMode() && result.ok && result.compacted && !codexNativeCompactionStarted) {
+    const greetPrompt =
+      "The session context was just compacted. Briefly greet the user now. Be yourself — use your configured persona, voice, and mood. Keep it to 1-2 sentences. Do not mention compaction, technical details, internal steps, or files.";
+    const mutableCtx = params.ctx as Record<string, unknown>;
+    mutableCtx.Body = greetPrompt;
+    mutableCtx.BodyForAgent = greetPrompt;
+    mutableCtx.BodyStripped = greetPrompt;
+    return { shouldContinue: true };
+  }
   return {
     shouldContinue: false,
     reply: {
