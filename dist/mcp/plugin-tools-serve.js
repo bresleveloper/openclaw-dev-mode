@@ -6,7 +6,7 @@ import "../config-A41fTHlt.js";
 import { t as coerceChatContentText } from "../chat-content-BbLAEXko.js";
 import { n as pickSandboxToolPolicy } from "../sandbox-tool-policy-ClB7s2K0.js";
 import { a as collectExplicitDenylist, c as mergeAlsoAllowPolicy, h as resolveToolProfilePolicy, i as collectExplicitAllowlist } from "../tool-policy-Cm3NCEHp.js";
-import { c as isToolWrappedWithBeforeToolCallHook, f as rewrapToolWithBeforeToolCallHook, h as wrapToolWithBeforeToolCallHook } from "../agent-tools.before-tool-call-BYiHT-a7.js";
+import { c as isToolWrappedWithBeforeToolCallHook, f as rewrapToolWithBeforeToolCallHook, h as wrapToolWithBeforeToolCallHook } from "../agent-tools.before-tool-call-CP6dTokt.js";
 import { a as resolvePluginTools, r as ensureStandalonePluginToolRegistryLoaded } from "../tools-DG6VDQeD.js";
 import { pathToFileURL } from "node:url";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";

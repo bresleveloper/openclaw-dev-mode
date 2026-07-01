@@ -9,6 +9,7 @@ import { resolveBoundAcpThreadSessionKey } from "./commands-acp/targets.js";
 import { emitResetCommandHooks, type ResetCommandAction } from "./commands-reset-hooks.js";
 import { parseSoftResetCommand } from "./commands-reset-mode.js";
 import type { CommandHandlerResult, HandleCommandsParams } from "./commands-types.js";
+import { runDevModeCommandMemoryFlush } from "./dev-mode-memory-flush.js";
 import type { ReplySessionBinding } from "./get-reply.types.js";
 import { isResetAuthorizedForContext } from "./reset-authorization.js";
 
@@ -173,6 +174,10 @@ export async function maybeHandleResetCommand(
   }
 
   const targetSessionEntry = params.sessionStore?.[params.sessionKey] ?? params.sessionEntry;
+
+  if (isDevMode()) {
+    await runDevModeCommandMemoryFlush(params, targetSessionEntry);
+  }
 
   const hookResult = await emitResetCommandHooks({
     action: commandAction,

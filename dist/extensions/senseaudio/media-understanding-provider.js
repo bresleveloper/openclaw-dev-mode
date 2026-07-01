@@ -1,2 +1,2 @@
-import { n as transcribeSenseAudioAudio, t as senseaudioMediaUnderstandingProvider } from "../../media-understanding-provider-BUetBUKf2.js";
+import { n as transcribeSenseAudioAudio, t as senseaudioMediaUnderstandingProvider } from "../../media-understanding-provider-BUetBUKf.js";
 export { senseaudioMediaUnderstandingProvider, transcribeSenseAudioAudio };

@@ -14,9 +14,10 @@ import {
   resolveContextConfigProviderForRuntime,
 } from "../../agents/openai-routing.js";
 import type { OpenClawConfig } from "../../config/types.openclaw.js";
-import { logVerbose } from "../../globals.js";
+import { isDevMode, logVerbose } from "../../globals.js";
 import { createLazyImportLoader } from "../../shared/lazy-promise.js";
 import type { CommandHandler } from "./commands-types.js";
+import { runDevModeCommandMemoryFlush } from "./dev-mode-memory-flush.js";
 import { stripMentions, stripStructuralPrefixes } from "./mentions.js";
 
 const compactRuntimeLoader = createLazyImportLoader(() => import("./commands-compact.runtime.js"));
@@ -312,6 +313,10 @@ export const handleCompactCommand: CommandHandler = async (params) => {
       newSessionId: result.result?.sessionId,
       newSessionFile: result.result?.sessionFile,
     });
+  }
+  if (isDevMode()) {
+    const postCompactEntry = params.sessionStore?.[params.sessionKey] ?? targetSessionEntry;
+    await runDevModeCommandMemoryFlush(params, postCompactEntry);
   }
   // Use the post-compaction token count for context summary if available
   const tokensAfterCompaction = result.result?.tokensAfter;

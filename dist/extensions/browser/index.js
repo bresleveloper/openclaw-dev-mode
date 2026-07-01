@@ -1,5 +1,5 @@
 import { t as definePluginEntry } from "../../plugin-entry-BZpzqykQ.js";
-import { i as registerBrowserPlugin, n as browserPluginReload, r as browserSecurityAuditCollectors, t as browserPluginNodeHostCommands } from "../../plugin-registration-Asw-fsYf.js";
+import { i as registerBrowserPlugin, n as browserPluginReload, r as browserSecurityAuditCollectors, t as browserPluginNodeHostCommands } from "../../plugin-registration-Dapd0_U3.js";
 //#region extensions/browser/index.ts
 /**
 * Browser plugin entry. It wires the browser tool, gateway request handler,

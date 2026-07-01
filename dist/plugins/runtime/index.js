@@ -34,7 +34,7 @@ import { n as summarizeTaskRecords } from "../../task-registry.summary-BwpoHlXv.
 import { t as resolveAgentTimeoutMs } from "../../timeout-Drw0_zOv.js";
 import { a as createLazyRuntimeSurface, n as createLazyRuntimeMethodBinder, r as createLazyRuntimeModule, t as createLazyRuntimeMethod } from "../../lazy-runtime-D-7_JraP.js";
 import "../../media-services-CvavqnxN.js";
-import { a as generateMusic, o as listRuntimeMusicGenerationProviders } from "../../openclaw-tools-Db0qCP58.js";
+import { a as generateMusic, o as listRuntimeMusicGenerationProviders } from "../../openclaw-tools-CUg87Oi7.js";
 import { n as listRuntimeImageGenerationProviders, t as generateImage } from "../../runtime-DAd7d7RH.js";
 import { n as loadWebMedia } from "../../web-media-DnX3imnL.js";
 import { n as resolveAgentIdentity } from "../../identity-Bc-uwZ_Y.js";
@@ -44,7 +44,7 @@ import { g as isVoiceCompatibleAudio } from "../../media-runtime-BGWQwoXi.js";
 import { n as listRuntimeVideoGenerationProviders, t as generateVideo } from "../../runtime-D0QjEjym.js";
 import { a as runWebSearch, r as listWebSearchProviders } from "../../runtime-C5yTEi2_.js";
 import { i as setGatewaySubagentRuntime, n as gatewaySubagentState, r as setGatewayNodesRuntime, t as clearGatewaySubagentRuntime } from "../../gateway-bindings-6VdB9O0r.js";
-import { t as createRuntimeChannel } from "../../runtime-channel-DrqtYbj5.js";
+import { t as createRuntimeChannel } from "../../runtime-channel-C33Sh9zx.js";
 //#region src/plugins/runtime/runtime-cache.ts
 /** Defines a lazily computed enumerable property on a runtime facade. */
 function defineCachedValue(target, key, create) {
@@ -64,7 +64,7 @@ function defineCachedValue(target, key, create) {
 }
 //#endregion
 //#region src/plugins/runtime/runtime-agent.ts
-const loadEmbeddedAgentRuntime = createLazyRuntimeModule(() => import("../../runtime-embedded-agent.runtime-CW3j9iPm.js"));
+const loadEmbeddedAgentRuntime = createLazyRuntimeModule(() => import("../../runtime-embedded-agent.runtime-DVFk8upf.js"));
 function resolveRuntimeThinkingCatalog(params) {
 	if (params.catalog) return params.catalog;
 	const configuredCatalog = buildConfiguredModelCatalog({ cfg: getRuntimeConfig() });
@@ -267,7 +267,7 @@ function formatNativeDependencyHint(params) {
 }
 //#endregion
 //#region src/plugins/runtime/runtime-system.ts
-const runHeartbeatOnceInternal = createLazyRuntimeMethod(createLazyRuntimeModule(() => import("../../heartbeat-runner-BC0_k3QI.js")), (runtime) => runtime.runHeartbeatOnce);
+const runHeartbeatOnceInternal = createLazyRuntimeMethod(createLazyRuntimeModule(() => import("../../heartbeat-runner-tGyrV9fl.js")), (runtime) => runtime.runHeartbeatOnce);
 /** Creates the plugin runtime system facade with heartbeat/event/process helpers. */
 function createRuntimeSystem() {
 	const requestHeartbeatNow = (opts) => requestHeartbeat({
@@ -761,7 +761,7 @@ function createRuntimeTasks(params) {
 }
 //#endregion
 //#region src/plugins/runtime/index.ts
-const loadTtsRuntime = createLazyRuntimeModule(() => import("../../tts-BuWZOfxP.js"));
+const loadTtsRuntime = createLazyRuntimeModule(() => import("../../tts-BFqPjlSm.js"));
 const loadMediaUnderstandingRuntime = createLazyRuntimeModule(() => import("../../runtime-Bs8ewvb7.js"));
 const loadModelAuthRuntime = createLazyRuntimeModule(() => import("../../runtime-model-auth.runtime-Db8G6cCa.js"));
 function createRuntimeTts() {

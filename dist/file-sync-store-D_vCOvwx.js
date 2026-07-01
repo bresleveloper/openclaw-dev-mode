@@ -1,2 +1,0 @@
-import { a as writeMatrixSyncCacheStateToStore, i as readLegacyMatrixSyncCacheState, n as hasMatrixSyncCacheStateInStore, r as openMatrixSyncCacheStoreOptions, t as SqliteBackedMatrixSyncStore } from "./file-sync-store-D9V_FXfj.js";
-export { SqliteBackedMatrixSyncStore, hasMatrixSyncCacheStateInStore, openMatrixSyncCacheStoreOptions, readLegacyMatrixSyncCacheState, writeMatrixSyncCacheStateToStore };

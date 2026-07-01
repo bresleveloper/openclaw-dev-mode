@@ -1,2 +1,2 @@
-import { t as whatsappPlugin } from "../../channel-BfpCQIQP.js";
+import { t as whatsappPlugin } from "../../channel-Dh8ma3DD.js";
 export { whatsappPlugin };

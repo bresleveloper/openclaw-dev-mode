@@ -23,9 +23,9 @@ import { n as callGatewayFromCli } from "../../gateway-rpc-U_rAVUBs.js";
 import "../../channel-actions-CdLhqkfP.js";
 import { n as getRealtimeTranscriptionProvider, r as listRealtimeTranscriptionProviders } from "../../provider-registry-CJjxsNup.js";
 import "../../realtime-transcription-B-LztVAZ.js";
-import { A as buildRealtimeVoiceAgentConsultWorkingResponse, F as resolveRealtimeVoiceAgentConsultTools, H as createTalkSessionController, I as resolveRealtimeVoiceAgentConsultToolsAllow, Q as REALTIME_VOICE_AUDIO_FORMAT_PCM16_24KHZ, W as recordTalkObservabilityEvent, Z as REALTIME_VOICE_AUDIO_FORMAT_G711_ULAW_8KHZ, a as recordRealtimeVoiceBridgeEvent, c as resolveConfiguredRealtimeVoiceProvider, i as isLikelyRealtimeVoiceAssistantEchoTranscript, n as getRealtimeVoiceBridgeEventHealth, o as recordRealtimeVoiceTranscript, r as getRealtimeVoiceTranscriptHealth, s as createRealtimeVoiceBridgeSession, t as extendRealtimeVoiceOutputEchoSuppression } from "../../session-log-runtime-C_Yx6Os4.js";
-import { c as consultRealtimeVoiceAgent, i as resamplePcm, l as createRealtimeVoiceOutputActivityTracker, n as mulawToPcm, s as createRealtimeVoiceAgentTalkbackQueue, t as convertPcmToMulaw8k } from "../../realtime-voice-CKve1i7t.js";
-import { a as buildGoogleMeetCalendarDayWindow, i as resolveGoogleMeetGatewayOperationTimeoutMs, n as DEFAULT_GOOGLE_MEET_AUDIO_OUTPUT_COMMAND, o as findGoogleMeetCalendarEvent, r as resolveGoogleMeetConfig, s as listGoogleMeetCalendarEvents, t as DEFAULT_GOOGLE_MEET_AUDIO_INPUT_COMMAND } from "../../config-Dgns1VyV.js";
+import { A as buildRealtimeVoiceAgentConsultWorkingResponse, F as resolveRealtimeVoiceAgentConsultTools, H as createTalkSessionController, I as resolveRealtimeVoiceAgentConsultToolsAllow, Q as REALTIME_VOICE_AUDIO_FORMAT_PCM16_24KHZ, W as recordTalkObservabilityEvent, Z as REALTIME_VOICE_AUDIO_FORMAT_G711_ULAW_8KHZ, a as recordRealtimeVoiceBridgeEvent, c as resolveConfiguredRealtimeVoiceProvider, i as isLikelyRealtimeVoiceAssistantEchoTranscript, n as getRealtimeVoiceBridgeEventHealth, o as recordRealtimeVoiceTranscript, r as getRealtimeVoiceTranscriptHealth, s as createRealtimeVoiceBridgeSession, t as extendRealtimeVoiceOutputEchoSuppression } from "../../session-log-runtime-sscjHiOo.js";
+import { c as consultRealtimeVoiceAgent, i as resamplePcm, l as createRealtimeVoiceOutputActivityTracker, n as mulawToPcm, s as createRealtimeVoiceAgentTalkbackQueue, t as convertPcmToMulaw8k } from "../../realtime-voice-DIyV8uFc.js";
+import { a as buildGoogleMeetCalendarDayWindow, i as resolveGoogleMeetGatewayOperationTimeoutMs, n as DEFAULT_GOOGLE_MEET_AUDIO_OUTPUT_COMMAND, o as findGoogleMeetCalendarEvent, r as resolveGoogleMeetConfig, s as listGoogleMeetCalendarEvents, t as DEFAULT_GOOGLE_MEET_AUDIO_INPUT_COMMAND } from "../../config-X-RkXxDZ.js";
 import { a as isSameMeetUrlForReuse, c as resolveChromeNode, f as endGoogleMeetActiveConference, g as fetchLatestGoogleMeetConferenceRecord, h as fetchGoogleMeetSpace, i as callBrowserProxyOnNode, l as resolveChromeNodeInfo, m as fetchGoogleMeetAttendance, n as isGoogleMeetBrowserManualActionError, o as normalizeMeetUrlForReuse, p as fetchGoogleMeetArtifacts, r as asBrowserTabs, s as readBrowserTab, t as createMeetWithBrowserProxyOnNode, u as buildGoogleMeetPreflightReport } from "../../chrome-create-CWYuRU5A.js";
 import fs from "node:fs";
 import path from "node:path";
@@ -3745,7 +3745,7 @@ const loadGoogleMeetCreateModule = async () => {
 	return await googleMeetCreateModulePromise;
 };
 const loadGoogleMeetCliModule = async () => {
-	googleMeetCliModulePromise ??= import("../../cli-DrIB012B.js");
+	googleMeetCliModulePromise ??= import("../../cli-BlWI9NJL.js");
 	return await googleMeetCliModulePromise;
 };
 const googleMeetConfigSchema = {

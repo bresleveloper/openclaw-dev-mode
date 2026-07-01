@@ -4,12 +4,12 @@ import { t as formatCliCommand } from "../../command-format-2N79m0dg.js";
 import { m as resolveUserPath, t as CONFIG_DIR } from "../../utils-BApvfmPs.js";
 import "../../string-coerce-runtime-BiZzULo_.js";
 import { t as note } from "../../note-DXV6Ywsc.js";
-import { q as DEFAULT_OPENCLAW_BROWSER_PROFILE_NAME } from "../../cdp.helpers-C19acCN_.js";
-import { n as resolveBrowserConfig } from "../../config-D088GH3E.js";
+import { q as DEFAULT_OPENCLAW_BROWSER_PROFILE_NAME } from "../../cdp.helpers-DjkDekqM.js";
+import { n as resolveBrowserConfig } from "../../config-BwszNDug.js";
 import { i as resolveGoogleChromeExecutableForPlatform, n as readBrowserVersion, r as resolveBrowserExecutableForPlatform, t as parseBrowserMajorVersion } from "../../chrome.executables-DvH2zS5y.js";
 import { t as movePathToTrash } from "../../trash-00aTYAZz.js";
 import "../../record-shared-BC2jwWVC.js";
-import "../../sdk-setup-tools-LmpYDnVp.js";
+import "../../sdk-setup-tools-CKCfhyIA.js";
 import fs from "node:fs";
 import path from "node:path";
 //#region extensions/browser/src/doctor-browser.ts

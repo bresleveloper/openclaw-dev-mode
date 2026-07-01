@@ -5,8 +5,8 @@ import { t as asBoolean } from "../../boolean-CrriykWV.js";
 import "../../number-runtime-DBLVDypr.js";
 import "../../string-coerce-runtime-BiZzULo_.js";
 import "../../secret-input-Dq7Mxf9Y.js";
-import { Q as REALTIME_VOICE_AUDIO_FORMAT_PCM16_24KHZ, T as REALTIME_VOICE_AGENT_CONSULT_TOOL_NAME, Z as REALTIME_VOICE_AUDIO_FORMAT_G711_ULAW_8KHZ } from "../../session-log-runtime-C_Yx6Os4.js";
-import { i as resamplePcm, n as mulawToPcm, t as convertPcmToMulaw8k } from "../../realtime-voice-CKve1i7t.js";
+import { Q as REALTIME_VOICE_AUDIO_FORMAT_PCM16_24KHZ, T as REALTIME_VOICE_AGENT_CONSULT_TOOL_NAME, Z as REALTIME_VOICE_AUDIO_FORMAT_G711_ULAW_8KHZ } from "../../session-log-runtime-sscjHiOo.js";
+import { i as resamplePcm, n as mulawToPcm, t as convertPcmToMulaw8k } from "../../realtime-voice-DIyV8uFc.js";
 import { t as createGoogleGenAI } from "../../google-genai-runtime-CMlucVkZ.js";
 import { randomUUID } from "node:crypto";
 //#region extensions/google/realtime-voice-provider.ts

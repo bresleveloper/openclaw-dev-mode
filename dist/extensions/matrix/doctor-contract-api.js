@@ -1,8 +1,8 @@
 import { n as normalizeCompatibilityConfig, t as legacyConfigRules } from "../../doctor-contract-7u8eojML.js";
 import { D as writeMatrixRecoveryKeyStateToStore, S as writeMatrixIdbSnapshotJsonToStore, a as hasMatrixLegacyCryptoMigrationStateInStore, d as openMatrixLegacyCryptoMigrationStoreOptions, f as openMatrixRecoveryKeyStoreOptions, h as readLegacyMatrixRecoveryKeyState, i as hasMatrixIdbSnapshotStateInStore, n as MATRIX_LEGACY_CRYPTO_MIGRATION_FILENAME, o as hasMatrixRecoveryKeyStateInStore, p as readLegacyMatrixLegacyCryptoMigrationState, r as MATRIX_RECOVERY_KEY_FILENAME, t as MATRIX_IDB_SNAPSHOT_FILENAME, u as openMatrixIdbSnapshotStoreOptions, w as writeMatrixLegacyCryptoMigrationStateToStore } from "../../crypto-state-store-q3JvdnSr.js";
-import { a as openMatrixStorageMetaStoreOptions, i as normalizeMatrixStorageMetadata, n as hasMatrixStorageMetaStateInStore, u as writeMatrixStorageMetaStateToStore } from "../../storage-D73WyWDP.js";
-import { a as writeMatrixSyncCacheStateToStore, i as readLegacyMatrixSyncCacheState, n as hasMatrixSyncCacheStateInStore, r as openMatrixSyncCacheStoreOptions } from "../../file-sync-store-D9V_FXfj.js";
-import { n as readLegacyMatrixIdbSnapshotState } from "../../idb-persistence-SDFD3YN9.js";
+import { a as openMatrixStorageMetaStoreOptions, i as normalizeMatrixStorageMetadata, n as hasMatrixStorageMetaStateInStore, u as writeMatrixStorageMetaStateToStore } from "../../storage-BpR511ch.js";
+import { a as writeMatrixSyncCacheStateToStore, i as readLegacyMatrixSyncCacheState, n as hasMatrixSyncCacheStateInStore, r as openMatrixSyncCacheStoreOptions } from "../../file-sync-store-Coxe3DFZ.js";
+import { n as readLegacyMatrixIdbSnapshotState } from "../../idb-persistence-DpQd7rqc.js";
 import path from "node:path";
 import fs from "node:fs/promises";
 //#region extensions/matrix/doctor-contract-api.ts

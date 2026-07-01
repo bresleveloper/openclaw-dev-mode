@@ -7,11 +7,11 @@ import "../../secret-input-Dq7Mxf9Y.js";
 import "../../setup-tools-BFV5lpXK.js";
 import { o as isPrivateNetworkOptInEnabled } from "../../ssrf-policy-B35YwKq4.js";
 import { n as redactCdpUrl } from "../../browser-config-BPzc9xWq.js";
-import { i as resolveProfile, n as resolveBrowserConfig } from "../../config-D088GH3E.js";
-import { n as resolveBrowserControlAuth } from "../../control-auth-Ditgt4sR.js";
+import { i as resolveProfile, n as resolveBrowserConfig } from "../../config-BwszNDug.js";
+import { n as resolveBrowserControlAuth } from "../../control-auth-0bU-zNYW.js";
 import { t as hasNonEmptyString } from "../../record-shared-BC2jwWVC.js";
-import { t as runBrowserProxyCommand } from "../../core-api-CZ9qCxwE.js";
-import { i as createBrowserTool, r as handleBrowserGatewayRequest, t as createBrowserPluginService } from "../../plugin-service-WwuLu23C.js";
+import { t as runBrowserProxyCommand } from "../../core-api-BMwxQVEc.js";
+import { i as createBrowserTool, r as handleBrowserGatewayRequest, t as createBrowserPluginService } from "../../plugin-service-BIBBn5Vq.js";
 //#region extensions/browser/src/security-audit.ts
 const BLOCKED_HOSTNAMES = new Set([
 	"localhost",

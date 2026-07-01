@@ -1,7 +1,7 @@
 import { c as isRecord } from "../../utils-BApvfmPs.js";
 import "../../string-coerce-runtime-BiZzULo_.js";
 import { t as definePluginEntry } from "../../plugin-entry-BZpzqykQ.js";
-import { n as migrateVoiceCallLegacyConfigInput } from "../../config-compat-DBNkEXpS.js";
+import { n as migrateVoiceCallLegacyConfigInput } from "../../config-compat-Dfyq_2hC.js";
 //#region extensions/voice-call/setup-api.ts
 /** Migrate voice-call plugin config inside the full OpenClaw config object. */
 function migrateVoiceCallPluginConfig(config) {

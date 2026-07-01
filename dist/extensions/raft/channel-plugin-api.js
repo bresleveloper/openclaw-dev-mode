@@ -2,8 +2,8 @@ import { At as boolean, Nn as record, Rn as string, Tn as object } from "../../s
 import { r as buildChannelConfigSchema } from "../../config-schema-BlCHjLEp.js";
 import { t as KeyedAsyncQueue } from "../../keyed-async-queue-Ckmdd15z.js";
 import { n as describeAccountSnapshot } from "../../account-helpers-DihevCTm.js";
-import { i as createChatChannelPlugin } from "../../core-BxMlPHl5.js";
-import "../../channel-core-BmBqa93r.js";
+import { i as createChatChannelPlugin } from "../../core-D6I8wZcD.js";
+import "../../channel-core-DIHEayQQ.js";
 import { a as waitUntilAbort, r as keepHttpServerTaskAlive } from "../../channel-lifecycle.core-Bfh0_sXw.js";
 import "../../channel-config-schema-D8GRr35Q.js";
 import { t as detectBinary } from "../../detect-binary-BOttq7rY.js";

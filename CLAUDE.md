@@ -174,6 +174,7 @@ Each one is a minimal `if (isDevMode()) { ... }` check in the relevant source fi
 | FIX-03  | `src/status/status-message.ts`                                                   | `selectionConfig` merges `args.config.agents.defaults` with per-agent override (was per-agent only — caused fallthrough to `DEFAULT_MODEL = "gpt-5.5"` when global default was set but per-agent had no `model` field). Also adds `⚙️ Runtime:` line below `🧠 Model:` so config-vs-runtime drift is visible without log-tailing. Both changes upstream-worthy — see `dev-mode/fix-03.md` |
 | FIX-04  | `src/auto-reply/reply/commands-reset.ts`                                         | Gates the hardcoded ACK behind `!isDevMode()` — dev-mode falls through to `null`, restoring the greeting flow via `BARE_SESSION_RESET_PROMPT_BASE`. Affects inbound `/new` and `/reset` on all message channels; TUI `/new` is unaffected. |
 | FIX-05  | `src/auto-reply/reply/session.ts`                                                | `skipImplicitExpiry` includes `isDevMode()` when reset not explicitly configured — prevents daily session rollover in dev-mode. Sessions pile up indefinitely unless `session.reset` is explicitly set. |
+| FIX-06  | `src/auto-reply/reply/dev-mode-memory-flush.ts` + `commands-compact.ts` + `commands-reset.ts` | Dev-mode best-effort memory flush on `/compact` and `/new` — flushes a dated `memory/YYYY-MM-DD.md` immediately instead of waiting for the next inbound message (which for `/new` never comes, since the session is wiped first). Standalone helper synthesizes a `FollowupRun` from `HandleCommandsParams` and calls `runMemoryFlushIfNeeded()`; catches `ReplyRunAlreadyActiveError` to skip silently if the session lane is busy. |
 
 ## Tool Restrictions (SEC-16 Analysis)
 
@@ -218,7 +219,7 @@ Per group chat restrictions via channel "dock". No hardcoded defaults.
 
 Infrastructure (1): `src/globals.ts`
 
-Security items — src/ (18): `system-prompt.ts` (SEC-15a + SEC-98), `channel-metadata.ts`, `untrusted-context.ts`, `onboard-config.ts`, `web-fetch.ts`, `config-cli.ts`, `control-plane-rate-limit.ts`, `translator.ts`, `tool-resolution.ts` (SEC-100), `agent-tools.ts` (SEC-101), `local-media-access.ts` (SEC-102), `workspace.ts`, `redact-snapshot.raw.ts` + `redact-snapshot.ts` + `types.openclaw.ts` (SEC-97), `reply-elevated.ts` (SEC-99), `commands-reset.ts` (FIX-04), `session.ts` (FIX-05)
+Security items — src/ (20): `system-prompt.ts` (SEC-15a + SEC-98), `channel-metadata.ts`, `untrusted-context.ts`, `onboard-config.ts`, `web-fetch.ts`, `config-cli.ts`, `control-plane-rate-limit.ts`, `translator.ts`, `tool-resolution.ts` (SEC-100), `agent-tools.ts` (SEC-101), `local-media-access.ts` (SEC-102), `workspace.ts`, `redact-snapshot.raw.ts` + `redact-snapshot.ts` + `types.openclaw.ts` (SEC-97), `reply-elevated.ts` (SEC-99), `commands-reset.ts` (FIX-04), `session.ts` (FIX-05), `dev-mode-memory-flush.ts` (FIX-06), `commands-compact.ts` (FIX-06)
 
 Security items — ui/ (6, all SEC-97): `ui/src/ui/types.ts`, `ui/src/ui/views/config.ts`, `ui/src/ui/app-render.ts` (skip Quick Settings, force raw view, bypass reveal blur); `ui/src/ui/app.ts`, `ui/src/ui/controllers/config.ts`, `ui/src/ui/dev-mode-boot.ts` (localStorage `openclaw:devMode` hint pre-flips state at `@state()` initializer time so the first paint after a reload skips the Quick-Settings flash)
 

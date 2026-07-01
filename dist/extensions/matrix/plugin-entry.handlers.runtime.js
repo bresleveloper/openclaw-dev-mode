@@ -4,7 +4,7 @@ import { t as formatMatrixErrorMessage } from "../../errors-CvSDN3fI.js";
 //#region extensions/matrix/src/plugin-entry.runtime.ts
 let matrixVerificationRuntimePromise;
 function loadMatrixVerificationRuntime() {
-	matrixVerificationRuntimePromise ??= import("../../verification-TcuXj-UJ.js");
+	matrixVerificationRuntimePromise ??= import("../../verification-C4lRMfAD.js");
 	return matrixVerificationRuntimePromise;
 }
 function sendError(respond, err) {

@@ -1,2 +1,2 @@
-import { o as formatLocationText, s as toLocationContext } from "../channel-inbound-BD86dwuq.js";
+import { o as formatLocationText, s as toLocationContext } from "../channel-inbound-DJRlEEHe.js";
 export { formatLocationText, toLocationContext };
