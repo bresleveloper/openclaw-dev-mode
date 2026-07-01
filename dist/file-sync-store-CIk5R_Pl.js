@@ -1,0 +1,2 @@
+import { a as writeMatrixSyncCacheStateToStore, i as readLegacyMatrixSyncCacheState, n as hasMatrixSyncCacheStateInStore, r as openMatrixSyncCacheStoreOptions, t as SqliteBackedMatrixSyncStore } from "./file-sync-store-Coxe3DFZ.js";
+export { SqliteBackedMatrixSyncStore, hasMatrixSyncCacheStateInStore, openMatrixSyncCacheStoreOptions, readLegacyMatrixSyncCacheState, writeMatrixSyncCacheStateToStore };
