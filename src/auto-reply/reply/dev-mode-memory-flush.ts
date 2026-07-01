@@ -92,6 +92,12 @@ export async function runDevModeCommandMemoryFlush(
     }
   }
 
+  // Clear memoryFlushCompactionCount so hasAlreadyFlushedForCurrentCompaction
+  // doesn't block this explicit command-triggered flush.
+  const entryForFlush: SessionEntry | undefined = targetSessionEntry
+    ? { ...targetSessionEntry, memoryFlushCompactionCount: undefined }
+    : undefined;
+
   try {
     await runMemoryFlushIfNeeded({
       cfg: params.cfg,
@@ -101,7 +107,7 @@ export async function runDevModeCommandMemoryFlush(
       defaultModel: params.model,
       agentCfgContextTokens: params.contextTokens,
       resolvedVerboseLevel: params.resolvedVerboseLevel,
-      sessionEntry: targetSessionEntry,
+      sessionEntry: entryForFlush,
       sessionStore: params.sessionStore,
       sessionKey: params.sessionKey,
       storePath: params.storePath,
