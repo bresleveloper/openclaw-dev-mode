@@ -1,2 +1,2 @@
-import { t as buildClaudeMigrationProvider } from "../../provider-DO9zlOL_.js";
+import { t as buildClaudeMigrationProvider } from "../../provider-CmxAc2k2.js";
 export { buildClaudeMigrationProvider };

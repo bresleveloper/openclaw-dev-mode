@@ -33,7 +33,7 @@ import {
 import { updateSessionEntry } from "../../config/sessions/session-accessor.js";
 import type { OpenClawConfig } from "../../config/types.openclaw.js";
 import { readSessionMessagesAsync } from "../../gateway/session-utils.fs.js";
-import { logVerbose } from "../../globals.js";
+import { isDevMode, logVerbose } from "../../globals.js";
 import { emitAgentEvent, registerAgentRunContext } from "../../infra/agent-events.js";
 import { formatErrorMessage } from "../../infra/errors.js";
 import { isAbortError } from "../../infra/unhandled-rejections.js";
@@ -1258,7 +1258,7 @@ export async function runMemoryFlushIfNeeded(params: {
         reserveTokensFloor: memoryFlushPlan.reserveTokensFloor,
         softThresholdTokens: memoryFlushPlan.softThresholdTokens,
       })) ||
-    (shouldForceFlushByTranscriptSize &&
+    ((shouldForceFlushByTranscriptSize || isDevMode()) &&
       entry != null &&
       !hasAlreadyFlushedForCurrentCompaction(entry));
 

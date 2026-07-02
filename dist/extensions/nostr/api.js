@@ -12,7 +12,7 @@ import { a as createFixedWindowRateLimiter } from "../../webhook-ingress-CW_aYwb
 import "../../runtime-api-BDj_R_XH.js";
 import { n as NostrProfileSchema } from "../../config-schema-CvYBGqyW.js";
 import { a as resolveNostrAccount, c as SimplePool, d as verifyEvent } from "../../setup-surface-CpDO7IYB.js";
-import { a as setNostrRuntime, i as getNostrRuntime, n as nostrPlugin, o as contentToProfile, r as publishNostrProfile, t as getNostrProfileState } from "../../channel-CihqaSfk.js";
+import { a as setNostrRuntime, i as getNostrRuntime, n as nostrPlugin, o as contentToProfile, r as publishNostrProfile, t as getNostrProfileState } from "../../channel-am-4gAs_.js";
 //#region extensions/nostr/src/nostr-profile-url-safety.ts
 function validateUrlSafety(urlStr) {
 	try {

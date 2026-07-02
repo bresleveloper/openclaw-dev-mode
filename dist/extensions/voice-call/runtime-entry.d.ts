@@ -3,7 +3,7 @@ import { B as ZodLiteral, C as ZodEnum, Mi as output, Q as ZodOptional, Y as Zod
 import { $n as PluginRuntime, Gn as RealtimeTranscriptionProviderPlugin, Kn as RealtimeVoiceProviderPlugin, ba as RealtimeTranscriptionProviderConfig, fa as RealtimeVoiceProviderConfig, ll as TtsDirectiveOverrides } from "../../types-BVLQjFJF.js";
 import { Gt as TalkEvent } from "../../diagnostic-events-DCf7gQeN.js";
 import { g as OpenClawPluginApi } from "../../plugin-entry-DpILbQ7M.js";
-import { u as TtsConfigSchema } from "../../zod-schema.core-DbXedOVd.js";
+import { u as TtsConfigSchema } from "../../zod-schema.core-BgPVJ1zS.js";
 import { Duplex } from "node:stream";
 import http, { IncomingMessage } from "node:http";
 

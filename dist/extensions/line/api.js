@@ -1,5 +1,5 @@
-import { n as lineChannelPluginCommon, t as linePlugin } from "../../channel-BsAbCZF9.js";
-import { n as lineSetupAdapter, t as lineSetupWizard } from "../../setup-surface-YV4dmnH7.js";
+import { n as lineChannelPluginCommon, t as linePlugin } from "../../channel-DUp0IiFE.js";
+import { n as lineSetupAdapter, t as lineSetupWizard } from "../../setup-surface-B7-nJmD0.js";
 //#region extensions/line/src/channel.setup.ts
 const lineSetupPlugin = {
 	id: "line",

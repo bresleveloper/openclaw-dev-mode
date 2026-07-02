@@ -14,7 +14,7 @@ import { n as formatPairingApproveHint } from "../../helpers-DQ9vpV-i.js";
 import { t as PAIRING_APPROVED_MESSAGE } from "../../pairing-message-CFjlYpMw.js";
 import { n as resolveConfiguredFromCredentialStatuses, t as projectCredentialSnapshotFields } from "../../channel-status-CcxTmJiw.js";
 import { o as buildTokenChannelStatusSummary } from "../../status-helpers-C_97WjYU.js";
-import { c as TelegramConfigSchema } from "../../bundled-channel-config-schema-CSnYxYZB.js";
+import { c as TelegramConfigSchema } from "../../bundled-channel-config-schema-3SbkAnAk.js";
 import { t as getChatChannelMeta } from "../../channel-plugin-common-B_-6NE3L.js";
 import { r as makeProxyFetch } from "../../proxy-fetch-DPt1dxTl.js";
 import { a as deleteMessageTelegram, c as editMessageTelegram, d as renameForumTopicTelegram, f as sendMessageTelegram, g as unpinMessageTelegram, h as sendTypingTelegram, i as createForumTopicTelegram, l as pinMessageTelegram, m as sendStickerTelegram, o as editForumTopicTelegram, p as sendPollTelegram, r as TelegramApiOverride, s as editMessageReplyMarkupTelegram, t as setTelegramRuntime, u as reactMessageTelegram } from "../../runtime-CjZ2tW7v.js";

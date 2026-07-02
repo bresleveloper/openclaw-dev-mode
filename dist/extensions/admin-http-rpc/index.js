@@ -1,7 +1,7 @@
 import { c as isRecord } from "../../utils-BApvfmPs.js";
 import "../../string-coerce-runtime-BiZzULo_.js";
 import { t as definePluginEntry } from "../../plugin-entry-BZpzqykQ.js";
-import { t as dispatchGatewayMethod } from "../../gateway-method-runtime-COgJ4x10.js";
+import { t as dispatchGatewayMethod } from "../../gateway-method-runtime-CiQaIGVu.js";
 import { randomUUID } from "node:crypto";
 //#region extensions/admin-http-rpc/src/methods.ts
 const ADMIN_HTTP_RPC_ALLOWED_METHODS = new Set(Object.values({

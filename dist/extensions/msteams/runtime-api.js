@@ -15,7 +15,7 @@ import { t as createChannelReplyPipeline } from "../../reply-pipeline-up_QEfXn.j
 import { r as keepHttpServerTaskAlive } from "../../channel-lifecycle.core-Bfh0_sXw.js";
 import { f as summarizeMapping, u as mergeAllowlist } from "../../allow-from-Do0efkdl.js";
 import { n as isDangerousNameMatchingEnabled } from "../../dangerous-name-matching-Z6nhxFXz.js";
-import { o as dispatchReplyFromConfigWithSettledDispatcher } from "../../inbound-reply-dispatch-COPdmoGx.js";
+import { o as dispatchReplyFromConfigWithSettledDispatcher } from "../../inbound-reply-dispatch-Ct1RZLjR.js";
 import { r as logTypingFailure } from "../../logging-gUWPKC5g.js";
 import { n as loadOutboundMediaFromUrl } from "../../outbound-media-BtSFem1l.js";
 import { n as DEFAULT_WEBHOOK_MAX_BODY_BYTES } from "../../http-body-D0D_Oy5v.js";
@@ -23,5 +23,5 @@ import { t as PAIRING_APPROVED_MESSAGE } from "../../pairing-message-DNhqI-OE.js
 import { d as createDefaultChannelRuntimeState, i as buildProbeChannelStatusSummary } from "../../status-helpers-DjJ0OuL_.js";
 import { n as createChannelPairingController } from "../../channel-pairing-BhZI8NmU.js";
 import { r as setMSTeamsRuntime } from "../../runtime-6g-cPOGH.js";
-import "../../runtime-api-uRssbu2G.js";
+import "../../runtime-api-BtQeJPtO.js";
 export { DEFAULT_ACCOUNT_ID, DEFAULT_WEBHOOK_MAX_BODY_BYTES, PAIRING_APPROVED_MESSAGE, buildChannelKeyCandidates, buildMediaPayload, buildProbeChannelStatusSummary, chunkTextForOutbound, createChannelReplyPipeline as createChannelMessageReplyPipeline, createChannelPairingController, createDefaultChannelRuntimeState, detectMime, dispatchReplyFromConfigWithSettledDispatcher, extensionForMime, extractOriginalFilename, fetchWithSsrFGuard, getFileExtension, isDangerousNameMatchingEnabled, keepHttpServerTaskAlive, loadOutboundMediaFromUrl, logTypingFailure, mergeAllowlist, normalizeChannelSlug, normalizeStringEntries, resolveAllowlistMatchSimple, resolveChannelEntryMatchWithFallback, resolveChannelMediaMaxBytes, resolveDefaultGroupPolicy, resolveNestedAllowlistDecision, resolveToolsBySender, setMSTeamsRuntime, summarizeMapping, withFileLock };
