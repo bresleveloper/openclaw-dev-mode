@@ -22,7 +22,7 @@ Upstream re-introduces things this fork doesn't want. Each item below is recurri
 3. **Keep-ours on `README.md`** — the fork's "OpenClaw Dev Mode" landing page (NOT a SEC patch).
 4. **Stage dist with `git add -f dist/`** — `dist/` is in `.gitignore` but tracked; `git add -A` skips NEW dist chunks from the build and the first VPS gateway start fails with `Cannot find module`. See the ⚠️ note in Build & Deploy.
 5. **Restore `dist/extensions/tlon` from git** before committing — pnpm build on Windows dirties those files as a symlink artifact. `git checkout -- dist/extensions/tlon`.
-6. **Re-verify dev-mode patches survived** — quick grep for a few `isDevMode()` anchors in src/ and `grep -rl attachWaHistoryLogger /opt/openclaw-dev-mode/dist/` on the VPS after deploy.
+6. **Re-verify dev-mode patches survived** — quick grep for a few `isDevMode()` anchors in src/ and `grep -rl __waClawSockTap /opt/openclaw-dev-mode/dist/` on the VPS after deploy.
 
 ## Dev Environment
 
@@ -59,7 +59,7 @@ Never log VPS connection details (IP, port) in commits or output.
 - **CLI wrapper**: `/usr/local/bin/openclaw` (runs `node /opt/openclaw-dev-mode/openclaw.mjs`)
 - **OpenClaw home**: `~/.openclaw/` (config, credentials, sessions, workspace, etc.)
 - **Config**: `~/.openclaw/openclaw.json`
-- **Env**: `~/.openclaw/.env` (contains `OPENCLAW_DEV_MODE=1`, `OPENCLAW_DEV_MODE_WA_THINKING_MESSAGES=1`, `OPENCLAW_DEV_MODE_WA_SAVE_MESSAGES=1`)
+- **Env**: `~/.openclaw/.env` (contains `OPENCLAW_DEV_MODE=1` and `OPENCLAW_DEV_MODE_WA_THINKING_MESSAGES=1`)
 - **WA credentials**: `~/.openclaw/credentials/whatsapp/default/`
 - **Gateway**: user-level systemd service `openclaw-gateway.service` (at `~/.config/systemd/user/`), port 18789, loopback
 - **Gateway logs**: `/tmp/openclaw/openclaw-YYYY-MM-DD.log` (daily rotation, JSON lines)
@@ -79,7 +79,7 @@ Never log VPS connection details (IP, port) in commits or output.
 
 ## WhatsApp Extension — The Heart of This Fork
 
-**This fork exists to add dev-mode WhatsApp features.** `extensions/whatsapp/` carries SEC-WA1 (💭 thinking messages), the dev-mode history logger, and the self-chat echo filter. It MUST be built and deployed as a first-class artifact — do not assume it "just loads from source."
+**This fork exists to add dev-mode WhatsApp features.** `extensions/whatsapp/` carries SEC-WA1 (💭 thinking messages), the self-chat echo filter, and the wa-claw socket tap (feeds the standalone whatsapp-kapso-claw plugin's WA history recorder). It MUST be built and deployed as a first-class artifact — do not assume it "just loads from source."
 
 ### Why it needs special handling (V2026.5.12)
 
@@ -91,7 +91,7 @@ Upstream V2026.5.12 spun WhatsApp out of the bundled extension set: it's in `EXC
 
 - **Build**: `pnpm build` builds `extensions/whatsapp/` → `dist/extensions/whatsapp/` (+ `dist-runtime/`). `dist/` is committed, so the patched `@openclaw/whatsapp` ships on `main`.
 - **One-time on the VPS** (first deploy after V2026.5.12): remove the stock managed install so the bundled fork build wins — `openclaw plugins uninstall whatsapp` (or `rm -rf ~/.openclaw/extensions/whatsapp`), then `openclaw gateway restart`. Once a bundled WhatsApp exists in `dist/extensions/`, the upgrade repair stops re-installing the ClawHub package (it skips `origin: "bundled"` entries).
-- **Verify after EVERY deploy**: `grep -rl attachWaHistoryLogger /opt/openclaw-dev-mode/dist/` must be non-empty — the fork's WhatsApp runtime code bundles into root-level `dist/*.js` hashed chunks (`session-*.js`, `monitor-*.js`, `wa-history-*.js`), NOT into `dist/extensions/whatsapp/` (that dir holds only re-export stubs that import from `../../`). Also: `openclaw plugins list` must show WhatsApp under the `stock` source root, not `global`, and the gateway log should print `[dev-mode] WhatsApp history logger attached`. If a stale `~/.openclaw/extensions/whatsapp/` reappeared, uninstall it and restart.
+- **Verify after EVERY deploy**: `grep -rl __waClawSockTap /opt/openclaw-dev-mode/dist/` must be non-empty — the fork's WhatsApp runtime code bundles into root-level `dist/*.js` hashed chunks (`session-*.js`, `monitor-*.js`), NOT into `dist/extensions/whatsapp/` (that dir holds only re-export stubs that import from `../../`). Also: `openclaw plugins list` must show WhatsApp under the `stock` source root, not `global`, and, when the whatsapp-kapso-claw plugin is installed, the gateway log should show its Baileys tap attaching. If a stale `~/.openclaw/extensions/whatsapp/` reappeared, uninstall it and restart.
 
 ### VPS Deployment
 
@@ -132,7 +132,6 @@ Dev mode is controlled **entirely via env var**. No config file changes.
 # Add to ~/.openclaw/.env
 OPENCLAW_DEV_MODE=1
 OPENCLAW_DEV_MODE_WA_THINKING_MESSAGES=1   # SEC-WA1: 💭 prefix on Ollama reasoning
-OPENCLAW_DEV_MODE_WA_SAVE_MESSAGES=1       # Save all WA messages to SQLite
 OPENCLAW_DEV_MODE_CLEAR_UI=1
 ```
 
@@ -239,7 +238,7 @@ Security items — extensions/ browser (1): `extensions/browser/src/browser/navi
 
 Security items — extensions/ WA (1): `extensions/whatsapp/src/auto-reply/deliver-reply.ts` (SEC-WA1)
 
-Echo + WA history (3): `extensions/whatsapp/src/auto-reply/monitor/on-message.ts` (self-chat reasoning echo filter), `extensions/whatsapp/src/session.ts` (WA history env var gating + `import("./dev-mode/openclaw-whatsapp-claw.js")`), `extensions/whatsapp/src/dev-mode/openclaw-whatsapp-claw.ts` (the history logger — bundles into the WhatsApp extension)
+Echo + wa-claw tap (2): `extensions/whatsapp/src/auto-reply/monitor/on-message.ts` (self-chat reasoning echo filter), `extensions/whatsapp/src/session.ts` (wa-claw Baileys socket tap — source-level equivalent of the whatsapp-kapso-claw plugin's `patch-baileys` dist patch; keep-ours on every merge)
 
 Ollama thinking (1): `extensions/ollama/src/stream.ts` (send `think: true` in request body when dev-mode; upstream handles thinking extraction natively, only the request-side injection remains ours)
 
@@ -445,9 +444,24 @@ Opt-in via `OPENCLAW_DEV_MODE_WA_THINKING_MESSAGES=1` in `.env` (requires `OPENC
 
 **The filter only catches reasoning patterns** — not all bot-prefixed messages. `[openclaw] 🦞 ...` is the user's own self-chat prefix too.
 
-### WhatsApp Message History (dev-mode)
+### WhatsApp Message History — moved to the whatsapp-kapso-claw plugin (2026-07-02)
 
-`extensions/whatsapp/src/dev-mode/wa-history.ts` — Attaches to Baileys socket `messages.upsert` event, saves ALL messages to SQLite at `~/.openclaw/dev-mode/wa-history.db`; also captures group names (`messages.upsert` stub events + `groupFetchAllParticipating` backfill) into a `chats` table. Controlled by `OPENCLAW_DEV_MODE_WA_SAVE_MESSAGES=1` env var (requires `OPENCLAW_DEV_MODE=1`). Activation in `extensions/whatsapp/src/session.ts` via `import("./dev-mode/wa-history.js")`. Lives inside the WhatsApp extension (moved from `dev-mode/` on 2026-05-19) so it bundles natively — a compiled extension cannot resolve a `../../../dev-mode/` cross-boundary import.
+WA message history recording and the WhatsApp Claw panel now live in the standalone
+`whatsapp-kapso-claw` OpenClaw plugin (repo: `C:\Users\Ariel\source\openclaw chaos mode\openclaw-whatsapp-claw`,
+installed on the VPS from its npm-pack tgz). The fork no longer contains a history logger —
+`extensions/whatsapp/src/dev-mode/` was deleted 2026-07-02 and the
+`OPENCLAW_DEV_MODE_WA_SAVE_MESSAGES` env flag is retired.
+
+What the fork DOES carry (keep-ours on every merge): the **wa-claw socket tap** in
+`extensions/whatsapp/src/session.ts`, right before `return sock;`:
+`(globalThis.__waClawSocks ??= []).push(sock); globalThis.__waClawSockTap?.(sock);`
+This is the source-level equivalent of the plugin's `openclaw wa-claw patch-baileys` binary
+dist patch (which only scans ClawHub npm-managed installs and cannot see this fork's bundled
+WhatsApp). The plugin's `installBaileysTap()` drains `__waClawSocks` and registers
+`__waClawSockTap`, so plugin/extension load order doesn't matter. The tap is inert when the
+plugin isn't installed. Panel: served by the plugin on the gateway HTTP listener at
+`/whatsapp-kapso/panel/` (nginx proxies HTTPS :17890 → gateway :18789 for that path).
+Panel auth: `plugins.entries.whatsapp-kapso-claw.config.panelToken` (Bearer).
 
 
 ### V2026.5.4 Upgrade (2026-05-05)
@@ -490,10 +504,4 @@ Opt-in via `OPENCLAW_DEV_MODE_WA_THINKING_MESSAGES=1` in `.env` (requires `OPENC
 dev-mode/
   README.md                       -- Fork install guide and feature table
   list.sec/                       -- Individual implementation plans
-  openclaw-whatsapp-claw/          -- Standalone WhatsApp Claw panel (read-only web UI over wa-history.db)
-
-extensions/whatsapp/src/dev-mode/
-  wa-history.ts                    -- WhatsApp message history logger (SQLite, attached to Baileys
-                                      socket); moved here from dev-mode/ on 2026-05-19 so it bundles
-                                      into the WhatsApp extension
 ```

@@ -232,21 +232,17 @@ export async function createWaSocket(
     });
   }
 
-  // [dev-mode] Attach WhatsApp history logger
-  if (
-    process.env.OPENCLAW_DEV_MODE === "1" &&
-    process.env.OPENCLAW_DEV_MODE_WA_SAVE_MESSAGES === "1"
-  ) {
-    try {
-      const { attachWaHistoryLogger } = await import("./dev-mode/openclaw-whatsapp-claw.js");
-      attachWaHistoryLogger(sock);
-    } catch (err) {
-      console.error(
-        "[dev-mode] attachWaHistoryLogger failed:",
-        err instanceof Error ? err.message : String(err),
-      );
-    }
-  }
+  // [dev-mode] wa-claw socket tap ("wa-claw-tax", keep-ours on every merge): expose the
+  // Baileys socket to the standalone whatsapp-kapso-claw plugin's history recorder.
+  // Source-level equivalent of that plugin's `openclaw wa-claw patch-baileys` dist patch,
+  // which only scans ClawHub npm installs and cannot see this fork's bundled WhatsApp.
+  // Inert when the plugin is not installed.
+  const waClawGlobals = globalThis as unknown as {
+    __waClawSocks?: unknown[];
+    __waClawSockTap?: (sock: unknown) => void;
+  };
+  (waClawGlobals.__waClawSocks ??= []).push(sock);
+  waClawGlobals.__waClawSockTap?.(sock);
 
   return sock;
 }

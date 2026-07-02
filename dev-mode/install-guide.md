@@ -46,10 +46,9 @@ The core dev-mode flag is `OPENCLAW_DEV_MODE=1`. A few features are kept behind 
 ```bash
 # Show model thinking/reasoning on WhatsApp with 💭 prefix
 OPENCLAW_DEV_MODE_WA_THINKING_MESSAGES=1
-
-# Save all WhatsApp messages to SQLite at ~/.openclaw/dev-mode/wa-history.db
-OPENCLAW_DEV_MODE_WA_SAVE_MESSAGES=1
 ```
+
+WA history recording and the WhatsApp Claw panel are provided by the standalone `whatsapp-kapso-claw` plugin (separate install) — see that plugin's own docs.
 
 ## Updating
 

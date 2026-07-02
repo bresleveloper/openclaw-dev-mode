@@ -16,7 +16,7 @@
 1. Some Security easings (see below)
 2. WhatsApp features
    - Show model thinking/reasoning messages (`💭 Reasoning:` prefix, OpenAI + Ollama)
-   - Save full WA history to SQLite (at `~/.openclaw/dev-mode/wa-history.db`) so agents can passively query it
+   - WA history recording + the WhatsApp Claw panel are provided by the standalone `whatsapp-kapso-claw` plugin, fed by a small socket tap in this fork's WhatsApp extension
 3. Write `MEMORY.md` on agent creation
 
 saving full log to enjoy my journey with OC ♥
@@ -27,10 +27,10 @@ saving full log to enjoy my journey with OC ♥
   - updated to v2026.6.11
   - added SEC-100, SEC-101, SEC-102, FIX-05, FIX-06, removed SEC-80, FIX-02, read below
   - highligh: disabled force reset session (FIX-05), added auto-flush to memory file on `/new` and `/compact` (FIX-06)
-- 2026-05-25 - MAJOR -> [`openclaw-whatsapp-claw`](https://github.com/bresleveloper/openclaw-dev-mode/tree/main/dev-mode/openclaw-whatsapp-claw/docs) v0.2.1 - confirmed working WA auto-response
-- 2026-05-21 - MAJOR -> [`openclaw-whatsapp-claw`](https://github.com/bresleveloper/openclaw-dev-mode/tree/main/dev-mode/openclaw-whatsapp-claw/docs) v0.2 - upgraded panel to be readonly to real resources (automated work)
+- 2026-05-25 - MAJOR -> `openclaw-whatsapp-claw` v0.2.1 - confirmed working WA auto-response
+- 2026-05-21 - MAJOR -> `openclaw-whatsapp-claw` v0.2 - upgraded panel to be readonly to real resources (automated work)
 - 2026-05-17 - Upgraded to V2026.5.12
-  - MAJOR -> [`openclaw-whatsapp-claw`](https://github.com/bresleveloper/openclaw-dev-mode/tree/main/dev-mode/openclaw-whatsapp-claw/docs) v0.1 - panel for full WA control with openclaw agents and features (currenlty just concept and panel)
+  - MAJOR -> `openclaw-whatsapp-claw` v0.1 - panel for full WA control with openclaw agents and features (currenlty just concept and panel)
 - 2026-05-08 - Upgraded to V2026.5.7
   - FIX 04 using old prompt base for `/new`
 - 2026-05-07 - Upgraded to V2026.5.6
@@ -55,7 +55,7 @@ saving full log to enjoy my journey with OC ♥
   - Removed dev-mode hub plugin (VPS uses [JarvisHub](https://github.com/JarvisDeLaAri/YourJarvisHub) directly).
   - Removed custom Ollama web search provider ([use official plugin](https://docs.ollama.com/integrations/openclaw)).
   - Control UI: agent files and raw config secrets visible by default.
-  - WhatsApp history logger: saves all messages to SQLite (`~/.openclaw/dev-mode/wa-history.db`). (enabled with `OPENCLAW_DEV_MODE_WA_SAVE_MESSAGES=1`)
+  - WhatsApp history logger: WA history recording + the WhatsApp Claw panel are now provided by the standalone `whatsapp-kapso-claw` plugin, fed by a small socket tap in the fork's WhatsApp extension.
   - Renamed env var `OPENCLAW_WA_THINKING_MESSAGES` to `OPENCLAW_DEV_MODE_WA_THINKING_MESSAGES`.
 - 2026-03-23
   - Upgraded to V2026.3.22 (3,469 upstream commits).
@@ -81,7 +81,6 @@ I cloned, listed all security features (latest - V2026.3.2) and just added a sim
 OPENCLAW_DEV_MODE=1
 OPENCLAW_DEV_MODE_CLEAR_UI=1
 OPENCLAW_DEV_MODE_WA_THINKING_MESSAGES=1
-OPENCLAW_DEV_MODE_WA_SAVE_MESSAGES=1
 ```
 
 Because the beauty of any opensource project is that it's MINE and I am allowed to enjoy it to its full extent.
@@ -113,11 +112,11 @@ Gated by `OPENCLAW_DEV_MODE=1`. Each is a minimal `if (isDevMode()) { … }` che
 
 Each opt-in via its own env var (requires `OPENCLAW_DEV_MODE=1` first).
 
-| ID      | Env var                                    | What it does                                                                                     |
-| ------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------ |
-| SEC-WA1 | `OPENCLAW_DEV_MODE_WA_THINKING_MESSAGES=1` | Unsuppress model thinking on WhatsApp, swap response prefix with `💭 Reasoning:`                 |
-| WA-HIST | `OPENCLAW_DEV_MODE_WA_SAVE_MESSAGES=1`     | Log every inbound/outbound WhatsApp message to SQLite at `~/.openclaw/dev-mode/wa-history.db`    |
-| WA-ECHO | (always on in dev-mode)                    | In self-chat mode, filter inbound messages matching reasoning-echo patterns to break reply loops |
+| ID      | Env var                                    | What it does                                                                                                                                                               |
+| ------- | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| SEC-WA1 | `OPENCLAW_DEV_MODE_WA_THINKING_MESSAGES=1` | Unsuppress model thinking on WhatsApp, swap response prefix with `💭 Reasoning:`                                                                                           |
+| WA-HIST | _(retired — see `whatsapp-kapso-claw`)_    | WA history recording + the WhatsApp Claw panel are now provided by the standalone `whatsapp-kapso-claw` plugin, fed by a small socket tap in the fork's WhatsApp extension |
+| WA-ECHO | (always on in dev-mode)                    | In self-chat mode, filter inbound messages matching reasoning-echo patterns to break reply loops                                                                           |
 
 ### Model provider tweaks
 
