@@ -1,4 +1,4 @@
-import { t as zaloPlugin } from "../../channel-Cq689zSs.js";
+import { t as zaloPlugin } from "../../channel-DYEUF8GK.js";
 import { n as zaloDmPolicy, r as zaloSetupAdapter, t as createZaloSetupWizardProxy } from "../../setup-core-CMBw1rBQ.js";
 import { n as resolveZaloRuntimeGroupPolicy } from "../../group-access-CzCOOJZN.js";
 import { t as zaloSetupWizard } from "../../setup-api-BAtJfo5_.js";
