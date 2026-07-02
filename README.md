@@ -23,6 +23,7 @@ saving full log to enjoy my journey with OC ♥
 
 ## CHANGE LOG
 
+- 2026-07-03 - removed WA history db, in favor of WA plugin that includes that with KAPSO WA for dual WA channels for legal WA AI support
 - 2026-07-01
   - updated to v2026.6.11
   - added SEC-100, SEC-101, SEC-102, FIX-05, FIX-06, removed SEC-80, FIX-02, read below
