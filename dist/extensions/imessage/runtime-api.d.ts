@@ -11,7 +11,7 @@ import { d as getChatChannelMeta } from "../../core-BYx5QOhU.js";
 import { D as resolveChannelMediaMaxBytes } from "../../media-runtime-DnUGtCRp.js";
 import { t as PAIRING_APPROVED_MESSAGE } from "../../pairing-message-CFjlYpMw.js";
 import { c as collectStatusIssuesFromLastError, r as buildComputedAccountStatusSnapshot } from "../../status-helpers-C_97WjYU.js";
-import { i as IMessageConfigSchema } from "../../bundled-channel-config-schema-3SbkAnAk.js";
+import { i as IMessageConfigSchema } from "../../bundled-channel-config-schema-DgAQzgVe.js";
 import { g as formatTrimmedAllowFromEntries } from "../../channel-config-helpers-DksXGlrI.js";
 import { t as chunkTextForOutbound } from "../../text-chunking-CuFAtrpW.js";
 import { a as looksLikeIMessageTargetId, o as normalizeIMessageMessagingTarget, r as probeIMessage, s as ResolvedIMessageAccount, t as IMessageProbe } from "../../probe-DpLCmhYu.js";

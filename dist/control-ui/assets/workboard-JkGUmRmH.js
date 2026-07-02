@@ -1,4 +1,4 @@
-import{m as e,o as t,p as n}from"./lit-runtime-BImxIzGR.js";import{o as r}from"./string-coerce-BCNOsX82.js";import{A as i,B as a,C as o,D as s,E as c,F as l,H as u,I as d,L as f,M as p,N as m,O as h,P as g,R as _,S as v,T as y,U as b,V as x,X as S,Z as C,b as w,j as T,k as E,t as D,w as O,x as k,y as A,z as ee}from"./index-xuQ23plZ.js";var j=`workboard-card-modal-title`,M=`workboard-card-modal-description`,te=`workboard-card-modal`,N=`workboard-card-detail-drawer`,ne=`workboard-card-detail-title`,re=`workboard-card-detail-description`,ie=[`a[href]`,`button:not([disabled])`,`input:not([disabled])`,`select:not([disabled])`,`textarea:not([disabled])`,`summary`,`[tabindex]:not([tabindex='-1'])`].join(`,`),P=null,F=null,ae=[{id:`bugfix`,title:`Fix: `,notes:`Symptom:
+import{m as e,o as t,p as n}from"./lit-runtime-BImxIzGR.js";import{o as r}from"./string-coerce-BCNOsX82.js";import{A as i,B as a,C as o,D as s,E as c,F as l,H as u,I as d,L as f,M as p,N as m,O as h,P as g,R as _,S as v,T as y,U as b,V as x,X as S,Z as C,b as w,j as T,k as E,t as D,w as O,x as k,y as A,z as ee}from"./index-BiKYgpgo.js";var j=`workboard-card-modal-title`,M=`workboard-card-modal-description`,te=`workboard-card-modal`,N=`workboard-card-detail-drawer`,ne=`workboard-card-detail-title`,re=`workboard-card-detail-description`,ie=[`a[href]`,`button:not([disabled])`,`input:not([disabled])`,`select:not([disabled])`,`textarea:not([disabled])`,`summary`,`[tabindex]:not([tabindex='-1'])`].join(`,`),P=null,F=null,ae=[{id:`bugfix`,title:`Fix: `,notes:`Symptom:
 Cause:
 Acceptance:
 Proof:`,labels:`fix, test`,priority:`high`},{id:`docs`,title:`Docs: `,notes:`Page:
@@ -721,4 +721,4 @@ Tests:`,labels:`plugin`,priority:`normal`}];function I(e){return r(`workboard.st
       ${it(t)} ${yt(t)}
     </section>
   `}export{Ot as renderWorkboard};
-//# sourceMappingURL=workboard-DJNFl_Ra.js.map
+//# sourceMappingURL=workboard-JkGUmRmH.js.map

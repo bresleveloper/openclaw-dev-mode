@@ -1,4 +1,4 @@
-import{m as e,p as t}from"./lit-runtime-BImxIzGR.js";import{o as n}from"./string-coerce-BCNOsX82.js";import{a as r,et as i}from"./index-xuQ23plZ.js";function a(a){let o=(a.status&&typeof a.status==`object`?a.status.securityAudit:null)?.summary??null,s=o?.critical??0,c=o?.warn??0,l=o?.info??0,u=s>0?`danger`:c>0?`warn`:`success`,d=s>0?n(`debug.security.critical`,{count:String(s)}):c>0?n(`debug.security.warnings`,{count:String(c)}):n(`debug.security.noCriticalIssues`);return e`
+import{m as e,p as t}from"./lit-runtime-BImxIzGR.js";import{o as n}from"./string-coerce-BCNOsX82.js";import{a as r,et as i}from"./index-BiKYgpgo.js";function a(a){let o=(a.status&&typeof a.status==`object`?a.status.securityAudit:null)?.summary??null,s=o?.critical??0,c=o?.warn??0,l=o?.info??0,u=s>0?`danger`:c>0?`warn`:`success`,d=s>0?n(`debug.security.critical`,{count:String(s)}):c>0?n(`debug.security.warnings`,{count:String(c)}):n(`debug.security.noCriticalIssues`);return e`
     <section class="grid">
       <div class="card">
         <div class="row" style="justify-content: space-between;">
@@ -94,4 +94,4 @@ ${r(t.payload)}</pre
           `}
     </section>
   `}export{a as renderDebug};
-//# sourceMappingURL=debug-Dcart5gh.js.map
+//# sourceMappingURL=debug-Bjoa7SrE.js.map

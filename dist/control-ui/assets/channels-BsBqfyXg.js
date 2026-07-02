@@ -1,4 +1,4 @@
-import{m as e,p as t}from"./lit-runtime-BImxIzGR.js";import{o as n}from"./string-coerce-BCNOsX82.js";import{Et as r,Tt as i,it as a,l as o,nt as s,u as c}from"./index-xuQ23plZ.js";import{n as l,t as u}from"./channel-config-extras-DOVS50c8.js";function d(e,t){let n=e;for(let e of t){if(!n)return null;let t=r(n);if(t===`object`){let t=n.properties??{};if(typeof e==`string`&&t[e]){n=t[e];continue}let r=n.additionalProperties;if(typeof e==`string`&&r&&typeof r==`object`){n=r;continue}return null}if(t===`array`){if(typeof e!=`number`)return null;n=(Array.isArray(n.items)?n.items[0]:n.items)??null;continue}return null}return n}function f(e,t){return l(e,t)??{}}var p=[`groupPolicy`,`streamMode`,`dmPolicy`];function m(t){let n=p.flatMap(e=>e in t?[[e,t[e]]]:[]);return n.length===0?null:e`
+import{m as e,p as t}from"./lit-runtime-BImxIzGR.js";import{o as n}from"./string-coerce-BCNOsX82.js";import{Et as r,Tt as i,it as a,l as o,nt as s,u as c}from"./index-BiKYgpgo.js";import{n as l,t as u}from"./channel-config-extras-DOVS50c8.js";function d(e,t){let n=e;for(let e of t){if(!n)return null;let t=r(n);if(t===`object`){let t=n.properties??{};if(typeof e==`string`&&t[e]){n=t[e];continue}let r=n.additionalProperties;if(typeof e==`string`&&r&&typeof r==`object`){n=r;continue}return null}if(t===`array`){if(typeof e!=`number`)return null;n=(Array.isArray(n.items)?n.items[0]:n.items)??null;continue}return null}return n}function f(e,t){return l(e,t)??{}}var p=[`groupPolicy`,`streamMode`,`dmPolicy`];function m(t){let n=p.flatMap(e=>e in t?[[e,t[e]]]:[]);return n.length===0?null:e`
     <div class="status-list" style="margin-top: 12px;">
       ${n.map(([t,n])=>e`
           <div>
@@ -364,4 +364,4 @@ ${r.snapshot?JSON.stringify(r.snapshot,null,2):n(`channels.health.noSnapshotYet`
       </div>
     </div>
   `}export{F as renderChannels};
-//# sourceMappingURL=channels-CYVpkuLa.js.map
+//# sourceMappingURL=channels-BsBqfyXg.js.map
