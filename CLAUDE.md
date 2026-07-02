@@ -291,6 +291,26 @@ Config changes (e.g. agent modifying `openclaw.json` to clean sessions) trigger 
 
 After `openclaw gateway restart` following an upstream upgrade, `openclaw gateway status` can return `Connectivity probe: ok` and `Capability: admin-capable` while WhatsApp is still warming up. `openclaw message send --channel whatsapp` will return `No active WhatsApp Web listener (account: default)` for roughly 2 minutes after restart. This is normal post-upgrade warm-up — wait and retry before assuming the upgrade broke WA. If still failing after ~2 min, check `/tmp/openclaw/openclaw-YYYY-MM-DD.log` for real errors.
 
+### Two WhatsApp Channels — Implicit Sends Fail (2026-07-02)
+
+Since the whatsapp-kapso-claw plugin registered a second WhatsApp-family channel, any send WITHOUT an explicit
+channel fails: `Channel is required when multiple channels are configured: whatsapp, whatsapp-kapso.` The dormant
+dummy channel counts as a candidate — `src/infra/outbound/channel-selection.ts` checks configured+enabled (not
+connected) and throws for >1 with no tie-break. Always pass `--channel whatsapp` (CLI) / `channel: "whatsapp"`
+(agent message tool). Agents self-heal off the error text; the VPS agent is also taught this in
+`~/.openclaw/workspace/TOOLS.md` (appended 2026-07-03). Do NOT "fix" it by disabling the kapso channel — see the
+invariants in the WhatsApp Message History section (it kills the plugin). If the friction ever matters, the clean
+fix is a dev-mode tie-break in channel-selection.ts (candidate FIX-07, deliberately not shipped).
+
+### VPS Watchdog Flags Our Own SSH Bursts as Attacks (2026-07-02)
+
+Ariel's on-VPS agent monitors auth.log and escalates to his WhatsApp ("30+ root logins in the past hour, same key —
+shall I block the IP?") when a Claude Code session runs many one-command-per-connection SSH calls — exactly our
+documented access pattern (sub-2-second sessions, key comment `claude-code-dev-vps`). Before treating such an alert
+as a real incident: correlate the timestamps with our own session activity and check the reported key fingerprint.
+Never block the source IP or revoke that key on the strength of the burst alone — it locks this machine out of the
+VPS.
+
 ## Upstream Upgrade Lessons
 
 ### V2026.3.13 WhatsApp Disaster (2026-03-21)
@@ -462,6 +482,27 @@ WhatsApp). The plugin's `installBaileysTap()` drains `__waClawSocks` and registe
 plugin isn't installed. Panel: served by the plugin on the gateway HTTP listener at
 `/whatsapp-kapso/panel/` (nginx proxies HTTPS :17890 → gateway :18789 for that path).
 Panel auth: `plugins.entries.whatsapp-kapso-claw.config.panelToken` (Bearer).
+
+**Deployed to the VPS 2026-07-02**: installed via `openclaw plugins install npm-pack:whatsapp-kapso-claw-0.1.0.tgz`
+(lands under `~/.openclaw/npm/projects/whatsapp-kapso-claw/`, loader origin "global"; the installer auto-appended
+the id to `plugins.allow`). History db MOVED to the plugin's default `~/.openclaw/wa-claw-kapso/wa-claw-baileys.db`
+(schema-identical to the old logger's); compat symlinks left at the old `~/.openclaw/dev-mode/` names; pre-migration
+backup at `~/.openclaw/dev-mode/openclaw-whatsapp-claw.db.bak-20260702`. The old standalone `wa-claw.service` (+ its
+loopback :18790 listener) is retired; nginx `/etc/nginx/conf.d/wa-claw.conf` now proxies HTTPS :17890 (ufw open) →
+gateway :18789, panel path only. Panel URL needs the trailing slash: `https://<vps>:17890/whatsapp-kapso/panel/`.
+
+**⚠️ `channels.whatsapp-kapso` invariants** (the block holds DUMMY Kapso creds + `deliveryMode: "domain"` + junk
+webhook secrets — fully dormant, zero polling, deny-all inbound):
+
+1. The block MUST exist and be schema-valid — without it the host loads only the plugin's setup entry and the
+   tap/recorder/panel silently never register (`shouldLoadChannelPluginInSetupRuntime` → `isChannelConfigured`).
+2. NEVER add undeclared keys — the manifest channel schema is `additionalProperties: false`, and e.g. `baileysDbPath`
+   is read by plugin code but NOT declared in the schema: setting it makes config validation throw → gateway
+   crash-loop until the JSON is hand-fixed.
+3. NEVER set `enabled: false` — same silent plugin-death as (1).
+
+`openclaw wa-claw preflight` on this VPS always exits 1: `[FAIL] Kapso API` (dummy creds) and `[WARN] baileys tap`
+(its detector only knows ClawHub npm layouts). Cosmetic — don't chase either.
 
 
 ### V2026.5.4 Upgrade (2026-05-05)
