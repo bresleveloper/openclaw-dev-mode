@@ -501,9 +501,29 @@ webhook secrets — fully dormant, zero polling, deny-all inbound):
    crash-loop until the JSON is hand-fixed.
 3. NEVER set `enabled: false` — same silent plugin-death as (1).
 
-`openclaw wa-claw preflight` on this VPS always exits 1: `[FAIL] Kapso API` (dummy creds) and `[WARN] baileys tap`
-(its detector only knows ClawHub npm layouts). Cosmetic — don't chase either.
+Since 2026-07-03 the channel block holds Ariel's REAL Kapso sandbox creds (`deliveryMode: "polling"`; key
+recorded in the plugin repo's `docs/.env`) — `openclaw wa-claw preflight` exits 0; only cosmetic WARNs remain
+(`baileys tap` — its detector only knows ClawHub npm layouts — and silent-reply policy). Don't chase them.
 
+### Adding a Kapso agent for a new number (recurring request)
+
+When Ariel says "create a kapso agent for +9725XXXXXXX" he means EXACTLY this, on the VPS — nothing more.
+All writes hot-reload in-process (no restart, Baileys socket untouched). `cp /root/.openclaw/openclaw.json
+/root/.openclaw/openclaw.json.bak-<name>` first, then:
+
+1. Next indices: `AN=$(node -e "console.log(require('/root/.openclaw/openclaw.json').agents.list.length)")`;
+   same for `BN` with `.bindings.length`.
+2. Agent (messaging profile): `openclaw config set "agents.list[$AN]" '{"id":"kapso-<name>","name":"Kapso <Name>","workspace":"/root/.openclaw/workspaces/kapso-<name>","tools":{"profile":"messaging"}}' --strict-json`
+3. Kapso channel binding: `openclaw config set "bindings[$BN]" '{"agentId":"kapso-<name>","match":{"channel":"whatsapp-kapso","peer":{"kind":"direct","id":"+<number>"}},"session":{"dmScope":"per-peer"}}' --strict-json`
+4. Allowlist: re-set the FULL `channels.whatsapp-kapso` block (all existing keys verbatim, never new ones —
+   invariants above) with the number appended to `allowedNumbers`.
+5. Round-and-round bridge: `openclaw wa-claw bridge add <digits-no-plus> --note "kapso-<name> round-and-round"`
+6. Verify: `[wa-claw] started (mode=polling...)` re-emits in the gateway log; read back agent/binding/allowlist
+   with a node one-liner.
+
+Done so far: `kapso-pinhas` (+972508483001), `kapso-elhanan-k` (+972559116367) — both 2026-07-03. One caveat to
+mention in the report: the Kapso→person leg stays silent until their number gets a sandbox session on Kapso's
+side (dashboard "Add session" → the person WhatsApps the 6-char code to the sandbox line).
 
 ### V2026.5.4 Upgrade (2026-05-05)
 
