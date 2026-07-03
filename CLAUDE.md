@@ -521,9 +521,17 @@ All writes hot-reload in-process (no restart, Baileys socket untouched). `cp /ro
 6. Verify: `[wa-claw] started (mode=polling...)` re-emits in the gateway log; read back agent/binding/allowlist
    with a node one-liner.
 
-Done so far: `kapso-pinhas` (+972508483001), `kapso-elhanan-k` (+972559116367) — both 2026-07-03. One caveat to
-mention in the report: the Kapso→person leg stays silent until their number gets a sandbox session on Kapso's
-side (dashboard "Add session" → the person WhatsApps the 6-char code to the sandbox line).
+Done so far: `kapso-pinhas` (+972508483001), `kapso-elhanan-k` (+972559116367), `kapso-igal` (+972503143391) —
+all 2026-07-03.
+
+**LESSON (learned live with kapso-igal, 2026-07-03): an Active sandbox session is NOT enough.** Even with the
+number registered and "Already activated" on the Kapso dashboard, every outbound send fails with 422
+`Cannot send non-template messages outside the 24-hour window` until the peer sends ONE WhatsApp message of
+their own TO the sandbox line. Meta's 24h customer-service window opens only on the peer's direct inbound to
+the Kapso number — bridged messages to Ariel's personal line do NOT open or renew it. So after creating a kapso
+agent, the peer must message the sandbox bot first; replies then flow for 24h from their last direct message to
+that line (after that: another direct message from them, or paid template messages). The agent itself runs fine
+the whole time — replies are generated and die only at delivery (`[wa-claw] final reply failed ... 422`).
 
 ### V2026.5.4 Upgrade (2026-05-05)
 
