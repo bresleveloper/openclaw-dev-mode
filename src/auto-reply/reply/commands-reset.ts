@@ -3,12 +3,13 @@ import { clearBootstrapSnapshot } from "../../agents/bootstrap-cache.js";
 import { clearAllCliSessions } from "../../agents/cli-session.js";
 import { resetConfiguredBindingTargetInPlace } from "../../channels/plugins/binding-targets.js";
 import { updateSessionEntry } from "../../config/sessions/session-accessor.js";
-import { logVerbose } from "../../globals.js";
+import { isDevMode, logVerbose } from "../../globals.js";
 import { isAcpSessionKey } from "../../routing/session-key.js";
 import { resolveBoundAcpThreadSessionKey } from "./commands-acp/targets.js";
 import { emitResetCommandHooks, type ResetCommandAction } from "./commands-reset-hooks.js";
 import { parseSoftResetCommand } from "./commands-reset-mode.js";
 import type { CommandHandlerResult, HandleCommandsParams } from "./commands-types.js";
+import { runDevModeCommandMemoryFlush } from "./dev-mode-memory-flush.js";
 import type { ReplySessionBinding } from "./get-reply.types.js";
 import { isResetAuthorizedForContext } from "./reset-authorization.js";
 
@@ -174,6 +175,10 @@ export async function maybeHandleResetCommand(
 
   const targetSessionEntry = params.sessionStore?.[params.sessionKey] ?? params.sessionEntry;
 
+  if (isDevMode()) {
+    await runDevModeCommandMemoryFlush(params, targetSessionEntry);
+  }
+
   const hookResult = await emitResetCommandHooks({
     action: commandAction,
     ctx: params.ctx,
@@ -184,7 +189,7 @@ export async function maybeHandleResetCommand(
     previousSessionEntry: params.previousSessionEntry,
     workspaceDir: params.workspaceDir,
   });
-  if (!resetTail) {
+  if (!isDevMode() && !resetTail) {
     return {
       shouldContinue: false,
       ...(hookResult.routedReply

@@ -10,6 +10,7 @@ import path from "node:path";
 import { readStringValue } from "@openclaw/normalization-core/string-coerce";
 import { extractFrontmatterBlock } from "../../packages/markdown-core/src/frontmatter.js";
 import { resolveLegacyStateDirs, resolveStateDir } from "../config/paths.js";
+import { isDevMode } from "../globals.js";
 import { openRootFile } from "../infra/boundary-file-read.js";
 import { pathExists } from "../infra/fs-safe.js";
 import { replaceFileAtomic } from "../infra/replace-file.js";
@@ -990,6 +991,12 @@ export async function ensureAgentWorkspace(params?: {
   }
   if (shouldWriteBootstrapFile(DEFAULT_HEARTBEAT_FILENAME)) {
     await writeFileIfMissing(heartbeatPath, heartbeatTemplate);
+  }
+
+  // In dev-mode, bootstrap MEMORY.md for new agents
+  if (isDevMode()) {
+    const memoryPath = path.join(dir, DEFAULT_MEMORY_FILENAME);
+    await writeFileIfMissing(memoryPath, "# Memory\n");
   }
 
   let state = await readWorkspaceSetupStateForDir(dir, {

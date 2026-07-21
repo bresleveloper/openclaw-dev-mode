@@ -44,7 +44,7 @@ import { SecretProviderSchema } from "../config/zod-schema.core.js";
 import { diffConfigPaths } from "../gateway/config-diff.js";
 import { buildGatewayReloadPlan } from "../gateway/config-reload-plan.js";
 import { resolveGatewayReloadSettings } from "../gateway/config-reload-settings.js";
-import { danger, info, success, warn } from "../globals.js";
+import { danger, info, isDevMode, success, warn } from "../globals.js";
 import { parseStrictPositiveInteger } from "../infra/parse-finite-number.js";
 import { isBlockedObjectKey } from "../infra/prototype-keys.js";
 import { loadPluginMetadataSnapshot } from "../plugins/plugin-metadata-snapshot.js";
@@ -2437,7 +2437,7 @@ export async function runConfigGet(opts: { path: string; json?: boolean; runtime
   try {
     const parsedPath = parseRequiredPath(opts.path);
     const snapshot = await loadValidConfig(runtime);
-    const redacted = redactConfigObject(snapshot.config);
+    const redacted = isDevMode() ? snapshot.config : redactConfigObject(snapshot.config);
     const res = getAtPath(redacted, parsedPath);
     if (!res.found) {
       runtime.error(

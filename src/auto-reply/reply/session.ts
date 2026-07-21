@@ -50,6 +50,7 @@ import {
   forgetActiveSessionForShutdown,
   noteActiveSessionForShutdown,
 } from "../../gateway/active-sessions-shutdown-tracker.js";
+import { isDevMode } from "../../globals.js";
 import { getSessionBindingService } from "../../infra/outbound/session-binding-service.js";
 import { deliverSessionMaintenanceWarning } from "../../infra/session-maintenance-warning.js";
 import { createSubsystemLogger } from "../../logging/subsystem.js";
@@ -70,6 +71,7 @@ import {
   normalizeDeliveryChannelRoute,
   normalizeSessionDeliveryFields,
 } from "../../utils/delivery-context.shared.js";
+import { resolveCommandAuthorization } from "../command-auth.js";
 import { resolveCommandTurnTargetSessionKey } from "../command-turn-context.js";
 import { normalizeCommandBody } from "../commands-registry.js";
 import type { MsgContext, TemplateContext } from "../templating.js";
@@ -165,6 +167,20 @@ function resolveStaleSessionEndReason(params: {
 function hasProviderOwnedSession(entry: SessionEntry | undefined): boolean {
   const provider = normalizeOptionalString(entry?.providerOverride ?? entry?.modelProvider);
   return Boolean(provider && getCliSessionBinding(entry, provider));
+}
+
+// FIX-05: default auto-compact instructions for the dev-mode daily-boundary substitution
+// (see devModeAutoCompact in initSessionStateAttemptLocked below). Value-only override via
+// OPENCLAW_DEV_MODE_AUTO_COMPACT_PROMPT -- never a feature gate. The feature itself only
+// requires OPENCLAW_DEV_MODE=1; per Ariel's rule, no secondary activation flag is added.
+const DEV_MODE_AUTO_COMPACT_DEFAULT_PROMPT =
+  "this is auto compact, so try to remember everything the user talked with you other than daily news or security or hub notifications";
+
+function resolveDevModeAutoCompactPrompt(): string {
+  return (
+    normalizeOptionalString(process.env.OPENCLAW_DEV_MODE_AUTO_COMPACT_PROMPT) ??
+    DEV_MODE_AUTO_COMPACT_DEFAULT_PROMPT
+  );
 }
 
 function isRecoverableTerminalSessionStatus(status: SessionEntry["status"] | undefined): boolean {
@@ -457,7 +473,11 @@ async function initSessionStateAttemptLocked(
   // IMPORTANT: do NOT lowercase the entire command body.
   // Users often pass case-sensitive arguments (e.g. filesystem paths on Linux).
   // Command parsing downstream lowercases only the command token for matching.
-  const triggerBodyNormalized = stripStructuralPrefixes(commandSource).trim();
+  // FIX-05: reassigned below (see devModeAutoCompact) to a synthetic "/compact <prompt>"
+  // trigger body when the daily boundary passed with no reset policy configured, so the
+  // existing /compact command handler pipeline drives compaction, memory flush, and the
+  // dev-mode greet-after-compact warm-up without any new command-dispatch machinery.
+  let triggerBodyNormalized = stripStructuralPrefixes(commandSource).trim();
 
   // Use CommandBody/RawBody for reset trigger matching (clean message without structural context).
   const rawBody = commandSource;
@@ -588,7 +608,11 @@ async function initSessionStateAttemptLocked(
   // resume signal is allowed to suppress configured idle/daily rollover.
   const reconnectResumeRequested =
     params.resumeRequestedSession === true && requestedCurrentSession;
-  const skipImplicitExpiry = hasProviderOwnedSession(entry) && resetPolicy.configured !== true;
+  // FIX-05: provider-owned (CLI) sessions keep their existing never-implicitly-expire
+  // behavior. Dev-mode sessions with no configured reset policy no longer force
+  // `{fresh: true}` here -- devModeAutoCompact below needs the real staleness result to
+  // detect the daily boundary and substitute an in-place compaction for the reset.
+  const skipImplicitExpiry = resetPolicy.configured !== true && hasProviderOwnedSession(entry);
   const lifecycleTimestamps = resolveSessionLifecycleTimestamps({
     entry,
     agentId,
@@ -636,11 +660,66 @@ async function initSessionStateAttemptLocked(
     !resetTriggered &&
     (entryFreshness?.fresh ?? false) &&
     isRecoverableTerminalSessionStatus(entry?.status);
+  // FIX-05: dev-mode substitutes an in-place compaction for the daily-boundary reset when
+  // no reset policy is configured (Ariel: "if no reset session value set DO NOT new session
+  // but instead compact session" -- an absolute rule: the session must NEVER be hard-reset
+  // on this path, for anyone, in any outcome). Keeping the entry "fresh" here (folded into
+  // freshEntry below) means no new session is minted; the trigger body is rewritten to a
+  // synthetic "/compact <prompt>" command below so the existing /compact command handler
+  // (commands-compact.ts) drives everything: the forced memory flush (FIX-06,
+  // runDevModeCommandMemoryFlush), the actual compaction with our custom instructions, and
+  // then (see the DevModeAutoCompact marker on sessionCtx below) a continuation of the turn
+  // with the user's real message. Excludes explicit /new, /reset, soft reset (which has its
+  // own freshEntry-preserving arm below), system/heartbeat events (ditto, its own arm), and
+  // provider-owned (CLI) sessions (protected earlier by skipImplicitExpiry, never go stale
+  // at all under this policy) -- none of those exclusions can fall through to a hard reset;
+  // each is independently kept fresh by a mechanism that predates this feature.
+  const devModeAutoCompactEligible =
+    isDevMode() &&
+    resetPolicy.configured !== true &&
+    !hasProviderOwnedSession(entry) &&
+    !resetTriggered &&
+    !softReset.matched &&
+    !isSystemEvent &&
+    canReuseExistingEntry &&
+    entryFreshness?.fresh === false &&
+    entryFreshness.staleReason === "daily" &&
+    !terminalMainTranscriptNewerThanRegistry;
+  // FIX-05: only actually substitute the compaction (rewrite the trigger body, set the
+  // DevModeAutoCompact marker, advance sessionStartedAt) when the current sender would be
+  // authorized to run /compact themselves -- handleCompactCommand (commands-compact.ts)
+  // silently drops /compact from an unauthorized sender (`{ shouldContinue: false }`, no
+  // reply), and that must not cost them their answer. Mirrors the exact predicate
+  // CommandContext.isAuthorizedSender is built from (see commands-context.ts's
+  // buildCommandContext / resolveCommandAuthorization); only evaluated once the cheaper
+  // checks above already narrowed this down to "would otherwise trigger the daily-boundary
+  // substitution". Deliberately NOT used for freshEntry below -- session preservation is
+  // unconditional on eligibility (see devModeAutoCompactEligible in the freshEntry OR-chain),
+  // independent of sender authorization; only the compaction attempt itself is gated on it.
+  // An unauthorized sender is answered normally in the untouched, still-fresh session; an
+  // authorized sender's next message picks up the auto-compact.
+  const devModeAutoCompact =
+    devModeAutoCompactEligible &&
+    resolveCommandAuthorization({ ctx, cfg, commandAuthorized }).isAuthorizedSender;
+  if (devModeAutoCompact) {
+    // Only the command-matching / instruction-extraction surface is rewritten here.
+    // sessionCtx.BodyStripped/BodyForAgent (see sessionCtx construction below) are left
+    // holding the user's real message -- handleCompactCommand (commands-compact.ts) reads
+    // them back via the DevModeAutoCompact marker to continue the turn with what the user
+    // actually asked once compaction/memory-flush finish, instead of losing it or (for a
+    // human-typed /compact) showing the manual greet-after-compact prompt.
+    triggerBodyNormalized = `/compact ${resolveDevModeAutoCompactPrompt()}`;
+  }
   const freshEntry =
     (isSystemEvent && canReuseExistingEntry) ||
     (((reconnectResumeRequested && canReuseExistingEntry) ||
       recoverTerminalVisibleEntry ||
       (entryFreshness?.fresh ?? false) ||
+      // FIX-05: eligibility (not sender authorization) governs session preservation --
+      // an unauthorized sender must never trigger a hard reset just because they happened
+      // to be the first message after the daily boundary. See devModeAutoCompact above for
+      // why the *compaction itself* stays gated on authorization while this does not.
+      devModeAutoCompactEligible ||
       (softResetAllowed && canReuseExistingEntry)) &&
       !terminalMainTranscriptNewerThanRegistry);
   const activeReplyOperation = replyRunRegistry.get(sessionKey);
@@ -852,9 +931,14 @@ async function initSessionStateAttemptLocked(
     ...baseEntry,
     sessionId,
     updatedAt: Date.now(),
+    // FIX-05: advance sessionStartedAt past the daily boundary when substituting an
+    // auto-compact for the reset, exactly like a real reset would -- this is what stops
+    // the session from re-triggering the auto-compact on every subsequent message today.
     sessionStartedAt: isNewSession
       ? now
-      : (baseEntry?.sessionStartedAt ?? lifecycleTimestamps.sessionStartedAt),
+      : devModeAutoCompact
+        ? now
+        : (baseEntry?.sessionStartedAt ?? lifecycleTimestamps.sessionStartedAt),
     lastInteractionAt: isSystemEvent ? baseEntry?.lastInteractionAt : now,
     systemSent,
     abortedLastRun: recoveredTerminalEntry ? undefined : abortedLastRun,
@@ -1072,6 +1156,21 @@ async function initSessionStateAttemptLocked(
 
   const sessionCtx: TemplateContext = {
     ...sessionCtxForState,
+    // FIX-05: rewrite only the command-matching/instruction-extraction surface to the
+    // synthetic "/compact <prompt>" body computed above. BodyStripped below is left to
+    // fall back to the real user message (see its own fallback chain), and BodyForAgent
+    // is left untouched entirely -- handleCompactCommand (commands-compact.ts) uses both,
+    // together with the DevModeAutoCompact marker just below, to answer the user's real
+    // message once compaction/memory-flush finish instead of losing it.
+    ...(devModeAutoCompact
+      ? {
+          Body: triggerBodyNormalized,
+          RawBody: triggerBodyNormalized,
+          CommandBody: triggerBodyNormalized,
+          BodyForCommands: triggerBodyNormalized,
+          DevModeAutoCompact: true,
+        }
+      : {}),
     // Keep BodyStripped aligned with Body (best default for agent prompts).
     // RawBody is reserved for command/directive parsing and may omit context.
     BodyStripped: normalizeInboundTextNewlines(

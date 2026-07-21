@@ -1,0 +1,2 @@
+function e(e){return typeof e==`object`&&!!e&&!Array.isArray(e)}function t(t){return e(t)?t:void 0}function n(e){return e&&typeof e==`object`?e:void 0}export{t as n,e as r,n as t};
+//# sourceMappingURL=record-coerce-DKxWgtJK.js.map

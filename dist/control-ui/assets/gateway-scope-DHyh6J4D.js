@@ -1,0 +1,2 @@
+import{r as e}from"./string-coerce-BuYUxt7q.js";function t(t,n){let r=e(t)??``;if(!r)return`default`;try{let e=typeof location<`u`?`${location.protocol}//${location.host}${location.pathname||`/`}`:void 0,t=e?new URL(r,e):new URL(r),i=t.pathname===`/`?``:t.pathname.replace(/\/+$/,``)||t.pathname;return`${t.protocol}//${t.host}${i}${n?t.search:``}`}catch{return r}}function n(e){return t(e,!1)}function r(e){return t(e,!0)}export{n,r as t};
+//# sourceMappingURL=gateway-scope-DHyh6J4D.js.map

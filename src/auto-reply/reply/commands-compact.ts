@@ -14,9 +14,11 @@ import {
   resolveContextConfigProviderForRuntime,
 } from "../../agents/openai-routing.js";
 import type { OpenClawConfig } from "../../config/types.openclaw.js";
-import { logVerbose } from "../../globals.js";
+import { isDevMode, logVerbose } from "../../globals.js";
 import { createLazyImportLoader } from "../../shared/lazy-promise.js";
-import type { CommandHandler } from "./commands-types.js";
+import type { TemplateContext } from "../templating.js";
+import type { CommandHandler, CommandHandlerResult } from "./commands-types.js";
+import { runDevModeCommandMemoryFlush } from "./dev-mode-memory-flush.js";
 import { stripMentions, stripStructuralPrefixes } from "./mentions.js";
 
 const compactRuntimeLoader = createLazyImportLoader(() => import("./commands-compact.runtime.js"));
@@ -192,8 +194,33 @@ export const handleCompactCommand: CommandHandler = async (params) => {
     );
     return { shouldContinue: false };
   }
+  // FIX-05: session.ts sets DevModeAutoCompact on sessionCtx when it substituted this
+  // /compact dispatch for the dev-mode daily-boundary reset -- the user never typed
+  // /compact and has no idea compaction plumbing exists. session.ts deliberately left
+  // BodyStripped/BodyForAgent holding the user's real original message (only Body/RawBody/
+  // CommandBody/BodyForCommands were rewritten to the synthetic command, for matching).
+  // Every early-exit and status-reply branch below must, for an auto-triggered dispatch,
+  // swallow the compaction plumbing and answer that real message instead -- a failure or
+  // skip must never cost the user their answer. hoisted here so both this function's early
+  // bail-outs and the post-compaction result handling near the end share one definition.
+  const isDevModeAutoCompact = (params.ctx as TemplateContext).DevModeAutoCompact === true;
+  const originalUserBody =
+    normalizeOptionalString((params.ctx as TemplateContext).BodyStripped) ??
+    normalizeOptionalString(params.ctx.BodyForAgent) ??
+    "";
+  const continueWithOriginalMessage = (): CommandHandlerResult => {
+    const mutableCtx = params.ctx as Record<string, unknown>;
+    mutableCtx.Body = originalUserBody;
+    mutableCtx.BodyForAgent = originalUserBody;
+    mutableCtx.BodyStripped = originalUserBody;
+    return { shouldContinue: true };
+  };
   const targetSessionEntry = params.sessionStore?.[params.sessionKey] ?? params.sessionEntry;
   if (!targetSessionEntry?.sessionId) {
+    if (isDevModeAutoCompact) {
+      logVerbose(`[dev-mode] auto-compact skipped (missing session id): ${params.sessionKey}`);
+      return continueWithOriginalMessage();
+    }
     return {
       shouldContinue: false,
       reply: {
@@ -232,6 +259,9 @@ export const handleCompactCommand: CommandHandler = async (params) => {
     liveContextTokens: params.contextTokens,
     persistedContextTokens: targetSessionEntry.contextTokens,
   });
+  if (isDevMode()) {
+    await runDevModeCommandMemoryFlush(params, targetSessionEntry);
+  }
   const result = await runtime.compactEmbeddedAgentSession({
     abortSignal: params.opts?.abortSignal,
     sessionId,
@@ -313,6 +343,40 @@ export const handleCompactCommand: CommandHandler = async (params) => {
     ? `${compactLabel}: ${reason} • ${contextSummary}`
     : `${compactLabel} • ${contextSummary}`;
   runtime.enqueueSystemEvent(line, { sessionKey: params.sessionKey });
+  // FIX-05: an auto-triggered compaction (see isDevModeAutoCompact above) always continues
+  // the turn with the user's real message, regardless of outcome -- success, skip, or
+  // failure. Answering what they actually asked, in the freshly-compacted session, is
+  // itself the warm turn; a status reply or greeting here would either show them internal
+  // plumbing they never asked about or, worse, silently eat their message. Checked before
+  // the manual-path FIX-06 greet-after-compact branch below so the two never overlap.
+  if (isDevModeAutoCompact) {
+    if (!result.ok || !result.compacted) {
+      logVerbose(`[dev-mode] auto-compact ${result.ok ? "skipped" : "failed"}: ${line}`);
+    }
+    return continueWithOriginalMessage();
+  }
+  // FIX-06 (dev-mode upgrade): upstream v2026.7.1 dropped the codexNativeCompactionStarted
+  // distinction that existed at v2026.6.11 (isCodexNativeCompactionStartedResult() and its
+  // compactLabel/"Codex compaction started" branch are both gone). Verified this is safe:
+  // EmbeddedAgentCompactResult.compacted is a flat completion flag (types.ts) with no
+  // started/pending/async variant. maybeCompactAgentHarnessSession() (harness/compaction.ts,
+  // covers Codex + other native harnesses) is `await`ed synchronously inside
+  // compactEmbeddedAgentSession() (compact.queued.ts ~line 311) before that function returns,
+  // and compactEmbeddedAgentSession() is itself `await`ed above. The only background/deferred
+  // compaction path (deferOwningContextEngineBudgetCompaction) is gated on
+  // `trigger === "budget"`, but this manual /compact handler always passes `trigger: "manual"`
+  // (see compactEmbeddedAgentSession call above), so that path never applies here. Bare
+  // `result.ok && result.compacted` is therefore accurate for Codex-native compaction too —
+  // no equivalent of the dropped started-flag gate is needed.
+  if (isDevMode() && result.ok && result.compacted) {
+    const greetPrompt =
+      "The session context was just compacted. Briefly greet the user now. Be yourself — use your configured persona, voice, and mood. Keep it to 1-2 sentences. Do not mention compaction, technical details, internal steps, or files.";
+    const mutableCtx = params.ctx as Record<string, unknown>;
+    mutableCtx.Body = greetPrompt;
+    mutableCtx.BodyForAgent = greetPrompt;
+    mutableCtx.BodyStripped = greetPrompt;
+    return { shouldContinue: true };
+  }
   return {
     shouldContinue: false,
     reply: {

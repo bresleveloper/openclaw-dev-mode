@@ -1,0 +1,2 @@
+import { n as DEFAULT_COPILOT_API_BASE_URL, r as deriveCopilotApiBaseUrlFromToken, s as resolveCopilotApiToken } from "../../provider-auth-C3uZzpid.js";
+export { DEFAULT_COPILOT_API_BASE_URL, deriveCopilotApiBaseUrlFromToken, resolveCopilotApiToken };

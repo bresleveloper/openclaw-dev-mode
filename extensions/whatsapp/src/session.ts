@@ -260,6 +260,16 @@ export async function createWaSocket(
     });
   }
 
+  // [dev-mode] Attach WhatsApp history logger
+  if (process.env.OPENCLAW_DEV_MODE === "1") {
+    try {
+      const { attachWaHistoryLogger } = await import("./dev-mode/wa-history.js");
+      attachWaHistoryLogger(sock);
+    } catch {
+      // dev-mode history logger is best-effort — never block channel startup
+    }
+  }
+
   return sock;
 }
 

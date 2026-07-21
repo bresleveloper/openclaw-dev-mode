@@ -32,6 +32,7 @@ import {
 import type { SourceReplyDeliveryMode } from "../auto-reply/get-reply-options.types.js";
 import type { InboundEventKind } from "../channels/inbound-event/kind.js";
 import type { OpenClawConfig } from "../config/types.openclaw.js";
+import { isDevMode } from "../globals.js";
 import { logWarn } from "../logger.js";
 import { getPluginToolMeta } from "../plugins/tools.js";
 import {
@@ -124,8 +125,9 @@ export function resolveGatewayScopedTools(params: {
     surface === "http"
       ? DEFAULT_GATEWAY_HTTP_TOOL_DENY.filter((name) => !gatewayToolsCfg?.allow?.includes(name))
       : [];
-  const ownerOnlyGatewayDeny =
-    params.senderIsOwner === false || (surface === "http" && params.senderIsOwner !== true)
+  const ownerOnlyGatewayDeny = isDevMode()
+    ? []
+    : params.senderIsOwner === false || (surface === "http" && params.senderIsOwner !== true)
       ? [...GATEWAY_OWNER_ONLY_CORE_TOOLS]
       : [];
   // HTTP callers start with additional surface denies because they cross auth only.

@@ -52,8 +52,7 @@ import {
 const log = createSubsystemLogger("ollama-stream");
 
 export const OLLAMA_NATIVE_BASE_URL = OLLAMA_DEFAULT_BASE_URL;
-export const OLLAMA_INCOMPLETE_STREAM_ERROR =
-  "Ollama API stream ended without a final response";
+export const OLLAMA_INCOMPLETE_STREAM_ERROR = "Ollama API stream ended without a final response";
 
 const OLLAMA_STREAM_COOPERATIVE_YIELD_INTERVAL_MS = 12;
 const OLLAMA_STREAM_COOPERATIVE_YIELD_MAX_EVENTS = 64;
@@ -1148,6 +1147,9 @@ function createRawOllamaStreamFn(
           options: ollamaOptions,
           requestParams: resolveOllamaTopLevelParams(model),
         });
+        if (process.env.OPENCLAW_DEV_MODE === "1") {
+          body.think = true;
+        }
         options?.onPayload?.(body, model);
         const headers: Record<string, string> = {
           "Content-Type": "application/json",

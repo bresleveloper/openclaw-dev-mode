@@ -106,6 +106,11 @@ export async function deliverWebReply(params: {
   const conversationId = admission.conversation.id;
   const isGroupConversation = admission.conversation.kind === "group";
   const replyStarted = Date.now();
+  // SEC-WA1: swap responsePrefix with 💭 on reasoning text. Applied here in
+  // deliverWebReply so it covers ALL delivery paths (dispatcher + routeReply).
+  if (process.env.OPENCLAW_DEV_MODE === "1" && replyResult.text) {
+    replyResult.text = replyResult.text.replace(/^.*?Reasoning:/, "💭 Reasoning:");
+  }
   const sendResults: WhatsAppSendResult[] = [];
   const rememberSendResult = (result: WhatsAppSendResult | undefined) => {
     if (result) {

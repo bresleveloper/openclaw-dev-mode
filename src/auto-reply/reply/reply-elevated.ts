@@ -4,6 +4,7 @@ import { normalizeStringEntries } from "@openclaw/normalization-core/string-norm
 import { resolveAgentConfig } from "../../agents/agent-scope.js";
 import { getChannelPlugin, normalizeChannelId } from "../../channels/plugins/index.js";
 import type { AgentElevatedAllowFromConfig, OpenClawConfig } from "../../config/config.js";
+import { isDevMode } from "../../globals.js";
 import { shouldUseFromAsSenderFallback } from "../sender-identity.js";
 import type { MsgContext } from "../templating.js";
 import {
@@ -186,6 +187,15 @@ export function resolveElevatedPermissions(params: {
   allowed: boolean;
   failures: Array<{ gate: string; key: string }>;
 } {
+  // SEC-99: In dev-mode with "full" tool profile, skip all elevated gates.
+  if (isDevMode()) {
+    const agentTools = resolveAgentConfig(params.cfg, params.agentId)?.tools;
+    const effectiveProfile = agentTools?.profile ?? params.cfg.tools?.profile;
+    if (effectiveProfile === "full") {
+      return { enabled: true, allowed: true, failures: [] };
+    }
+  }
+
   const globalConfig = params.cfg.tools?.elevated;
   const agentConfig = resolveAgentConfig(params.cfg, params.agentId)?.tools?.elevated;
   const globalEnabled = globalConfig?.enabled !== false;

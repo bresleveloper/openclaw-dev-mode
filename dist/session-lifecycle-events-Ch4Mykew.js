@@ -1,0 +1,17 @@
+//#region src/sessions/session-lifecycle-events.ts
+const SESSION_LIFECYCLE_LISTENERS = /* @__PURE__ */ new Set();
+/** Registers a session lifecycle listener. */
+function onSessionLifecycleEvent(listener) {
+	SESSION_LIFECYCLE_LISTENERS.add(listener);
+	return () => {
+		SESSION_LIFECYCLE_LISTENERS.delete(listener);
+	};
+}
+/** Emits a best-effort session lifecycle event to all listeners. */
+function emitSessionLifecycleEvent(event) {
+	for (const listener of SESSION_LIFECYCLE_LISTENERS) try {
+		listener(event);
+	} catch {}
+}
+//#endregion
+export { onSessionLifecycleEvent as n, emitSessionLifecycleEvent as t };

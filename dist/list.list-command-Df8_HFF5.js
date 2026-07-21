@@ -1,0 +1,459 @@
+import { a as normalizeLowercaseStringOrEmpty } from "./string-coerce-DW4mBlAt.js";
+import { t as createLazyImportLoader } from "./lazy-promise-10KxeiYV.js";
+import { r as theme, t as colorize } from "./theme-vjDs9tao.js";
+import { i as writeRuntimeJson } from "./runtime-Bz6o617W.js";
+import { a as normalizeProviderIdForAuth } from "./provider-id-Dq06Bcx6.js";
+import { i as resolveAgentModelPrimaryValue, r as resolveAgentModelFallbackValues } from "./model-input-B5RmygIK.js";
+import { t as sanitizeTerminalText } from "./safe-text-Bkz4mOfI.js";
+import { v as loadPluginRegistrySnapshotWithMetadata } from "./plugin-registry-DPlZjBYT.js";
+import { o as openAIProviderUsesCodexRuntimeByDefault } from "./openai-routing-DXJmS9CT.js";
+import { n as DEFAULT_MODEL, r as DEFAULT_PROVIDER } from "./defaults-mDjiWzE5.js";
+import { s as loadManifestMetadataSnapshot } from "./manifest-contract-eligibility-C77NT24K.js";
+import { _ as resolveConfiguredModelRef, b as resolveModelRefFromString, i as buildModelAliasIndex } from "./model-selection-shared-DwnYeyqq.js";
+import { c as parseModelRef, i as modelKey } from "./model-selection-normalize-Cj03z3tC.js";
+import { b as resolveProviderEnvAuthLookupMaps, y as listProviderEnvAuthLookupKeys } from "./model-auth-markers-BMRrT_lG.js";
+import "./model-selection-CFL1kjzt.js";
+import { t as resolveEnvApiKey } from "./model-auth-env-CPrCZe_2.js";
+import { s as resolveAwsSdkEnvVarName } from "./model-auth-runtime-shared-BVzqP6NP.js";
+import { d as hasUsableCustomProviderApiKey, u as hasSyntheticLocalProviderAuthConfig } from "./model-auth-Cg-0So6j.js";
+import { n as requestExitAfterOneShotOutput } from "./one-shot-exit-DdMGi0bf.js";
+import { i as formatTokenK, m as createModelCatalogProviderAliasCanonicalizer, n as ensureFlagCompatibility, p as canonicalizeModelCatalogProviderAlias } from "./shared-BPNNLkzQ.js";
+import { n as loadModelsConfigWithSource } from "./load-config-Dc5gZ4TS.js";
+import { n as formatErrorWithStack } from "./list.errors-DDA-CnZS.js";
+import { i as truncate, n as isRich, r as pad, t as formatTag } from "./list.format-Dm4sqBw2.js";
+//#region src/commands/models/list.auth-index.ts
+/** Auth availability index for `openclaw models list` rows. */
+function normalizeAuthProvider(provider, aliasMap) {
+	const normalized = normalizeProviderIdForAuth(provider);
+	return aliasMap[normalized] ?? normalized;
+}
+function normalizeStoredAuthProvider(provider, aliasMap) {
+	const normalized = normalizeProviderIdForAuth(provider);
+	if (normalized === "openai") return normalized;
+	return aliasMap[normalized] ?? normalized;
+}
+function listValidatedSyntheticAuthProviderRefs(params) {
+	if (params.metadataSnapshot && (params.metadataSnapshot.registryDiagnostics?.length ?? 0) > 0) return [];
+	const result = loadPluginRegistrySnapshotWithMetadata({
+		config: params.cfg,
+		workspaceDir: params.workspaceDir,
+		env: params.env,
+		index: params.metadataSnapshot?.index
+	});
+	if (result.source !== "persisted" && result.source !== "provided") return [];
+	return result.snapshot.plugins.filter((plugin) => plugin.enabled).flatMap((plugin) => plugin.syntheticAuthRefs ?? []);
+}
+/** Builds a provider-auth lookup from profiles, env, config, and synthetic plugin refs. */
+function createModelListAuthIndex(params) {
+	const env = params.env ?? process.env;
+	const { aliasMap, envCandidateMap, authEvidenceMap } = resolveProviderEnvAuthLookupMaps({
+		config: params.cfg,
+		workspaceDir: params.workspaceDir,
+		env,
+		metadataSnapshot: params.metadataSnapshot
+	});
+	const skipSetupProviderFallback = params.metadataSnapshot !== void 0;
+	const authenticatedProviders = /* @__PURE__ */ new Set();
+	const syntheticAuthProviders = /* @__PURE__ */ new Set();
+	const envProviderAuthCache = /* @__PURE__ */ new Map();
+	const credentialAuthsProvider = (credential) => {
+		const normalizedProvider = normalizeStoredAuthProvider(credential.provider, aliasMap);
+		if (normalizedProvider !== "openai") return true;
+		if (credential.type === "api_key") return true;
+		if (credential.type !== "oauth" && credential.type !== "token") return false;
+		return openAIProviderUsesCodexRuntimeByDefault({
+			provider: normalizedProvider,
+			config: params.cfg
+		});
+	};
+	const addProvider = (provider) => {
+		if (!provider?.trim()) return;
+		authenticatedProviders.add(normalizeStoredAuthProvider(provider, aliasMap));
+	};
+	const addSyntheticProvider = (provider) => {
+		const normalized = provider?.trim() ? normalizeProviderIdForAuth(provider) : "";
+		if (!normalized) return;
+		syntheticAuthProviders.add(normalized);
+	};
+	for (const credential of Object.values(params.authStore.profiles ?? {})) if (credentialAuthsProvider(credential)) addProvider(credential.provider);
+	for (const provider of listProviderEnvAuthLookupKeys({
+		envCandidateMap,
+		authEvidenceMap
+	})) if (resolveEnvApiKey(provider, env, {
+		aliasMap,
+		candidateMap: envCandidateMap,
+		authEvidenceMap,
+		skipSetupProviderFallback,
+		config: params.cfg,
+		workspaceDir: params.workspaceDir
+	})) addProvider(provider);
+	if (resolveAwsSdkEnvVarName(env)) addProvider("amazon-bedrock");
+	for (const provider of Object.keys(params.cfg.models?.providers ?? {})) if (hasUsableCustomProviderApiKey(params.cfg, provider, env) || hasSyntheticLocalProviderAuthConfig({
+		cfg: params.cfg,
+		provider
+	})) addProvider(provider);
+	if (resolveAgentModelPrimaryValue(params.cfg.agents?.defaults?.model)?.split("/", 1)[0] === "codex") addSyntheticProvider("codex");
+	for (const provider of params.syntheticAuthProviderRefs ?? listValidatedSyntheticAuthProviderRefs({
+		cfg: params.cfg,
+		workspaceDir: params.workspaceDir,
+		env,
+		metadataSnapshot: params.metadataSnapshot
+	})) addSyntheticProvider(provider);
+	const hasEnvProviderAuth = (provider) => {
+		const normalized = normalizeAuthProvider(provider, aliasMap);
+		const cached = envProviderAuthCache.get(normalized);
+		if (cached !== void 0) return cached;
+		const hasPrecomputedCandidates = Object.hasOwn(envCandidateMap, normalized);
+		const hasPrecomputedEvidence = Object.hasOwn(authEvidenceMap, normalized);
+		const hasAuth = Boolean(resolveEnvApiKey(provider, env, {
+			aliasMap,
+			candidateMap: skipSetupProviderFallback || hasPrecomputedCandidates ? envCandidateMap : void 0,
+			authEvidenceMap: skipSetupProviderFallback || hasPrecomputedEvidence ? authEvidenceMap : void 0,
+			skipSetupProviderFallback,
+			config: params.cfg,
+			workspaceDir: params.workspaceDir
+		}));
+		envProviderAuthCache.set(normalized, hasAuth);
+		if (hasAuth) authenticatedProviders.add(normalized);
+		return hasAuth;
+	};
+	const hasOpenAICodexRuntimeAuth = (provider) => {
+		return openAIProviderUsesCodexRuntimeByDefault({
+			provider: normalizeAuthProvider(provider, aliasMap),
+			config: params.cfg
+		}) && (authenticatedProviders.has("openai") || authenticatedProviders.has("openai"));
+	};
+	return {
+		hasProviderAuth(provider) {
+			const normalizedProvider = normalizeAuthProvider(provider, aliasMap);
+			if (authenticatedProviders.has(normalizedProvider) || syntheticAuthProviders.has(normalizeProviderIdForAuth(provider)) || hasEnvProviderAuth(provider)) return true;
+			return hasOpenAICodexRuntimeAuth(normalizedProvider);
+		},
+		allowsProviderAuthAvailabilityFallback(provider) {
+			return hasOpenAICodexRuntimeAuth(provider);
+		}
+	};
+}
+//#endregion
+//#region src/commands/models/list.configured.ts
+/** Resolves configured model refs and tags for model-list rows. */
+const DISPLAY_MODEL_PARSE_OPTIONS$1 = { allowPluginNormalization: false };
+/** Returns canonical configured model entries with default/fallback/image/configured tags. */
+function resolveConfiguredEntries(cfg, metadataSnapshot) {
+	const resolvedDefault = resolveConfiguredModelRef({
+		cfg,
+		defaultProvider: DEFAULT_PROVIDER,
+		defaultModel: DEFAULT_MODEL,
+		...DISPLAY_MODEL_PARSE_OPTIONS$1
+	});
+	const aliasIndex = buildModelAliasIndex({
+		cfg,
+		defaultProvider: DEFAULT_PROVIDER,
+		...DISPLAY_MODEL_PARSE_OPTIONS$1
+	});
+	const order = [];
+	const tagsByKey = /* @__PURE__ */ new Map();
+	const aliasesByKey = /* @__PURE__ */ new Map();
+	const canonicalizeProviderAlias = createModelCatalogProviderAliasCanonicalizer({
+		cfg,
+		metadataSnapshot
+	});
+	for (const [key, aliases] of aliasIndex.byKey.entries()) aliasesByKey.set(key, aliases);
+	const addEntry = (ref, tag) => {
+		const canonicalRef = canonicalizeProviderAlias.ref(ref);
+		const key = modelKey(canonicalRef.provider, canonicalRef.model);
+		const originalKey = modelKey(ref.provider, ref.model);
+		if (originalKey !== key) {
+			const aliases = aliasesByKey.get(originalKey);
+			if (aliases) aliasesByKey.set(key, [.../* @__PURE__ */ new Set([...aliasesByKey.get(key) ?? [], ...aliases])]);
+		}
+		if (!tagsByKey.has(key)) {
+			tagsByKey.set(key, /* @__PURE__ */ new Set());
+			order.push(key);
+		}
+		tagsByKey.get(key)?.add(tag);
+	};
+	const addResolvedModelRef = (raw, tag) => {
+		const resolved = resolveModelRefFromString({
+			raw,
+			defaultProvider: DEFAULT_PROVIDER,
+			aliasIndex,
+			...DISPLAY_MODEL_PARSE_OPTIONS$1
+		});
+		if (resolved) addEntry(resolved.ref, tag);
+	};
+	addEntry(resolvedDefault, "default");
+	const modelFallbacks = resolveAgentModelFallbackValues(cfg.agents?.defaults?.model);
+	const imageFallbacks = resolveAgentModelFallbackValues(cfg.agents?.defaults?.imageModel);
+	const imagePrimary = resolveAgentModelPrimaryValue(cfg.agents?.defaults?.imageModel) ?? "";
+	modelFallbacks.forEach((raw, idx) => {
+		addResolvedModelRef(raw, `fallback#${idx + 1}`);
+	});
+	if (imagePrimary) addResolvedModelRef(imagePrimary, "image");
+	imageFallbacks.forEach((raw, idx) => {
+		addResolvedModelRef(raw, `img-fallback#${idx + 1}`);
+	});
+	for (const key of Object.keys(cfg.agents?.defaults?.models ?? {})) {
+		if (key.trim().endsWith("/*")) continue;
+		const resolved = resolveModelRefFromString({
+			cfg,
+			raw: key,
+			defaultProvider: DEFAULT_PROVIDER,
+			aliasIndex,
+			...DISPLAY_MODEL_PARSE_OPTIONS$1
+		});
+		if (!resolved) continue;
+		addEntry(resolved.ref, "configured");
+	}
+	return { entries: order.map((key) => {
+		const slash = key.indexOf("/");
+		return {
+			key,
+			ref: {
+				provider: slash === -1 ? key : key.slice(0, slash),
+				model: slash === -1 ? "" : key.slice(slash + 1)
+			},
+			tags: tagsByKey.get(key) ?? /* @__PURE__ */ new Set(),
+			aliases: aliasesByKey.get(key) ?? []
+		};
+	}) };
+}
+//#endregion
+//#region src/commands/models/list.table.ts
+/** Terminal/JSON/plain table renderer for model-list rows. */
+const MODEL_PAD = 42;
+const INPUT_PAD = 10;
+const CTX_PAD = 11;
+const LOCAL_PAD = 5;
+const AUTH_PAD = 5;
+function formatContextLabel(row) {
+	if (typeof row.contextTokens === "number" && Number.isFinite(row.contextTokens) && row.contextTokens > 0 && row.contextTokens !== row.contextWindow) return `${formatTokenK(row.contextTokens)}/${formatTokenK(row.contextWindow)}`;
+	return formatTokenK(row.contextWindow);
+}
+/** Prints model-list rows in JSON, plain, or fixed-width terminal form. */
+function printModelTable(rows, runtime, opts = {}) {
+	if (opts.json) {
+		writeRuntimeJson(runtime, {
+			count: rows.length,
+			models: rows
+		});
+		return;
+	}
+	if (opts.plain) {
+		for (const row of rows) runtime.log(sanitizeTerminalText(row.key));
+		return;
+	}
+	const rich = isRich(opts);
+	const header = [
+		pad("Model", MODEL_PAD),
+		pad("Input", INPUT_PAD),
+		pad("Ctx", CTX_PAD),
+		pad("Local", LOCAL_PAD),
+		pad("Auth", AUTH_PAD),
+		"Tags"
+	].join(" ");
+	runtime.log(rich ? theme.heading(header) : header);
+	for (const row of rows) {
+		const keyLabel = pad(truncate(sanitizeTerminalText(row.key), MODEL_PAD), MODEL_PAD);
+		const inputLabel = pad(sanitizeTerminalText(row.input) || "-", INPUT_PAD);
+		const ctxLabel = pad(formatContextLabel(row), CTX_PAD);
+		const localLabel = pad(row.local === null ? "-" : row.local ? "yes" : "no", LOCAL_PAD);
+		const authLabel = pad(row.available === null ? "-" : row.available ? "yes" : "no", AUTH_PAD);
+		const tags = row.tags.map(sanitizeTerminalText);
+		const tagsLabel = tags.length > 0 ? rich ? tags.map((tag) => formatTag(tag, rich)).join(",") : tags.join(",") : "";
+		const coloredInput = colorize(rich, row.input.includes("image") ? theme.accentBright : theme.info, inputLabel);
+		const coloredLocal = colorize(rich, row.local === null ? theme.muted : row.local ? theme.success : theme.muted, localLabel);
+		const coloredAuth = colorize(rich, row.available === null ? theme.muted : row.available ? theme.success : theme.error, authLabel);
+		const line = [
+			rich ? theme.accent(keyLabel) : keyLabel,
+			coloredInput,
+			ctxLabel,
+			coloredLocal,
+			coloredAuth,
+			tagsLabel
+		].join(" ");
+		runtime.log(line);
+	}
+}
+//#endregion
+//#region src/commands/models/list.list-command.ts
+/** Implementation of `openclaw models list`. */
+const DISPLAY_MODEL_PARSE_OPTIONS = { allowPluginNormalization: false };
+const promotionsModuleLoader = createLazyImportLoader(() => import("./list.promotions-DYF_XbAq.js"));
+const registryLoadModuleLoader = createLazyImportLoader(() => import("./list.registry-load-D9znCBsC.js"));
+const rowSourcesModuleLoader = createLazyImportLoader(() => import("./list.row-sources-COJO-PjP.js"));
+const sourcePlanModuleLoader = createLazyImportLoader(() => import("./list.source-plan-DuMW7ELi.js"));
+function loadRegistryLoadModule() {
+	return registryLoadModuleLoader.load();
+}
+function loadRowSourcesModule() {
+	return rowSourcesModuleLoader.load();
+}
+function loadSourcePlanModule() {
+	return sourcePlanModuleLoader.load();
+}
+/** Lists configured, catalog, and runtime-discovered models as text, plain, or JSON. */
+async function modelsListCommand(opts, runtime) {
+	ensureFlagCompatibility(opts);
+	const parsedProviderFilter = (() => {
+		const raw = opts.provider?.trim();
+		if (!raw) return;
+		if (/\s/u.test(raw)) {
+			runtime.error(`Invalid provider filter "${raw}". Use a provider id such as "moonshot", not a display label.`);
+			process.exitCode = 1;
+			return null;
+		}
+		return parseModelRef(`${raw}/_`, "openai", DISPLAY_MODEL_PARSE_OPTIONS)?.provider ?? normalizeLowercaseStringOrEmpty(raw);
+	})();
+	if (parsedProviderFilter === null) return;
+	const [{ loadAuthProfileStoreWithoutExternalProfiles }, { resolveAgentWorkspaceDir, resolveDefaultAgentDir, resolveDefaultAgentId }, { resolveDefaultAgentWorkspaceDir }] = await Promise.all([
+		import("./store-5yrVUsns.js"),
+		import("./agent-scope-w9VdIGfQ.js"),
+		import("./workspace-BWaNCbZU.js")
+	]);
+	const { resolvedConfig: cfg } = await loadModelsConfigWithSource({
+		commandName: "models list",
+		runtime
+	});
+	const agentDir = resolveDefaultAgentDir(cfg);
+	const authStore = loadAuthProfileStoreWithoutExternalProfiles(agentDir);
+	const workspaceDir = resolveAgentWorkspaceDir(cfg, resolveDefaultAgentId(cfg)) ?? resolveDefaultAgentWorkspaceDir();
+	const metadataSnapshot = loadManifestMetadataSnapshot({
+		config: cfg,
+		workspaceDir,
+		env: process.env
+	});
+	const providerFilter = parsedProviderFilter ? canonicalizeModelCatalogProviderAlias(parsedProviderFilter, {
+		cfg,
+		metadataSnapshot
+	}) : void 0;
+	const authIndex = createModelListAuthIndex({
+		cfg,
+		authStore,
+		workspaceDir,
+		metadataSnapshot
+	});
+	let modelRegistry;
+	let registryModels = [];
+	let discoveredKeys = /* @__PURE__ */ new Set();
+	let availableKeys;
+	let availabilityErrorMessage;
+	const { entries } = resolveConfiguredEntries(cfg, metadataSnapshot);
+	const configuredByKey = new Map(entries.map((entry) => [entry.key, entry]));
+	const enableSourcePlanCascade = Boolean(opts.all) || Boolean(providerFilter);
+	const sourcePlanModule = enableSourcePlanCascade ? await loadSourcePlanModule() : void 0;
+	const sourcePlan = sourcePlanModule ? await sourcePlanModule.planAllModelListSources({
+		all: opts.all,
+		enableCascade: enableSourcePlanCascade,
+		providerFilter,
+		cfg,
+		metadataSnapshot
+	}) : void 0;
+	const shouldLoadRegistry = sourcePlan?.requiresInitialRegistry ?? false;
+	const loadRegistryState = async (optsLocal) => {
+		const { loadListModelRegistry } = await loadRegistryLoadModule();
+		const loaded = await loadListModelRegistry(cfg, {
+			providerFilter,
+			normalizeModels: optsLocal?.normalizeModels ?? Boolean(providerFilter),
+			loadAvailability: optsLocal?.loadAvailability,
+			workspaceDir
+		});
+		modelRegistry = loaded.registry;
+		registryModels = loaded.models;
+		discoveredKeys = loaded.discoveredKeys;
+		availableKeys = loaded.availableKeys;
+		availabilityErrorMessage = loaded.availabilityErrorMessage;
+	};
+	try {
+		if (shouldLoadRegistry) await loadRegistryState();
+		else if (!opts.all && opts.local) {
+			const { loadConfiguredListModelRegistry } = await loadRegistryLoadModule();
+			const loaded = loadConfiguredListModelRegistry(cfg, entries, {
+				providerFilter,
+				workspaceDir
+			});
+			modelRegistry = loaded.registry;
+			discoveredKeys = loaded.discoveredKeys;
+			availableKeys = loaded.availableKeys;
+		}
+	} catch (err) {
+		runtime.error(`Model registry unavailable:\n${formatErrorWithStack(err)}`);
+		process.exitCode = 1;
+		return;
+	}
+	const buildRowContext = (skipRuntimeModelSuppression) => ({
+		cfg,
+		agentDir,
+		authIndex,
+		availableKeys,
+		configuredByKey,
+		discoveredKeys,
+		filter: {
+			provider: providerFilter,
+			local: opts.local
+		},
+		skipRuntimeModelSuppression,
+		metadataSnapshot,
+		workspaceDir
+	});
+	const rows = [];
+	if (enableSourcePlanCascade) {
+		const { appendAllModelRowSources } = await loadRowSourcesModule();
+		if (!sourcePlan || !sourcePlanModule) throw new Error("models list source plan was not initialized");
+		let rowContext = buildRowContext(sourcePlan.skipRuntimeModelSuppression);
+		if ((await appendAllModelRowSources({
+			rows,
+			entries,
+			context: rowContext,
+			modelRegistry,
+			registryModels,
+			sourcePlan
+		})).requiresRegistryFallback) {
+			const useScopedRegistryFallback = sourcePlan.kind === "provider-runtime-scoped";
+			try {
+				await loadRegistryState(useScopedRegistryFallback ? {
+					normalizeModels: false,
+					loadAvailability: false
+				} : void 0);
+			} catch (err) {
+				runtime.error(`Model registry unavailable:\n${formatErrorWithStack(err)}`);
+				process.exitCode = 1;
+				return;
+			}
+			rows.length = 0;
+			rowContext = buildRowContext(useScopedRegistryFallback);
+			await appendAllModelRowSources({
+				rows,
+				entries,
+				context: rowContext,
+				modelRegistry,
+				registryModels,
+				sourcePlan: useScopedRegistryFallback ? sourcePlan : sourcePlanModule.createRegistryModelListSourcePlan()
+			});
+		}
+	} else {
+		const { appendConfiguredModelRowSources } = await loadRowSourcesModule();
+		await appendConfiguredModelRowSources({
+			rows,
+			entries,
+			modelRegistry,
+			context: buildRowContext(!modelRegistry)
+		});
+	}
+	if (availabilityErrorMessage !== void 0) runtime.error(`Model availability lookup failed; falling back to auth heuristics for discovered models: ${availabilityErrorMessage}`);
+	const promotionsModule = await promotionsModuleLoader.load();
+	try {
+		promotionsModule.applyPromotionClaimTags(rows);
+	} catch {}
+	if (rows.length === 0) runtime.log("No models found.");
+	else printModelTable(rows, runtime, opts);
+	if (!opts.json && !opts.plain) try {
+		await promotionsModule.printAvailablePromotionsSection({
+			configuredKeys: new Set(entries.map((entry) => entry.key)),
+			runtime
+		});
+	} catch {}
+	requestExitAfterOneShotOutput(runtime);
+}
+//#endregion
+export { modelsListCommand };

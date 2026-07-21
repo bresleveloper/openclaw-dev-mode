@@ -181,6 +181,18 @@ export function createWebOnMessageHandler(params: {
       return;
     }
 
+    // [dev-mode] In self-chat, skip reasoning echoes bouncing back from WhatsApp.
+    // Matches: "[prefix] Reasoning:", "💭 Reasoning:", or bare "Reasoning:".
+    // Without this, reasoning echoes bypass the echo tracker (text mismatch from
+    // SEC-WA1 prefix swap) and trigger an infinite reply loop.
+    if (process.env.OPENCLAW_DEV_MODE === "1" && conversationId === msg.platform.recipientJid) {
+      const text = msg.payload.body ?? "";
+      if (/(?:^\[.*?\] Reasoning:|^💭 Reasoning:|^Reasoning:)/u.test(text)) {
+        logVerbose("Skipping self-chat reasoning echo (dev-mode)");
+        return;
+      }
+    }
+
     const configuredRoute = resolveConfiguredBindingRoute({
       cfg,
       route: baseConversationRoute,

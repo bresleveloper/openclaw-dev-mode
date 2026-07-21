@@ -42,6 +42,7 @@ import {
 import type { EventFrame } from "../../packages/gateway-protocol/src/index.js";
 import type { GatewayClient } from "../gateway/client.js";
 import type { GatewaySessionRow, SessionsListResult } from "../gateway/session-utils.js";
+import { isDevMode } from "../globals.js";
 import {
   createFixedWindowRateLimiter,
   resolveFixedWindowRateLimitInteger,
@@ -106,7 +107,10 @@ import { AcpTranslatorSessionUpdates } from "./translator.session-updates.js";
 import { ACP_AGENT_INFO } from "./types.js";
 
 // Maximum allowed prompt size (2MB) to prevent DoS via memory exhaustion (CWE-400, GHSA-cxpw-2g23-2vgw)
-const MAX_PROMPT_BYTES = 2 * 1024 * 1024;
+const DEFAULT_MAX_PROMPT_BYTES = 2 * 1024 * 1024;
+function getMaxPromptBytes(): number {
+  return isDevMode() ? 50 * 1024 * 1024 : DEFAULT_MAX_PROMPT_BYTES;
+}
 const ACP_LOAD_SESSION_REPLAY_LIMIT = 1_000_000;
 const ACP_GATEWAY_DISCONNECT_GRACE_MS = 5_000;
 
@@ -677,9 +681,9 @@ export class AcpGatewayAgent implements Agent {
     }
 
     const meta = parseSessionMeta(params["_meta"]);
-    // Pass MAX_PROMPT_BYTES so extractTextFromPrompt rejects oversized content
+    // Pass getMaxPromptBytes() so extractTextFromPrompt rejects oversized content
     // block-by-block, before the full string is ever assembled in memory (CWE-400)
-    const userText = extractTextFromPrompt(params.prompt, MAX_PROMPT_BYTES);
+    const userText = extractTextFromPrompt(params.prompt, getMaxPromptBytes());
     const attachments = extractAttachmentsFromPrompt(params.prompt);
     const prefixCwd = meta.prefixCwd ?? this.opts.prefixCwd ?? true;
     const displayCwd = shortenHomePath(session.cwd);
@@ -697,8 +701,8 @@ export class AcpGatewayAgent implements Agent {
         : undefined;
 
     // Defense-in-depth: also check the final assembled message (includes cwd prefix)
-    if (Buffer.byteLength(message, "utf-8") > MAX_PROMPT_BYTES) {
-      throw new Error(`Prompt exceeds maximum allowed size of ${MAX_PROMPT_BYTES} bytes`);
+    if (Buffer.byteLength(message, "utf-8") > getMaxPromptBytes()) {
+      throw new Error(`Prompt exceeds maximum allowed size of ${getMaxPromptBytes()} bytes`);
     }
 
     const abortController = new AbortController();

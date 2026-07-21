@@ -1,0 +1,568 @@
+import { c as normalizeOptionalString } from "./string-coerce-DW4mBlAt.js";
+import { j as resolveTimerTimeoutMs } from "./number-coercion-CJQ8TR--.js";
+import { t as createAbortError } from "./abort-signal-BWW6Tk6w.js";
+import { n as resolveGlobalSingleton } from "./global-singleton-PwlQSEal.js";
+import "./number-coercion-EqFmHmOw.js";
+import { i as createAgentRunRestartAbortError, s as isAgentRunRestartAbortReason } from "./run-termination-DjANsN9j.js";
+import { a as markDiagnosticEmbeddedRunStarted, i as markDiagnosticEmbeddedRunEnded } from "./diagnostic-run-activity-Jf95dtVL.js";
+//#region src/auto-reply/reply/reply-run-registry.ts
+const replyRunState = resolveGlobalSingleton(Symbol.for("openclaw.replyRunRegistry"), () => ({
+	activeRunsByKey: /* @__PURE__ */ new Map(),
+	activeSessionIdsByKey: /* @__PURE__ */ new Map(),
+	activeKeysBySessionId: /* @__PURE__ */ new Map(),
+	waitKeysBySessionId: /* @__PURE__ */ new Map(),
+	waitersByKey: /* @__PURE__ */ new Map(),
+	followupAdmissionBarriersByKey: /* @__PURE__ */ new Map()
+}));
+replyRunState.followupAdmissionBarriersByKey ??= /* @__PURE__ */ new Map();
+const REPLY_RUN_IDLE_SETTLE_TIMEOUT_MS = 15e3;
+var ReplyRunAlreadyActiveError = class extends Error {
+	constructor(sessionKey) {
+		super(`Reply run already active for ${sessionKey}`);
+		this.name = "ReplyRunAlreadyActiveError";
+	}
+};
+var ReplyRunFollowupAdmissionBlockedError = class extends Error {
+	constructor(sessionKey) {
+		super(`Reply follow-up admission is blocked for ${sessionKey}`);
+		this.name = "ReplyRunFollowupAdmissionBlockedError";
+	}
+};
+function createUserAbortError() {
+	return createAbortError("Reply operation aborted by user");
+}
+function registerWaitSessionId(sessionKey, sessionId) {
+	replyRunState.waitKeysBySessionId.set(sessionId, sessionKey);
+}
+function clearWaitSessionIds(sessionKey) {
+	for (const [sessionId, mappedKey] of replyRunState.waitKeysBySessionId) if (mappedKey === sessionKey) replyRunState.waitKeysBySessionId.delete(sessionId);
+}
+function notifyReplyRunEnded(sessionKey) {
+	const waiters = replyRunState.waitersByKey.get(sessionKey);
+	if (!waiters || waiters.size === 0) return;
+	replyRunState.waitersByKey.delete(sessionKey);
+	for (const waiter of waiters) waiter.finish(true);
+}
+function resolveReplyRunForCurrentSessionId(sessionId) {
+	const normalizedSessionId = normalizeOptionalString(sessionId);
+	if (!normalizedSessionId) return;
+	const sessionKey = replyRunState.activeKeysBySessionId.get(normalizedSessionId);
+	if (!sessionKey) return;
+	return replyRunState.activeRunsByKey.get(sessionKey);
+}
+function resolveReplyRunWaitKey(sessionId) {
+	const normalizedSessionId = normalizeOptionalString(sessionId);
+	if (!normalizedSessionId) return;
+	return replyRunState.activeKeysBySessionId.get(normalizedSessionId) ?? replyRunState.waitKeysBySessionId.get(normalizedSessionId);
+}
+function isReplyRunCompacting(operation) {
+	if (operation.phase === "preflight_compacting" || operation.phase === "memory_flushing") return true;
+	if (operation.phase !== "running") return false;
+	return getAttachedBackend(operation)?.isCompacting?.() ?? false;
+}
+const attachedBackendByOperation = /* @__PURE__ */ new WeakMap();
+const abortFrozenOperations = /* @__PURE__ */ new WeakSet();
+const operationsByUpstreamAbortSignal = /* @__PURE__ */ new WeakMap();
+const retainStateUntilCompleteOperations = /* @__PURE__ */ new WeakSet();
+const afterClearCallbacksByOperation = /* @__PURE__ */ new WeakMap();
+function getAttachedBackend(operation) {
+	return attachedBackendByOperation.get(operation);
+}
+function isReplyOperationAbortable(operation) {
+	if (operation.result || abortFrozenOperations.has(operation)) return false;
+	const backend = getAttachedBackend(operation);
+	if (!backend?.isAbortable) return true;
+	try {
+		return backend.isAbortable();
+	} catch {
+		return false;
+	}
+}
+function isReplyRunAbortableForSignal(signal) {
+	const operation = operationsByUpstreamAbortSignal.get(signal);
+	return operation ? isReplyOperationAbortable(operation) : true;
+}
+/** Keep terminal state registered until the operation owner exits via complete(). */
+function retainReplyOperationUntilComplete(operation) {
+	retainStateUntilCompleteOperations.add(operation);
+}
+function isReplyBackendMessageInjectable(backend) {
+	try {
+		return backend.isStopped === void 0 ? backend.isStreaming() : !backend.isStopped();
+	} catch {
+		return false;
+	}
+}
+/** Run work after an operation no longer owns its session lane. */
+function runAfterReplyOperationClear(operation, afterClear) {
+	if (replyRunState.activeRunsByKey.get(operation.key) !== operation) {
+		afterClear(operation.sessionId);
+		return;
+	}
+	const callbacks = afterClearCallbacksByOperation.get(operation) ?? /* @__PURE__ */ new Set();
+	callbacks.add(afterClear);
+	afterClearCallbacksByOperation.set(operation, callbacks);
+}
+function flushReplyOperationAfterClear(operation, sessionId) {
+	const callbacks = afterClearCallbacksByOperation.get(operation);
+	if (!callbacks) return;
+	afterClearCallbacksByOperation.delete(operation);
+	for (const callback of callbacks) callback(sessionId);
+}
+function waitForReplyBarrierSettlement(barrier, timeout = REPLY_RUN_IDLE_SETTLE_TIMEOUT_MS) {
+	return new Promise((resolve) => {
+		let settled = false;
+		let timer;
+		const finish = () => {
+			if (settled) return;
+			settled = true;
+			clearTimeout(timer);
+			resolve();
+		};
+		const schedule = (delayMs, callback) => {
+			timer = setTimeout(callback, delayMs);
+			timer.unref?.();
+		};
+		if (typeof timeout === "number") schedule(resolveTimerTimeoutMs(timeout, REPLY_RUN_IDLE_SETTLE_TIMEOUT_MS), finish);
+		else {
+			const startedAt = Date.now();
+			const maxTimeoutMs = resolveTimerTimeoutMs(timeout.maxTimeoutMs, REPLY_RUN_IDLE_SETTLE_TIMEOUT_MS);
+			const checkOwnerActivity = () => {
+				const remainingMs = maxTimeoutMs - (Date.now() - startedAt);
+				if (remainingMs <= 0) {
+					finish();
+					return;
+				}
+				let shouldExtend;
+				try {
+					shouldExtend = timeout.shouldExtend();
+				} catch {
+					finish();
+					return;
+				}
+				if (!shouldExtend) {
+					finish();
+					return;
+				}
+				schedule(Math.min(REPLY_RUN_IDLE_SETTLE_TIMEOUT_MS, remainingMs), checkOwnerActivity);
+			};
+			schedule(Math.min(REPLY_RUN_IDLE_SETTLE_TIMEOUT_MS, maxTimeoutMs), checkOwnerActivity);
+		}
+		Promise.resolve(barrier).then(finish, finish);
+	});
+}
+function registerFollowupAdmissionBarrier(sessionKey, sessionId, barrier, timeout = REPLY_RUN_IDLE_SETTLE_TIMEOUT_MS) {
+	const barriersByKey = replyRunState.followupAdmissionBarriersByKey;
+	const previous = barriersByKey.get(sessionKey)?.settled;
+	const current = waitForReplyBarrierSettlement(barrier, timeout);
+	const settled = previous ? Promise.all([previous, current]).then(() => void 0) : current;
+	const entry = {
+		settled,
+		sessionId
+	};
+	barriersByKey.set(sessionKey, entry);
+	settled.then(() => {
+		if (barriersByKey.get(sessionKey) === entry) barriersByKey.delete(sessionKey);
+	});
+	return entry;
+}
+function updateFollowupAdmissionSessionId(sessionKey, sessionId) {
+	const barrier = replyRunState.followupAdmissionBarriersByKey.get(sessionKey);
+	if (barrier) barrier.sessionId = sessionId;
+}
+function clearReplyRunState(params) {
+	replyRunState.activeRunsByKey.delete(params.sessionKey);
+	replyRunState.activeSessionIdsByKey.delete(params.sessionKey);
+	if (replyRunState.activeKeysBySessionId.get(params.sessionId) === params.sessionKey) replyRunState.activeKeysBySessionId.delete(params.sessionId);
+	clearWaitSessionIds(params.sessionKey);
+	notifyReplyRunEnded(params.sessionKey);
+}
+function replyRunDiagnosticWorkKey(sessionKey) {
+	return `reply:${sessionKey}`;
+}
+function markReplyRunDiagnosticWorkStarted(params) {
+	markDiagnosticEmbeddedRunStarted({
+		sessionId: params.sessionId,
+		sessionKey: params.sessionKey,
+		workKey: replyRunDiagnosticWorkKey(params.sessionKey)
+	});
+}
+function markReplyRunDiagnosticWorkEnded(params) {
+	markDiagnosticEmbeddedRunEnded({
+		sessionId: params.sessionId,
+		sessionKey: params.sessionKey,
+		workKey: replyRunDiagnosticWorkKey(params.sessionKey),
+		clearRunActivity: false
+	});
+}
+function createReplyOperation(params) {
+	const sessionKey = normalizeOptionalString(params.sessionKey);
+	const sessionId = normalizeOptionalString(params.sessionId);
+	if (!sessionKey) throw new Error("Reply operations require a canonical sessionKey");
+	if (!sessionId) throw new Error("Reply operations require a sessionId");
+	if (params.respectFollowupAdmissionBarrier && replyRunState.followupAdmissionBarriersByKey.has(sessionKey)) throw new ReplyRunFollowupAdmissionBlockedError(sessionKey);
+	if (replyRunState.activeRunsByKey.has(sessionKey)) throw new ReplyRunAlreadyActiveError(sessionKey);
+	const controller = new AbortController();
+	let currentSessionId = sessionId;
+	let phase = "queued";
+	let result = null;
+	let stateCleared = false;
+	let retainFailureUntilComplete = false;
+	let terminalRecovery = false;
+	let acceptedSteeredInboundAudio = false;
+	const upstreamAbortSignal = params.upstreamAbortSignal;
+	let upstreamAbortHandler;
+	const detachUpstreamAbort = () => {
+		if (!upstreamAbortHandler) return;
+		upstreamAbortSignal?.removeEventListener("abort", upstreamAbortHandler);
+		upstreamAbortHandler = void 0;
+	};
+	const ownedSessionIds = /* @__PURE__ */ new Set([sessionId]);
+	const clearState = (afterClearBarrier, followupAdmissionBarrierTimeout) => {
+		if (stateCleared) return;
+		stateCleared = true;
+		detachUpstreamAbort();
+		const registeredBarrier = afterClearBarrier ? registerFollowupAdmissionBarrier(sessionKey, currentSessionId, afterClearBarrier, followupAdmissionBarrierTimeout) : void 0;
+		updateFollowupAdmissionSessionId(sessionKey, currentSessionId);
+		markReplyRunDiagnosticWorkEnded({
+			sessionKey,
+			sessionId: currentSessionId
+		});
+		clearReplyRunState({
+			sessionKey,
+			sessionId: currentSessionId
+		});
+		if (!registeredBarrier) {
+			flushReplyOperationAfterClear(operation, currentSessionId);
+			return;
+		}
+		registeredBarrier.settled.then(() => flushReplyOperationAfterClear(operation, registeredBarrier.sessionId));
+	};
+	const abortInternally = (reason) => {
+		if (!controller.signal.aborted) controller.abort(reason);
+	};
+	const abortWithReason = (reason, abortReason, opts) => {
+		if (opts?.abortedCode && !result) {
+			result = {
+				kind: "aborted",
+				code: opts.abortedCode
+			};
+			detachUpstreamAbort();
+		}
+		phase = "aborted";
+		abortInternally(abortReason);
+		getAttachedBackend(operation)?.cancel(reason);
+	};
+	const operation = {
+		get key() {
+			return sessionKey;
+		},
+		get sessionId() {
+			return currentSessionId;
+		},
+		get routeThreadId() {
+			return params.routeThreadId;
+		},
+		get abortSignal() {
+			return controller.signal;
+		},
+		get resetTriggered() {
+			return params.resetTriggered;
+		},
+		get terminalRecovery() {
+			return terminalRecovery;
+		},
+		get acceptedSteeredInboundAudio() {
+			return acceptedSteeredInboundAudio;
+		},
+		get phase() {
+			return phase;
+		},
+		get result() {
+			return result;
+		},
+		hasOwnedSessionId(candidateSessionId) {
+			const normalizedSessionId = normalizeOptionalString(candidateSessionId);
+			return normalizedSessionId ? ownedSessionIds.has(normalizedSessionId) : false;
+		},
+		setPhase(next) {
+			if (result) return;
+			phase = next;
+		},
+		markTerminalRecovery() {
+			terminalRecovery = true;
+		},
+		markAcceptedSteeredInboundAudio() {
+			acceptedSteeredInboundAudio = true;
+		},
+		updateSessionId(nextSessionId) {
+			if (result) return;
+			const normalizedNextSessionId = normalizeOptionalString(nextSessionId);
+			if (!normalizedNextSessionId || normalizedNextSessionId === currentSessionId) return;
+			if (replyRunState.activeKeysBySessionId.has(normalizedNextSessionId) && replyRunState.activeKeysBySessionId.get(normalizedNextSessionId) !== sessionKey) throw new Error(`Cannot rebind reply operation ${sessionKey} to active session ${normalizedNextSessionId}`);
+			replyRunState.activeKeysBySessionId.delete(currentSessionId);
+			registerWaitSessionId(sessionKey, currentSessionId);
+			currentSessionId = normalizedNextSessionId;
+			ownedSessionIds.add(currentSessionId);
+			updateFollowupAdmissionSessionId(sessionKey, currentSessionId);
+			replyRunState.activeSessionIdsByKey.set(sessionKey, currentSessionId);
+			replyRunState.activeKeysBySessionId.set(currentSessionId, sessionKey);
+			registerWaitSessionId(sessionKey, currentSessionId);
+			markReplyRunDiagnosticWorkStarted({
+				sessionKey,
+				sessionId: currentSessionId
+			});
+		},
+		attachBackend(handle) {
+			if (result) {
+				handle.cancel(result.kind === "aborted" ? result.code === "aborted_for_restart" ? "restart" : "user_abort" : "superseded");
+				return;
+			}
+			attachedBackendByOperation.set(operation, handle);
+			if (controller.signal.aborted) handle.cancel("superseded");
+		},
+		detachBackend(handle) {
+			if (getAttachedBackend(operation) === handle) attachedBackendByOperation.delete(operation);
+		},
+		freezeAbort() {
+			abortFrozenOperations.add(operation);
+			detachUpstreamAbort();
+		},
+		retainFailureUntilComplete() {
+			retainFailureUntilComplete = true;
+		},
+		complete() {
+			if (!result) {
+				result = { kind: "completed" };
+				phase = "completed";
+			}
+			clearState();
+		},
+		completeThen(afterClear) {
+			runAfterReplyOperationClear(operation, afterClear);
+			operation.complete();
+		},
+		completeWithAfterClearBarrier(barrier, timeoutMs) {
+			if (!result) {
+				result = { kind: "completed" };
+				phase = "completed";
+			}
+			clearState(barrier, timeoutMs);
+		},
+		fail(code, cause) {
+			abortFrozenOperations.add(operation);
+			detachUpstreamAbort();
+			if (!result) {
+				result = {
+					kind: "failed",
+					code,
+					cause
+				};
+				phase = "failed";
+			}
+			if (!retainFailureUntilComplete && !retainStateUntilCompleteOperations.has(operation)) clearState();
+		},
+		abortByUser() {
+			if (!isReplyOperationAbortable(operation)) return false;
+			const phaseBeforeAbort = phase;
+			abortWithReason("user_abort", createUserAbortError(), { abortedCode: "aborted_by_user" });
+			if (phaseBeforeAbort === "queued" && !retainStateUntilCompleteOperations.has(operation)) clearState();
+			return true;
+		},
+		abortForRestart() {
+			if (!isReplyOperationAbortable(operation)) return false;
+			const phaseBeforeAbort = phase;
+			abortWithReason("restart", createAgentRunRestartAbortError(), { abortedCode: "aborted_for_restart" });
+			if (phaseBeforeAbort === "queued" && !retainStateUntilCompleteOperations.has(operation)) clearState();
+			return true;
+		}
+	};
+	replyRunState.activeRunsByKey.set(sessionKey, operation);
+	replyRunState.activeSessionIdsByKey.set(sessionKey, currentSessionId);
+	replyRunState.activeKeysBySessionId.set(currentSessionId, sessionKey);
+	registerWaitSessionId(sessionKey, currentSessionId);
+	markReplyRunDiagnosticWorkStarted({
+		sessionKey,
+		sessionId: currentSessionId
+	});
+	if (upstreamAbortSignal) {
+		operationsByUpstreamAbortSignal.set(upstreamAbortSignal, operation);
+		const abortFromUpstream = () => {
+			if (result) return;
+			const restart = isAgentRunRestartAbortReason(upstreamAbortSignal.reason);
+			const phaseBeforeAbort = phase;
+			abortWithReason(restart ? "restart" : "user_abort", upstreamAbortSignal.reason, { abortedCode: restart ? "aborted_for_restart" : "aborted_by_user" });
+			if (phaseBeforeAbort === "queued" && !retainStateUntilCompleteOperations.has(operation)) clearState();
+		};
+		if (upstreamAbortSignal.aborted) abortFromUpstream();
+		else {
+			upstreamAbortHandler = abortFromUpstream;
+			upstreamAbortSignal.addEventListener("abort", upstreamAbortHandler, { once: true });
+		}
+	}
+	return operation;
+}
+const replyRunRegistry = {
+	begin(params) {
+		return createReplyOperation(params);
+	},
+	get(sessionKey) {
+		const normalizedSessionKey = normalizeOptionalString(sessionKey);
+		if (!normalizedSessionKey) return;
+		return replyRunState.activeRunsByKey.get(normalizedSessionKey);
+	},
+	isActive(sessionKey) {
+		const normalizedSessionKey = normalizeOptionalString(sessionKey);
+		if (!normalizedSessionKey) return false;
+		return replyRunState.activeRunsByKey.has(normalizedSessionKey);
+	},
+	isStreaming(sessionKey) {
+		const operation = this.get(sessionKey);
+		if (!operation || operation.phase !== "running") return false;
+		return getAttachedBackend(operation)?.isStreaming() ?? false;
+	},
+	abort(sessionKey) {
+		const operation = this.get(sessionKey);
+		if (!operation) return false;
+		return operation.abortByUser();
+	},
+	waitForIdle(sessionKey, timeoutMs, opts) {
+		const normalizedSessionKey = normalizeOptionalString(sessionKey);
+		if (!normalizedSessionKey || !replyRunState.activeRunsByKey.has(normalizedSessionKey)) return Promise.resolve(true);
+		if (opts?.signal?.aborted) return Promise.resolve(false);
+		return new Promise((resolve) => {
+			const waiters = replyRunState.waitersByKey.get(normalizedSessionKey) ?? /* @__PURE__ */ new Set();
+			let abortHandler;
+			let settled = false;
+			const waiter = { finish: (ended) => {
+				if (settled) return;
+				settled = true;
+				waiters.delete(waiter);
+				if (waiters.size === 0) replyRunState.waitersByKey.delete(normalizedSessionKey);
+				if (waiter.timer) clearTimeout(waiter.timer);
+				if (abortHandler) opts?.signal?.removeEventListener("abort", abortHandler);
+				resolve(ended);
+			} };
+			if (typeof timeoutMs === "number" && Number.isFinite(timeoutMs)) waiter.timer = setTimeout(() => waiter.finish(false), resolveTimerTimeoutMs(timeoutMs, 100, 100));
+			if (opts?.signal) {
+				abortHandler = () => waiter.finish(false);
+				opts.signal.addEventListener("abort", abortHandler, { once: true });
+			}
+			waiters.add(waiter);
+			replyRunState.waitersByKey.set(normalizedSessionKey, waiters);
+			if (!replyRunState.activeRunsByKey.has(normalizedSessionKey)) waiter.finish(true);
+		});
+	},
+	resolveSessionId(sessionKey) {
+		const normalizedSessionKey = normalizeOptionalString(sessionKey);
+		if (!normalizedSessionKey) return;
+		return replyRunState.activeSessionIdsByKey.get(normalizedSessionKey);
+	}
+};
+function resolveActiveReplyRunSessionId(sessionKey) {
+	return replyRunRegistry.resolveSessionId(sessionKey);
+}
+function resolveActiveReplyRunThreadId(sessionKey) {
+	return replyRunRegistry.get(sessionKey)?.routeThreadId;
+}
+function isReplyRunActiveForSessionId(sessionId) {
+	return resolveReplyRunForCurrentSessionId(sessionId) !== void 0;
+}
+function isReplyRunAbortableForCompaction(sessionId) {
+	const operation = resolveReplyRunForCurrentSessionId(sessionId);
+	return Boolean(operation && operation.phase !== "queued");
+}
+function isReplyRunStreamingForSessionId(sessionId) {
+	const operation = resolveReplyRunForCurrentSessionId(sessionId);
+	if (!operation || operation.phase !== "running") return false;
+	return getAttachedBackend(operation)?.isStreaming() ?? false;
+}
+function queueReplyRunMessage(sessionId, text, options) {
+	const operation = resolveReplyRunForCurrentSessionId(sessionId);
+	const backend = operation ? getAttachedBackend(operation) : void 0;
+	if (!operation || operation.phase !== "running" || !backend?.queueMessage) return false;
+	if (!isReplyBackendMessageInjectable(backend)) return false;
+	options ? backend.queueMessage(text, options) : backend.queueMessage(text);
+	return true;
+}
+function abortReplyRunBySessionId(sessionId) {
+	const operation = resolveReplyRunForCurrentSessionId(sessionId);
+	if (!operation) return false;
+	return operation.abortByUser();
+}
+function forceClearReplyRunBySessionId(sessionId, cause) {
+	const operation = resolveReplyRunForCurrentSessionId(sessionId);
+	if (!operation) return false;
+	operation.fail("run_failed", cause);
+	operation.complete();
+	return true;
+}
+function clearReplyRunForResetBySessionId(sessionId) {
+	const operation = resolveReplyRunForCurrentSessionId(sessionId);
+	if (!operation || operation.phase === "queued") return;
+	operation.abortForRestart();
+	if (replyRunState.activeRunsByKey.get(operation.key) === operation) operation.complete();
+}
+function waitForReplyRunEndBySessionId(sessionId, timeoutMs) {
+	const waitKey = resolveReplyRunWaitKey(sessionId);
+	if (!waitKey) return Promise.resolve(true);
+	return replyRunRegistry.waitForIdle(waitKey, timeoutMs);
+}
+async function waitForReplyRunFollowupAdmission(sessionKey, timeoutMs, opts) {
+	const normalizedSessionKey = normalizeOptionalString(sessionKey);
+	if (!normalizedSessionKey) return { settled: true };
+	const resolvedTimeoutMs = resolveTimerTimeoutMs(timeoutMs, 100, 100);
+	const deadline = Date.now() + resolvedTimeoutMs;
+	let sessionId;
+	while (true) {
+		if (opts?.signal?.aborted) return { settled: false };
+		const barrier = replyRunState.followupAdmissionBarriersByKey.get(normalizedSessionKey);
+		if (!barrier) return {
+			settled: true,
+			sessionId
+		};
+		const remainingMs = deadline - Date.now();
+		if (remainingMs <= 0) return { settled: false };
+		let timer;
+		let abortHandler;
+		const outcome = await Promise.race([
+			barrier.settled.then(() => true),
+			new Promise((resolve) => {
+				timer = setTimeout(() => resolve(false), remainingMs);
+				timer.unref?.();
+			}),
+			...opts?.signal ? [new Promise((resolve) => {
+				abortHandler = () => resolve(false);
+				opts.signal?.addEventListener("abort", abortHandler, { once: true });
+			})] : []
+		]);
+		if (timer) clearTimeout(timer);
+		if (abortHandler) opts?.signal?.removeEventListener("abort", abortHandler);
+		if (!outcome) return { settled: false };
+		sessionId = barrier.sessionId;
+	}
+}
+function abortActiveReplyRuns(opts) {
+	let aborted = false;
+	for (const operation of replyRunState.activeRunsByKey.values()) {
+		if (opts.mode === "compacting" && !isReplyRunCompacting(operation)) continue;
+		try {
+			if (operation.abortForRestart()) aborted = true;
+		} catch (error) {
+			if (operation.result?.kind === "aborted" && operation.result.code === "aborted_for_restart") aborted = true;
+			opts.onAbortError?.(operation.sessionId, error);
+		}
+	}
+	return aborted;
+}
+function getActiveReplyRunCount() {
+	return replyRunState.activeRunsByKey.size;
+}
+function listActiveReplyRunSessionIds() {
+	return [...replyRunState.activeSessionIdsByKey.values()];
+}
+function listActiveReplyRunSessionKeys() {
+	return [...replyRunState.activeSessionIdsByKey.keys()];
+}
+//#endregion
+export { waitForReplyRunEndBySessionId as C, waitForReplyBarrierSettlement as S, replyRunRegistry as _, abortReplyRunBySessionId as a, retainReplyOperationUntilComplete as b, forceClearReplyRunBySessionId as c, isReplyRunAbortableForSignal as d, isReplyRunActiveForSessionId as f, queueReplyRunMessage as g, listActiveReplyRunSessionKeys as h, abortActiveReplyRuns as i, getActiveReplyRunCount as l, listActiveReplyRunSessionIds as m, ReplyRunAlreadyActiveError as n, clearReplyRunForResetBySessionId as o, isReplyRunStreamingForSessionId as p, ReplyRunFollowupAdmissionBlockedError as r, createReplyOperation as s, REPLY_RUN_IDLE_SETTLE_TIMEOUT_MS as t, isReplyRunAbortableForCompaction as u, resolveActiveReplyRunSessionId as v, waitForReplyRunFollowupAdmission as w, runAfterReplyOperationClear as x, resolveActiveReplyRunThreadId as y };

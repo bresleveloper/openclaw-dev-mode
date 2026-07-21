@@ -370,6 +370,13 @@ export type TemplateContext = MsgContext & {
   BodyStripped?: string;
   SessionId?: string;
   IsNewSession?: string;
+  /**
+   * FIX-05: set by session.ts when it substitutes a synthetic "/compact" trigger for the
+   * dev-mode daily-boundary reset. Consumed by handleCompactCommand (commands-compact.ts)
+   * to distinguish an auto-triggered compaction from a human typing /compact -- never set
+   * from user input.
+   */
+  DevModeAutoCompact?: boolean;
 };
 
 function formatTemplateValue(value: unknown): string {
