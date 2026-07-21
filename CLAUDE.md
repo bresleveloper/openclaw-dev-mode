@@ -11,9 +11,9 @@
 
 ## Branches
 
-- `main` — Ariel's primary branch. Has `dist/` committed for easy VPS deployment, includes `dev-mode/rejects/` folder. This is about making life easier — experimental, practical, no polish needed. Still at the V2026.6.11 base.
-- `upgrade-2026.7.1` — the V2026.7.1 clean-room upgrade branch (2026-07-21), deployed to the VPS. Promote to `main` after Ariel's testing (fast-forward is impossible — it was cut from the upstream tag; promotion = force-move `main` or merge).
-- `pr-ready` — DELETED (2026-03-23). Upstream PR abandoned.
+- `main` — Ariel's ONLY branch (all others deleted 2026-07-21 on his instruction, local + origin + VPS). Now at the V2026.7.1 base: the `upgrade-2026.7.1` clean-room branch was force-moved onto `main` the same day it deployed (history rewrite — main is NOT a descendant of the old main). Has `dist/` + `packages/ai/dist/` committed for easy VPS deployment. This is about making life easier — experimental, practical, no polish needed.
+- Tag `main-pre-2026.7.1` (pushed to origin) preserves the old V2026.6.11-era main head (`244849d3575`) — the only remaining pointer to pre-7.1 fork history.
+- Future upgrades: same clean-room pattern — branch from the upstream tag, re-apply patches, deploy, then force-move `main` and delete the branch.
 
 ## Post-Merge Cleanup Checklist (run after EVERY upstream merge)
 
