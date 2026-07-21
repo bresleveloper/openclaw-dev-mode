@@ -577,6 +577,31 @@ to git after every build (checklist item 8) — first done in commit after `2141
 VPS now installs with `CI=true pnpm install --ignore-scripts` instead of npm. Discovered when the
 first v2026.7.1 deploy attempt failed at `npm install` on the VPS (gateway was untouched, no outage).
 
+**⚠️ Startup-migration checkpoint gate — caused a ~10-min gateway outage on deploy.** Since
+v2026.7.1, the FIRST boot after a version change must complete state migrations with ZERO
+warnings before the gateway reports ready (`src/commands/doctor-config-preflight.ts` — any
+`startupMigrationWarnings` → throw → systemd crash-loop every ~12s; checkpoint = `schema_meta`
+row `startup-migrations` in the state DB, so once recorded the gate never re-runs until the next
+version bump). Two permanent-warning sources hit us, both now fixed on the VPS:
+1. **Memory Core legacy JSON state**: `<workspace>/memory/.dreams/{daily-ingestion,session-ingestion,short-term-recall,phase-signals}.json`
+   re-warn forever ("SQLite rows already exist; left legacy source in place"). The 6.11 runtime
+   kept regenerating these after the Jun-20 migration; 7.1 memory-core is SQLite-native so they
+   shouldn't come back. Fix: archived to `~/.openclaw/legacy-state-archive-20260721/`. If a
+   future upgrade crash-loops with this message — archive them again.
+2. **`openclaw-web-search` REMOVED from the VPS entirely** (2026-07-21): the stock
+   `@ollama/openclaw-web-search` package ships TypeScript-only (publisher packaging bug) and the
+   7.1 convergence smoke-check hard-rejects it. `openclaw update repair` set `enabled:false` but
+   convergence STILL chased the stale npm install record every boot. Final fix: `config unset
+   plugins.entries.openclaw-web-search` + `rm -rf ~/.openclaw/extensions/openclaw-web-search
+   ~/.openclaw/npm/projects/ollama-openclaw-web-search-*`. There is NO web search provider
+   configured now — bundled `duckduckgo`/`brave` extensions exist in dist if Ariel wants one.
+   (Doctor convergence also rewrote `plugins.allow`: dropped `openclaw-web-search`, added
+   `tts-local-cli`.) Config backup: `~/.openclaw/openclaw.json.bak-websearch-removal-20260721`.
+
+**Round-trip breakers (Raw tab), materialized into the raw config 2026-07-21**:
+`agents.defaults.subagents.archiveAfterMinutes: 60`, `cron.maxConcurrentRuns: 8`,
+`plugins.entries.tts-local-cli.config: {}`.
+
 **Env flag consolidation.** All secondary `OPENCLAW_DEV_MODE_*` gate flags retired; only
 `OPENCLAW_DEV_MODE=1` gates features (+ optional value-override `OPENCLAW_DEV_MODE_AUTO_COMPACT_PROMPT`).
 FIX-05 redesigned to auto-compact (see the SEC/FIX table). WA history recorder back in-fork
