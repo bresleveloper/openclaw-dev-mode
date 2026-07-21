@@ -10,6 +10,7 @@ import {
   serializeConfigForm,
   setPathValue,
 } from "../config-form-utils.ts";
+import { updateDevModeCache } from "../dev-mode.ts";
 
 export type ConfigState = {
   client: GatewayBrowserClient | null;
@@ -231,6 +232,8 @@ export function applyConfigSnapshot(
   const preservePendingChanges = state.configFormDirty && options.discardPendingChanges !== true;
   const draftBaseHash = state.configDraftBaseHash ?? state.configSnapshot?.hash ?? null;
   state.configSnapshot = snapshot;
+  // [dev-mode] SEC-97: every snapshot ingestion refreshes the first-paint hint.
+  updateDevModeCache(snapshot.devMode);
   const editableConfig = resolveEditableSnapshotConfig(snapshot);
   const rawAvailable =
     typeof snapshot.raw === "string" || Boolean(editableConfig) || Boolean(state.configForm);

@@ -22,6 +22,7 @@ import { startThemeTransition } from "../../app/theme-transition.ts";
 import { resolveTheme, type ThemeMode, type ThemeName } from "../../app/theme.ts";
 import { renderSettingsWorkspace } from "../../components/settings-workspace.ts";
 import { t } from "../../i18n/index.ts";
+import { isDevModeCached } from "../../lib/dev-mode.ts";
 import { isMissingOperatorReadScopeError } from "../../lib/gateway-errors.ts";
 import { renderMcp } from "./mcp.ts";
 import { getPresetById } from "./presets.ts";
@@ -48,6 +49,22 @@ export type ConfigPageId =
 
 type ConfigFormMode = "form" | "raw";
 type ConfigSelection = { activeSection: string | null; activeSubsection: string | null };
+
+// [dev-mode] SEC-97: dev-mode defaults straight to Advanced + Raw with sensitive
+// values revealed — no Simple → Advanced → Raw → Reveal click chain. Backed by the
+// localStorage first-paint hint (ui/src/lib/dev-mode.ts) and confirmed/corrected by
+// the server snapshot's devMode flag once it loads (see applyDevModeFromSnapshot).
+function devModeFormModes(mode: ConfigFormMode): Record<ConfigPageId, ConfigFormMode> {
+  return {
+    config: mode,
+    communications: mode,
+    appearance: mode,
+    automation: mode,
+    mcp: mode,
+    infrastructure: mode,
+    "ai-agents": mode,
+  };
+}
 
 const CONFIG_PAGE_I18N_KEYS = {
   config: "config",
@@ -290,18 +307,13 @@ export class ConfigPage extends LitElement {
   @property({ attribute: "page-id" }) pageId: ConfigPageId = "config";
 
   @state() private settings = loadSettings();
-  @state() private settingsMode: "quick" | "advanced" = "quick";
+  // [dev-mode] SEC-97: first paint honors the cached hint (advanced + raw + revealed).
+  @state() private settingsMode: "quick" | "advanced" = isDevModeCached() ? "advanced" : "quick";
   @state() private systemInfo: SystemInfoResult | null = null;
   @state() private systemInfoUnavailable = false;
-  @state() private formModes: Record<ConfigPageId, ConfigFormMode> = {
-    config: "form",
-    communications: "form",
-    appearance: "form",
-    automation: "form",
-    mcp: "form",
-    infrastructure: "form",
-    "ai-agents": "form",
-  };
+  @state() private formModes: Record<ConfigPageId, ConfigFormMode> = devModeFormModes(
+    isDevModeCached() ? "raw" : "form",
+  );
   @state() private searchQueries: Record<ConfigPageId, string> = {
     config: "",
     communications: "",
@@ -327,7 +339,16 @@ export class ConfigPage extends LitElement {
   @state() private customThemeImportExpanded = false;
   @state() private customThemeImportFocusToken = 0;
   private customThemeImportSelectOnSuccess = false;
-  private readonly configViewState: ConfigViewState = createConfigViewState();
+  // [dev-mode] SEC-97: raw + env sensitive values start revealed in dev-mode.
+  private readonly configViewState: ConfigViewState = {
+    ...createConfigViewState(),
+    rawRevealed: isDevModeCached(),
+    envRevealed: isDevModeCached(),
+  };
+  // [dev-mode] SEC-97: true once the dev-mode UI defaults have been applied — either
+  // at construction (cached hint) or late when the first snapshot reports devMode.
+  // Applied at most once so the user's manual toggles are never fought afterwards.
+  private devModeUiApplied = isDevModeCached();
   private systemInfoClient: GatewayBrowserClient | null = null;
   private systemInfoLoading = false;
   private systemInfoRequestId = 0;
@@ -347,7 +368,10 @@ export class ConfigPage extends LitElement {
     );
     this.selections = { ...this.selections, [this.pageId]: linkedSelection };
     this.stops = [
-      this.context.runtimeConfig.subscribe(() => this.requestUpdate()),
+      this.context.runtimeConfig.subscribe(() => {
+        this.applyDevModeFromSnapshot();
+        this.requestUpdate();
+      }),
       this.context.overlays.subscribe(() => this.requestUpdate()),
       this.context.config.subscribe(() => this.requestUpdate()),
       this.context.gateway.subscribe((snapshot) => {
@@ -360,6 +384,7 @@ export class ConfigPage extends LitElement {
       }),
     ];
     this.handleSystemInfoGatewaySnapshot(this.context.gateway.snapshot);
+    this.applyDevModeFromSnapshot();
     const config = this.context.runtimeConfig.state;
     if (!config.configSnapshot && !config.configLoading) {
       void this.context.runtimeConfig
@@ -388,6 +413,23 @@ export class ConfigPage extends LitElement {
       this.invalidateSystemInfoRequest();
     }
     this.syncSystemInfoPolling();
+  }
+
+  // [dev-mode] SEC-97: cold-cache path — the very first visit ever (or after a cleared
+  // localStorage) paints stock defaults; once the snapshot arrives reporting devMode,
+  // flip to advanced + raw + revealed. One-shot: never fights later manual toggles.
+  private applyDevModeFromSnapshot() {
+    if (this.devModeUiApplied) {
+      return;
+    }
+    if (this.context.runtimeConfig.state.configSnapshot?.devMode !== true) {
+      return;
+    }
+    this.devModeUiApplied = true;
+    this.settingsMode = "advanced";
+    this.formModes = devModeFormModes("raw");
+    this.configViewState.rawRevealed = true;
+    this.configViewState.envRevealed = true;
   }
 
   private isSystemInfoVisible(): boolean {

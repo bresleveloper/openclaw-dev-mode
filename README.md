@@ -23,6 +23,11 @@ saving full log to enjoy my journey with OC ♥
 
 ## CHANGE LOG
 
+- 2026-07-21
+  - updated to v2026.7.1
+  - remove Kapso-WA plugin, and return old WA history db and baileys plugin adaptation
+  - force reset session (FIX-05) => changed from skipping to compacting, with custom prompt support
+  - removed all flags, `OPENCLAW_DEV_MODE=1` for everything
 - 2026-07-03 - removed WA history db, in favor of WA plugin that includes that with KAPSO WA for dual WA channels for legal WA AI support
 - 2026-07-01
   - updated to v2026.6.11
@@ -80,8 +85,6 @@ I cloned, listed all security features (latest - V2026.3.2) and just added a sim
 ```bash
 # Add to ~/.openclaw/.env
 OPENCLAW_DEV_MODE=1
-OPENCLAW_DEV_MODE_CLEAR_UI=1
-OPENCLAW_DEV_MODE_WA_THINKING_MESSAGES=1
 ```
 
 Because the beauty of any opensource project is that it's MINE and I am allowed to enjoy it to its full extent.
@@ -111,13 +114,13 @@ Gated by `OPENCLAW_DEV_MODE=1`. Each is a minimal `if (isDevMode()) { … }` che
 
 ### WhatsApp features
 
-Each opt-in via its own env var (requires `OPENCLAW_DEV_MODE=1` first).
+All gated by `OPENCLAW_DEV_MODE=1` alone — no extra flags to remember.
 
-| ID      | Env var                                    | What it does                                                                                                                                                               |
-| ------- | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| SEC-WA1 | `OPENCLAW_DEV_MODE_WA_THINKING_MESSAGES=1` | Unsuppress model thinking on WhatsApp, swap response prefix with `💭 Reasoning:`                                                                                           |
-| WA-HIST | _(retired — see `whatsapp-kapso-claw`)_    | WA history recording + the WhatsApp Claw panel are now provided by the standalone `whatsapp-kapso-claw` plugin, fed by a small socket tap in the fork's WhatsApp extension |
-| WA-ECHO | (always on in dev-mode)                    | In self-chat mode, filter inbound messages matching reasoning-echo patterns to break reply loops                                                                           |
+| ID      | What it does                                                                                                                                                                                                                                                                                                                    |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| SEC-WA1 | Unsuppress model thinking on WhatsApp — reasoning comes through with a `💭 Reasoning:` prefix instead of being swallowed                                                                                                                                                                                                        |
+| WA-HIST | Built-in WhatsApp history recorder — every message (DMs + groups, inbound + outbound) lands in a local SQLite db at `~/.openclaw/dev-mode/wa-history.db`. Uses Node's built-in `node:sqlite` (zero extra dependencies), resolves senders to real phone numbers (including Baileys 7.x `@lid` JIDs), and auto-backfills group names so the db is queryable by human-readable chat, number, or date |
+| WA-ECHO | In self-chat mode, filter inbound messages matching reasoning-echo patterns to break reply loops                                                                                                                                                                                                                                |
 
 ### Model provider tweaks
 
@@ -141,7 +144,7 @@ Both gated by `OPENCLAW_DEV_MODE=1`.
 | FIX-01 | Auto-bootstrap `MEMORY.md` alongside heartbeat template in new workspaces                                                                                                                                                                                                                                              |
 | FIX-03 | `/status` now merges global `agents.defaults` before model resolution (no more spurious `gpt-5.5` fallback) and renders an `⚙️ Runtime:` line below `🧠 Model:` so config-vs-runtime mismatches are visible at a glance                                                                                                |
 | FIX-04 | Inbound `/new` and `/reset` restore the bare-reset greeting (`BARE_SESSION_RESET_PROMPT_BASE`) instead of the hardcoded `"✅ New session started."` ACK that upstream introduced in V2026.5.4 (commit `a68ca1ae0b`). Affects WhatsApp + any inbound channel; TUI `/new` is unaffected (always silent since V2026.3.22) |
-| FIX-05 | `skipImplicitExpiry` includes `isDevMode()` when `session.reset` is not explicitly set — prevents the daily session rollover so the agent piles up its session indefinitely (until `session.reset` is configured)                                                                                                      |
+| FIX-05 | Daily auto-compact instead of session reset — at the daily boundary (default 4am), when `session.reset` isn't configured, dev-mode compacts the session in place instead of minting a new one, so the agent never loses its context. Runs the FIX-06 memory flush first, then answers your message normally in the freshly-compacted session. Compaction prompt overridable via `OPENCLAW_DEV_MODE_AUTO_COMPACT_PROMPT` |
 | FIX-06 | Best-effort memory flush on `/compact` and `/new` — flushes a dated `memory/YYYY-MM-DD.md` immediately instead of waiting for the next inbound message (which for `/new` never comes, since the session is wiped first); skips silently if the session lane is busy                                                    |
 
 ## How to install

@@ -282,6 +282,8 @@ export type ConfigSnapshot = {
   runtimeConfig?: Record<string, unknown> | null;
   config?: Record<string, unknown> | null;
   issues?: ConfigSnapshotIssue[] | null;
+  // [dev-mode] SEC-97: set by src/config/redact-snapshot.ts when OPENCLAW_DEV_MODE=1
+  devMode?: boolean | null;
 };
 
 export type ConfigSchemaResponse = {

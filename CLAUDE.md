@@ -180,7 +180,7 @@ Each one is a minimal `if (isDevMode()) { ... }` check in the relevant source fi
 | ~~SEC-80~~ | ~~`src/gateway/startup-auth.ts`~~                                              | DROPPED in V2026.6.11 — upstream deleted `assertHooksTokenSeparateFromGatewayAuth()` entirely   |
 | ~~SEC-96~~ | ~~`src/infra/host-env-security.ts`~~                                           | DROPPED in V2026.3.22 — upstream env sanitization accepted as-is                                |
 | SEC-WA1 | `extensions/whatsapp/src/auto-reply/deliver-reply.ts`                             | Replaces responsePrefix with 💭 on reasoning text (unconditional under dev-mode since 2026-07-21)        |
-| SEC-97 | `src/config/redact-snapshot.raw.ts` + `src/config/redact-snapshot.ts` + `src/config/types.openclaw.ts` | **Server half only since V2026.7.1**: `shouldFallbackToStructuredRawRedaction()` returns `false`; snapshot exposes `devMode` flag for UI guards. The UI half (skip Quick Settings, force raw view, bypass reveal blur, localStorage pre-paint hint) was DROPPED — upstream deleted the entire `ui/src/ui/` tree (386 files) and rebuilt the Control UI as a page router. Ariel wants to see the new stock UI first, then point at what to re-patch. |
+| SEC-97 | `src/config/redact-snapshot.raw.ts` + `src/config/redact-snapshot.ts` + `src/config/types.openclaw.ts` + `ui/src/lib/dev-mode.ts` + `ui/src/api/types.ts` + `ui/src/lib/config/index.ts` + `ui/src/pages/config/config-page.ts` | Server half: `shouldFallbackToStructuredRawRedaction()` returns `false`; `redactConfigSnapshot()` exposes a `devMode` flag (flows to the browser via `config.get`). Client half (re-implemented 2026-07-21 against the rebuilt page-router UI, per Ariel's request after seeing the new stock UI): settings pages default to **Advanced + Raw with sensitive values revealed** (`settingsMode`/`formModes` initializers + `configViewState.rawRevealed`/`envRevealed` in `config-page.ts`) — kills the Simple→Advanced→Raw→Reveal click chain. `ui/src/lib/dev-mode.ts` caches the snapshot's `devMode` to localStorage `openclaw:devMode` (written on every snapshot ingestion in `ui/src/lib/config/index.ts`) so the very first paint after a reload starts advanced+raw+revealed; a one-shot `applyDevModeFromSnapshot()` covers the cold-cache first visit and never fights later manual toggles. Self-heals to stock when the server stops reporting dev-mode. |
 | SEC-98 | `src/agents/system-prompt.ts`                                                 | Removes approval restrictions + config/update caution lines; appends permissive safety line      |
 | SEC-99 | `src/auto-reply/reply/reply-elevated.ts`                                    | `resolveElevatedPermissions()` returns allowed when dev-mode + Full profile — skips all 4 gates |
 | SEC-100 | `src/gateway/tool-resolution.ts`                                             | `ownerOnlyGatewayDeny` returns `[]` in dev-mode — `cron`, `gateway`, `nodes` tools available to non-owner callers |
@@ -238,7 +238,7 @@ Infrastructure (1): `src/globals.ts`
 
 Security items — src/ (23): `system-prompt.ts` (SEC-15a + SEC-98), `channel-metadata.ts` + `untrusted-context.ts` (SEC-27), `onboard-config.ts` (SEC-59), `web-fetch.ts` (SEC-71), `config-cli.ts` (SEC-72), `control-plane-rate-limit.ts` (SEC-78), `translator.ts` (SEC-79), `tool-resolution.ts` (SEC-100), `agent-tools.ts` (SEC-101), `local-media-access.ts` (SEC-102), `workspace.ts` (FIX-01), `redact-snapshot.raw.ts` + `redact-snapshot.ts` + `types.openclaw.ts` (SEC-97 server half), `reply-elevated.ts` (SEC-99), `commands-reset.ts` (FIX-04 + FIX-06), `session.ts` + `templating.ts` (FIX-05), `commands-compact.ts` (FIX-05 + FIX-06), `dev-mode-memory-flush.ts` (FIX-06, fork-original file), `agent-runner-memory.ts` (FIX-06 — gate #1 threshold bypass in dev mode, keep-ours), `get-reply-native-slash-fast-path.ts` (FIX-06), `status-message.ts` (FIX-03)
 
-Security items — ui/: NONE since V2026.7.1. The six SEC-97 UI files were dropped — upstream rebuilt the whole Control UI. Re-patch pending Ariel's review of the new stock UI.
+Security items — ui/ (4, all SEC-97 client half, re-implemented 2026-07-21 for the new page-router UI): `ui/src/lib/dev-mode.ts` (fork-original — localStorage `openclaw:devMode` hint), `ui/src/api/types.ts` (`devMode` on `ConfigSnapshot`), `ui/src/lib/config/index.ts` (cache refresh on snapshot ingestion), `ui/src/pages/config/config-page.ts` (advanced+raw+revealed defaults + one-shot cold-cache flip).
 
 Security items — extensions/ browser (1): `extensions/browser/src/browser/navigation-guard.ts` (SEC-70)
 
@@ -552,8 +552,10 @@ Before ANY working-tree-writing git command, sweep and `rm` (plain rm, no -rf, n
 `find . -type l -not -path "./.git/*" -exec sh -c 'test "$(readlink "$1")" = "/c/Users/Ariel/source/openclaw chaos mode/openclaw-dev-mode"' _ {} \; -print`
 
 **Control UI rebuilt.** Upstream deleted the entire `ui/src/ui/` tree (386 files, −163K lines)
-and rebuilt it as a page router. All six SEC-97 UI patches dropped (server half kept). Ariel will
-review the new stock UI and point at what to re-patch.
+and rebuilt it as a page router. The six old SEC-97 UI patches died with it (server half kept).
+Later the same day, after Ariel saw the new UI's Simple→Advanced→Raw→Reveal click chain, the
+client half was re-implemented against the new layout in 4 files — see the SEC-97 row in the
+SEC/FIX table.
 
 **`session.test.ts` fails on pristine upstream (Windows).** 136/149 tests fail on the untouched
 v2026.7.1 tag with `TypeError: ... reading 'mockRestore'` (a `vi.spyOn(bootstrapCache, ...)` that
