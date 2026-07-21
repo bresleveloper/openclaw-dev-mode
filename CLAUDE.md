@@ -26,6 +26,7 @@ Upstream re-introduces things this fork doesn't want. Each item below is recurri
 5. **Restore `dist/extensions/tlon` from git** before committing — pnpm build on Windows dirties those files as a symlink artifact. `git checkout -- dist/extensions/tlon`. (N/A on a fresh clean-room branch where dist/ was never committed — the build emits regular files, same as what main tracks.)
 6. **Re-verify dev-mode patches survived** — quick grep for a few `isDevMode()` anchors in src/, and on the VPS after deploy: `grep -rl attachWaHistoryLogger /opt/openclaw-dev-mode/dist/` must be NON-empty, `grep -rl __waClawSockTap /opt/openclaw-dev-mode/dist/` must be EMPTY (tap retired 2026-07-21 with the kapso plugin).
 7. **Sweep self-referencing symlinks before ANY git command that writes the working tree** — see the ⚠️ hazard in "V2026.7.1 Upgrade". `pnpm install` recreates `packages/speech-core/node_modules/openclaw` → repo root; git traversing it destroys `.git/HEAD`/`config`/`index`.
+8. **Stage `packages/ai/dist` with `git add -f packages/ai/dist/`** after every build — root package.json declares runtime dep `"@openclaw/ai": "workspace:*"` (since v2026.7.1) and root dist chunks `import "@openclaw/ai/internal/*"` at runtime, but `packages/*/dist/` is gitignored. Without the force-add the VPS gateway dies at startup with `ERR_MODULE_NOT_FOUND`. (Same reason the VPS must install with pnpm, not npm — npm hard-fails on the `workspace:` protocol with `EUNSUPPORTEDPROTOCOL`.)
 
 ## Dev Environment
 
@@ -76,7 +77,7 @@ Never log VPS connection details (IP, port) in commits or output.
 - **Linter**: oxlint (`pnpm lint` runs `oxlint --type-aware`)
 - **dist/ is committed** on `main` branch (~2996 files, 1.5M lines — drowns out real changes in PR diffs)
 - **⚠️ `dist/` is in `.gitignore`** (line 7) but tracked files persist from a prior `git add -f`. This means `git add -A` updates already-tracked dist files (modifications + deletions) but **silently skips NEW dist files** created by a build (e.g. new hashed chunks like `dist/route-IbC_DJaQ.js`). A deploy that only runs `git add -A` will push a dist/ missing the new chunks → first gateway start fails with `Cannot find module .../<new-chunk>.js`. **Always stage dist with `git add -f dist/` after a build** so new files are included. (Learned during FIX-06 deploy: needed a second commit `e2441cf1d9` to force-add 626 missing chunks after the first gateway start failed.)
-- **Package manager**: pnpm locally, npm on VPS
+- **Package manager**: pnpm everywhere since v2026.7.1 (VPS included — upstream's runtime dep `"@openclaw/ai": "workspace:*"` makes plain `npm install` fail with `EUNSUPPORTEDPROTOCOL`; pnpm resolves it as a workspace link. VPS pnpm v11.2.2 matches root `packageManager`. Use `CI=true pnpm install --ignore-scripts`; if it aborts refusing to remove an npm-shaped `node_modules` without a TTY, `rm -rf node_modules` first)
 - **Platform**: Build output is platform-independent JS — build on Windows, deploy to Linux
 - **Prerequisites**: Node.js >=24.15.0 <25 (engine floor raised in v2026.7.1; build PC on v24.18.0 since 2026-07-21), Git
 
@@ -100,11 +101,13 @@ Upstream V2026.5.12 spun WhatsApp out of the bundled extension set: it's in `EXC
 
 The `main` branch ships with pre-built `dist/`, so no build step is needed on VPS. Clone, `npm install --ignore-scripts`, create self-ref symlink (`ln -sf /opt/openclaw-dev-mode node_modules/openclaw`), symlink to `/usr/lib/node_modules/openclaw`, create CLI wrapper at `/usr/local/bin/openclaw`, add `OPENCLAW_DEV_MODE=1` to `~/.openclaw/.env`, start gateway.
 
-**Update** (V2026.5.2+ recipe — `stage-bundled-plugin-runtime-deps.mjs` deleted upstream, self-ref symlink possibly obsolete):
+**Update** (V2026.7.1+ recipe — pnpm on VPS, see "Package manager" above):
 
 ```
-cd /opt/openclaw-dev-mode && git config core.symlinks false && git checkout -- . 2>/dev/null; git pull && git config --unset core.symlinks && npm install --ignore-scripts && openclaw gateway restart
+cd /opt/openclaw-dev-mode && git config core.symlinks false && git checkout -- . 2>/dev/null; git pull && git config --unset core.symlinks && CI=true pnpm install --ignore-scripts && ln -sf /opt/openclaw-dev-mode node_modules/openclaw && openclaw gateway restart
 ```
+
+(If pnpm aborts on a pre-existing npm-shaped `node_modules`: `rm -rf node_modules` and rerun. The old `npm install --ignore-scripts` recipe died with `EUNSUPPORTEDPROTOCOL` on `workspace:*` since v2026.7.1.)
 
 **If gateway boots but WA/model warmup fails** with `Cannot find package 'openclaw'`, the V2026.5.2 sdk-alias resolver isn't bootstrapping in your environment. Restore the V2026.4.24 self-ref symlink:
 ```
@@ -563,6 +566,16 @@ Gateway never restarted (all config writes hot-applied). NOTE: the old `wa-claw-
 held the live `gateway.auth.token` in plaintext; file deleted but token NOT rotated — Ariel's call.
 Lesson: `openclaw plugins uninstall` over SSH hangs the pipe (interactive prompt) — append
 `< /dev/null` to openclaw CLI calls over SSH.
+
+**⚠️ New runtime workspace dep `@openclaw/ai` — npm can no longer install this repo.** Upstream
+moved the model-provider adapters into `packages/ai` and declares it in root `dependencies` as
+`"@openclaw/ai": "workspace:*"` — a pnpm/yarn-only protocol that plain npm rejects outright
+(`EUNSUPPORTEDPROTOCOL`), and 40+ root dist chunks import `@openclaw/ai/internal/*` at runtime
+(externalized, NOT bundled — `root-alias.cjs` only aliases it for the plugin-sdk jiti graph, not
+for core chunks). Two consequences, both recurring: (1) `packages/ai/dist/` must be force-added
+to git after every build (checklist item 8) — first done in commit after `2141418fceb`; (2) the
+VPS now installs with `CI=true pnpm install --ignore-scripts` instead of npm. Discovered when the
+first v2026.7.1 deploy attempt failed at `npm install` on the VPS (gateway was untouched, no outage).
 
 **Env flag consolidation.** All secondary `OPENCLAW_DEV_MODE_*` gate flags retired; only
 `OPENCLAW_DEV_MODE=1` gates features (+ optional value-override `OPENCLAW_DEV_MODE_AUTO_COMPACT_PROMPT`).
