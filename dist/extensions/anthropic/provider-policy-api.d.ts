@@ -15,11 +15,11 @@ declare function resolveThinkingProfile(params: {
   provider: string;
   modelId: string;
   params?: Record<string, unknown>;
-}): {
+}): ProviderThinkingProfile | {
   readonly levels: readonly [{
     readonly id: "off";
   }];
   readonly defaultLevel: "off";
-} | ProviderThinkingProfile | null;
+} | null;
 //#endregion
 export { applyConfigDefaults, normalizeConfig, resolveThinkingProfile };

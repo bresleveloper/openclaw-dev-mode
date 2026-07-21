@@ -29,6 +29,7 @@ import {
 } from "../../components/config-form.ts";
 import { icons } from "../../components/icons.ts";
 import { t } from "../../i18n/index.ts";
+import { isDevModeCached } from "../../lib/dev-mode.ts";
 
 const BORDER_RADIUS_LABELS: Record<BorderRadiusStop, string> = {
   0: "None",
@@ -1235,9 +1236,13 @@ function renderAppearanceSection(props: ConfigProps) {
 }
 
 function resetConfigEphemeralState(viewState: ConfigViewState) {
-  viewState.rawRevealed = false;
+  // [dev-mode] SEC-97: this reset fires on every config-context (re)initialization
+  // and was silently re-blurring the raw/env secrets after config-page's revealed
+  // defaults were applied. In dev-mode, stay revealed.
+  const revealForDevMode = isDevModeCached();
+  viewState.rawRevealed = revealForDevMode;
   viewState.rawDiffOpen = false;
-  viewState.envRevealed = false;
+  viewState.envRevealed = revealForDevMode;
   viewState.validityDismissed = false;
   viewState.revealedSensitivePaths.clear();
   viewState.lastCustomThemeImportFocusToken = null;
