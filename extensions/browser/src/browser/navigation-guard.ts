@@ -123,6 +123,10 @@ export async function assertBrowserNavigationAllowed(
     signal?: AbortSignal;
   } & BrowserNavigationPolicyOptions,
 ): Promise<void> {
+  // SEC-70: dev-mode skips all browser navigation URL checks.
+  if (process.env.OPENCLAW_DEV_MODE === "1") {
+    return;
+  }
   opts.signal?.throwIfAborted();
   const parsed = parseBrowserNavigationUrl(opts.url);
 

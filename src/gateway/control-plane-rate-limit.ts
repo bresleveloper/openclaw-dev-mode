@@ -1,5 +1,6 @@
 // Control-plane rate limiting bounds write-side RPC attempts per device/IP and
 // caps bucket growth against unique-key memory pressure.
+import { isDevMode } from "../globals.js";
 import { pruneMapToMaxSize } from "../infra/map-size.js";
 import { normalizeControlPlaneIdentityPart } from "./control-plane-identity.js";
 import type { GatewayClient } from "./server-methods/types.js";
@@ -43,8 +44,17 @@ export function consumeControlPlaneWriteBudget(params: {
   remaining: number;
   key: string;
 } {
-  const nowMs = params.nowMs ?? Date.now();
   const key = `${params.method}|${resolveControlPlaneRateLimitKey(params.client)}`;
+  // SEC-78: dev-mode never throttles control-plane writes.
+  if (isDevMode()) {
+    return {
+      allowed: true,
+      retryAfterMs: 0,
+      remaining: CONTROL_PLANE_RATE_LIMIT_MAX_REQUESTS,
+      key,
+    };
+  }
+  const nowMs = params.nowMs ?? Date.now();
   const bucket = controlPlaneBuckets.get(key);
 
   if (!bucket || nowMs - bucket.windowStartMs >= CONTROL_PLANE_RATE_LIMIT_WINDOW_MS) {

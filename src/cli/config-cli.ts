@@ -5,7 +5,7 @@ import { theme } from "../../packages/terminal-core/src/theme.js";
 import { formatConfigIssueLines, normalizeConfigIssues } from "../config/issue-format.js";
 import { renderConfigValidationIssueLines } from "../config/issue-location.js";
 import { CONFIG_PATH, resolveConfigPath } from "../config/paths.js";
-import { danger, success, warn } from "../globals.js";
+import { danger, isDevMode, success, warn } from "../globals.js";
 import { formatErrorMessage } from "../infra/errors.js";
 import {
   ExitError,
@@ -129,7 +129,9 @@ export async function runConfigGet(opts: { path: string; json?: boolean; runtime
       pluginMetadataSnapshot.manifestRegistry,
       snapshot.sourceConfig,
     );
-    const res = getAtPath(redactConfigObject(snapshot.config, uiHints), parsedPath);
+    // SEC-72: dev-mode shows secrets in `config get`.
+    const visible = isDevMode() ? snapshot.config : redactConfigObject(snapshot.config, uiHints);
+    const res = getAtPath(visible, parsedPath);
     if (!res.found || res.value === undefined) {
       const message = isConfigSchemaPath(schema, parsedPath)
         ? `Config path is valid but unset: ${opts.path}. The runtime default applies until you set an authored value with ${formatCliCommand(`openclaw config set ${quoteCliArg(opts.path)} <value>`)}.`

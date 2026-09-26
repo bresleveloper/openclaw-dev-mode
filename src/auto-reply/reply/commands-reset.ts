@@ -3,7 +3,7 @@ import { clearBootstrapSnapshot } from "../../agents/bootstrap-cache.js";
 import { clearAllCliSessions } from "../../agents/cli-session.js";
 import { resetConfiguredBindingTargetInPlace } from "../../channels/plugins/binding-targets.js";
 import { updateSessionEntry } from "../../config/sessions/session-accessor.js";
-import { logVerbose } from "../../globals.js";
+import { isDevMode, logVerbose } from "../../globals.js";
 import { isAcpSessionKey } from "../../routing/session-key.js";
 import { isInternalMessageChannel } from "../../utils/message-channel.js";
 import { isResetAuthorizedForContext } from "../command-auth.js";
@@ -205,7 +205,8 @@ export async function maybeHandleResetCommand(
     onObservedReplyDelivery: params.opts?.onObservedReplyDelivery,
     workspaceDir: params.workspaceDir,
   });
-  if (!resetTail) {
+  // FIX-04: dev-mode skips the hardcoded ACK so the bare-reset greeting runs.
+  if (!isDevMode() && !resetTail) {
     return {
       shouldContinue: false,
       ...(hookResult.routedReply

@@ -12,6 +12,7 @@ import { truncateUtf16Safe } from "@openclaw/normalization-core/utf16-slice";
 import type { Minimatch } from "minimatch";
 import { extractFrontmatterBlock } from "../../packages/markdown-core/src/frontmatter.js";
 import type { ChatType } from "../channels/chat-type.js";
+import { isDevMode } from "../globals.js";
 import { isRootFileMissingFailure } from "../infra/boundary-file-read.js";
 import { FsSafeError, pathExists, root as fsSafeRoot } from "../infra/fs-safe.js";
 import { isPathInside } from "../infra/path-guards.js";
@@ -1067,6 +1068,16 @@ export async function ensureAgentWorkspace(params?: {
     state = await mergeWorkspaceSetupState(dir, state, undefined, {
       assertCurrent: beforePersistentApply,
     });
+  }
+  // FIX-01: dev-mode seeds MEMORY.md, but only once setup is complete. MEMORY.md
+  // counts as setup-completion evidence, so seeding it earlier would mark a new
+  // workspace configured and delete its pending BOOTSTRAP.md.
+  if (isDevMode() && state.setupCompletedAt) {
+    await publishBootstrapFile(
+      path.join(dir, DEFAULT_MEMORY_FILENAME),
+      "# Memory\n",
+      beforePersistentApply,
+    );
   }
   await ensureGitRepo(dir, isBrandNewWorkspace, beforePersistentApply);
   await maybeWriteWorkspaceAttestation(dir, beforePersistentApply);
