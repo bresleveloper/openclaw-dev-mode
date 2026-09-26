@@ -369,7 +369,6 @@
     "!dist/extensions/volcengine/**",
     "!dist/extensions/voyage/**",
     "!dist/extensions/vydra/**",
-    "!dist/extensions/whatsapp/**",
     "!dist/extensions/xiaomi/**",
     "!dist/extensions/zai/**",
     "!dist/extensions/zalo/**",

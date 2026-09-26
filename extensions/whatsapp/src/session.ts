@@ -421,6 +421,17 @@ async function createWaSocketInternal(
     });
   }
 
+  // [dev-mode] Record WhatsApp history. Directory sockets are short-lived group
+  // lookups that drop user traffic, so only the normal listener socket records.
+  if (process.env.OPENCLAW_DEV_MODE === "1" && receiveMode === "normal") {
+    try {
+      const { attachWaHistoryLogger } = await import("./dev-mode/wa-history.js");
+      attachWaHistoryLogger(sock);
+    } catch {
+      // Best-effort: the history logger must never block channel startup.
+    }
+  }
+
   return sock;
 }
 
