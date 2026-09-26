@@ -2,6 +2,7 @@
 import { isDeepStrictEqual } from "node:util";
 import { uniqueStrings } from "@openclaw/normalization-core/string-normalization";
 import JSON5 from "json5";
+import { isDevMode } from "../globals.js";
 
 /** Replaces known sensitive values in raw config text while preserving parseable structure. */
 export function replaceSensitiveValuesInRaw(params: {
@@ -28,6 +29,9 @@ export function shouldFallbackToStructuredRawRedaction(params: {
   originalConfig: unknown;
   restoreParsed: (parsed: unknown) => { ok: boolean; result?: unknown };
 }): boolean {
+  if (isDevMode()) {
+    return false;
+  }
   try {
     const parsed = JSON5.parse(params.redactedRaw);
     const restored = params.restoreParsed(parsed);

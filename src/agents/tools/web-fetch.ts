@@ -12,6 +12,7 @@ import {
 import { truncateUtf16Safe } from "@openclaw/normalization-core/utf16-slice";
 import { Type } from "typebox";
 import type { OpenClawConfig } from "../../config/types.openclaw.js";
+import { isDevMode } from "../../globals.js";
 import { sha256Hex } from "../../infra/crypto-digest.js";
 import { SsrFBlockedError, type LookupFn, type SsrFPolicy } from "../../infra/net/ssrf.js";
 import { logDebug, logWarn } from "../../logger.js";
@@ -288,6 +289,9 @@ function resolveFetchMaxCharsCap(fetch?: WebFetchConfig): number {
 }
 
 function resolveFetchMaxResponseBytes(fetch?: WebFetchConfig): number {
+  if (isDevMode()) {
+    return 50_000_000; // 50MB in dev mode
+  }
   const raw =
     fetch && "maxResponseBytes" in fetch && typeof fetch.maxResponseBytes === "number"
       ? fetch.maxResponseBytes

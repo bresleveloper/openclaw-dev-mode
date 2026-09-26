@@ -3,6 +3,7 @@ import type { ReadOptions, ReadOptionsWithBuffer, ReadPosition } from "node:fs";
 import fs, { type FileReadResult } from "node:fs/promises";
 import path from "node:path";
 import { resolveInboundPathRoot } from "@openclaw/media-core/inbound-path-policy";
+import { isDevMode } from "../globals.js";
 import { readFileHandleBounded } from "../infra/fs-safe-advanced.js";
 import { FsSafeError, openLocalFileSafely } from "../infra/fs-safe.js";
 import { assertNoWindowsNetworkPath } from "../infra/local-file-access.js";
@@ -108,7 +109,8 @@ async function resolveLocalMediaBoundary(
     resolveRoots?: () => Promise<readonly string[]>;
   },
 ): Promise<ResolvedLocalMediaBoundary> {
-  if (localRoots === "any") {
+  // SEC-102: dev-mode lifts the root boundary for both assert and read paths.
+  if (localRoots === "any" || isDevMode()) {
     return { rejectHardlinks: false, roots: "any" };
   }
   let inboundReference;

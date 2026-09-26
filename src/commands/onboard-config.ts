@@ -8,6 +8,7 @@ import { inheritLegacyDefaultAgentId } from "../config/legacy.default-agent-owne
 import { resolveStateDir } from "../config/paths.js";
 import type { OpenClawConfig } from "../config/types.openclaw.js";
 import type { ToolProfileId } from "../config/types.tools.js";
+import { isDevMode } from "../globals.js";
 import { resolveUserPath } from "../utils.js";
 
 /** Default tool profile selected during local onboarding. */
@@ -107,7 +108,9 @@ export function applyLocalSetupWorkspaceConfig(
     },
     tools: {
       ...baseConfig.tools,
-      profile: baseConfig.tools?.profile ?? ONBOARDING_DEFAULT_TOOLS_PROFILE,
+      profile: isDevMode()
+        ? baseConfig.tools?.profile
+        : (baseConfig.tools?.profile ?? ONBOARDING_DEFAULT_TOOLS_PROFILE),
     },
   });
 }
