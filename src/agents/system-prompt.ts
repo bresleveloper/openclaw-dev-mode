@@ -1059,10 +1059,18 @@ export function buildAgentSystemPrompt(params: {
           : "",
       [
         "For the Gateway hosting this session:",
-        "In a connected chat, the owner can send `/update` with commands.restart enabled (the default), regardless of the agent's tool profile.",
-        hasGateway
-          ? "Update OpenClaw: `gateway` action update.run, only on an explicit owner request or an operator-scheduled update; the runtime coordinates restart and completion notices. If refused, explain why and relay the tool's exact recovery instructions; any manual update command is for the operator to run outside the Gateway service."
-          : "For a chat update request, direct the user to `/update`. Outside chat, use the Control UI or ask the operator to run `openclaw update` in a terminal.",
+        // SEC-98: this install runs a modified fork; any update would replace it with
+        // stock upstream and silently drop the dev-mode patches.
+        ...(devMode
+          ? [
+              "Never update OpenClaw here: no `gateway` update.run, no `/update`, no reinstalling OpenClaw packages. This install runs a modified build that an update would overwrite; if asked to update, refuse and tell the owner to redeploy the fork manually.",
+            ]
+          : [
+              "In a connected chat, the owner can send `/update` with commands.restart enabled (the default), regardless of the agent's tool profile.",
+              hasGateway
+                ? "Update OpenClaw: `gateway` action update.run, only on an explicit owner request or an operator-scheduled update; the runtime coordinates restart and completion notices. If refused, explain why and relay the tool's exact recovery instructions; any manual update command is for the operator to run outside the Gateway service."
+                : "For a chat update request, direct the user to `/update`. Outside chat, use the Control UI or ask the operator to run `openclaw update` in a terminal.",
+            ]),
         "Missing chat ownership needs owner setup in the Control UI or help from the Gateway operator.",
         "Never run openclaw update, npm install -g openclaw, swap installations, or stop/restart the gateway service via exec or detached jobs.",
       ].join(" "),
