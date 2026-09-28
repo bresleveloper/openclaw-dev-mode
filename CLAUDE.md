@@ -41,9 +41,9 @@
 
 ### SSH Access to VPS
 
-Key: `~/.ssh/dev_vps` — **not yet on the Linux laptop as of 2026-09-28** (copy it or `ssh-copy-id` first). IP/port from `~/.ssh/known_hosts`/`~/.ssh/config`.
+Laptop: dedicated key `~/.ssh/dev_vps_claude` (ed25519, comment `claude-code-dev-vps-laptop`, installed 2026-09-28) behind the alias `dev-vps` in `~/.ssh/config` (holds address, custom port, key). The old Windows PC used `~/.ssh/dev_vps`.
 ```
-ssh -i ~/.ssh/dev_vps -p <PORT> root@<IP> "COMMAND"
+ssh dev-vps "COMMAND"          # batch several commands: ssh dev-vps 'bash -s' <<'EOF' ... EOF
 ```
 Never log VPS connection details in commits or output. Batch commands into few sessions (see "VPS Watchdog"). Append `< /dev/null` to `openclaw` CLI calls over SSH (interactive prompts hang the pipe).
 
@@ -177,7 +177,7 @@ Upstream files carry small guarded hooks; fork-owned files hold the logic.
 
 - **SEC-WA1 (9.6 rebuild)**: stock 9.x blocks reasoning on WhatsApp at three points — core drops `isReasoning` payloads unless `replyOptions.reasoningPayloadsEnabled`; `resolveWhatsAppDeliverablePayload` (inbound-dispatch); `isReasoningReplyPayload` (deliver-reply, also matches text starting `Reasoning:`/`Thinking`). Dev-mode opts in and converts before the filters. 7.1 showed most reasoning WITHOUT 💭 because core formats reasoning with a "Thinking" preamble (`formatReasoningMessage`, `src/agents/embedded-agent-utils.ts`) while the old regex matched only "Reasoning:". Works for any model that emits reasoning; core emits it only with reasoning level `on` and thinking not `off`.
 - **Echo loop history**: in self-chat every send echoes back as inbound. 7.x matched echoes by text, SEC-WA1 rewrote the text, and the agent answered its own reasoning forever. 9.x dedupes by message id (`inbound/socket-session.ts` `rememberOutboundMessage`, `inbound/message-normalization.ts` `shouldSkipRecentOutboundEcho`); the fork keeps `echo-guard.ts` as a safety net only.
-- **History recorder**: `~/.openclaw/dev-mode/wa-history.db` (continuous since the kapso era, 227 MB in July). Schema `messages` + `chats` incl. `phone_e164`; `jidToPhoneE164()` resolves Baileys 7.x `@lid` via `remoteJidAlt`; `ensureColumn()` migration guard; `node:sqlite`, zero deps. Group names backfilled on connect and updated live. No UI — the sqlite file is the interface.
+- **History recorder**: `/root/.openclaw/dev-mode/wa-history.db` (continuous since the kapso era; 227 MB in July, 496 MB on 2026-09-28). Verified 2026-09-28: the running gateway has exactly this file open and the 9.6 code resolves the same path (`$HOME/.openclaw/dev-mode/wa-history.db`, no override). Empty leftover `openclaw-whatsapp-claw.db` (Sep 15) in the same dir is unused. Schema `messages` + `chats` incl. `phone_e164`; `jidToPhoneE164()` resolves Baileys 7.x `@lid` via `remoteJidAlt`; `ensureColumn()` migration guard; `node:sqlite`, zero deps. Group names backfilled on connect and updated live. No UI — the sqlite file is the interface.
 - **Kapso era (2026-07-02 → 07-21) is over**: plugin, panel, agents, bindings, nginx/ufw/cert/systemd all removed. Plugin repo still exists (not installed). Lesson kept: Meta's 24h window opens only on the peer's own inbound message; sends outside it fail with 422 unless paid templates.
 
 ## Upgrade History — durable lessons
@@ -209,7 +209,7 @@ Clean-room from tag `v2026.9.6` (upstream 2026-09-22), ~33.4k commits / 48k file
 
 ## Open Items
 
-- VPS: SSH key missing on the laptop → 9.6 deploy blocked; then promote `main` (needs Ariel's OK to push).
+- VPS: OS upgrade + 9.6 deploy pending (SSH works since 2026-09-28); then promote `main` (needs Ariel's OK to push).
 - Gateway token NOT rotated (was plaintext in the deleted kapso-era `wa-claw-panel.service`) — Ariel's call.
 - No web-search provider configured (bundled `duckduckgo`/`brave` available).
 - Systemd unit carries a stale version stamp — cosmetic, `gateway status` warns.
