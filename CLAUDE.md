@@ -74,9 +74,9 @@ Never log VPS connection details in commits or output. Batch commands into few s
 ### VPS Update Recipe
 
 ```
-cd /opt/openclaw-dev-mode && git config core.symlinks false && git checkout -- . 2>/dev/null; git pull && git config --unset core.symlinks && CI=true pnpm install --ignore-scripts && ln -sf /opt/openclaw-dev-mode node_modules/openclaw && openclaw gateway restart
+cd /opt/openclaw-dev-mode && git config core.symlinks false && git checkout -- . 2>/dev/null; git pull && git config --unset core.symlinks && CI=true pnpm install --ignore-scripts && sh dev-mode/link-dist-plugin-deps.sh && ln -sf /opt/openclaw-dev-mode node_modules/openclaw && openclaw gateway restart
 ```
-(`core.symlinks false` also covers pulls where a tracked symlink became a regular file, e.g. `CLAUDE.md`.)
+(`core.symlinks false` also covers pulls where a tracked symlink became a regular file, e.g. `CLAUDE.md`. `dev-mode/link-dist-plugin-deps.sh` recreates the `dist/extensions/<id>/node_modules` links the build makes on the build machine but that are never committed — without it `acpx` fails with "required dependencies are missing".)
 
 - WA/model warmup fails with `Cannot find package 'openclaw'` → re-run the `ln -sf` self-ref symlink, restart.
 - Plugin runtime deps missing → `rm -rf dist-runtime/extensions/*/node_modules && openclaw gateway restart` (first start then takes ~2 min).

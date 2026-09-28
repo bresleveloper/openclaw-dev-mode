@@ -23,7 +23,8 @@ git clone https://github.com/bresleveloper/openclaw-dev-mode.git /opt/openclaw-d
 cd /opt/openclaw-dev-mode
 CI=true pnpm install --ignore-scripts
 
-# 5. Self-reference link so bundled plugins resolve `openclaw/plugin-sdk/*`
+# 5. Link bundled plugins to their deps + self-reference link for `openclaw/plugin-sdk/*`
+sh dev-mode/link-dist-plugin-deps.sh
 ln -sf /opt/openclaw-dev-mode /opt/openclaw-dev-mode/node_modules/openclaw
 
 # 6. Symlink the fork into the original location
@@ -55,7 +56,7 @@ Optional (recommended): `openclaw hooks enable session-memory < /dev/null` — s
 ## Updating
 
 ```bash
-cd /opt/openclaw-dev-mode && git config core.symlinks false && git checkout -- . 2>/dev/null; git pull && git config --unset core.symlinks && CI=true pnpm install --ignore-scripts && ln -sf /opt/openclaw-dev-mode node_modules/openclaw && openclaw gateway restart
+cd /opt/openclaw-dev-mode && git config core.symlinks false && git checkout -- . 2>/dev/null; git pull && git config --unset core.symlinks && CI=true pnpm install --ignore-scripts && sh dev-mode/link-dist-plugin-deps.sh && ln -sf /opt/openclaw-dev-mode node_modules/openclaw && openclaw gateway restart
 ```
 
 - pnpm refuses to remove an old `node_modules` without a TTY → `rm -rf node_modules` and rerun.
