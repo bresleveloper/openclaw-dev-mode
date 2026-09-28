@@ -52,6 +52,7 @@ Never log VPS connection details in commits or output. Batch commands into few s
 - **Home**: `~/.openclaw/` — config `openclaw.json`, env `.env` (`OPENCLAW_DEV_MODE=1`), WA creds `credentials/whatsapp/default/`, WA history `dev-mode/wa-history.db`
 - **Gateway**: user-level systemd `openclaw-gateway.service` (`~/.config/systemd/user/`), port 18789, loopback. `journalctl` is empty — logs are `/tmp/openclaw/openclaw-YYYY-MM-DD.log` (JSON lines)
 - **Node**: v24.21.0 (nodesource apt, 2026-09-28) — satisfies 9.6 engines. OS: Ubuntu 24.04; pnpm 12.4.0 via `npm i -g`
+- **Models (2026-09-28)**: default `ollama/kimi-k2.7-code:cloud`; `ollama/glm-5.3-flash:cloud` configured (reasoning always on, tools, 1M ctx, paid via Ollama Cloud credits) — good for testing 💭. Web search: `tools.web.search.provider = ollama` (works with any model; Z.ai's native search is not an OpenClaw provider).
 
 ## Build & Deploy
 
@@ -214,8 +215,7 @@ Clean-room from tag `v2026.9.6` (upstream 2026-09-22), ~33.4k commits / 48k file
 
 ## Open Items
 
-- VPS reboot pending (kernel 6.8.0-142 installed 2026-09-28); the user-level gateway service needs lingering to come back — verify `loginctl show-user root | grep Linger` before rebooting.
-- Manual checks after deploy: WhatsApp `/reasoning on` → 💭 messages without a loop; Control UI → Settings → Advanced opens Raw, unblurred; `/status` shows `▶️ Active model`.
+- Manual check still open: Control UI → Settings → Advanced opens Raw, unblurred. (Verified 2026-09-28: reboot into kernel 6.8.0-142 with `Linger=yes` — gateway came back by itself; 💭 reasoning in WhatsApp self-chat with `ollama/glm-5.3-flash:cloud` + `/reasoning on`, no loop.)
 - Delete `/root/.openclaw.bak-pre-9.6-20260928` (9.6 GB) once 9.6 is trusted.
 - `doctor` advisories: legacy `agents.defaults.models` needs explicit provider/model refs before it can migrate to `agents.defaults.modelPolicy.allow`; bundled `github` plugin not in `plugins.allow` (link previews off); 9 historical transcripts deferred (header mismatch, originals untouched); no command owner configured (keeps `/update` owner-only — fine given the no-update rule); service policy refresh skipped because `~/.openclaw` is owned by `coder`.
 - Gateway token NOT rotated (was plaintext in the deleted kapso-era `wa-claw-panel.service`) — Ariel's call.
@@ -228,9 +228,10 @@ Clean-room from tag `v2026.9.6` (upstream 2026-09-22), ~33.4k commits / 48k file
 ```
 dev-mode/
   install-guide.md        -- fork install/update guide
+  link-dist-plugin-deps.sh -- VPS: link bundled plugins to their pnpm deps (update recipe)
   open-ideas/             -- parked ideas (subagent-talk.md)
   list.sec/               -- original per-item security plans (historical, 2026-03)
-  my-archive/             -- session notes/handoffs (historical)
+  my-archive/             -- session notes/handoffs (latest: my.2026.09.28.md — the 9.6 upgrade)
   trouble-shooting/       -- rescue + WhatsApp troubleshooting notes
   system-prompt/          -- captured system prompt (2026.5.2)
 extensions/whatsapp/src/dev-mode/   -- wa-history, reasoning (SEC-WA1), echo-guard
