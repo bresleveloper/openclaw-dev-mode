@@ -1,0 +1,1 @@
+{"version":3,"file":"fa-DPHIPFE7.js","names":[],"sources":["../../../ui/src/i18n/locales/fa.ts"],"sourcesContent":["export { default as fa } from \"virtual:openclaw-control-ui-locale/fa\";\n"],"mappings":""}

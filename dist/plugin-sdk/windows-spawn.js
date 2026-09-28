@@ -1,0 +1,2 @@
+import { a as resolveWindowsSpawnProgram, i as resolveWindowsExecutablePath, n as detectWindowsSpawnCommandInlineArgs, o as resolveWindowsSpawnProgramCandidate, r as materializeWindowsSpawnProgram, t as applyWindowsSpawnProgramPolicy } from "../windows-spawn-CR3vyrK9.mjs";
+export { applyWindowsSpawnProgramPolicy, detectWindowsSpawnCommandInlineArgs, materializeWindowsSpawnProgram, resolveWindowsExecutablePath, resolveWindowsSpawnProgram, resolveWindowsSpawnProgramCandidate };

@@ -1,0 +1,2 @@
+import { B as ProviderAuthResult, n as OpenClawPluginApi, t as definePluginEntry, z as ProviderAuthContext } from "../../runtime-api-B8EDHhvw.js";
+export { type OpenClawPluginApi, type ProviderAuthContext, type ProviderAuthResult, definePluginEntry };

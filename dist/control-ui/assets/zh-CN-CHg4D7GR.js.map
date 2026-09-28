@@ -1,0 +1,1 @@
+{"version":3,"file":"zh-CN-CHg4D7GR.js","names":[],"sources":["../../../ui/src/i18n/locales/zh-CN.ts"],"sourcesContent":["export { default as zh_CN } from \"virtual:openclaw-control-ui-locale/zh-CN\";\n"],"mappings":""}

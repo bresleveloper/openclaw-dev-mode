@@ -1,0 +1,1 @@
+.content:has(openclaw-terminal-page){padding:0;overflow:hidden}openclaw-terminal-page{flex-direction:column;flex:1;width:100%;min-width:0;height:100%;min-height:0;display:flex}.content:has(openclaw-terminal-page)>openclaw-router-outlet{flex-direction:column;flex:1;width:100%;min-width:0;height:100%;min-height:0;display:flex}

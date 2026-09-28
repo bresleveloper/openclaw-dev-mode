@@ -1,0 +1,371 @@
+import { buildSecretInputSchema, hasConfiguredSecretInput } from "openclaw/plugin-sdk/secret-input";
+import { createChannelConfigUiHints } from "openclaw/plugin-sdk/channel-core";
+import { ChannelBotLoopProtectionSchema, ChannelDangerouslyAllowNameMatchingSchema, ChannelImplicitMentionsSchema, ChannelPreviewStreamingConfigSchema, ChannelStreamingProgressSchema, ProviderCommandsSchema, ReplyToModeSchema, buildChannelAccountSchemaParts, buildChannelAllowBotsSchema, buildChannelConfigSchema, buildChannelExecApprovalsSchema, buildChannelReactionShape, buildGroupEntrySchema, refineChannelDmPolicy } from "openclaw/plugin-sdk/channel-config-schema";
+import { z } from "zod";
+//#region extensions/slack/src/config-ui-hints.ts
+const observedGroupHistoryHint = { help: "Automatic observed-message context uses a default of 50 and a maximum of 200 messages; 0 disables automatic injection. The JSON integer maximum selects the 50-message default. Session transcript trimming separately counts user turns, where 0 means no trimming. The observed-message cap does not rewrite saved values." };
+const observedDmHistoryHint = { help: "Automatic observed-DM context uses a default of 0 and a maximum of 200 messages; 0 disables that extra context. The JSON integer maximum selects the 0-message default. Session transcript trimming separately counts user turns, where 0 means no trimming. The observed-message cap does not rewrite saved values." };
+const slackChannelConfigUiHints = {
+	historyLimit: observedGroupHistoryHint,
+	"accounts.*.historyLimit": observedGroupHistoryHint,
+	dmHistoryLimit: observedDmHistoryHint,
+	"accounts.*.dmHistoryLimit": observedDmHistoryHint,
+	"dms.*.historyLimit": observedDmHistoryHint,
+	"accounts.*.dms.*.historyLimit": observedDmHistoryHint,
+	"": {
+		label: "Slack",
+		help: "Slack channel provider configuration for bot/app tokens, streaming behavior, and DM policy controls. Keep token handling and thread behavior explicit to avoid noisy workspace interactions."
+	},
+	postAs: {
+		label: "Slack Identity",
+		help: "Select \"bot\" (default) for the classic Slack app/bot identity or \"user\" to post as the authorizing human through a user token while the app carries event transport."
+	},
+	...createChannelConfigUiHints({
+		channelLabel: "Slack",
+		dmPolicy: { channelKey: "slack" },
+		configWrites: true,
+		mentionPatterns: {
+			targetDescription: "Slack channel IDs",
+			policyNote: "Native Slack @mentions still trigger even when regex patterns are denied.",
+			denyNote: "Native @mentions still trigger."
+		},
+		nativeCommands: true,
+		implicitMentions: true,
+		streaming: {
+			"": "Unified Slack stream preview mode: \"off\" | \"partial\" | \"block\" | \"progress\" (default). Legacy boolean/streamMode keys are auto-mapped.",
+			mode: "Canonical Slack preview mode: \"off\" | \"partial\" | \"block\" | \"progress\" (default).",
+			chunkMode: "Chunking mode for outbound Slack text delivery: \"length\" (default) or \"newline\".",
+			"block.enabled": "Enable chunked block-style Slack preview delivery when channels.slack.streaming.mode=\"block\".",
+			"block.coalesce": "Merge streamed Slack block replies before final delivery.",
+			nativeTransport: "Enable native Slack text streaming (chat.startStream/chat.appendStream/chat.stopStream) when channels.slack.streaming.mode is partial (default: true). Native streaming and Slack session status require a reply thread target; top-level DMs can still use draft post-and-edit preview streaming.",
+			"preview.toolProgress": "Show tool/progress activity in the live draft preview message (default: true). Set false to hide interim tool updates while the draft preview stays active.",
+			"preview.commandText": "Command/exec detail in preview tool-progress lines: \"status\" is the safe default; \"raw\" opts into command text.",
+			"progress.style": "Slack progress presentation: \"card\" uses structured task/session cards; \"compact\" keeps a temporary editable text draft. The final response is posted as a new message, then the draft is deleted after confirmed delivery. Defaults to \"compact\" when progress.toolProgress is explicitly false, otherwise \"card\".",
+			"progress.nativeTaskCards": "Slack native task-card progress updates when channels.slack.streaming.mode=\"progress\", progress.style=\"card\", and streaming.nativeTransport is enabled. Set false to fall back to the Block Kit progress card. Default: true."
+		},
+		progress: { labels: "openclaw" }
+	}),
+	joinIntro: {
+		label: "Slack Channel Join Introduction",
+		help: "Post one brief, room-specific introduction when the bot joins an allowed Slack channel (default: true). Account settings override the channel-wide setting."
+	},
+	allowBots: {
+		label: "Slack Allow Bot Messages",
+		help: "Allow bot-authored messages to trigger Slack replies (default: false)."
+	},
+	botLoopProtection: {
+		label: "Slack Bot Loop Protection",
+		help: "Sliding-window guard for Slack bot-to-bot loops. Default is enabled whenever allowBots lets bot-authored messages reach dispatch."
+	},
+	"botLoopProtection.enabled": {
+		label: "Slack Bot Loop Protection Enabled",
+		help: "Enable the bot-pair loop guard. Defaults to true when allowBots is true or \"mentions\", and false when bot messages are ignored."
+	},
+	"botLoopProtection.maxEventsPerWindow": {
+		label: "Slack Bot Loop Events per Window",
+		help: "Maximum accepted bot-pair messages within the sliding window before suppression starts. Default: 20."
+	},
+	"botLoopProtection.windowSeconds": {
+		label: "Slack Bot Loop Window Seconds",
+		help: "Sliding window length for counting bot-pair messages. Default: 60."
+	},
+	"botLoopProtection.cooldownSeconds": {
+		label: "Slack Bot Loop Cooldown Seconds",
+		help: "How long to suppress the bot pair after it exceeds the budget. Default: 60."
+	},
+	relay: {
+		label: "Slack Relay Mode",
+		help: "Relay-delivered Slack events. Use with mode=\"relay\" when openclaw-slack-router owns the Slack Socket Mode connection."
+	},
+	"relay.url": {
+		label: "Slack Relay URL",
+		help: "Full websocket URL for openclaw-slack-router. Include the route path, for example ws://127.0.0.1:8081/gateway/ws."
+	},
+	"relay.authToken": {
+		label: "Slack Relay Auth Token",
+		help: "Bearer token used by this gateway to authenticate its reverse websocket connection to openclaw-slack-router."
+	},
+	"relay.gatewayId": {
+		label: "Slack Relay Gateway ID",
+		help: "Destination id that openclaw-slack-router uses when routing user-group mentions to this gateway."
+	},
+	botToken: {
+		label: "Slack Bot Token",
+		help: "Slack bot token used for standard chat actions in the configured workspace. Keep this credential scoped and rotate if workspace app permissions change."
+	},
+	appToken: {
+		label: "Slack App Token",
+		help: "Slack app-level token used for Socket Mode connections and event transport when enabled. Use least-privilege app scopes and store this token as a secret."
+	},
+	userToken: {
+		label: "Slack User Token",
+		help: "Optional Slack user token for workflows requiring user-context API access beyond bot permissions. Use sparingly and audit scopes because this token can carry broader authority."
+	},
+	userTokenReadOnly: {
+		label: "Slack User Token Read Only",
+		help: "When true, treat configured Slack user token usage as read-only helper behavior where possible. Keep enabled if you only need supplemental reads without user-context writes."
+	},
+	execApprovals: {
+		label: "Slack Exec Approvals",
+		help: "Slack-native exec approval routing and approver authorization. Set enabled to \"auto\" or true to enable DM-first native approvals when approvers can be resolved for this Slack account; unset or false disables them."
+	},
+	presenceEvents: {
+		label: "Slack Presence Events",
+		help: "Poll observed human participants and wake the routed agent on away-to-active transitions. Default: \"off\"."
+	},
+	"presenceEvents.mode": {
+		label: "Slack Presence Event Mode",
+		help: "\"off\" disables polling; \"auto\" covers DMs, MPIMs, and recent threads with up to 8 observed people; \"on\" also covers larger threads and top-level channels."
+	},
+	"presenceEvents.prompt": {
+		label: "Slack Presence Event Prompt",
+		help: "Replace the default greeting guidance appended after presence facts. Use an empty string to omit event-specific guidance and let workspace instructions such as AGENTS.md govern behavior. Maximum: 20,000 characters."
+	},
+	"channels.*.presenceEvents.mode": {
+		label: "Slack Channel Presence Event Mode",
+		help: "Override presence events for one Slack channel. Use \"on\" to include large threads or top-level channel sessions."
+	},
+	"channels.*.presenceEvents.prompt": {
+		label: "Slack Channel Presence Event Prompt",
+		help: "Override the account-level presence-event prompt for one Slack channel. Maximum: 20,000 characters."
+	},
+	"execApprovals.enabled": {
+		label: "Slack Exec Approvals Enabled",
+		help: "Controls Slack native exec approvals for this account: \"auto\" or true enables DM-first native approvals when approvers can be resolved; unset or false disables them."
+	},
+	"execApprovals.approvers": {
+		label: "Slack Exec Approval Approvers",
+		help: "Slack user IDs allowed to approve exec requests for this workspace account. Use Slack user IDs or user targets such as `U123`, `user:U123`, or `<@U123>`. If you leave this unset, OpenClaw falls back to commands.ownerAllowFrom when possible."
+	},
+	"execApprovals.agentFilter": {
+		label: "Slack Exec Approval Agent Filter",
+		help: "Optional allowlist of agent IDs eligible for Slack exec approvals, for example `[\"main\", \"ops-agent\"]`. Use this to keep approval prompts scoped to the agents you actually operate from Slack."
+	},
+	"execApprovals.sessionFilter": {
+		label: "Slack Exec Approval Session Filter",
+		help: "Optional session-key filters matched as substring or regex-style patterns before Slack approval routing is used. Use narrow patterns so Slack approvals only appear for intended sessions."
+	},
+	"execApprovals.target": {
+		label: "Slack Exec Approval Target",
+		help: "Controls where Slack approval prompts are sent: \"dm\" sends to approver DMs (default), \"channel\" sends to the originating Slack chat/thread, and \"both\" sends to both. Channel delivery exposes the command text to the chat, so only use it in trusted channels."
+	},
+	"thread.historyScope": {
+		label: "Slack Thread History Scope",
+		help: "Scope for Slack thread history context (\"thread\" isolates per thread; \"channel\" reuses channel history)."
+	},
+	"thread.inheritParent": {
+		label: "Slack Thread Parent Inheritance",
+		help: "If true, Slack thread sessions inherit the parent channel transcript (default: false)."
+	},
+	"thread.initialHistoryLimit": {
+		label: "Slack Thread Initial History Limit",
+		help: "Maximum number of existing Slack thread messages to fetch when starting a new thread session (default: 20, set to 0 to disable)."
+	}
+};
+//#endregion
+//#region extensions/slack/src/config-schema.ts
+const SecretInputSchema = buildSecretInputSchema();
+const SLACK_PRESENCE_EVENT_PROMPT_MAX_CHARS = 2e4;
+const SlackStreamingProgressSchema = ChannelStreamingProgressSchema.extend({
+	style: z.enum(["card", "compact"]).optional(),
+	nativeTaskCards: z.boolean().optional()
+}).strict();
+const SlackStreamingConfigSchema = ChannelPreviewStreamingConfigSchema.extend({
+	nativeTransport: z.boolean().optional(),
+	progress: SlackStreamingProgressSchema.optional()
+}).strict();
+const SlackDmSchema = z.object({
+	enabled: z.boolean().optional(),
+	groupEnabled: z.boolean().optional(),
+	groupChannels: z.array(z.union([z.string(), z.number()])).optional()
+}).strict();
+const SlackPresenceEventsSchema = z.object({
+	mode: z.enum([
+		"off",
+		"auto",
+		"on"
+	]).optional(),
+	prompt: z.string().max(SLACK_PRESENCE_EVENT_PROMPT_MAX_CHARS).optional()
+}).strict();
+const SlackChannelSchema = buildGroupEntrySchema({
+	ignoreOtherMentions: z.boolean().optional(),
+	replyToMode: ReplyToModeSchema.optional(),
+	allowBots: buildChannelAllowBotsSchema({ allowMentions: true }),
+	botLoopProtection: ChannelBotLoopProtectionSchema.optional(),
+	users: z.array(z.union([z.string(), z.number()])).optional(),
+	presenceEvents: SlackPresenceEventsSchema.optional()
+}, { omit: ["allowFrom"] });
+const SlackThreadSchema = z.object({
+	historyScope: z.enum(["thread", "channel"]).optional(),
+	inheritParent: z.boolean().optional(),
+	initialHistoryLimit: z.number().int().min(0).optional()
+}).strict();
+const ReplyToModeByChatTypeSchema = z.object({
+	direct: ReplyToModeSchema.optional(),
+	group: ReplyToModeSchema.optional(),
+	channel: ReplyToModeSchema.optional()
+}).strict();
+const SlackRelaySchema = z.object({
+	url: z.string().optional(),
+	authToken: SecretInputSchema.optional(),
+	gatewayId: z.string().optional()
+}).strict();
+const SlackIdentitySchema = z.enum(["bot", "user"]);
+const { accountShape, rootPolicyShape } = buildChannelAccountSchemaParts({
+	omit: ["groupAllowFrom"],
+	streaming: SlackStreamingConfigSchema.optional()
+});
+const SlackAccountSchema = z.object({
+	...accountShape,
+	joinIntro: z.boolean().optional(),
+	postAs: SlackIdentitySchema.optional(),
+	mode: z.enum([
+		"socket",
+		"http",
+		"relay"
+	]).optional(),
+	relay: SlackRelaySchema.optional(),
+	signingSecret: SecretInputSchema.optional(),
+	webhookPath: z.string().optional(),
+	execApprovals: buildChannelExecApprovalsSchema(z.union([z.string(), z.number()])),
+	commands: ProviderCommandsSchema,
+	botToken: SecretInputSchema.optional(),
+	appToken: SecretInputSchema.optional(),
+	userToken: SecretInputSchema.optional(),
+	userTokenReadOnly: z.boolean().optional(),
+	allowBots: buildChannelAllowBotsSchema({ allowMentions: true }),
+	botLoopProtection: ChannelBotLoopProtectionSchema.optional(),
+	dangerouslyAllowNameMatching: ChannelDangerouslyAllowNameMatchingSchema,
+	requireMention: z.boolean().optional(),
+	implicitMentions: ChannelImplicitMentionsSchema.optional(),
+	unfurlLinks: z.boolean().optional(),
+	unfurlMedia: z.boolean().optional(),
+	...buildChannelReactionShape({
+		notificationModes: [
+			"off",
+			"own",
+			"all",
+			"allowlist"
+		],
+		reactionAllowlist: true,
+		ackReaction: z.string().optional()
+	}),
+	replyToModeByChatType: ReplyToModeByChatTypeSchema.optional(),
+	thread: SlackThreadSchema.optional(),
+	presenceEvents: SlackPresenceEventsSchema.optional(),
+	actions: z.object({
+		reactions: z.boolean().optional(),
+		messages: z.boolean().optional(),
+		pins: z.boolean().optional(),
+		search: z.boolean().optional(),
+		permissions: z.boolean().optional(),
+		memberInfo: z.boolean().optional(),
+		channelInfo: z.boolean().optional(),
+		emojiList: z.boolean().optional()
+	}).strict().optional(),
+	slashCommand: z.object({
+		enabled: z.boolean().optional(),
+		name: z.string().optional(),
+		sessionPrefix: z.string().optional(),
+		ephemeral: z.boolean().optional()
+	}).strict().optional(),
+	dm: SlackDmSchema.optional(),
+	channels: z.record(z.string(), SlackChannelSchema.optional()).optional(),
+	typingReaction: z.string().optional()
+}).strict();
+function validateSlackSigningSecretRequirements(value, ctx) {
+	const resolveMode = (mode) => mode === "http" || mode === "socket" || mode === "relay" ? mode : void 0;
+	const baseMode = resolveMode(value.mode) ?? "socket";
+	const hasImplicitRootAccount = Object.keys(value.accounts ?? {}).length === 0;
+	if (baseMode === "http" && hasImplicitRootAccount && !hasConfiguredSecretInput(value.signingSecret)) ctx.addIssue({
+		code: z.ZodIssueCode.custom,
+		message: "channels.slack.mode=\"http\" requires channels.slack.signingSecret",
+		path: ["signingSecret"]
+	});
+	for (const [accountId, account] of Object.entries(value.accounts ?? {})) {
+		if (!account || account.enabled === false) continue;
+		if ((resolveMode(account.mode) ?? baseMode) !== "http") continue;
+		const accountSecret = account.signingSecret ?? value.signingSecret;
+		if (!hasConfiguredSecretInput(accountSecret)) ctx.addIssue({
+			code: z.ZodIssueCode.custom,
+			message: "channels.slack.accounts.*.mode=\"http\" requires channels.slack.signingSecret or channels.slack.accounts.*.signingSecret",
+			path: [
+				"accounts",
+				accountId,
+				"signingSecret"
+			]
+		});
+	}
+}
+const SlackConfigSchema = SlackAccountSchema.safeExtend({
+	...rootPolicyShape,
+	postAs: SlackIdentitySchema.default("bot"),
+	userTokenReadOnly: z.boolean().optional().default(true),
+	mode: z.enum([
+		"socket",
+		"http",
+		"relay"
+	]).optional().default("socket"),
+	signingSecret: SecretInputSchema.optional(),
+	webhookPath: z.string().optional().default("/slack/events"),
+	accounts: z.record(z.string(), SlackAccountSchema.optional()).optional(),
+	defaultAccount: z.string().optional()
+}).superRefine((value, ctx) => {
+	if (value.enabled === false) return;
+	refineChannelDmPolicy({
+		channelId: "slack",
+		value,
+		ctx
+	});
+	const requireRelayConfig = (relay, path) => {
+		if (typeof relay?.url !== "string" || !relay.url.trim()) ctx.addIssue({
+			code: z.ZodIssueCode.custom,
+			message: "channels.slack.mode=\"relay\" requires relay.url",
+			path: [...path, "url"]
+		});
+		if (!hasConfiguredSecretInput(relay?.authToken)) ctx.addIssue({
+			code: z.ZodIssueCode.custom,
+			message: "channels.slack.mode=\"relay\" requires relay.authToken",
+			path: [...path, "authToken"]
+		});
+		if (typeof relay?.gatewayId !== "string" || !relay.gatewayId.trim()) ctx.addIssue({
+			code: z.ZodIssueCode.custom,
+			message: "channels.slack.mode=\"relay\" requires relay.gatewayId",
+			path: [...path, "gatewayId"]
+		});
+	};
+	const baseMode = value.mode ?? "socket";
+	const accountIds = value.accounts ? Object.keys(value.accounts) : [];
+	if (!value.accounts) {
+		if (baseMode === "relay") requireRelayConfig(value.relay, ["relay"]);
+		validateSlackSigningSecretRequirements(value, ctx);
+		return;
+	}
+	for (const accountId of accountIds) {
+		const account = value.accounts[accountId];
+		if (!account || account.enabled === false) continue;
+		const accountMode = account.mode ?? baseMode;
+		const effectiveRelay = {
+			...value.relay,
+			...account.relay
+		};
+		refineChannelDmPolicy({
+			channelId: "slack",
+			value,
+			accountId,
+			ctx
+		});
+		if (accountMode !== "http") {
+			if (accountMode === "relay") requireRelayConfig(effectiveRelay, [
+				"accounts",
+				accountId,
+				"relay"
+			]);
+			continue;
+		}
+	}
+	validateSlackSigningSecretRequirements(value, ctx);
+});
+const SlackChannelConfigSchema = buildChannelConfigSchema(SlackConfigSchema, { uiHints: slackChannelConfigUiHints });
+//#endregion
+export { SlackChannelConfigSchema as t };

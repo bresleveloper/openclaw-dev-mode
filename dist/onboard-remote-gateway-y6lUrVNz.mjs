@@ -1,0 +1,342 @@
+import { r as defaultRuntime } from "./runtime-BC29JSZp.mjs";
+import { f as isGatewayClientRequestError, y as resolveDeviceIdentityForGatewayCall } from "./call-C_MP4_Gs.mjs";
+import { a as isGatewayTransportError } from "./transport-error-C-c71VUr.mjs";
+import { n as t } from "./i18n-BaFR7Cao.mjs";
+import { n as WizardCancelledError } from "./prompts-DLsO8MlU.mjs";
+import { setTimeout } from "node:timers/promises";
+import { randomUUID } from "node:crypto";
+//#region src/commands/onboard-remote-gateway.ts
+const GATEWAY_SETUP_DETECT_TIMEOUT_MS = 4e4;
+const GATEWAY_SETUP_ACTIVATE_TIMEOUT_MS = 15e4;
+const GATEWAY_CODEX_SETUP_ACTIVATE_TIMEOUT_MS = 48e4;
+const GATEWAY_SETUP_VERIFY_TIMEOUT_MS = 3e4;
+const GATEWAY_SYSTEM_AGENT_CHAT_TIMEOUT_MS = 19e4;
+const GATEWAY_RESTART_WAIT_TIMEOUT_MS = 45e3;
+const GATEWAY_RESTART_IDENTITY_ERROR = "Inference settings were saved, but the Gateway did not provide a boot identity. Update and restart the remote Gateway, then run onboarding again.";
+function toSetupInferenceDetection(result) {
+	return {
+		candidates: result.candidates.map((candidate) => ({
+			kind: candidate.kind,
+			...candidate.brandId !== void 0 ? { brandId: candidate.brandId } : {},
+			label: candidate.label,
+			detail: candidate.detail,
+			modelRef: candidate.modelRef,
+			...candidate.modelTarget ? { modelTarget: candidate.modelTarget } : {},
+			...candidate.icon !== void 0 ? { icon: candidate.icon } : {},
+			...candidate.website !== void 0 ? { website: candidate.website } : {},
+			recommended: false,
+			...candidate.credentials !== void 0 ? { credentials: candidate.credentials } : {}
+		})),
+		manualProviders: result.manualProviders.map((provider) => ({
+			id: provider.id,
+			...provider.brandId !== void 0 ? { brandId: provider.brandId } : {},
+			label: provider.label,
+			...provider.modelTarget ? { modelTarget: provider.modelTarget } : {},
+			...provider.hint !== void 0 ? { hint: provider.hint } : {},
+			...provider.icon !== void 0 ? { icon: provider.icon } : {},
+			...provider.website !== void 0 ? { website: provider.website } : {}
+		})),
+		authOptions: (result.authOptions ?? []).map((option) => Object.assign({
+			id: option.id,
+			...option.brandId !== void 0 ? { brandId: option.brandId } : {},
+			label: option.label,
+			kind: option.kind,
+			featured: option.featured,
+			...option.modelTarget ? { modelTarget: option.modelTarget } : {}
+		}, option.hint !== void 0 ? { hint: option.hint } : {}, option.groupLabel !== void 0 ? { groupLabel: option.groupLabel } : {}, option.icon !== void 0 ? { icon: option.icon } : {}, option.website !== void 0 ? { website: option.website } : {})),
+		...result.prepareOptions !== void 0 ? { prepareOptions: result.prepareOptions.map((option) => Object.assign({
+			id: option.id,
+			label: option.label,
+			...option.modelTarget ? { modelTarget: option.modelTarget } : {}
+		}, option.brandId !== void 0 ? { brandId: option.brandId } : {}, option.hint !== void 0 ? { hint: option.hint } : {}, option.icon !== void 0 ? { icon: option.icon } : {}, option.website !== void 0 ? { website: option.website } : {})) } : {},
+		recommendedInstalls: result.recommendedInstalls ?? [],
+		unavailableCandidates: (result.unavailableCandidates ?? []).map((candidate) => ({
+			id: candidate.id,
+			label: candidate.label,
+			detail: candidate.detail,
+			reason: candidate.reason
+		})),
+		workspace: result.workspace,
+		...result.configuredModel !== void 0 ? { configuredModel: result.configuredModel } : {},
+		...result.setupModel !== void 0 ? { setupModel: result.setupModel } : {},
+		...result.utilityModel !== void 0 ? { utilityModel: result.utilityModel } : {},
+		setupComplete: result.setupComplete
+	};
+}
+async function answerSetupStep(step, prompter) {
+	const message = step.message ?? step.title ?? "Continue";
+	if (step.externalUrl) await prompter.note(step.externalUrl, "Open this URL to continue");
+	switch (step.type) {
+		case "note":
+			await prompter.note(message, step.title);
+			return;
+		case "text": return await prompter.text({
+			message,
+			sensitive: step.sensitive,
+			placeholder: step.placeholder,
+			initialValue: typeof step.initialValue === "string" ? step.initialValue : void 0
+		});
+		case "select": return await prompter.select({
+			message,
+			options: step.options ?? [],
+			initialValue: step.initialValue
+		});
+		case "multiselect": return await prompter.multiselect({
+			message,
+			options: step.options ?? [],
+			initialValues: Array.isArray(step.initialValue) ? step.initialValue : void 0
+		});
+		case "confirm":
+		case "action":
+			if (step.executor === "gateway") return;
+			return await prompter.confirm({
+				message,
+				initialValue: typeof step.initialValue === "boolean" ? step.initialValue : void 0
+			});
+	}
+}
+function activationTimeoutMs(kind) {
+	return kind === "codex-cli" ? GATEWAY_CODEX_SETUP_ACTIVATE_TIMEOUT_MS : GATEWAY_SETUP_ACTIVATE_TIMEOUT_MS;
+}
+function bindGatewayConfig(target) {
+	return {
+		...target.config,
+		gateway: {
+			...target.config.gateway,
+			mode: "remote",
+			remote: {
+				...target.config.gateway?.remote,
+				url: target.gatewayUrl
+			}
+		}
+	};
+}
+function toVerifiedActivationResult(params) {
+	if (params.activation.modelTarget !== params.requestedModelTarget) throw new Error("Gateway activated a different model role than the selected connection. Refresh model setup and try again.");
+	if (params.requestedModelRef && params.activation.modelRef.trim() !== params.requestedModelRef.trim()) throw new Error(`Gateway activated ${params.activation.modelRef}, not the selected ${params.requestedModelRef}.`);
+	if (!params.verification.ok) throw new Error(`Gateway inference verification failed: ${params.verification.error}`);
+	if (params.verification.modelRef.trim() !== params.activation.modelRef.trim()) throw new Error(`Gateway verified ${params.verification.modelRef}, not the activated ${params.activation.modelRef}.`);
+	if (params.verification.modelTarget !== params.activation.modelTarget) throw new Error("Gateway verified a different model role than the activated connection.");
+	return {
+		ok: true,
+		...params.activation,
+		latencyMs: params.verification.latencyMs,
+		lines: []
+	};
+}
+/**
+* Configure missing inference on the selected remote Gateway, then let that
+* Gateway's OpenClaw finish setup before handing off to its normal TUI.
+* The local config is routing input only; every setup mutation runs through
+* Gateway RPC.
+*/
+async function runRemoteGatewayInferenceOnboarding(target, runtime = defaultRuntime, deps = {}) {
+	const callGateway = deps.callGateway ?? (await import("./call-bfuNQIMk.mjs")).callGatewayCli;
+	const runGuidedOnboarding = deps.runGuidedOnboarding ?? (await import("./commands/onboard-guided.js")).runGuidedOnboarding;
+	const boundConfig = bindGatewayConfig(target);
+	const explicitAuth = Boolean(target.token || target.password);
+	let gatewayWorkspace;
+	const request = async (params) => await callGateway({
+		...params,
+		config: boundConfig,
+		...explicitAuth ? { url: target.gatewayUrl } : {},
+		...target.token ? { token: target.token } : {},
+		...target.password ? { password: target.password } : {},
+		...target.tlsFingerprint ? { tlsFingerprint: target.tlsFingerprint } : {},
+		ignoreEnvUrlOverride: true
+	});
+	const detect = async () => {
+		const detection = toSetupInferenceDetection(await request({
+			method: "openclaw.setup.detect",
+			params: {},
+			timeoutMs: GATEWAY_SETUP_DETECT_TIMEOUT_MS
+		}));
+		gatewayWorkspace = detection.workspace;
+		return detection;
+	};
+	const activate = async (params) => {
+		let activationBootId;
+		const sessionId = randomUUID();
+		let started = false;
+		let terminal = false;
+		const prompter = params.prompter ?? await (deps.createPrompter?.() ?? import("./clack-prompter-Cm44SoD8.mjs").then(({ createClackPrompter }) => createClackPrompter()));
+		let result;
+		try {
+			result = await request({
+				method: "openclaw.setup.activate.start",
+				params: {
+					sessionId,
+					kind: params.kind,
+					...params.modelTarget ? { modelTarget: params.modelTarget } : {},
+					...params.agentId ? { agentId: params.agentId } : {},
+					...params.modelRef !== void 0 ? { modelRef: params.modelRef } : {},
+					...params.authChoice !== void 0 ? { authChoice: params.authChoice } : {},
+					...params.apiKey !== void 0 ? { apiKey: params.apiKey } : {},
+					...gatewayWorkspace ? { workspace: gatewayWorkspace } : {}
+				},
+				timeoutMs: activationTimeoutMs(params.kind),
+				onHelloOk: (hello) => {
+					activationBootId = hello.server.bootId?.trim();
+				}
+			});
+			started = true;
+			terminal = result.done;
+			while (!result.done) {
+				params.signal?.throwIfAborted();
+				const step = result.step;
+				let answer;
+				if (step) {
+					if (result.error) await prompter.note(result.error);
+					const value = await answerSetupStep(step, prompter);
+					if (step.type !== "progress" && step.executor !== "gateway") answer = {
+						stepId: step.id,
+						value
+					};
+				}
+				result = await request({
+					method: "wizard.next",
+					params: {
+						sessionId,
+						...answer ? { answer } : {}
+					},
+					signal: params.signal,
+					timeoutMs: activationTimeoutMs(params.kind)
+				});
+				terminal = result.done;
+			}
+		} catch (error) {
+			if (!terminal && (started || !isGatewayClientRequestError(error))) try {
+				await request({
+					method: "wizard.cancel",
+					params: {
+						sessionId,
+						closeInput: true
+					},
+					timeoutMs: activationTimeoutMs(params.kind)
+				});
+			} catch (cancelError) {
+				throw new AggregateError([error, cancelError], "Remote activation failed and its setup session could not be closed.", { cause: cancelError });
+			}
+			throw error;
+		}
+		if (result.status === "cancelled") throw new WizardCancelledError(result.error);
+		if (result.activationRejection && result.error) return {
+			ok: false,
+			status: result.activationRejection.status,
+			error: result.error
+		};
+		const activation = result.modelActivation;
+		if (!activation) throw new Error(result.error ?? "Gateway setup ended without a verified activation.");
+		const restartBootId = activation.gatewayRestartRequired ? activationBootId : void 0;
+		if (activation.gatewayRestartRequired && !restartBootId) throw new Error(GATEWAY_RESTART_IDENTITY_ERROR);
+		const restartDeadline = Date.now() + GATEWAY_RESTART_WAIT_TIMEOUT_MS;
+		let retryDelayMs = 250;
+		for (;;) {
+			const remainingBeforeAttemptMs = restartDeadline - Date.now();
+			if (restartBootId && remainingBeforeAttemptMs <= 0) throw new Error("Inference settings were saved, but the Gateway did not finish restarting and verifying inference. Check the remote Gateway, then run onboarding again.");
+			const restartWait = new AbortController();
+			let requestedDelay = retryDelayMs;
+			try {
+				const verification = await request({
+					method: "openclaw.setup.verify",
+					params: {
+						...params.modelTarget ? { modelTarget: params.modelTarget } : {},
+						...params.agentId ? { agentId: params.agentId } : {}
+					},
+					timeoutMs: restartBootId ? Math.min(GATEWAY_SETUP_VERIFY_TIMEOUT_MS, remainingBeforeAttemptMs) : GATEWAY_SETUP_VERIFY_TIMEOUT_MS,
+					signal: restartWait.signal,
+					onHelloOk: (hello) => {
+						if (!restartBootId) return;
+						const bootId = hello.server.bootId?.trim();
+						if (!bootId || bootId === restartBootId) restartWait.abort(bootId ? "unchanged-boot" : "missing-boot");
+					}
+				});
+				if (!restartBootId || verification.ok || verification.status !== "unavailable") return toVerifiedActivationResult({
+					activation,
+					verification,
+					...params.modelRef ? { requestedModelRef: params.modelRef } : {},
+					...params.modelTarget ? { requestedModelTarget: params.modelTarget } : {}
+				});
+			} catch (error) {
+				if (restartWait.signal.reason === "missing-boot") throw new Error(GATEWAY_RESTART_IDENTITY_ERROR, { cause: error });
+				if (!(restartBootId && (restartWait.signal.reason === "unchanged-boot" || isGatewayTransportError(error) || isGatewayClientRequestError(error) && error.retryable))) throw error;
+				if (isGatewayClientRequestError(error)) requestedDelay = error.retryAfterMs ?? retryDelayMs;
+			}
+			await setTimeout(Math.min(requestedDelay, Math.max(0, restartDeadline - Date.now())));
+			retryDelayMs = Math.min(retryDelayMs * 2, 2e3);
+		}
+	};
+	await runGuidedOnboarding({}, runtime, {
+		detect,
+		activate,
+		handoffMode: "chat",
+		runSetupMemoryImportStep: async () => ({
+			status: "skipped",
+			providers: []
+		}),
+		...deps.createPrompter ? { createPrompter: deps.createPrompter } : {},
+		runSystemAgentChat: async () => {
+			const prompter = await (deps.createPrompter?.() ?? import("./clack-prompter-Cm44SoD8.mjs").then(({ createClackPrompter }) => createClackPrompter()));
+			await prompter.intro("OpenClaw");
+			const deviceIdentity = resolveDeviceIdentityForGatewayCall();
+			const sessionId = randomUUID();
+			let reply = await request({
+				method: "openclaw.chat",
+				deviceIdentity,
+				params: {
+					sessionId,
+					welcomeVariant: "onboarding"
+				},
+				timeoutMs: GATEWAY_SYSTEM_AGENT_CHAT_TIMEOUT_MS
+			});
+			let agentDraft;
+			try {
+				for (;;) {
+					await prompter.note(reply.reply, "OpenClaw");
+					if (reply.action === "exit") {
+						await prompter.outro("OpenClaw setup finished.");
+						return;
+					}
+					if (reply.action === "open-agent") {
+						agentDraft = reply.agentDraft;
+						await prompter.outro("Opening your agent…");
+						break;
+					}
+					const message = await prompter.text({
+						message: "Reply to OpenClaw",
+						...reply.sensitive ? { sensitive: true } : {},
+						validate: (value) => value.trim() ? void 0 : "Required"
+					});
+					reply = await request({
+						method: "openclaw.chat",
+						deviceIdentity,
+						params: {
+							sessionId,
+							message
+						},
+						timeoutMs: GATEWAY_SYSTEM_AGENT_CHAT_TIMEOUT_MS
+					});
+				}
+			} catch (error) {
+				if (error instanceof WizardCancelledError) {
+					await prompter.outro("OpenClaw setup paused.");
+					return;
+				}
+				throw error;
+			}
+			await (deps.runTui ?? (await import("./tui-DLSRIP9m.mjs")).runTui)({
+				config: boundConfig,
+				deliver: false,
+				...agentDraft === "hatch" ? { message: t("wizard.finalize.bootstrapHatchMessage") } : {},
+				boundGateway: {
+					url: target.gatewayUrl,
+					...target.token ? { token: target.token } : {},
+					...target.password ? { password: target.password } : {},
+					...target.tlsFingerprint ? { tlsFingerprint: target.tlsFingerprint } : {}
+				}
+			});
+		}
+	});
+}
+//#endregion
+export { runRemoteGatewayInferenceOnboarding };

@@ -1,0 +1,1 @@
+{"version":3,"file":"id-CGfglkb_.js","names":[],"sources":["../../../ui/src/i18n/locales/id.ts"],"sourcesContent":["export { default as id } from \"virtual:openclaw-control-ui-locale/id\";\n"],"mappings":""}

@@ -1,0 +1,809 @@
+import { buildManifestModelProviderConfig } from "openclaw/plugin-sdk/provider-model-metadata";
+import { existsSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { readSecretFileSync } from "openclaw/plugin-sdk/secret-file-runtime";
+import { normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
+//#region extensions/google/openclaw.plugin.json
+var modelCatalog = {
+	"discovery": { "google": "runtime" },
+	"providers": { "google": {
+		"api": "google-generative-ai",
+		"baseUrl": "https://generativelanguage.googleapis.com/v1beta",
+		"models": [
+			{
+				"id": "gemini-2.5-pro",
+				"name": "Gemini 2.5 Pro",
+				"reasoning": true,
+				"input": ["text", "image"],
+				"cost": {
+					"input": 0,
+					"output": 0,
+					"cacheRead": 0,
+					"cacheWrite": 0
+				},
+				"contextWindow": 1048576,
+				"maxTokens": 65536
+			},
+			{
+				"id": "gemini-2.5-flash",
+				"name": "Gemini 2.5 Flash",
+				"reasoning": true,
+				"input": ["text", "image"],
+				"cost": {
+					"input": 0,
+					"output": 0,
+					"cacheRead": 0,
+					"cacheWrite": 0
+				},
+				"contextWindow": 1048576,
+				"maxTokens": 65536
+			},
+			{
+				"id": "gemini-2.5-flash-lite",
+				"name": "Gemini 2.5 Flash-Lite",
+				"reasoning": true,
+				"input": ["text", "image"],
+				"cost": {
+					"input": 0,
+					"output": 0,
+					"cacheRead": 0,
+					"cacheWrite": 0
+				},
+				"contextWindow": 1048576,
+				"maxTokens": 65536
+			},
+			{
+				"id": "gemini-3.5-flash",
+				"name": "Gemini 3.5 Flash",
+				"reasoning": true,
+				"input": ["text", "image"],
+				"cost": {
+					"input": 0,
+					"output": 0,
+					"cacheRead": 0,
+					"cacheWrite": 0
+				},
+				"contextWindow": 1048576,
+				"maxTokens": 65536,
+				"compat": { "codeMode": "preferred" }
+			},
+			{
+				"id": "gemini-3.6-flash",
+				"name": "Gemini 3.6 Flash",
+				"reasoning": true,
+				"input": ["text", "image"],
+				"cost": {
+					"input": 0,
+					"output": 0,
+					"cacheRead": 0,
+					"cacheWrite": 0
+				},
+				"contextWindow": 1048576,
+				"maxTokens": 65536,
+				"compat": { "codeMode": "preferred" }
+			},
+			{
+				"id": "gemini-3.7-flash",
+				"name": "Gemini 3.7 Flash",
+				"reasoning": true,
+				"input": ["text", "image"],
+				"cost": {
+					"input": 0,
+					"output": 0,
+					"cacheRead": 0,
+					"cacheWrite": 0
+				},
+				"contextWindow": 1048576,
+				"maxTokens": 65536,
+				"thinkingLevelMap": { "minimal": null },
+				"compat": { "codeMode": "preferred" }
+			},
+			{
+				"id": "gemini-3.5-flash-lite",
+				"name": "Gemini 3.5 Flash-Lite",
+				"reasoning": true,
+				"input": ["text", "image"],
+				"cost": {
+					"input": 0,
+					"output": 0,
+					"cacheRead": 0,
+					"cacheWrite": 0
+				},
+				"contextWindow": 1048576,
+				"maxTokens": 65536,
+				"compat": { "codeMode": "preferred" }
+			},
+			{
+				"id": "gemini-3.1-pro-preview",
+				"name": "Gemini 3.1 Pro Preview",
+				"reasoning": true,
+				"input": ["text", "image"],
+				"cost": {
+					"input": 0,
+					"output": 0,
+					"cacheRead": 0,
+					"cacheWrite": 0
+				},
+				"contextWindow": 1048576,
+				"maxTokens": 65536,
+				"compat": { "codeMode": "preferred" }
+			},
+			{
+				"id": "gemini-3.1-flash-lite",
+				"name": "Gemini 3.1 Flash Lite",
+				"reasoning": true,
+				"input": ["text", "image"],
+				"cost": {
+					"input": 0,
+					"output": 0,
+					"cacheRead": 0,
+					"cacheWrite": 0
+				},
+				"contextWindow": 1048576,
+				"maxTokens": 65536,
+				"compat": { "codeMode": "preferred" }
+			},
+			{
+				"id": "gemini-3-flash-preview",
+				"name": "Gemini 3 Flash Preview",
+				"reasoning": true,
+				"input": ["text", "image"],
+				"cost": {
+					"input": 0,
+					"output": 0,
+					"cacheRead": 0,
+					"cacheWrite": 0
+				},
+				"contextWindow": 1048576,
+				"maxTokens": 65536,
+				"compat": { "codeMode": "preferred" }
+			}
+		]
+	} },
+	"suppressions": [
+		{
+			"provider": "google",
+			"model": "gemini-1.5-flash",
+			"reason": "Google shut down Gemini 1.5 Flash on 2025-09-29. Use google/gemini-2.5-flash."
+		},
+		{
+			"provider": "google",
+			"model": "gemini-1.5-flash-8b",
+			"reason": "Google shut down Gemini 1.5 Flash-8B on 2025-09-29. Use google/gemini-2.5-flash-lite."
+		},
+		{
+			"provider": "google",
+			"model": "gemini-1.5-pro",
+			"reason": "Google shut down Gemini 1.5 Pro on 2025-09-29. Use google/gemini-3.1-pro-preview."
+		},
+		{
+			"provider": "google",
+			"model": "gemini-2.0-flash",
+			"reason": "Google shut down Gemini 2.0 Flash on 2026-06-01. Use google/gemini-2.5-flash."
+		},
+		{
+			"provider": "google",
+			"model": "gemini-2.0-flash-001",
+			"reason": "Google shut down Gemini 2.0 Flash on 2026-06-01. Use google/gemini-2.5-flash."
+		},
+		{
+			"provider": "google",
+			"model": "gemini-2.0-flash-exp",
+			"reason": "Google shut down this Gemini 2.0 experimental model. Use google/gemini-2.5-flash."
+		},
+		{
+			"provider": "google",
+			"model": "gemini-2.0-flash-exp-image-generation",
+			"reason": "Google shut down this Gemini 2.0 image preview. Use google/gemini-2.5-flash-image."
+		},
+		{
+			"provider": "google",
+			"model": "gemini-2.0-flash-live-001",
+			"reason": "Google shut down this Gemini Live model on 2025-12-09. Use google/gemini-3.1-flash-live-preview."
+		},
+		{
+			"provider": "google",
+			"model": "gemini-2.0-flash-lite",
+			"reason": "Google shut down Gemini 2.0 Flash-Lite on 2026-06-01. Use google/gemini-2.5-flash-lite."
+		},
+		{
+			"provider": "google",
+			"model": "gemini-2.0-flash-lite-001",
+			"reason": "Google shut down Gemini 2.0 Flash-Lite on 2026-06-01. Use google/gemini-2.5-flash-lite."
+		},
+		{
+			"provider": "google",
+			"model": "gemini-2.0-flash-lite-preview",
+			"reason": "Google shut down this Gemini 2.0 Flash-Lite preview on 2025-12-09. Use google/gemini-2.5-flash-lite."
+		},
+		{
+			"provider": "google",
+			"model": "gemini-2.0-flash-lite-preview-02-05",
+			"reason": "Google shut down this Gemini 2.0 Flash-Lite preview on 2025-12-09. Use google/gemini-2.5-flash-lite."
+		},
+		{
+			"provider": "google",
+			"model": "gemini-2.0-flash-preview-image-generation",
+			"reason": "Google shut down this Gemini 2.0 image preview. Use google/gemini-2.5-flash-image."
+		},
+		{
+			"provider": "google",
+			"model": "gemini-2.0-flash-thinking-exp",
+			"reason": "Google shut down this Gemini 2.0 thinking experiment. Use google/gemini-2.5-flash."
+		},
+		{
+			"provider": "google",
+			"model": "gemini-2.0-flash-thinking-exp-01-21",
+			"reason": "Google shut down this Gemini 2.0 thinking experiment. Use google/gemini-2.5-flash."
+		},
+		{
+			"provider": "google",
+			"model": "gemini-2.0-flash-thinking-exp-1219",
+			"reason": "Google shut down this Gemini 2.0 thinking experiment. Use google/gemini-2.5-flash."
+		},
+		{
+			"provider": "google",
+			"model": "gemini-2.0-pro-exp",
+			"reason": "Google shut down this Gemini 2.0 Pro experiment. Use google/gemini-3.1-pro-preview."
+		},
+		{
+			"provider": "google",
+			"model": "gemini-2.0-pro-exp-02-05",
+			"reason": "Google shut down this Gemini 2.0 Pro experiment. Use google/gemini-3.1-pro-preview."
+		},
+		{
+			"provider": "google",
+			"model": "gemini-2.5-flash-exp-native-audio-thinking-dialog",
+			"reason": "Google shut down this Gemini native-audio preview. Use google/gemini-3.1-flash-live-preview."
+		},
+		{
+			"provider": "google",
+			"model": "gemini-2.5-flash-image-preview",
+			"reason": "Google shut down this Gemini image preview on 2026-01-15. Use google/gemini-2.5-flash-image."
+		},
+		{
+			"provider": "google",
+			"model": "gemini-2.5-flash-lite-preview-06-17",
+			"reason": "Google shut down this Gemini 2.5 Flash-Lite preview on 2025-11-18. Use google/gemini-2.5-flash-lite."
+		},
+		{
+			"provider": "google",
+			"model": "gemini-2.5-flash-lite-preview-09-25",
+			"reason": "Google shut down this Gemini 2.5 Flash-Lite preview on 2026-03-31. Use google/gemini-3.1-flash-lite."
+		},
+		{
+			"provider": "google",
+			"model": "gemini-2.5-flash-lite-preview-09-2025",
+			"reason": "Google shut down this Gemini 2.5 Flash-Lite preview on 2026-03-31. Use google/gemini-3.1-flash-lite."
+		},
+		{
+			"provider": "google",
+			"model": "gemini-2.5-flash-preview-04-17",
+			"reason": "Google shut down this Gemini 2.5 Flash preview on 2025-07-15. Use google/gemini-2.5-flash."
+		},
+		{
+			"provider": "google",
+			"model": "gemini-2.5-flash-preview-05-20",
+			"reason": "Google shut down this Gemini 2.5 Flash preview on 2025-11-18. Use google/gemini-2.5-flash."
+		},
+		{
+			"provider": "google",
+			"model": "gemini-2.5-flash-preview-09-25",
+			"reason": "Google shut down this Gemini 2.5 Flash preview on 2026-02-17. Use google/gemini-3-flash-preview."
+		},
+		{
+			"provider": "google",
+			"model": "gemini-2.5-flash-preview-09-2025",
+			"reason": "Google shut down this Gemini 2.5 Flash preview on 2026-02-17. Use google/gemini-3-flash-preview."
+		},
+		{
+			"provider": "google",
+			"model": "gemini-2.5-flash-preview-native-audio-dialog",
+			"reason": "Google shut down this Gemini native-audio preview. Use google/gemini-3.1-flash-live-preview."
+		},
+		{
+			"provider": "google",
+			"model": "gemini-2.5-pro-exp-03-25",
+			"reason": "Google shut down this Gemini 2.5 Pro experiment. Use google/gemini-3.1-pro-preview."
+		},
+		{
+			"provider": "google",
+			"model": "gemini-2.5-pro-preview-03-25",
+			"reason": "Google shut down this Gemini 2.5 Pro preview on 2025-12-02. Use google/gemini-3.1-pro-preview."
+		},
+		{
+			"provider": "google",
+			"model": "gemini-2.5-pro-preview-05-06",
+			"reason": "Google shut down this Gemini 2.5 Pro preview on 2025-12-02. Use google/gemini-3.1-pro-preview."
+		},
+		{
+			"provider": "google",
+			"model": "gemini-2.5-pro-preview-06-05",
+			"reason": "Google shut down this Gemini 2.5 Pro preview on 2025-12-02. Use google/gemini-3.1-pro-preview."
+		},
+		{
+			"provider": "google",
+			"model": "gemini-3-pro-preview",
+			"reason": "Google shut down Gemini 3 Pro Preview on 2026-03-09. Use google/gemini-3.1-pro-preview."
+		},
+		{
+			"provider": "google",
+			"model": "gemini-3.1-pro-preview-customtools",
+			"reason": "This is not a public Google Gemini chat model ID. Use google/gemini-3.1-pro-preview."
+		},
+		{
+			"provider": "google",
+			"model": "gemini-live-2.5-flash",
+			"reason": "This is not a current public Gemini chat model ID. Use google/gemini-3.1-flash-live-preview for Live API."
+		},
+		{
+			"provider": "google",
+			"model": "gemini-live-2.5-flash-preview",
+			"reason": "Google shut down this Gemini Live model on 2025-12-09. Use google/gemini-3.1-flash-live-preview."
+		},
+		{
+			"provider": "google",
+			"model": "gemini-live-2.5-flash-preview-native-audio",
+			"reason": "Google shut down this Gemini Live preview. Use google/gemini-3.1-flash-live-preview."
+		},
+		{
+			"provider": "google-gemini-cli",
+			"model": "gemini-1.5-flash",
+			"reason": "Google shut down Gemini 1.5 Flash on 2025-09-29. Use google-gemini-cli/gemini-2.5-flash."
+		},
+		{
+			"provider": "google-gemini-cli",
+			"model": "gemini-1.5-flash-8b",
+			"reason": "Google shut down Gemini 1.5 Flash-8B on 2025-09-29. Use google-gemini-cli/gemini-2.5-flash-lite."
+		},
+		{
+			"provider": "google-gemini-cli",
+			"model": "gemini-1.5-pro",
+			"reason": "Google shut down Gemini 1.5 Pro on 2025-09-29. Use google-gemini-cli/gemini-3.1-pro-preview."
+		},
+		{
+			"provider": "google-gemini-cli",
+			"model": "gemini-2.0-flash",
+			"reason": "Google shut down Gemini 2.0 Flash on 2026-06-01. Use google-gemini-cli/gemini-2.5-flash."
+		},
+		{
+			"provider": "google-gemini-cli",
+			"model": "gemini-2.0-flash-001",
+			"reason": "Google shut down Gemini 2.0 Flash on 2026-06-01. Use google-gemini-cli/gemini-2.5-flash."
+		},
+		{
+			"provider": "google-gemini-cli",
+			"model": "gemini-2.0-flash-exp",
+			"reason": "Google shut down this Gemini 2.0 experimental model. Use google-gemini-cli/gemini-2.5-flash."
+		},
+		{
+			"provider": "google-gemini-cli",
+			"model": "gemini-2.0-flash-exp-image-generation",
+			"reason": "Google shut down this Gemini 2.0 image preview. Use google-gemini-cli/gemini-2.5-flash-image."
+		},
+		{
+			"provider": "google-gemini-cli",
+			"model": "gemini-2.0-flash-live-001",
+			"reason": "Google shut down this Gemini Live model on 2025-12-09. Use google-gemini-cli/gemini-3.1-flash-live-preview."
+		},
+		{
+			"provider": "google-gemini-cli",
+			"model": "gemini-2.0-flash-lite",
+			"reason": "Google shut down Gemini 2.0 Flash-Lite on 2026-06-01. Use google-gemini-cli/gemini-2.5-flash-lite."
+		},
+		{
+			"provider": "google-gemini-cli",
+			"model": "gemini-2.0-flash-lite-001",
+			"reason": "Google shut down Gemini 2.0 Flash-Lite on 2026-06-01. Use google-gemini-cli/gemini-2.5-flash-lite."
+		},
+		{
+			"provider": "google-gemini-cli",
+			"model": "gemini-2.0-flash-lite-preview",
+			"reason": "Google shut down this Gemini 2.0 Flash-Lite preview on 2025-12-09. Use google-gemini-cli/gemini-2.5-flash-lite."
+		},
+		{
+			"provider": "google-gemini-cli",
+			"model": "gemini-2.0-flash-lite-preview-02-05",
+			"reason": "Google shut down this Gemini 2.0 Flash-Lite preview on 2025-12-09. Use google-gemini-cli/gemini-2.5-flash-lite."
+		},
+		{
+			"provider": "google-gemini-cli",
+			"model": "gemini-2.0-flash-preview-image-generation",
+			"reason": "Google shut down this Gemini 2.0 image preview. Use google-gemini-cli/gemini-2.5-flash-image."
+		},
+		{
+			"provider": "google-gemini-cli",
+			"model": "gemini-2.0-flash-thinking-exp",
+			"reason": "Google shut down this Gemini 2.0 thinking experiment. Use google-gemini-cli/gemini-2.5-flash."
+		},
+		{
+			"provider": "google-gemini-cli",
+			"model": "gemini-2.0-flash-thinking-exp-01-21",
+			"reason": "Google shut down this Gemini 2.0 thinking experiment. Use google-gemini-cli/gemini-2.5-flash."
+		},
+		{
+			"provider": "google-gemini-cli",
+			"model": "gemini-2.0-flash-thinking-exp-1219",
+			"reason": "Google shut down this Gemini 2.0 thinking experiment. Use google-gemini-cli/gemini-2.5-flash."
+		},
+		{
+			"provider": "google-gemini-cli",
+			"model": "gemini-2.0-pro-exp",
+			"reason": "Google shut down this Gemini 2.0 Pro experiment. Use google-gemini-cli/gemini-3.1-pro-preview."
+		},
+		{
+			"provider": "google-gemini-cli",
+			"model": "gemini-2.0-pro-exp-02-05",
+			"reason": "Google shut down this Gemini 2.0 Pro experiment. Use google-gemini-cli/gemini-3.1-pro-preview."
+		},
+		{
+			"provider": "google-gemini-cli",
+			"model": "gemini-2.5-flash-exp-native-audio-thinking-dialog",
+			"reason": "Google shut down this Gemini native-audio preview. Use google-gemini-cli/gemini-3.1-flash-live-preview."
+		},
+		{
+			"provider": "google-gemini-cli",
+			"model": "gemini-2.5-flash-image-preview",
+			"reason": "Google shut down this Gemini image preview on 2026-01-15. Use google-gemini-cli/gemini-2.5-flash-image."
+		},
+		{
+			"provider": "google-gemini-cli",
+			"model": "gemini-2.5-flash-lite-preview-06-17",
+			"reason": "Google shut down this Gemini 2.5 Flash-Lite preview on 2025-11-18. Use google-gemini-cli/gemini-2.5-flash-lite."
+		},
+		{
+			"provider": "google-gemini-cli",
+			"model": "gemini-2.5-flash-lite-preview-09-25",
+			"reason": "Google shut down this Gemini 2.5 Flash-Lite preview on 2026-03-31. Use google-gemini-cli/gemini-3.1-flash-lite."
+		},
+		{
+			"provider": "google-gemini-cli",
+			"model": "gemini-2.5-flash-lite-preview-09-2025",
+			"reason": "Google shut down this Gemini 2.5 Flash-Lite preview on 2026-03-31. Use google-gemini-cli/gemini-3.1-flash-lite."
+		},
+		{
+			"provider": "google-gemini-cli",
+			"model": "gemini-2.5-flash-preview-04-17",
+			"reason": "Google shut down this Gemini 2.5 Flash preview on 2025-07-15. Use google-gemini-cli/gemini-2.5-flash."
+		},
+		{
+			"provider": "google-gemini-cli",
+			"model": "gemini-2.5-flash-preview-05-20",
+			"reason": "Google shut down this Gemini 2.5 Flash preview on 2025-11-18. Use google-gemini-cli/gemini-2.5-flash."
+		},
+		{
+			"provider": "google-gemini-cli",
+			"model": "gemini-2.5-flash-preview-09-25",
+			"reason": "Google shut down this Gemini 2.5 Flash preview on 2026-02-17. Use google-gemini-cli/gemini-3-flash-preview."
+		},
+		{
+			"provider": "google-gemini-cli",
+			"model": "gemini-2.5-flash-preview-09-2025",
+			"reason": "Google shut down this Gemini 2.5 Flash preview on 2026-02-17. Use google-gemini-cli/gemini-3-flash-preview."
+		},
+		{
+			"provider": "google-gemini-cli",
+			"model": "gemini-2.5-flash-preview-native-audio-dialog",
+			"reason": "Google shut down this Gemini native-audio preview. Use google-gemini-cli/gemini-3.1-flash-live-preview."
+		},
+		{
+			"provider": "google-gemini-cli",
+			"model": "gemini-2.5-pro-exp-03-25",
+			"reason": "Google shut down this Gemini 2.5 Pro experiment. Use google-gemini-cli/gemini-3.1-pro-preview."
+		},
+		{
+			"provider": "google-gemini-cli",
+			"model": "gemini-2.5-pro-preview-03-25",
+			"reason": "Google shut down this Gemini 2.5 Pro preview on 2025-12-02. Use google-gemini-cli/gemini-3.1-pro-preview."
+		},
+		{
+			"provider": "google-gemini-cli",
+			"model": "gemini-2.5-pro-preview-05-06",
+			"reason": "Google shut down this Gemini 2.5 Pro preview on 2025-12-02. Use google-gemini-cli/gemini-3.1-pro-preview."
+		},
+		{
+			"provider": "google-gemini-cli",
+			"model": "gemini-2.5-pro-preview-06-05",
+			"reason": "Google shut down this Gemini 2.5 Pro preview on 2025-12-02. Use google-gemini-cli/gemini-3.1-pro-preview."
+		},
+		{
+			"provider": "google-gemini-cli",
+			"model": "gemini-3-pro-preview",
+			"reason": "Google shut down Gemini 3 Pro Preview on 2026-03-09. Use google-gemini-cli/gemini-3.1-pro-preview."
+		},
+		{
+			"provider": "google-gemini-cli",
+			"model": "gemini-3.1-pro-preview-customtools",
+			"reason": "This is not a public Google Gemini chat model ID. Use google-gemini-cli/gemini-3.1-pro-preview."
+		},
+		{
+			"provider": "google-gemini-cli",
+			"model": "gemini-live-2.5-flash",
+			"reason": "This is not a current public Gemini chat model ID. Use google-gemini-cli/gemini-3.1-flash-live-preview for Live API."
+		},
+		{
+			"provider": "google-gemini-cli",
+			"model": "gemini-live-2.5-flash-preview",
+			"reason": "Google shut down this Gemini Live model on 2025-12-09. Use google-gemini-cli/gemini-3.1-flash-live-preview."
+		},
+		{
+			"provider": "google-gemini-cli",
+			"model": "gemini-live-2.5-flash-preview-native-audio",
+			"reason": "Google shut down this Gemini Live preview. Use google-gemini-cli/gemini-3.1-flash-live-preview."
+		},
+		{
+			"provider": "google-vertex",
+			"model": "gemini-1.5-flash",
+			"reason": "Google retired Gemini 1.5 Flash. Use google-vertex/gemini-2.5-flash."
+		},
+		{
+			"provider": "google-vertex",
+			"model": "gemini-1.5-flash-8b",
+			"reason": "Google retired Gemini 1.5 Flash-8B. Use google-vertex/gemini-2.5-flash-lite."
+		},
+		{
+			"provider": "google-vertex",
+			"model": "gemini-1.5-pro",
+			"reason": "Google retired Gemini 1.5 Pro. Use google-vertex/gemini-3.1-pro-preview."
+		},
+		{
+			"provider": "google-vertex",
+			"model": "gemini-2.0-flash",
+			"reason": "Google shut down Gemini 2.0 Flash on 2026-06-01. Use google-vertex/gemini-2.5-flash."
+		},
+		{
+			"provider": "google-vertex",
+			"model": "gemini-2.0-flash-001",
+			"reason": "Google shut down Gemini 2.0 Flash on 2026-06-01. Use google-vertex/gemini-2.5-flash."
+		},
+		{
+			"provider": "google-vertex",
+			"model": "gemini-2.0-flash-exp",
+			"reason": "Google shut down this Gemini 2.0 experimental model. Use google-vertex/gemini-2.5-flash."
+		},
+		{
+			"provider": "google-vertex",
+			"model": "gemini-2.0-flash-exp-image-generation",
+			"reason": "Google shut down this Gemini 2.0 image preview. Use google-vertex/gemini-2.5-flash-image."
+		},
+		{
+			"provider": "google-vertex",
+			"model": "gemini-2.0-flash-live-001",
+			"reason": "Google shut down this Gemini Live model on 2025-12-09. Use google-vertex/gemini-3.1-flash-live-preview."
+		},
+		{
+			"provider": "google-vertex",
+			"model": "gemini-2.0-flash-lite",
+			"reason": "Google shut down Gemini 2.0 Flash-Lite on 2026-06-01. Use google-vertex/gemini-2.5-flash-lite."
+		},
+		{
+			"provider": "google-vertex",
+			"model": "gemini-2.0-flash-lite-001",
+			"reason": "Google shut down Gemini 2.0 Flash-Lite on 2026-06-01. Use google-vertex/gemini-2.5-flash-lite."
+		},
+		{
+			"provider": "google-vertex",
+			"model": "gemini-2.0-flash-lite-preview",
+			"reason": "Google shut down this Gemini 2.0 Flash-Lite preview on 2025-12-09. Use google-vertex/gemini-2.5-flash-lite."
+		},
+		{
+			"provider": "google-vertex",
+			"model": "gemini-2.0-flash-lite-preview-02-05",
+			"reason": "Google shut down this Gemini 2.0 Flash-Lite preview on 2025-12-09. Use google-vertex/gemini-2.5-flash-lite."
+		},
+		{
+			"provider": "google-vertex",
+			"model": "gemini-2.0-flash-preview-image-generation",
+			"reason": "Google shut down this Gemini 2.0 image preview. Use google-vertex/gemini-2.5-flash-image."
+		},
+		{
+			"provider": "google-vertex",
+			"model": "gemini-2.0-flash-thinking-exp",
+			"reason": "Google shut down this Gemini 2.0 thinking experiment. Use google-vertex/gemini-2.5-flash."
+		},
+		{
+			"provider": "google-vertex",
+			"model": "gemini-2.0-flash-thinking-exp-01-21",
+			"reason": "Google shut down this Gemini 2.0 thinking experiment. Use google-vertex/gemini-2.5-flash."
+		},
+		{
+			"provider": "google-vertex",
+			"model": "gemini-2.0-flash-thinking-exp-1219",
+			"reason": "Google shut down this Gemini 2.0 thinking experiment. Use google-vertex/gemini-2.5-flash."
+		},
+		{
+			"provider": "google-vertex",
+			"model": "gemini-2.0-pro-exp",
+			"reason": "Google shut down this Gemini 2.0 Pro experiment. Use google-vertex/gemini-3.1-pro-preview."
+		},
+		{
+			"provider": "google-vertex",
+			"model": "gemini-2.0-pro-exp-02-05",
+			"reason": "Google shut down this Gemini 2.0 Pro experiment. Use google-vertex/gemini-3.1-pro-preview."
+		},
+		{
+			"provider": "google-vertex",
+			"model": "gemini-2.5-flash-exp-native-audio-thinking-dialog",
+			"reason": "Google shut down this Gemini native-audio preview. Use google-vertex/gemini-3.1-flash-live-preview."
+		},
+		{
+			"provider": "google-vertex",
+			"model": "gemini-2.5-flash-image-preview",
+			"reason": "Google shut down this Gemini image preview on 2026-01-15. Use google-vertex/gemini-2.5-flash-image."
+		},
+		{
+			"provider": "google-vertex",
+			"model": "gemini-2.5-flash-lite-preview-06-17",
+			"reason": "Google shut down this Gemini 2.5 Flash-Lite preview on 2025-11-18. Use google-vertex/gemini-2.5-flash-lite."
+		},
+		{
+			"provider": "google-vertex",
+			"model": "gemini-2.5-flash-lite-preview-09-25",
+			"reason": "Google shut down this Gemini 2.5 Flash-Lite preview on 2026-03-31. Use google-vertex/gemini-3.1-flash-lite."
+		},
+		{
+			"provider": "google-vertex",
+			"model": "gemini-2.5-flash-lite-preview-09-2025",
+			"reason": "Google shut down this Gemini 2.5 Flash-Lite preview on 2026-03-31. Use google-vertex/gemini-3.1-flash-lite."
+		},
+		{
+			"provider": "google-vertex",
+			"model": "gemini-2.5-flash-preview-04-17",
+			"reason": "Google shut down this Gemini 2.5 Flash preview on 2025-07-15. Use google-vertex/gemini-2.5-flash."
+		},
+		{
+			"provider": "google-vertex",
+			"model": "gemini-2.5-flash-preview-05-20",
+			"reason": "Google shut down this Gemini 2.5 Flash preview on 2025-11-18. Use google-vertex/gemini-2.5-flash."
+		},
+		{
+			"provider": "google-vertex",
+			"model": "gemini-2.5-flash-preview-09-25",
+			"reason": "Google shut down this Gemini 2.5 Flash preview on 2026-02-17. Use google-vertex/gemini-3-flash-preview."
+		},
+		{
+			"provider": "google-vertex",
+			"model": "gemini-2.5-flash-preview-09-2025",
+			"reason": "Google shut down this Gemini 2.5 Flash preview on 2026-02-17. Use google-vertex/gemini-3-flash-preview."
+		},
+		{
+			"provider": "google-vertex",
+			"model": "gemini-2.5-flash-preview-native-audio-dialog",
+			"reason": "Google shut down this Gemini native-audio preview. Use google-vertex/gemini-3.1-flash-live-preview."
+		},
+		{
+			"provider": "google-vertex",
+			"model": "gemini-2.5-pro-exp-03-25",
+			"reason": "Google shut down this Gemini 2.5 Pro experiment. Use google-vertex/gemini-3.1-pro-preview."
+		},
+		{
+			"provider": "google-vertex",
+			"model": "gemini-2.5-pro-preview-03-25",
+			"reason": "Google shut down this Gemini 2.5 Pro preview on 2025-12-02. Use google-vertex/gemini-3.1-pro-preview."
+		},
+		{
+			"provider": "google-vertex",
+			"model": "gemini-2.5-pro-preview-05-06",
+			"reason": "Google shut down this Gemini 2.5 Pro preview on 2025-12-02. Use google-vertex/gemini-3.1-pro-preview."
+		},
+		{
+			"provider": "google-vertex",
+			"model": "gemini-2.5-pro-preview-06-05",
+			"reason": "Google shut down this Gemini 2.5 Pro preview on 2025-12-02. Use google-vertex/gemini-3.1-pro-preview."
+		},
+		{
+			"provider": "google-vertex",
+			"model": "gemini-3-pro-preview",
+			"reason": "Google shut down Gemini 3 Pro Preview on 2026-03-09. Use google-vertex/gemini-3.1-pro-preview."
+		},
+		{
+			"provider": "google-vertex",
+			"model": "gemini-3.1-pro-preview-customtools",
+			"reason": "This is not a public Google Gemini chat model ID. Use google-vertex/gemini-3.1-pro-preview."
+		},
+		{
+			"provider": "google-vertex",
+			"model": "gemini-live-2.5-flash",
+			"reason": "This is not a current public Gemini chat model ID. Use google-vertex/gemini-3.1-flash-live-preview for Live API."
+		},
+		{
+			"provider": "google-vertex",
+			"model": "gemini-live-2.5-flash-preview",
+			"reason": "Google shut down this Gemini Live model on 2025-12-09. Use google-vertex/gemini-3.1-flash-live-preview."
+		},
+		{
+			"provider": "google-vertex",
+			"model": "gemini-live-2.5-flash-preview-native-audio",
+			"reason": "Google shut down this Gemini Live preview. Use google-vertex/gemini-3.1-flash-live-preview."
+		}
+	]
+};
+//#endregion
+//#region extensions/google/provider-catalog.ts
+const GOOGLE_VERTEX_BASE_URL = "https://{location}-aiplatform.googleapis.com";
+const GOOGLE_GEMINI_MANIFEST_PROVIDER = buildManifestModelProviderConfig({
+	providerId: "google",
+	catalog: modelCatalog.providers.google
+});
+const GOOGLE_GEMINI_TEXT_MODELS = GOOGLE_GEMINI_MANIFEST_PROVIDER.models;
+const GOOGLE_GEMINI_TEXT_MODEL_BY_ID = new Map(GOOGLE_GEMINI_TEXT_MODELS.map((model) => [model.id, model]));
+new Set(GOOGLE_GEMINI_TEXT_MODEL_BY_ID.keys());
+function requireGoogleManifestCost() {
+	const cost = GOOGLE_GEMINI_TEXT_MODELS[0]?.cost;
+	if (!cost) throw new Error("Google manifest model catalog must declare a cost for its first model");
+	return cost;
+}
+requireGoogleManifestCost();
+function buildGoogleStaticCatalogProvider() {
+	return {
+		...GOOGLE_GEMINI_MANIFEST_PROVIDER,
+		models: GOOGLE_GEMINI_TEXT_MODELS.map((model) => ({
+			...model,
+			input: [...model.input, "video"]
+		}))
+	};
+}
+function buildGoogleVertexStaticCatalogProvider() {
+	return {
+		baseUrl: GOOGLE_VERTEX_BASE_URL,
+		api: "google-vertex",
+		models: GOOGLE_GEMINI_TEXT_MODELS
+	};
+}
+//#endregion
+//#region extensions/google/vertex-adc-config.ts
+const GCP_VERTEX_CREDENTIALS_MARKER = "gcp-vertex-credentials";
+function hasGoogleVertexProjectEnv(env) {
+	return Boolean(normalizeOptionalString(env.GOOGLE_CLOUD_PROJECT) || normalizeOptionalString(env.GCLOUD_PROJECT));
+}
+function hasGoogleVertexLocationEnv(env) {
+	return Boolean(normalizeOptionalString(env.GOOGLE_CLOUD_LOCATION));
+}
+function resolveGoogleApplicationCredentialsPath(env = process.env) {
+	const explicit = normalizeOptionalString(env.GOOGLE_APPLICATION_CREDENTIALS);
+	if (explicit) return existsSync(explicit) ? explicit : void 0;
+	const cloudSdkDir = normalizeOptionalString(env.CLOUDSDK_CONFIG);
+	if (cloudSdkDir) {
+		const cloudSdkFallback = path.join(cloudSdkDir, "application_default_credentials.json");
+		return existsSync(cloudSdkFallback) ? cloudSdkFallback : void 0;
+	}
+	const homeDir = normalizeOptionalString(env.HOME) ?? os.homedir();
+	const homeFallback = path.join(homeDir, ".config", "gcloud", "application_default_credentials.json");
+	if (existsSync(homeFallback)) return homeFallback;
+	const appDataDir = normalizeOptionalString(env.APPDATA);
+	if (!appDataDir) return;
+	const appDataFallback = path.join(appDataDir, "gcloud", "application_default_credentials.json");
+	return existsSync(appDataFallback) ? appDataFallback : void 0;
+}
+const GOOGLE_VERTEX_ADC_FILE_MAX_BYTES = 1048576;
+function readGoogleAdcCredentials(adcPath) {
+	const text = readSecretFileSync(adcPath, "Google Vertex ADC credentials", {
+		maxBytes: GOOGLE_VERTEX_ADC_FILE_MAX_BYTES,
+		rejectHardlinks: false
+	});
+	const parsed = JSON.parse(text);
+	if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error(`Google Vertex ADC credentials must be a JSON object: ${adcPath}`);
+	return parsed;
+}
+function readGoogleAdcCredentialsTypeSync(credentialsPath) {
+	try {
+		const type = readGoogleAdcCredentials(credentialsPath).type;
+		return typeof type === "string" ? type : void 0;
+	} catch {
+		return;
+	}
+}
+function hasGoogleVertexAdcSync(env = process.env) {
+	const credentialsPath = resolveGoogleApplicationCredentialsPath(env);
+	if (credentialsPath) {
+		const type = readGoogleAdcCredentialsTypeSync(credentialsPath);
+		if (type === "authorized_user" || type === "external_account" || type === "service_account") return true;
+	}
+	return false;
+}
+function resolveGoogleVertexConfigApiKey(env = process.env) {
+	return hasGoogleVertexProjectEnv(env) && hasGoogleVertexLocationEnv(env) && hasGoogleVertexAdcSync(env) ? GCP_VERTEX_CREDENTIALS_MARKER : void 0;
+}
+//#endregion
+export { buildGoogleVertexStaticCatalogProvider as i, GOOGLE_GEMINI_MANIFEST_PROVIDER as n, buildGoogleStaticCatalogProvider as r, resolveGoogleVertexConfigApiKey as t };

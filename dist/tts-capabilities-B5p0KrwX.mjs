@@ -1,0 +1,14 @@
+import { i as normalizeChannelId, t as getChannelPlugin } from "./registry-D3wOWFDo.mjs";
+//#region src/channels/plugins/tts-capabilities.ts
+/**
+* Channel TTS voice capability resolver.
+*
+* Reads channel-advertised voice delivery support for prompt and runtime routing.
+*/
+function resolveChannelTtsVoiceDelivery(channel) {
+	const channelId = normalizeChannelId(channel);
+	if (!channelId) return;
+	return getChannelPlugin(channelId)?.capabilities.tts?.voice;
+}
+//#endregion
+export { resolveChannelTtsVoiceDelivery as t };

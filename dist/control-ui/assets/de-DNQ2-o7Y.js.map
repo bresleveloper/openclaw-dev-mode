@@ -1,0 +1,1 @@
+{"version":3,"file":"de-DNQ2-o7Y.js","names":[],"sources":["../../../ui/src/i18n/locales/de.ts"],"sourcesContent":["export { default as de } from \"virtual:openclaw-control-ui-locale/de\";\n"],"mappings":""}

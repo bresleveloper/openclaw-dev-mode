@@ -1,0 +1,1 @@
+{"version":3,"file":"hi-DMS0b2jQ.js","names":[],"sources":["../../../ui/src/i18n/locales/hi.ts"],"sourcesContent":["export { default as hi } from \"virtual:openclaw-control-ui-locale/hi\";\n"],"mappings":""}

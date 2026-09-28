@@ -1,0 +1,1 @@
+{"version":3,"file":"ar-T27N95rD.js","names":[],"sources":["../../../ui/src/i18n/locales/ar.ts"],"sourcesContent":["export { default as ar } from \"virtual:openclaw-control-ui-locale/ar\";\n"],"mappings":""}

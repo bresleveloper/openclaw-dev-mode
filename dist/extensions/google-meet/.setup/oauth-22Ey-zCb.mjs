@@ -1,0 +1,160 @@
+import { n as readGoogleApiErrorDetail } from "./google-api-errors-BDYXfKRa.mjs";
+import { MAX_DATE_TIMESTAMP_MS, resolveDateTimestampMs, resolveExpiresAtMsFromDurationSeconds } from "openclaw/plugin-sdk/number-runtime";
+import { parseOAuthCallbackInput, waitForLocalOAuthCallback } from "openclaw/plugin-sdk/provider-auth-runtime";
+import { readProviderJsonResponse } from "openclaw/plugin-sdk/provider-http";
+import { fetchWithSsrFGuard } from "openclaw/plugin-sdk/ssrf-runtime";
+//#region extensions/google-meet/src/oauth.ts
+const GOOGLE_MEET_REDIRECT_URI = "http://localhost:8085/oauth2callback";
+const GOOGLE_MEET_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
+const GOOGLE_MEET_TOKEN_URL = "https://oauth2.googleapis.com/token";
+const GOOGLE_MEET_TOKEN_HOST = "oauth2.googleapis.com";
+const GOOGLE_MEET_DEFAULT_TOKEN_LIFETIME_SECONDS = 3600;
+const GOOGLE_OAUTH_TOKEN_JSON_MAX_BYTES = 262144;
+const GOOGLE_OAUTH_REQUEST_TIMEOUT_MS = 3e4;
+const GOOGLE_MEET_SCOPES = [
+	"https://www.googleapis.com/auth/meetings.space.created",
+	"https://www.googleapis.com/auth/meetings.space.readonly",
+	"https://www.googleapis.com/auth/meetings.space.settings",
+	"https://www.googleapis.com/auth/meetings.conference.media.readonly",
+	"https://www.googleapis.com/auth/calendar.events.readonly",
+	"https://www.googleapis.com/auth/drive.meet.readonly"
+];
+function resolveGoogleMeetTokenExpiresAt(value, nowMs = Date.now()) {
+	const now = resolveDateTimestampMs(nowMs);
+	if (typeof value === "number" && Number.isFinite(value) && value <= 0) return now;
+	return resolveExpiresAtMsFromDurationSeconds(value, { nowMs: now }) ?? resolveExpiresAtMsFromDurationSeconds(GOOGLE_MEET_DEFAULT_TOKEN_LIFETIME_SECONDS, { nowMs: now }) ?? now;
+}
+function buildGoogleMeetAuthUrl(params) {
+	const search = new URLSearchParams({
+		client_id: params.clientId,
+		response_type: "code",
+		redirect_uri: params.redirectUri ?? GOOGLE_MEET_REDIRECT_URI,
+		scope: (params.scopes ?? GOOGLE_MEET_SCOPES).join(" "),
+		code_challenge: params.challenge,
+		code_challenge_method: "S256",
+		access_type: "offline",
+		prompt: "consent",
+		state: params.state
+	});
+	return `${GOOGLE_MEET_AUTH_URL}?${search.toString()}`;
+}
+async function executeGoogleTokenRequest(body) {
+	const { response, release } = await fetchWithSsrFGuard({
+		url: GOOGLE_MEET_TOKEN_URL,
+		init: {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+				Accept: "application/json"
+			},
+			body
+		},
+		policy: { allowedHostnames: [GOOGLE_MEET_TOKEN_HOST] },
+		auditContext: "google-meet.oauth.token",
+		timeoutMs: GOOGLE_OAUTH_REQUEST_TIMEOUT_MS
+	});
+	try {
+		if (!response.ok) {
+			const detail = await readGoogleApiErrorDetail(response);
+			throw new Error(`Google OAuth token request failed (${response.status}): ${detail}`);
+		}
+		const payload = await readProviderJsonResponse(response, "Google OAuth token", { maxBytes: GOOGLE_OAUTH_TOKEN_JSON_MAX_BYTES });
+		const accessToken = payload.access_token?.trim();
+		if (!accessToken) throw new Error("Google OAuth token response was missing access_token");
+		return {
+			accessToken,
+			expiresAt: resolveGoogleMeetTokenExpiresAt(payload.expires_in),
+			refreshToken: payload.refresh_token?.trim() || void 0,
+			scope: payload.scope?.trim() || void 0,
+			tokenType: payload.token_type?.trim() || void 0
+		};
+	} finally {
+		await release();
+	}
+}
+function tokenRequestBody(values) {
+	const body = new URLSearchParams();
+	for (const [key, value] of Object.entries(values)) if (value?.trim()) body.set(key, value);
+	return body;
+}
+async function exchangeGoogleMeetAuthCode(params) {
+	return await executeGoogleTokenRequest(tokenRequestBody({
+		client_id: params.clientId,
+		client_secret: params.clientSecret,
+		code: params.code,
+		grant_type: "authorization_code",
+		redirect_uri: params.redirectUri ?? GOOGLE_MEET_REDIRECT_URI,
+		code_verifier: params.verifier
+	}));
+}
+async function refreshGoogleMeetAccessToken(params) {
+	return await executeGoogleTokenRequest(tokenRequestBody({
+		client_id: params.clientId,
+		client_secret: params.clientSecret,
+		grant_type: "refresh_token",
+		refresh_token: params.refreshToken
+	}));
+}
+function shouldUseCachedGoogleMeetAccessToken(params) {
+	const now = params.now ?? Date.now();
+	const safetyWindowMs = params.safetyWindowMs ?? 6e4;
+	return Boolean(params.accessToken?.trim() && typeof params.expiresAt === "number" && Number.isFinite(params.expiresAt) && params.expiresAt <= MAX_DATE_TIMESTAMP_MS && params.expiresAt > now + safetyWindowMs);
+}
+async function resolveGoogleMeetAccessToken(params) {
+	if (shouldUseCachedGoogleMeetAccessToken(params)) return {
+		accessToken: params.accessToken.trim(),
+		expiresAt: params.expiresAt,
+		refreshed: false
+	};
+	if (!params.clientId?.trim() || !params.refreshToken?.trim()) throw new Error("Missing Google Meet OAuth credentials. Configure oauth.clientId and oauth.refreshToken, or pass --client-id and --refresh-token.");
+	const refreshed = await refreshGoogleMeetAccessToken({
+		clientId: params.clientId,
+		clientSecret: params.clientSecret,
+		refreshToken: params.refreshToken
+	});
+	return {
+		accessToken: refreshed.accessToken,
+		expiresAt: refreshed.expiresAt,
+		refreshed: true
+	};
+}
+function isLocalCallbackListenerError(error) {
+	if (!(error instanceof Error)) return false;
+	return error.message.includes("EADDRINUSE") || error.message.includes("port") || error.message.includes("listen");
+}
+async function readManualGoogleMeetAuthCode(params) {
+	const input = await params.promptInput("Paste the full redirect URL here: ");
+	const parsed = parseOAuthCallbackInput(input, {
+		missingState: "Missing 'state' parameter. Paste the full redirect URL.",
+		invalidInput: "Paste the full redirect URL, not just the code."
+	});
+	if ("error" in parsed) throw new Error(parsed.error);
+	if (parsed.state !== params.state) throw new Error("OAuth state mismatch - please try again");
+	return parsed.code;
+}
+async function waitForGoogleMeetAuthCode(params) {
+	params.writeLine(`Open this URL in your browser:\n\n${params.authUrl}\n`);
+	if (params.manual) return await readManualGoogleMeetAuthCode({
+		state: params.state,
+		promptInput: params.promptInput
+	});
+	try {
+		return (await waitForLocalOAuthCallback({
+			expectedState: params.state,
+			timeoutMs: params.timeoutMs,
+			port: 8085,
+			callbackPath: "/oauth2callback",
+			redirectUri: GOOGLE_MEET_REDIRECT_URI,
+			successTitle: "Google Meet OAuth complete"
+		})).code;
+	} catch (error) {
+		if (!isLocalCallbackListenerError(error)) throw error;
+		params.writeLine("Local callback server failed. Switching to manual mode...");
+		return await readManualGoogleMeetAuthCode({
+			state: params.state,
+			promptInput: params.promptInput
+		});
+	}
+}
+//#endregion
+export { buildGoogleMeetAuthUrl, exchangeGoogleMeetAuthCode, resolveGoogleMeetAccessToken, waitForGoogleMeetAuthCode };

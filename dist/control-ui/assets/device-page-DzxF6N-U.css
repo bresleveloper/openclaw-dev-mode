@@ -1,0 +1,1 @@
+.device-domains{gap:var(--space-2);width:100%;display:grid}.device-domain-entry{justify-content:space-between;align-items:center;gap:var(--space-2);flex-wrap:wrap;display:flex}.device-extension-setup{gap:var(--space-2);width:100%;display:grid}.device-extension-setup__actions{align-items:center;gap:var(--space-3);flex-wrap:wrap;display:flex}.device-extension-setup p{margin:0}

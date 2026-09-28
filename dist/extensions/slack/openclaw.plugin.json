@@ -1,0 +1,3089 @@
+{
+  "id": "slack",
+  "categories": [
+    "channels"
+  ],
+  "doctorContract": {
+    "configRepair": true
+  },
+  "name": "Slack",
+  "description": "OpenClaw Slack channel plugin for channels, DMs, commands, and app events.",
+  "skills": [
+    "./skills"
+  ],
+  "activation": {
+    "onStartup": false
+  },
+  "channels": [
+    "slack"
+  ],
+  "channelConfigs": {
+    "slack": {
+      "schema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "markdown": {
+            "type": "object",
+            "properties": {
+              "tables": {
+                "type": "string",
+                "enum": [
+                  "off",
+                  "bullets",
+                  "code",
+                  "block"
+                ]
+              }
+            },
+            "additionalProperties": false
+          },
+          "configWrites": {
+            "type": "boolean"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "dmPolicy": {
+            "default": "pairing",
+            "type": "string",
+            "enum": [
+              "pairing",
+              "allowlist",
+              "open",
+              "disabled"
+            ]
+          },
+          "allowFrom": {
+            "type": "array",
+            "items": {
+              "type": [
+                "string",
+                "number"
+              ]
+            }
+          },
+          "defaultTo": {
+            "type": "string"
+          },
+          "groupPolicy": {
+            "default": "allowlist",
+            "type": "string",
+            "enum": [
+              "open",
+              "disabled",
+              "allowlist"
+            ]
+          },
+          "mentionPatterns": {
+            "type": "object",
+            "properties": {
+              "mode": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "const": "allow"
+                  },
+                  {
+                    "type": "string",
+                    "const": "deny"
+                  }
+                ]
+              },
+              "allowIn": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "denyIn": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          "contextVisibility": {
+            "type": "string",
+            "enum": [
+              "all",
+              "allowlist",
+              "allowlist_quote"
+            ]
+          },
+          "historyLimit": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "dmHistoryLimit": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "dms": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "historyLimit": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "textChunkLimit": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "streaming": {
+            "type": "object",
+            "properties": {
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "off",
+                  "partial",
+                  "block",
+                  "progress"
+                ]
+              },
+              "chunkMode": {
+                "type": "string",
+                "enum": [
+                  "length",
+                  "newline"
+                ]
+              },
+              "preview": {
+                "type": "object",
+                "properties": {
+                  "chunk": {
+                    "type": "object",
+                    "properties": {
+                      "minChars": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "maxChars": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "breakPreference": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "const": "paragraph"
+                          },
+                          {
+                            "type": "string",
+                            "const": "newline"
+                          },
+                          {
+                            "type": "string",
+                            "const": "sentence"
+                          }
+                        ]
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "toolProgress": {
+                    "type": "boolean"
+                  },
+                  "commandText": {
+                    "type": "string",
+                    "enum": [
+                      "raw",
+                      "status"
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              },
+              "progress": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "boolean",
+                        "const": false
+                      }
+                    ]
+                  },
+                  "labels": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "maxLines": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "maxLineChars": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "toolProgress": {
+                    "type": "boolean"
+                  },
+                  "commandText": {
+                    "type": "string",
+                    "enum": [
+                      "raw",
+                      "status"
+                    ]
+                  },
+                  "commentary": {
+                    "type": "boolean"
+                  },
+                  "narration": {
+                    "type": "boolean"
+                  },
+                  "style": {
+                    "type": "string",
+                    "enum": [
+                      "card",
+                      "compact"
+                    ]
+                  },
+                  "nativeTaskCards": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "block": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "coalesce": {
+                    "type": "object",
+                    "properties": {
+                      "minChars": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "maxChars": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "idleMs": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "additionalProperties": false
+              },
+              "nativeTransport": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          },
+          "heartbeatVisibility": {
+            "type": "object",
+            "properties": {
+              "showOk": {
+                "type": "boolean"
+              },
+              "showAlerts": {
+                "type": "boolean"
+              },
+              "useIndicator": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          },
+          "healthMonitor": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          },
+          "responsePrefix": {
+            "type": "string"
+          },
+          "mediaMaxMb": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "replyToMode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "off"
+              },
+              {
+                "type": "string",
+                "const": "first"
+              },
+              {
+                "type": "string",
+                "const": "all"
+              },
+              {
+                "type": "string",
+                "const": "batched"
+              }
+            ]
+          },
+          "joinIntro": {
+            "type": "boolean"
+          },
+          "postAs": {
+            "default": "bot",
+            "type": "string",
+            "enum": [
+              "bot",
+              "user"
+            ]
+          },
+          "mode": {
+            "default": "socket",
+            "type": "string",
+            "enum": [
+              "socket",
+              "http",
+              "relay"
+            ]
+          },
+          "relay": {
+            "type": "object",
+            "properties": {
+              "url": {
+                "type": "string"
+              },
+              "authToken": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "source": {
+                            "type": "string",
+                            "const": "env"
+                          },
+                          "provider": {
+                            "type": "string",
+                            "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                          },
+                          "id": {
+                            "type": "string",
+                            "pattern": "^[A-Z][A-Z0-9_]{0,127}$"
+                          }
+                        },
+                        "required": [
+                          "source",
+                          "provider",
+                          "id"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "source": {
+                            "type": "string",
+                            "const": "store"
+                          },
+                          "provider": {
+                            "type": "string",
+                            "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                          },
+                          "id": {
+                            "type": "string",
+                            "pattern": "^[A-Z][A-Z0-9_]{0,127}$"
+                          }
+                        },
+                        "required": [
+                          "source",
+                          "provider",
+                          "id"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "source": {
+                            "type": "string",
+                            "const": "file"
+                          },
+                          "provider": {
+                            "type": "string",
+                            "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                          },
+                          "id": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "source",
+                          "provider",
+                          "id"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "source": {
+                            "type": "string",
+                            "const": "exec"
+                          },
+                          "provider": {
+                            "type": "string",
+                            "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                          },
+                          "id": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "source",
+                          "provider",
+                          "id"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  }
+                ]
+              },
+              "gatewayId": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          "signingSecret": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "const": "env"
+                      },
+                      "provider": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                      },
+                      "id": {
+                        "type": "string",
+                        "pattern": "^[A-Z][A-Z0-9_]{0,127}$"
+                      }
+                    },
+                    "required": [
+                      "source",
+                      "provider",
+                      "id"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "const": "store"
+                      },
+                      "provider": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                      },
+                      "id": {
+                        "type": "string",
+                        "pattern": "^[A-Z][A-Z0-9_]{0,127}$"
+                      }
+                    },
+                    "required": [
+                      "source",
+                      "provider",
+                      "id"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "const": "file"
+                      },
+                      "provider": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                      },
+                      "id": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "source",
+                      "provider",
+                      "id"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "const": "exec"
+                      },
+                      "provider": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                      },
+                      "id": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "source",
+                      "provider",
+                      "id"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              }
+            ]
+          },
+          "webhookPath": {
+            "default": "/slack/events",
+            "type": "string"
+          },
+          "execApprovals": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "anyOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "string",
+                    "const": "auto"
+                  }
+                ]
+              },
+              "approvers": {
+                "type": "array",
+                "items": {
+                  "type": [
+                    "string",
+                    "number"
+                  ]
+                }
+              },
+              "agentFilter": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "sessionFilter": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "target": {
+                "type": "string",
+                "enum": [
+                  "dm",
+                  "channel",
+                  "both"
+                ]
+              }
+            },
+            "additionalProperties": false
+          },
+          "commands": {
+            "type": "object",
+            "properties": {
+              "native": {
+                "anyOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "string",
+                    "const": "auto"
+                  }
+                ]
+              },
+              "nativeSkills": {
+                "anyOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "string",
+                    "const": "auto"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false
+          },
+          "botToken": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "const": "env"
+                      },
+                      "provider": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                      },
+                      "id": {
+                        "type": "string",
+                        "pattern": "^[A-Z][A-Z0-9_]{0,127}$"
+                      }
+                    },
+                    "required": [
+                      "source",
+                      "provider",
+                      "id"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "const": "store"
+                      },
+                      "provider": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                      },
+                      "id": {
+                        "type": "string",
+                        "pattern": "^[A-Z][A-Z0-9_]{0,127}$"
+                      }
+                    },
+                    "required": [
+                      "source",
+                      "provider",
+                      "id"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "const": "file"
+                      },
+                      "provider": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                      },
+                      "id": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "source",
+                      "provider",
+                      "id"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "const": "exec"
+                      },
+                      "provider": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                      },
+                      "id": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "source",
+                      "provider",
+                      "id"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              }
+            ]
+          },
+          "appToken": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "const": "env"
+                      },
+                      "provider": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                      },
+                      "id": {
+                        "type": "string",
+                        "pattern": "^[A-Z][A-Z0-9_]{0,127}$"
+                      }
+                    },
+                    "required": [
+                      "source",
+                      "provider",
+                      "id"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "const": "store"
+                      },
+                      "provider": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                      },
+                      "id": {
+                        "type": "string",
+                        "pattern": "^[A-Z][A-Z0-9_]{0,127}$"
+                      }
+                    },
+                    "required": [
+                      "source",
+                      "provider",
+                      "id"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "const": "file"
+                      },
+                      "provider": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                      },
+                      "id": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "source",
+                      "provider",
+                      "id"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "const": "exec"
+                      },
+                      "provider": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                      },
+                      "id": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "source",
+                      "provider",
+                      "id"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              }
+            ]
+          },
+          "userToken": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "const": "env"
+                      },
+                      "provider": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                      },
+                      "id": {
+                        "type": "string",
+                        "pattern": "^[A-Z][A-Z0-9_]{0,127}$"
+                      }
+                    },
+                    "required": [
+                      "source",
+                      "provider",
+                      "id"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "const": "store"
+                      },
+                      "provider": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                      },
+                      "id": {
+                        "type": "string",
+                        "pattern": "^[A-Z][A-Z0-9_]{0,127}$"
+                      }
+                    },
+                    "required": [
+                      "source",
+                      "provider",
+                      "id"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "const": "file"
+                      },
+                      "provider": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                      },
+                      "id": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "source",
+                      "provider",
+                      "id"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "const": "exec"
+                      },
+                      "provider": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                      },
+                      "id": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "source",
+                      "provider",
+                      "id"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              }
+            ]
+          },
+          "userTokenReadOnly": {
+            "default": true,
+            "type": "boolean"
+          },
+          "allowBots": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string",
+                "const": "mentions"
+              }
+            ]
+          },
+          "botLoopProtection": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "maxEventsPerWindow": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "windowSeconds": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "cooldownSeconds": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "additionalProperties": false
+          },
+          "dangerouslyAllowNameMatching": {
+            "type": "boolean"
+          },
+          "requireMention": {
+            "type": "boolean"
+          },
+          "implicitMentions": {
+            "type": "object",
+            "properties": {
+              "replyToBot": {
+                "type": "boolean"
+              },
+              "quotedBot": {
+                "type": "boolean"
+              },
+              "threadParticipation": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          },
+          "unfurlLinks": {
+            "type": "boolean"
+          },
+          "unfurlMedia": {
+            "type": "boolean"
+          },
+          "reactionNotifications": {
+            "type": "string",
+            "enum": [
+              "off",
+              "own",
+              "all",
+              "allowlist"
+            ]
+          },
+          "reactionAllowlist": {
+            "type": "array",
+            "items": {
+              "type": [
+                "string",
+                "number"
+              ]
+            }
+          },
+          "ackReaction": {
+            "type": "string"
+          },
+          "replyToModeByChatType": {
+            "type": "object",
+            "properties": {
+              "direct": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "const": "off"
+                  },
+                  {
+                    "type": "string",
+                    "const": "first"
+                  },
+                  {
+                    "type": "string",
+                    "const": "all"
+                  },
+                  {
+                    "type": "string",
+                    "const": "batched"
+                  }
+                ]
+              },
+              "group": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "const": "off"
+                  },
+                  {
+                    "type": "string",
+                    "const": "first"
+                  },
+                  {
+                    "type": "string",
+                    "const": "all"
+                  },
+                  {
+                    "type": "string",
+                    "const": "batched"
+                  }
+                ]
+              },
+              "channel": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "const": "off"
+                  },
+                  {
+                    "type": "string",
+                    "const": "first"
+                  },
+                  {
+                    "type": "string",
+                    "const": "all"
+                  },
+                  {
+                    "type": "string",
+                    "const": "batched"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false
+          },
+          "thread": {
+            "type": "object",
+            "properties": {
+              "historyScope": {
+                "type": "string",
+                "enum": [
+                  "thread",
+                  "channel"
+                ]
+              },
+              "inheritParent": {
+                "type": "boolean"
+              },
+              "initialHistoryLimit": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "additionalProperties": false
+          },
+          "presenceEvents": {
+            "type": "object",
+            "properties": {
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "off",
+                  "auto",
+                  "on"
+                ]
+              },
+              "prompt": {
+                "type": "string",
+                "maxLength": 20000
+              }
+            },
+            "additionalProperties": false
+          },
+          "actions": {
+            "type": "object",
+            "properties": {
+              "reactions": {
+                "type": "boolean"
+              },
+              "messages": {
+                "type": "boolean"
+              },
+              "pins": {
+                "type": "boolean"
+              },
+              "search": {
+                "type": "boolean"
+              },
+              "permissions": {
+                "type": "boolean"
+              },
+              "memberInfo": {
+                "type": "boolean"
+              },
+              "channelInfo": {
+                "type": "boolean"
+              },
+              "emojiList": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          },
+          "slashCommand": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "name": {
+                "type": "string"
+              },
+              "sessionPrefix": {
+                "type": "string"
+              },
+              "ephemeral": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          },
+          "dm": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "groupEnabled": {
+                "type": "boolean"
+              },
+              "groupChannels": {
+                "type": "array",
+                "items": {
+                  "type": [
+                    "string",
+                    "number"
+                  ]
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          "channels": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "requireMention": {
+                  "type": "boolean"
+                },
+                "tools": {
+                  "type": "object",
+                  "properties": {
+                    "allow": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "alsoAllow": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "deny": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "toolsBySender": {
+                  "type": "object",
+                  "propertyNames": {
+                    "type": "string"
+                  },
+                  "additionalProperties": {
+                    "type": "object",
+                    "properties": {
+                      "allow": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "alsoAllow": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "deny": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "skills": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "enabled": {
+                  "type": "boolean"
+                },
+                "systemPrompt": {
+                  "type": "string"
+                },
+                "ignoreOtherMentions": {
+                  "type": "boolean"
+                },
+                "replyToMode": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "const": "off"
+                    },
+                    {
+                      "type": "string",
+                      "const": "first"
+                    },
+                    {
+                      "type": "string",
+                      "const": "all"
+                    },
+                    {
+                      "type": "string",
+                      "const": "batched"
+                    }
+                  ]
+                },
+                "allowBots": {
+                  "anyOf": [
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "string",
+                      "const": "mentions"
+                    }
+                  ]
+                },
+                "botLoopProtection": {
+                  "type": "object",
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "maxEventsPerWindow": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "windowSeconds": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "cooldownSeconds": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "users": {
+                  "type": "array",
+                  "items": {
+                    "type": [
+                      "string",
+                      "number"
+                    ]
+                  }
+                },
+                "presenceEvents": {
+                  "type": "object",
+                  "properties": {
+                    "mode": {
+                      "type": "string",
+                      "enum": [
+                        "off",
+                        "auto",
+                        "on"
+                      ]
+                    },
+                    "prompt": {
+                      "type": "string",
+                      "maxLength": 20000
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "typingReaction": {
+            "type": "string"
+          },
+          "accounts": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "capabilities": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "markdown": {
+                  "type": "object",
+                  "properties": {
+                    "tables": {
+                      "type": "string",
+                      "enum": [
+                        "off",
+                        "bullets",
+                        "code",
+                        "block"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "configWrites": {
+                  "type": "boolean"
+                },
+                "enabled": {
+                  "type": "boolean"
+                },
+                "dmPolicy": {
+                  "type": "string",
+                  "enum": [
+                    "pairing",
+                    "allowlist",
+                    "open",
+                    "disabled"
+                  ]
+                },
+                "allowFrom": {
+                  "type": "array",
+                  "items": {
+                    "type": [
+                      "string",
+                      "number"
+                    ]
+                  }
+                },
+                "defaultTo": {
+                  "type": "string"
+                },
+                "groupPolicy": {
+                  "type": "string",
+                  "enum": [
+                    "open",
+                    "disabled",
+                    "allowlist"
+                  ]
+                },
+                "mentionPatterns": {
+                  "type": "object",
+                  "properties": {
+                    "mode": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "const": "allow"
+                        },
+                        {
+                          "type": "string",
+                          "const": "deny"
+                        }
+                      ]
+                    },
+                    "allowIn": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "denyIn": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "contextVisibility": {
+                  "type": "string",
+                  "enum": [
+                    "all",
+                    "allowlist",
+                    "allowlist_quote"
+                  ]
+                },
+                "historyLimit": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "dmHistoryLimit": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "dms": {
+                  "type": "object",
+                  "propertyNames": {
+                    "type": "string"
+                  },
+                  "additionalProperties": {
+                    "type": "object",
+                    "properties": {
+                      "historyLimit": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "textChunkLimit": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "streaming": {
+                  "type": "object",
+                  "properties": {
+                    "mode": {
+                      "type": "string",
+                      "enum": [
+                        "off",
+                        "partial",
+                        "block",
+                        "progress"
+                      ]
+                    },
+                    "chunkMode": {
+                      "type": "string",
+                      "enum": [
+                        "length",
+                        "newline"
+                      ]
+                    },
+                    "preview": {
+                      "type": "object",
+                      "properties": {
+                        "chunk": {
+                          "type": "object",
+                          "properties": {
+                            "minChars": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "maxChars": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "breakPreference": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "const": "paragraph"
+                                },
+                                {
+                                  "type": "string",
+                                  "const": "newline"
+                                },
+                                {
+                                  "type": "string",
+                                  "const": "sentence"
+                                }
+                              ]
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "toolProgress": {
+                          "type": "boolean"
+                        },
+                        "commandText": {
+                          "type": "string",
+                          "enum": [
+                            "raw",
+                            "status"
+                          ]
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "progress": {
+                      "type": "object",
+                      "properties": {
+                        "label": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "boolean",
+                              "const": false
+                            }
+                          ]
+                        },
+                        "labels": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "maxLines": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "maxLineChars": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "toolProgress": {
+                          "type": "boolean"
+                        },
+                        "commandText": {
+                          "type": "string",
+                          "enum": [
+                            "raw",
+                            "status"
+                          ]
+                        },
+                        "commentary": {
+                          "type": "boolean"
+                        },
+                        "narration": {
+                          "type": "boolean"
+                        },
+                        "style": {
+                          "type": "string",
+                          "enum": [
+                            "card",
+                            "compact"
+                          ]
+                        },
+                        "nativeTaskCards": {
+                          "type": "boolean"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "block": {
+                      "type": "object",
+                      "properties": {
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "coalesce": {
+                          "type": "object",
+                          "properties": {
+                            "minChars": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "maxChars": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "idleMs": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "additionalProperties": false
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "nativeTransport": {
+                      "type": "boolean"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "heartbeatVisibility": {
+                  "type": "object",
+                  "properties": {
+                    "showOk": {
+                      "type": "boolean"
+                    },
+                    "showAlerts": {
+                      "type": "boolean"
+                    },
+                    "useIndicator": {
+                      "type": "boolean"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "healthMonitor": {
+                  "type": "object",
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "responsePrefix": {
+                  "type": "string"
+                },
+                "mediaMaxMb": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "replyToMode": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "const": "off"
+                    },
+                    {
+                      "type": "string",
+                      "const": "first"
+                    },
+                    {
+                      "type": "string",
+                      "const": "all"
+                    },
+                    {
+                      "type": "string",
+                      "const": "batched"
+                    }
+                  ]
+                },
+                "joinIntro": {
+                  "type": "boolean"
+                },
+                "postAs": {
+                  "type": "string",
+                  "enum": [
+                    "bot",
+                    "user"
+                  ]
+                },
+                "mode": {
+                  "type": "string",
+                  "enum": [
+                    "socket",
+                    "http",
+                    "relay"
+                  ]
+                },
+                "relay": {
+                  "type": "object",
+                  "properties": {
+                    "url": {
+                      "type": "string"
+                    },
+                    "authToken": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "source": {
+                                  "type": "string",
+                                  "const": "env"
+                                },
+                                "provider": {
+                                  "type": "string",
+                                  "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                                },
+                                "id": {
+                                  "type": "string",
+                                  "pattern": "^[A-Z][A-Z0-9_]{0,127}$"
+                                }
+                              },
+                              "required": [
+                                "source",
+                                "provider",
+                                "id"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "source": {
+                                  "type": "string",
+                                  "const": "store"
+                                },
+                                "provider": {
+                                  "type": "string",
+                                  "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                                },
+                                "id": {
+                                  "type": "string",
+                                  "pattern": "^[A-Z][A-Z0-9_]{0,127}$"
+                                }
+                              },
+                              "required": [
+                                "source",
+                                "provider",
+                                "id"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "source": {
+                                  "type": "string",
+                                  "const": "file"
+                                },
+                                "provider": {
+                                  "type": "string",
+                                  "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                                },
+                                "id": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "source",
+                                "provider",
+                                "id"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "source": {
+                                  "type": "string",
+                                  "const": "exec"
+                                },
+                                "provider": {
+                                  "type": "string",
+                                  "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                                },
+                                "id": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "source",
+                                "provider",
+                                "id"
+                              ],
+                              "additionalProperties": false
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    "gatewayId": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "signingSecret": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "source": {
+                              "type": "string",
+                              "const": "env"
+                            },
+                            "provider": {
+                              "type": "string",
+                              "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                            },
+                            "id": {
+                              "type": "string",
+                              "pattern": "^[A-Z][A-Z0-9_]{0,127}$"
+                            }
+                          },
+                          "required": [
+                            "source",
+                            "provider",
+                            "id"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "source": {
+                              "type": "string",
+                              "const": "store"
+                            },
+                            "provider": {
+                              "type": "string",
+                              "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                            },
+                            "id": {
+                              "type": "string",
+                              "pattern": "^[A-Z][A-Z0-9_]{0,127}$"
+                            }
+                          },
+                          "required": [
+                            "source",
+                            "provider",
+                            "id"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "source": {
+                              "type": "string",
+                              "const": "file"
+                            },
+                            "provider": {
+                              "type": "string",
+                              "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                            },
+                            "id": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "source",
+                            "provider",
+                            "id"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "source": {
+                              "type": "string",
+                              "const": "exec"
+                            },
+                            "provider": {
+                              "type": "string",
+                              "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                            },
+                            "id": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "source",
+                            "provider",
+                            "id"
+                          ],
+                          "additionalProperties": false
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "webhookPath": {
+                  "type": "string"
+                },
+                "execApprovals": {
+                  "type": "object",
+                  "properties": {
+                    "enabled": {
+                      "anyOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "string",
+                          "const": "auto"
+                        }
+                      ]
+                    },
+                    "approvers": {
+                      "type": "array",
+                      "items": {
+                        "type": [
+                          "string",
+                          "number"
+                        ]
+                      }
+                    },
+                    "agentFilter": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "sessionFilter": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "target": {
+                      "type": "string",
+                      "enum": [
+                        "dm",
+                        "channel",
+                        "both"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "commands": {
+                  "type": "object",
+                  "properties": {
+                    "native": {
+                      "anyOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "string",
+                          "const": "auto"
+                        }
+                      ]
+                    },
+                    "nativeSkills": {
+                      "anyOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "string",
+                          "const": "auto"
+                        }
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "botToken": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "source": {
+                              "type": "string",
+                              "const": "env"
+                            },
+                            "provider": {
+                              "type": "string",
+                              "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                            },
+                            "id": {
+                              "type": "string",
+                              "pattern": "^[A-Z][A-Z0-9_]{0,127}$"
+                            }
+                          },
+                          "required": [
+                            "source",
+                            "provider",
+                            "id"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "source": {
+                              "type": "string",
+                              "const": "store"
+                            },
+                            "provider": {
+                              "type": "string",
+                              "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                            },
+                            "id": {
+                              "type": "string",
+                              "pattern": "^[A-Z][A-Z0-9_]{0,127}$"
+                            }
+                          },
+                          "required": [
+                            "source",
+                            "provider",
+                            "id"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "source": {
+                              "type": "string",
+                              "const": "file"
+                            },
+                            "provider": {
+                              "type": "string",
+                              "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                            },
+                            "id": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "source",
+                            "provider",
+                            "id"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "source": {
+                              "type": "string",
+                              "const": "exec"
+                            },
+                            "provider": {
+                              "type": "string",
+                              "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                            },
+                            "id": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "source",
+                            "provider",
+                            "id"
+                          ],
+                          "additionalProperties": false
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "appToken": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "source": {
+                              "type": "string",
+                              "const": "env"
+                            },
+                            "provider": {
+                              "type": "string",
+                              "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                            },
+                            "id": {
+                              "type": "string",
+                              "pattern": "^[A-Z][A-Z0-9_]{0,127}$"
+                            }
+                          },
+                          "required": [
+                            "source",
+                            "provider",
+                            "id"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "source": {
+                              "type": "string",
+                              "const": "store"
+                            },
+                            "provider": {
+                              "type": "string",
+                              "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                            },
+                            "id": {
+                              "type": "string",
+                              "pattern": "^[A-Z][A-Z0-9_]{0,127}$"
+                            }
+                          },
+                          "required": [
+                            "source",
+                            "provider",
+                            "id"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "source": {
+                              "type": "string",
+                              "const": "file"
+                            },
+                            "provider": {
+                              "type": "string",
+                              "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                            },
+                            "id": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "source",
+                            "provider",
+                            "id"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "source": {
+                              "type": "string",
+                              "const": "exec"
+                            },
+                            "provider": {
+                              "type": "string",
+                              "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                            },
+                            "id": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "source",
+                            "provider",
+                            "id"
+                          ],
+                          "additionalProperties": false
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "userToken": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "source": {
+                              "type": "string",
+                              "const": "env"
+                            },
+                            "provider": {
+                              "type": "string",
+                              "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                            },
+                            "id": {
+                              "type": "string",
+                              "pattern": "^[A-Z][A-Z0-9_]{0,127}$"
+                            }
+                          },
+                          "required": [
+                            "source",
+                            "provider",
+                            "id"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "source": {
+                              "type": "string",
+                              "const": "store"
+                            },
+                            "provider": {
+                              "type": "string",
+                              "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                            },
+                            "id": {
+                              "type": "string",
+                              "pattern": "^[A-Z][A-Z0-9_]{0,127}$"
+                            }
+                          },
+                          "required": [
+                            "source",
+                            "provider",
+                            "id"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "source": {
+                              "type": "string",
+                              "const": "file"
+                            },
+                            "provider": {
+                              "type": "string",
+                              "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                            },
+                            "id": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "source",
+                            "provider",
+                            "id"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "source": {
+                              "type": "string",
+                              "const": "exec"
+                            },
+                            "provider": {
+                              "type": "string",
+                              "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                            },
+                            "id": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "source",
+                            "provider",
+                            "id"
+                          ],
+                          "additionalProperties": false
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "userTokenReadOnly": {
+                  "type": "boolean"
+                },
+                "allowBots": {
+                  "anyOf": [
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "string",
+                      "const": "mentions"
+                    }
+                  ]
+                },
+                "botLoopProtection": {
+                  "type": "object",
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "maxEventsPerWindow": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "windowSeconds": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "cooldownSeconds": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "dangerouslyAllowNameMatching": {
+                  "type": "boolean"
+                },
+                "requireMention": {
+                  "type": "boolean"
+                },
+                "implicitMentions": {
+                  "type": "object",
+                  "properties": {
+                    "replyToBot": {
+                      "type": "boolean"
+                    },
+                    "quotedBot": {
+                      "type": "boolean"
+                    },
+                    "threadParticipation": {
+                      "type": "boolean"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "unfurlLinks": {
+                  "type": "boolean"
+                },
+                "unfurlMedia": {
+                  "type": "boolean"
+                },
+                "reactionNotifications": {
+                  "type": "string",
+                  "enum": [
+                    "off",
+                    "own",
+                    "all",
+                    "allowlist"
+                  ]
+                },
+                "reactionAllowlist": {
+                  "type": "array",
+                  "items": {
+                    "type": [
+                      "string",
+                      "number"
+                    ]
+                  }
+                },
+                "ackReaction": {
+                  "type": "string"
+                },
+                "replyToModeByChatType": {
+                  "type": "object",
+                  "properties": {
+                    "direct": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "const": "off"
+                        },
+                        {
+                          "type": "string",
+                          "const": "first"
+                        },
+                        {
+                          "type": "string",
+                          "const": "all"
+                        },
+                        {
+                          "type": "string",
+                          "const": "batched"
+                        }
+                      ]
+                    },
+                    "group": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "const": "off"
+                        },
+                        {
+                          "type": "string",
+                          "const": "first"
+                        },
+                        {
+                          "type": "string",
+                          "const": "all"
+                        },
+                        {
+                          "type": "string",
+                          "const": "batched"
+                        }
+                      ]
+                    },
+                    "channel": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "const": "off"
+                        },
+                        {
+                          "type": "string",
+                          "const": "first"
+                        },
+                        {
+                          "type": "string",
+                          "const": "all"
+                        },
+                        {
+                          "type": "string",
+                          "const": "batched"
+                        }
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "thread": {
+                  "type": "object",
+                  "properties": {
+                    "historyScope": {
+                      "type": "string",
+                      "enum": [
+                        "thread",
+                        "channel"
+                      ]
+                    },
+                    "inheritParent": {
+                      "type": "boolean"
+                    },
+                    "initialHistoryLimit": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "presenceEvents": {
+                  "type": "object",
+                  "properties": {
+                    "mode": {
+                      "type": "string",
+                      "enum": [
+                        "off",
+                        "auto",
+                        "on"
+                      ]
+                    },
+                    "prompt": {
+                      "type": "string",
+                      "maxLength": 20000
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "actions": {
+                  "type": "object",
+                  "properties": {
+                    "reactions": {
+                      "type": "boolean"
+                    },
+                    "messages": {
+                      "type": "boolean"
+                    },
+                    "pins": {
+                      "type": "boolean"
+                    },
+                    "search": {
+                      "type": "boolean"
+                    },
+                    "permissions": {
+                      "type": "boolean"
+                    },
+                    "memberInfo": {
+                      "type": "boolean"
+                    },
+                    "channelInfo": {
+                      "type": "boolean"
+                    },
+                    "emojiList": {
+                      "type": "boolean"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "slashCommand": {
+                  "type": "object",
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "sessionPrefix": {
+                      "type": "string"
+                    },
+                    "ephemeral": {
+                      "type": "boolean"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "dm": {
+                  "type": "object",
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "groupEnabled": {
+                      "type": "boolean"
+                    },
+                    "groupChannels": {
+                      "type": "array",
+                      "items": {
+                        "type": [
+                          "string",
+                          "number"
+                        ]
+                      }
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "channels": {
+                  "type": "object",
+                  "propertyNames": {
+                    "type": "string"
+                  },
+                  "additionalProperties": {
+                    "type": "object",
+                    "properties": {
+                      "requireMention": {
+                        "type": "boolean"
+                      },
+                      "tools": {
+                        "type": "object",
+                        "properties": {
+                          "allow": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "alsoAllow": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "deny": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "toolsBySender": {
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string"
+                        },
+                        "additionalProperties": {
+                          "type": "object",
+                          "properties": {
+                            "allow": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "alsoAllow": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "deny": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "additionalProperties": false
+                        }
+                      },
+                      "skills": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "enabled": {
+                        "type": "boolean"
+                      },
+                      "systemPrompt": {
+                        "type": "string"
+                      },
+                      "ignoreOtherMentions": {
+                        "type": "boolean"
+                      },
+                      "replyToMode": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "const": "off"
+                          },
+                          {
+                            "type": "string",
+                            "const": "first"
+                          },
+                          {
+                            "type": "string",
+                            "const": "all"
+                          },
+                          {
+                            "type": "string",
+                            "const": "batched"
+                          }
+                        ]
+                      },
+                      "allowBots": {
+                        "anyOf": [
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "type": "string",
+                            "const": "mentions"
+                          }
+                        ]
+                      },
+                      "botLoopProtection": {
+                        "type": "object",
+                        "properties": {
+                          "enabled": {
+                            "type": "boolean"
+                          },
+                          "maxEventsPerWindow": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "windowSeconds": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "cooldownSeconds": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "users": {
+                        "type": "array",
+                        "items": {
+                          "type": [
+                            "string",
+                            "number"
+                          ]
+                        }
+                      },
+                      "presenceEvents": {
+                        "type": "object",
+                        "properties": {
+                          "mode": {
+                            "type": "string",
+                            "enum": [
+                              "off",
+                              "auto",
+                              "on"
+                            ]
+                          },
+                          "prompt": {
+                            "type": "string",
+                            "maxLength": 20000
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "typingReaction": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "defaultAccount": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "dmPolicy",
+          "groupPolicy",
+          "postAs",
+          "mode",
+          "webhookPath",
+          "userTokenReadOnly"
+        ],
+        "additionalProperties": false
+      },
+      "label": "Slack",
+      "description": "Slack channel, DM, command, and app event integration.",
+      "uiHints": {
+        "historyLimit": {
+          "help": "Automatic observed-message context uses a default of 50 and a maximum of 200 messages; 0 disables automatic injection. The JSON integer maximum selects the 50-message default. Session transcript trimming separately counts user turns, where 0 means no trimming. The observed-message cap does not rewrite saved values."
+        },
+        "accounts.*.historyLimit": {
+          "help": "Automatic observed-message context uses a default of 50 and a maximum of 200 messages; 0 disables automatic injection. The JSON integer maximum selects the 50-message default. Session transcript trimming separately counts user turns, where 0 means no trimming. The observed-message cap does not rewrite saved values."
+        },
+        "dmHistoryLimit": {
+          "help": "Automatic observed-DM context uses a default of 0 and a maximum of 200 messages; 0 disables that extra context. The JSON integer maximum selects the 0-message default. Session transcript trimming separately counts user turns, where 0 means no trimming. The observed-message cap does not rewrite saved values."
+        },
+        "accounts.*.dmHistoryLimit": {
+          "help": "Automatic observed-DM context uses a default of 0 and a maximum of 200 messages; 0 disables that extra context. The JSON integer maximum selects the 0-message default. Session transcript trimming separately counts user turns, where 0 means no trimming. The observed-message cap does not rewrite saved values."
+        },
+        "dms.*.historyLimit": {
+          "help": "Automatic observed-DM context uses a default of 0 and a maximum of 200 messages; 0 disables that extra context. The JSON integer maximum selects the 0-message default. Session transcript trimming separately counts user turns, where 0 means no trimming. The observed-message cap does not rewrite saved values."
+        },
+        "accounts.*.dms.*.historyLimit": {
+          "help": "Automatic observed-DM context uses a default of 0 and a maximum of 200 messages; 0 disables that extra context. The JSON integer maximum selects the 0-message default. Session transcript trimming separately counts user turns, where 0 means no trimming. The observed-message cap does not rewrite saved values."
+        },
+        "": {
+          "label": "Slack",
+          "help": "Slack channel provider configuration for bot/app tokens, streaming behavior, and DM policy controls. Keep token handling and thread behavior explicit to avoid noisy workspace interactions."
+        },
+        "postAs": {
+          "label": "Slack Identity",
+          "help": "Select \"bot\" (default) for the classic Slack app/bot identity or \"user\" to post as the authorizing human through a user token while the app carries event transport."
+        },
+        "dmPolicy": {
+          "label": "Slack DM Policy",
+          "help": "Direct message access control (\"pairing\" recommended). \"open\" requires channels.slack.allowFrom=[\"*\"]."
+        },
+        "configWrites": {
+          "label": "Slack Config Writes",
+          "help": "Allow Slack to write config in response to channel events/commands (default: true)."
+        },
+        "mentionPatterns": {
+          "label": "Slack Mention Pattern Policy",
+          "help": "Scopes configured groupChat mentionPatterns to selected Slack channel IDs. Native Slack @mentions still trigger even when regex patterns are denied."
+        },
+        "mentionPatterns.mode": {
+          "label": "Slack Mention Pattern Mode",
+          "help": "\"allow\" enables configured regex mention patterns unless denyIn matches; \"deny\" disables them unless allowIn matches."
+        },
+        "mentionPatterns.allowIn": {
+          "label": "Slack Mention Pattern Allowlist",
+          "help": "Slack channel IDs where configured regex mention patterns are enabled when mode is deny."
+        },
+        "mentionPatterns.denyIn": {
+          "label": "Slack Mention Pattern Denylist",
+          "help": "Slack channel IDs where configured regex mention patterns are disabled. Native @mentions still trigger."
+        },
+        "commands.native": {
+          "label": "Slack Native Commands",
+          "help": "Override native commands for Slack (bool or \"auto\")."
+        },
+        "commands.nativeSkills": {
+          "label": "Slack Native Skill Commands",
+          "help": "Override native skill commands for Slack (bool or \"auto\")."
+        },
+        "implicitMentions": {
+          "label": "Slack Implicit Mentions",
+          "help": "Control which Slack reply, quote, and thread-participation signals count as mentions. Unset flags preserve the channel defaults."
+        },
+        "implicitMentions.replyToBot": {
+          "label": "Slack Replies to Bot",
+          "help": "Treat replies to the bot's own messages as implicit mentions when the channel reports that signal."
+        },
+        "implicitMentions.quotedBot": {
+          "label": "Slack Quoted Bot Messages",
+          "help": "Treat messages quoting the bot as implicit mentions when the channel reports that signal."
+        },
+        "implicitMentions.threadParticipation": {
+          "label": "Slack Thread Participation",
+          "help": "Treat follow-ups in threads where the bot participated as implicit mentions when the channel reports that signal."
+        },
+        "streaming": {
+          "label": "Slack Streaming Mode",
+          "help": "Unified Slack stream preview mode: \"off\" | \"partial\" | \"block\" | \"progress\" (default). Legacy boolean/streamMode keys are auto-mapped."
+        },
+        "streaming.mode": {
+          "label": "Slack Streaming Mode",
+          "help": "Canonical Slack preview mode: \"off\" | \"partial\" | \"block\" | \"progress\" (default)."
+        },
+        "streaming.chunkMode": {
+          "label": "Slack Chunk Mode",
+          "help": "Chunking mode for outbound Slack text delivery: \"length\" (default) or \"newline\"."
+        },
+        "streaming.block.enabled": {
+          "label": "Slack Block Streaming Enabled",
+          "help": "Enable chunked block-style Slack preview delivery when channels.slack.streaming.mode=\"block\"."
+        },
+        "streaming.block.coalesce": {
+          "label": "Slack Block Streaming Coalesce",
+          "help": "Merge streamed Slack block replies before final delivery."
+        },
+        "streaming.nativeTransport": {
+          "label": "Slack Native Streaming",
+          "help": "Enable native Slack text streaming (chat.startStream/chat.appendStream/chat.stopStream) when channels.slack.streaming.mode is partial (default: true). Native streaming and Slack session status require a reply thread target; top-level DMs can still use draft post-and-edit preview streaming."
+        },
+        "streaming.preview.toolProgress": {
+          "label": "Slack Draft Tool Progress",
+          "help": "Show tool/progress activity in the live draft preview message (default: true). Set false to hide interim tool updates while the draft preview stays active."
+        },
+        "streaming.preview.commandText": {
+          "label": "Slack Draft Command Text",
+          "help": "Command/exec detail in preview tool-progress lines: \"status\" is the safe default; \"raw\" opts into command text."
+        },
+        "streaming.progress.style": {
+          "label": "Slack Progress Style",
+          "help": "Slack progress presentation: \"card\" uses structured task/session cards; \"compact\" keeps a temporary editable text draft. The final response is posted as a new message, then the draft is deleted after confirmed delivery. Defaults to \"compact\" when progress.toolProgress is explicitly false, otherwise \"card\"."
+        },
+        "streaming.progress.nativeTaskCards": {
+          "label": "Slack Native Progress Task Cards",
+          "help": "Slack native task-card progress updates when channels.slack.streaming.mode=\"progress\", progress.style=\"card\", and streaming.nativeTransport is enabled. Set false to fall back to the Block Kit progress card. Default: true."
+        },
+        "streaming.progress.label": {
+          "label": "Slack Progress Label",
+          "help": "Initial progress draft title. Use \"auto\" for built-in single-word labels, a custom string, or false to hide the title."
+        },
+        "streaming.progress.labels": {
+          "label": "Slack Progress Label Pool",
+          "help": "Candidate labels for streaming.progress.label=\"auto\". Leave unset to use OpenClaw built-in progress labels."
+        },
+        "streaming.progress.maxLines": {
+          "label": "Slack Progress Max Lines",
+          "help": "Maximum number of compact progress lines to keep below the draft label (default: 8)."
+        },
+        "streaming.progress.maxLineChars": {
+          "label": "Slack Progress Max Line Chars",
+          "help": "Maximum characters per compact progress line before truncation (default: 120). Prose cuts at word boundaries; commands and paths keep useful suffixes."
+        },
+        "streaming.progress.toolProgress": {
+          "label": "Slack Progress Tool Lines",
+          "help": "Show individual tool activity, including intermediate failures, in progress drafts (default: false). Quiet drafts retain plans, approval requests, and authored progress text. Terminal task errors remain visible."
+        },
+        "streaming.progress.commandText": {
+          "label": "Slack Progress Command Text",
+          "help": "Command/exec detail in progress draft lines: \"status\" is the safe default; \"raw\" opts into command text."
+        },
+        "joinIntro": {
+          "label": "Slack Channel Join Introduction",
+          "help": "Post one brief, room-specific introduction when the bot joins an allowed Slack channel (default: true). Account settings override the channel-wide setting."
+        },
+        "allowBots": {
+          "label": "Slack Allow Bot Messages",
+          "help": "Allow bot-authored messages to trigger Slack replies (default: false)."
+        },
+        "botLoopProtection": {
+          "label": "Slack Bot Loop Protection",
+          "help": "Sliding-window guard for Slack bot-to-bot loops. Default is enabled whenever allowBots lets bot-authored messages reach dispatch."
+        },
+        "botLoopProtection.enabled": {
+          "label": "Slack Bot Loop Protection Enabled",
+          "help": "Enable the bot-pair loop guard. Defaults to true when allowBots is true or \"mentions\", and false when bot messages are ignored."
+        },
+        "botLoopProtection.maxEventsPerWindow": {
+          "label": "Slack Bot Loop Events per Window",
+          "help": "Maximum accepted bot-pair messages within the sliding window before suppression starts. Default: 20."
+        },
+        "botLoopProtection.windowSeconds": {
+          "label": "Slack Bot Loop Window Seconds",
+          "help": "Sliding window length for counting bot-pair messages. Default: 60."
+        },
+        "botLoopProtection.cooldownSeconds": {
+          "label": "Slack Bot Loop Cooldown Seconds",
+          "help": "How long to suppress the bot pair after it exceeds the budget. Default: 60."
+        },
+        "relay": {
+          "label": "Slack Relay Mode",
+          "help": "Relay-delivered Slack events. Use with mode=\"relay\" when openclaw-slack-router owns the Slack Socket Mode connection."
+        },
+        "relay.url": {
+          "label": "Slack Relay URL",
+          "help": "Full websocket URL for openclaw-slack-router. Include the route path, for example ws://127.0.0.1:8081/gateway/ws."
+        },
+        "relay.authToken": {
+          "label": "Slack Relay Auth Token",
+          "help": "Bearer token used by this gateway to authenticate its reverse websocket connection to openclaw-slack-router."
+        },
+        "relay.gatewayId": {
+          "label": "Slack Relay Gateway ID",
+          "help": "Destination id that openclaw-slack-router uses when routing user-group mentions to this gateway."
+        },
+        "botToken": {
+          "label": "Slack Bot Token",
+          "help": "Slack bot token used for standard chat actions in the configured workspace. Keep this credential scoped and rotate if workspace app permissions change."
+        },
+        "appToken": {
+          "label": "Slack App Token",
+          "help": "Slack app-level token used for Socket Mode connections and event transport when enabled. Use least-privilege app scopes and store this token as a secret."
+        },
+        "userToken": {
+          "label": "Slack User Token",
+          "help": "Optional Slack user token for workflows requiring user-context API access beyond bot permissions. Use sparingly and audit scopes because this token can carry broader authority."
+        },
+        "userTokenReadOnly": {
+          "label": "Slack User Token Read Only",
+          "help": "When true, treat configured Slack user token usage as read-only helper behavior where possible. Keep enabled if you only need supplemental reads without user-context writes."
+        },
+        "execApprovals": {
+          "label": "Slack Exec Approvals",
+          "help": "Slack-native exec approval routing and approver authorization. Set enabled to \"auto\" or true to enable DM-first native approvals when approvers can be resolved for this Slack account; unset or false disables them."
+        },
+        "presenceEvents": {
+          "label": "Slack Presence Events",
+          "help": "Poll observed human participants and wake the routed agent on away-to-active transitions. Default: \"off\"."
+        },
+        "presenceEvents.mode": {
+          "label": "Slack Presence Event Mode",
+          "help": "\"off\" disables polling; \"auto\" covers DMs, MPIMs, and recent threads with up to 8 observed people; \"on\" also covers larger threads and top-level channels."
+        },
+        "presenceEvents.prompt": {
+          "label": "Slack Presence Event Prompt",
+          "help": "Replace the default greeting guidance appended after presence facts. Use an empty string to omit event-specific guidance and let workspace instructions such as AGENTS.md govern behavior. Maximum: 20,000 characters."
+        },
+        "channels.*.presenceEvents.mode": {
+          "label": "Slack Channel Presence Event Mode",
+          "help": "Override presence events for one Slack channel. Use \"on\" to include large threads or top-level channel sessions."
+        },
+        "channels.*.presenceEvents.prompt": {
+          "label": "Slack Channel Presence Event Prompt",
+          "help": "Override the account-level presence-event prompt for one Slack channel. Maximum: 20,000 characters."
+        },
+        "execApprovals.enabled": {
+          "label": "Slack Exec Approvals Enabled",
+          "help": "Controls Slack native exec approvals for this account: \"auto\" or true enables DM-first native approvals when approvers can be resolved; unset or false disables them."
+        },
+        "execApprovals.approvers": {
+          "label": "Slack Exec Approval Approvers",
+          "help": "Slack user IDs allowed to approve exec requests for this workspace account. Use Slack user IDs or user targets such as `U123`, `user:U123`, or `<@U123>`. If you leave this unset, OpenClaw falls back to commands.ownerAllowFrom when possible."
+        },
+        "execApprovals.agentFilter": {
+          "label": "Slack Exec Approval Agent Filter",
+          "help": "Optional allowlist of agent IDs eligible for Slack exec approvals, for example `[\"main\", \"ops-agent\"]`. Use this to keep approval prompts scoped to the agents you actually operate from Slack."
+        },
+        "execApprovals.sessionFilter": {
+          "label": "Slack Exec Approval Session Filter",
+          "help": "Optional session-key filters matched as substring or regex-style patterns before Slack approval routing is used. Use narrow patterns so Slack approvals only appear for intended sessions."
+        },
+        "execApprovals.target": {
+          "label": "Slack Exec Approval Target",
+          "help": "Controls where Slack approval prompts are sent: \"dm\" sends to approver DMs (default), \"channel\" sends to the originating Slack chat/thread, and \"both\" sends to both. Channel delivery exposes the command text to the chat, so only use it in trusted channels."
+        },
+        "thread.historyScope": {
+          "label": "Slack Thread History Scope",
+          "help": "Scope for Slack thread history context (\"thread\" isolates per thread; \"channel\" reuses channel history)."
+        },
+        "thread.inheritParent": {
+          "label": "Slack Thread Parent Inheritance",
+          "help": "If true, Slack thread sessions inherit the parent channel transcript (default: false)."
+        },
+        "thread.initialHistoryLimit": {
+          "label": "Slack Thread Initial History Limit",
+          "help": "Maximum number of existing Slack thread messages to fetch when starting a new thread session (default: 20, set to 0 to disable)."
+        }
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  }
+}

@@ -1,0 +1,1 @@
+{"version":3,"file":"pt-BR-JmkP8kt6.js","names":[],"sources":["../../../ui/src/i18n/locales/pt-BR.ts"],"sourcesContent":["export { default as pt_BR } from \"virtual:openclaw-control-ui-locale/pt-BR\";\n"],"mappings":""}

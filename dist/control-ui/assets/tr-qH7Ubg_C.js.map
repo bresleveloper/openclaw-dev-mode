@@ -1,0 +1,1 @@
+{"version":3,"file":"tr-qH7Ubg_C.js","names":[],"sources":["../../../ui/src/i18n/locales/tr.ts"],"sourcesContent":["export { default as tr } from \"virtual:openclaw-control-ui-locale/tr\";\n"],"mappings":""}

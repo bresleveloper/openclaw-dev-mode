@@ -1,0 +1,1 @@
+{"version":3,"file":"th-DsgI0jed.js","names":[],"sources":["../../../ui/src/i18n/locales/th.ts"],"sourcesContent":["export { default as th } from \"virtual:openclaw-control-ui-locale/th\";\n"],"mappings":""}

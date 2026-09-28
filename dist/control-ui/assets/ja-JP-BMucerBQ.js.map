@@ -1,0 +1,1 @@
+{"version":3,"file":"ja-JP-BMucerBQ.js","names":[],"sources":["../../../ui/src/i18n/locales/ja-JP.ts"],"sourcesContent":["export { default as ja_JP } from \"virtual:openclaw-control-ui-locale/ja-JP\";\n"],"mappings":""}

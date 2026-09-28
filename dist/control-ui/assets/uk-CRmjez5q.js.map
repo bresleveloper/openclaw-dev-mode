@@ -1,0 +1,1 @@
+{"version":3,"file":"uk-CRmjez5q.js","names":[],"sources":["../../../ui/src/i18n/locales/uk.ts"],"sourcesContent":["export { default as uk } from \"virtual:openclaw-control-ui-locale/uk\";\n"],"mappings":""}

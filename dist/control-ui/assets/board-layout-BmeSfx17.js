@@ -1,0 +1,2 @@
+import{n as e}from"./rolldown-runtime-8BhlS34s.js";var t,n;function r(){return(r=e((()=>{t=8192,n=class extends Error{constructor(e,t){super(t),this.name=`BoardValidationError`,this.code=e}}})))()}export{n,r,t};
+//# sourceMappingURL=board-layout-BmeSfx17.js.map

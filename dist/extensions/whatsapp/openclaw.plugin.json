@@ -1,0 +1,851 @@
+{
+  "id": "whatsapp",
+  "categories": [
+    "channels"
+  ],
+  "doctorContract": {
+    "configRepair": true,
+    "stateMigrations": [
+      {
+        "id": "whatsapp-legacy-state"
+      }
+    ]
+  },
+  "name": "WhatsApp",
+  "description": "OpenClaw WhatsApp channel plugin for WhatsApp Web chats.",
+  "skills": [
+    "./skills"
+  ],
+  "activation": {
+    "onStartup": false
+  },
+  "contracts": {
+    "tools": [
+      "whatsapp_call",
+      "whatsapp_login"
+    ]
+  },
+  "channels": [
+    "whatsapp"
+  ],
+  "configGroups": [
+    {
+      "id": "plugin-hooks",
+      "title": "Plugin hooks",
+      "order": 10,
+      "properties": [
+        "pluginHooks"
+      ]
+    }
+  ],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "pluginHooks": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "messageReceived": {
+            "type": "boolean",
+            "description": "Opt in to broadcasting inbound WhatsApp message_received hook payloads to loaded plugins."
+          }
+        }
+      }
+    }
+  },
+  "channelConfigs": {
+    "whatsapp": {
+      "schema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "markdown": {
+            "type": "object",
+            "properties": {
+              "tables": {
+                "type": "string",
+                "enum": [
+                  "off",
+                  "bullets",
+                  "code",
+                  "block"
+                ]
+              }
+            },
+            "additionalProperties": false
+          },
+          "configWrites": {
+            "type": "boolean"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "dmPolicy": {
+            "default": "pairing",
+            "type": "string",
+            "enum": [
+              "pairing",
+              "allowlist",
+              "open",
+              "disabled"
+            ]
+          },
+          "allowFrom": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "defaultTo": {
+            "type": "string"
+          },
+          "groupAllowFrom": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "groupPolicy": {
+            "default": "allowlist",
+            "type": "string",
+            "enum": [
+              "open",
+              "disabled",
+              "allowlist"
+            ]
+          },
+          "mentionPatterns": {
+            "type": "object",
+            "properties": {
+              "mode": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "const": "allow"
+                  },
+                  {
+                    "type": "string",
+                    "const": "deny"
+                  }
+                ]
+              },
+              "allowIn": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "denyIn": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          "contextVisibility": {
+            "type": "string",
+            "enum": [
+              "all",
+              "allowlist",
+              "allowlist_quote"
+            ]
+          },
+          "historyLimit": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "dmHistoryLimit": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "dms": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "historyLimit": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "textChunkLimit": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "streaming": {
+            "type": "object",
+            "properties": {
+              "chunkMode": {
+                "type": "string",
+                "enum": [
+                  "length",
+                  "newline"
+                ]
+              },
+              "block": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "coalesce": {
+                    "type": "object",
+                    "properties": {
+                      "minChars": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "maxChars": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "idleMs": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          },
+          "heartbeatVisibility": {
+            "type": "object",
+            "properties": {
+              "showOk": {
+                "type": "boolean"
+              },
+              "showAlerts": {
+                "type": "boolean"
+              },
+              "useIndicator": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          },
+          "healthMonitor": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          },
+          "responsePrefix": {
+            "type": "string"
+          },
+          "mediaMaxMb": {
+            "default": 50,
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "replyToMode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "off"
+              },
+              {
+                "type": "string",
+                "const": "first"
+              },
+              {
+                "type": "string",
+                "const": "all"
+              },
+              {
+                "type": "string",
+                "const": "batched"
+              }
+            ]
+          },
+          "sendReadReceipts": {
+            "type": "boolean"
+          },
+          "selfChatMode": {
+            "type": "boolean"
+          },
+          "groups": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "requireMention": {
+                  "type": "boolean"
+                },
+                "tools": {
+                  "type": "object",
+                  "properties": {
+                    "allow": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "alsoAllow": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "deny": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "toolsBySender": {
+                  "type": "object",
+                  "propertyNames": {
+                    "type": "string"
+                  },
+                  "additionalProperties": {
+                    "type": "object",
+                    "properties": {
+                      "allow": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "alsoAllow": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "deny": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "systemPrompt": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "direct": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "systemPrompt": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "reactionLevel": {
+            "type": "string",
+            "enum": [
+              "off",
+              "ack",
+              "minimal",
+              "extensive"
+            ]
+          },
+          "pluginHooks": {
+            "type": "object",
+            "properties": {
+              "messageReceived": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          },
+          "accounts": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "capabilities": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "markdown": {
+                  "type": "object",
+                  "properties": {
+                    "tables": {
+                      "type": "string",
+                      "enum": [
+                        "off",
+                        "bullets",
+                        "code",
+                        "block"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "configWrites": {
+                  "type": "boolean"
+                },
+                "enabled": {
+                  "type": "boolean"
+                },
+                "dmPolicy": {
+                  "type": "string",
+                  "enum": [
+                    "pairing",
+                    "allowlist",
+                    "open",
+                    "disabled"
+                  ]
+                },
+                "allowFrom": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "defaultTo": {
+                  "type": "string"
+                },
+                "groupAllowFrom": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "groupPolicy": {
+                  "type": "string",
+                  "enum": [
+                    "open",
+                    "disabled",
+                    "allowlist"
+                  ]
+                },
+                "mentionPatterns": {
+                  "type": "object",
+                  "properties": {
+                    "mode": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "const": "allow"
+                        },
+                        {
+                          "type": "string",
+                          "const": "deny"
+                        }
+                      ]
+                    },
+                    "allowIn": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "denyIn": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "contextVisibility": {
+                  "type": "string",
+                  "enum": [
+                    "all",
+                    "allowlist",
+                    "allowlist_quote"
+                  ]
+                },
+                "historyLimit": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "dmHistoryLimit": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "dms": {
+                  "type": "object",
+                  "propertyNames": {
+                    "type": "string"
+                  },
+                  "additionalProperties": {
+                    "type": "object",
+                    "properties": {
+                      "historyLimit": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "textChunkLimit": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "streaming": {
+                  "type": "object",
+                  "properties": {
+                    "chunkMode": {
+                      "type": "string",
+                      "enum": [
+                        "length",
+                        "newline"
+                      ]
+                    },
+                    "block": {
+                      "type": "object",
+                      "properties": {
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "coalesce": {
+                          "type": "object",
+                          "properties": {
+                            "minChars": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "maxChars": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "idleMs": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "additionalProperties": false
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "heartbeatVisibility": {
+                  "type": "object",
+                  "properties": {
+                    "showOk": {
+                      "type": "boolean"
+                    },
+                    "showAlerts": {
+                      "type": "boolean"
+                    },
+                    "useIndicator": {
+                      "type": "boolean"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "healthMonitor": {
+                  "type": "object",
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "responsePrefix": {
+                  "type": "string"
+                },
+                "mediaMaxMb": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "replyToMode": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "const": "off"
+                    },
+                    {
+                      "type": "string",
+                      "const": "first"
+                    },
+                    {
+                      "type": "string",
+                      "const": "all"
+                    },
+                    {
+                      "type": "string",
+                      "const": "batched"
+                    }
+                  ]
+                },
+                "sendReadReceipts": {
+                  "type": "boolean"
+                },
+                "selfChatMode": {
+                  "type": "boolean"
+                },
+                "groups": {
+                  "type": "object",
+                  "propertyNames": {
+                    "type": "string"
+                  },
+                  "additionalProperties": {
+                    "type": "object",
+                    "properties": {
+                      "requireMention": {
+                        "type": "boolean"
+                      },
+                      "tools": {
+                        "type": "object",
+                        "properties": {
+                          "allow": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "alsoAllow": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "deny": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "toolsBySender": {
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string"
+                        },
+                        "additionalProperties": {
+                          "type": "object",
+                          "properties": {
+                            "allow": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "alsoAllow": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "deny": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "additionalProperties": false
+                        }
+                      },
+                      "systemPrompt": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "direct": {
+                  "type": "object",
+                  "propertyNames": {
+                    "type": "string"
+                  },
+                  "additionalProperties": {
+                    "type": "object",
+                    "properties": {
+                      "systemPrompt": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "reactionLevel": {
+                  "type": "string",
+                  "enum": [
+                    "off",
+                    "ack",
+                    "minimal",
+                    "extensive"
+                  ]
+                },
+                "pluginHooks": {
+                  "type": "object",
+                  "properties": {
+                    "messageReceived": {
+                      "type": "boolean"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "name": {
+                  "type": "string"
+                },
+                "authDir": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "defaultAccount": {
+            "type": "string"
+          },
+          "actions": {
+            "type": "object",
+            "properties": {
+              "reactions": {
+                "type": "boolean"
+              },
+              "sendMessage": {
+                "type": "boolean"
+              },
+              "polls": {
+                "type": "boolean"
+              },
+              "calls": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "dmPolicy",
+          "groupPolicy",
+          "mediaMaxMb"
+        ],
+        "additionalProperties": false
+      },
+      "label": "WhatsApp",
+      "description": "works with your own number; recommend a separate phone + eSIM.",
+      "uiHints": {
+        "": {
+          "label": "WhatsApp",
+          "help": "WhatsApp channel provider configuration for access policy and direct-message routing safety."
+        },
+        "dmPolicy": {
+          "label": "WhatsApp DM Policy",
+          "help": "Direct message access control (\"pairing\" recommended). \"open\" requires channels.whatsapp.allowFrom=[\"*\"]."
+        },
+        "allowFrom": {
+          "presentation": "phone-number"
+        },
+        "defaultTo": {
+          "presentation": "phone-number"
+        },
+        "groupAllowFrom": {
+          "presentation": "phone-number"
+        },
+        "accounts.*.allowFrom.*": {
+          "presentation": "phone-number"
+        },
+        "accounts.*.defaultTo": {
+          "presentation": "phone-number"
+        },
+        "accounts.*.groupAllowFrom.*": {
+          "presentation": "phone-number"
+        },
+        "selfChatMode": {
+          "label": "WhatsApp Self-Phone Mode",
+          "help": "Same-phone setup (bot uses your personal WhatsApp number)."
+        },
+        "direct": {
+          "label": "WhatsApp Direct Chat Overrides",
+          "help": "Per-conversation overrides keyed by WhatsApp DM id. Applied after a DM is already admitted by dmPolicy; \"*\" supplies a default without admitting anyone."
+        },
+        "pluginHooks": {
+          "label": "WhatsApp Plugin Hooks",
+          "help": "Opt in to broadcasting inbound WhatsApp events to plugins. Payloads carry personal content, so only enable it for plugins you trust."
+        },
+        "configWrites": {
+          "label": "WhatsApp Config Writes",
+          "help": "Allow WhatsApp to write config in response to channel events/commands (default: true)."
+        },
+        "actions.calls": {
+          "label": "WhatsApp Voice Calls",
+          "help": "Expose the experimental requester-bound WhatsApp voice-call tool. Default: false. Requires a separately paired MeowCaller CLI."
+        },
+        "mentionPatterns": {
+          "label": "WhatsApp Mention Pattern Policy",
+          "help": "Scopes configured groupChat mentionPatterns to selected WhatsApp conversation IDs such as 123@g.us."
+        },
+        "mentionPatterns.mode": {
+          "label": "WhatsApp Mention Pattern Mode",
+          "help": "\"allow\" enables configured regex mention patterns unless denyIn matches; \"deny\" disables them unless allowIn matches."
+        },
+        "mentionPatterns.allowIn": {
+          "label": "WhatsApp Mention Pattern Allowlist",
+          "help": "WhatsApp conversation IDs where configured regex mention patterns are enabled when mode is deny."
+        },
+        "mentionPatterns.denyIn": {
+          "label": "WhatsApp Mention Pattern Denylist",
+          "help": "WhatsApp conversation IDs where configured regex mention patterns are disabled."
+        }
+      }
+    }
+  }
+}

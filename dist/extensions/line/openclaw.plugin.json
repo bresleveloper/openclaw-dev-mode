@@ -1,0 +1,442 @@
+{
+  "id": "line",
+  "categories": [
+    "channels"
+  ],
+  "doctorContract": {
+    "stateMigrations": [
+      {
+        "id": "line-pre-drain-spool-rows"
+      }
+    ]
+  },
+  "name": "LINE",
+  "description": "OpenClaw LINE channel plugin for LINE Bot API chats.",
+  "activation": {
+    "onStartup": false
+  },
+  "channels": [
+    "line"
+  ],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  },
+  "channelConfigs": {
+    "line": {
+      "schema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "configWrites": {
+            "type": "boolean"
+          },
+          "joinIntro": {
+            "type": "boolean"
+          },
+          "historyLimit": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "channelAccessToken": {
+            "type": "string"
+          },
+          "channelSecret": {
+            "type": "string"
+          },
+          "tokenFile": {
+            "type": "string"
+          },
+          "secretFile": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "allowFrom": {
+            "type": "array",
+            "items": {
+              "type": [
+                "string",
+                "number"
+              ]
+            }
+          },
+          "groupAllowFrom": {
+            "type": "array",
+            "items": {
+              "type": [
+                "string",
+                "number"
+              ]
+            }
+          },
+          "dmPolicy": {
+            "default": "pairing",
+            "type": "string",
+            "enum": [
+              "pairing",
+              "allowlist",
+              "open",
+              "disabled"
+            ]
+          },
+          "groupPolicy": {
+            "default": "allowlist",
+            "type": "string",
+            "enum": [
+              "open",
+              "disabled",
+              "allowlist"
+            ]
+          },
+          "responsePrefix": {
+            "type": "string"
+          },
+          "replyToMode": {
+            "type": "string",
+            "enum": [
+              "off",
+              "first",
+              "all"
+            ]
+          },
+          "streaming": {
+            "type": "object",
+            "properties": {
+              "chunkMode": {
+                "type": "string",
+                "enum": [
+                  "length",
+                  "newline"
+                ]
+              },
+              "block": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "coalesce": {
+                    "type": "object",
+                    "properties": {
+                      "minChars": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "maxChars": {
+                        "type": "integer",
+                        "exclusiveMinimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "idleMs": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          },
+          "mediaMaxMb": {
+            "type": "number"
+          },
+          "webhookPath": {
+            "type": "string"
+          },
+          "threadBindings": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              },
+              "idleHours": {
+                "type": "number"
+              },
+              "maxAgeHours": {
+                "type": "number"
+              },
+              "spawnSessions": {
+                "type": "boolean"
+              },
+              "defaultSpawnContext": {
+                "type": "string",
+                "enum": [
+                  "isolated",
+                  "fork"
+                ]
+              }
+            },
+            "additionalProperties": false
+          },
+          "groups": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "requireMention": {
+                  "type": "boolean"
+                },
+                "skills": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "enabled": {
+                  "type": "boolean"
+                },
+                "allowFrom": {
+                  "type": "array",
+                  "items": {
+                    "type": [
+                      "string",
+                      "number"
+                    ]
+                  }
+                },
+                "systemPrompt": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "accounts": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "configWrites": {
+                  "type": "boolean"
+                },
+                "joinIntro": {
+                  "type": "boolean"
+                },
+                "historyLimit": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "channelAccessToken": {
+                  "type": "string"
+                },
+                "channelSecret": {
+                  "type": "string"
+                },
+                "tokenFile": {
+                  "type": "string"
+                },
+                "secretFile": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "allowFrom": {
+                  "type": "array",
+                  "items": {
+                    "type": [
+                      "string",
+                      "number"
+                    ]
+                  }
+                },
+                "groupAllowFrom": {
+                  "type": "array",
+                  "items": {
+                    "type": [
+                      "string",
+                      "number"
+                    ]
+                  }
+                },
+                "dmPolicy": {
+                  "default": "pairing",
+                  "type": "string",
+                  "enum": [
+                    "pairing",
+                    "allowlist",
+                    "open",
+                    "disabled"
+                  ]
+                },
+                "groupPolicy": {
+                  "default": "allowlist",
+                  "type": "string",
+                  "enum": [
+                    "open",
+                    "disabled",
+                    "allowlist"
+                  ]
+                },
+                "responsePrefix": {
+                  "type": "string"
+                },
+                "replyToMode": {
+                  "type": "string",
+                  "enum": [
+                    "off",
+                    "first",
+                    "all"
+                  ]
+                },
+                "streaming": {
+                  "type": "object",
+                  "properties": {
+                    "chunkMode": {
+                      "type": "string",
+                      "enum": [
+                        "length",
+                        "newline"
+                      ]
+                    },
+                    "block": {
+                      "type": "object",
+                      "properties": {
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "coalesce": {
+                          "type": "object",
+                          "properties": {
+                            "minChars": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "maxChars": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "idleMs": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "additionalProperties": false
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "mediaMaxMb": {
+                  "type": "number"
+                },
+                "webhookPath": {
+                  "type": "string"
+                },
+                "threadBindings": {
+                  "type": "object",
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "idleHours": {
+                      "type": "number"
+                    },
+                    "maxAgeHours": {
+                      "type": "number"
+                    },
+                    "spawnSessions": {
+                      "type": "boolean"
+                    },
+                    "defaultSpawnContext": {
+                      "type": "string",
+                      "enum": [
+                        "isolated",
+                        "fork"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "groups": {
+                  "type": "object",
+                  "propertyNames": {
+                    "type": "string"
+                  },
+                  "additionalProperties": {
+                    "type": "object",
+                    "properties": {
+                      "requireMention": {
+                        "type": "boolean"
+                      },
+                      "skills": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "enabled": {
+                        "type": "boolean"
+                      },
+                      "allowFrom": {
+                        "type": "array",
+                        "items": {
+                          "type": [
+                            "string",
+                            "number"
+                          ]
+                        }
+                      },
+                      "systemPrompt": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": [
+                "dmPolicy",
+                "groupPolicy"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "defaultAccount": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "dmPolicy",
+          "groupPolicy"
+        ],
+        "additionalProperties": false
+      },
+      "label": "LINE",
+      "description": "LINE Messaging API webhook bot.",
+      "uiHints": {
+        "joinIntro": {
+          "label": "LINE Group Join Introduction",
+          "help": "Post one brief introduction when the bot joins an allowed LINE group or multi-person room (default: true). Account settings override the channel-wide setting."
+        }
+      }
+    }
+  }
+}

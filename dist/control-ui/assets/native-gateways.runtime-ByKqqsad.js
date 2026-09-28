@@ -1,0 +1,1 @@
+import{So as e,xo as t}from"./control-ui-boot-shared-Bm2ZxasE.js";t();export{e as nativeGatewaysCapability};

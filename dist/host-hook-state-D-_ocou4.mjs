@@ -1,0 +1,2 @@
+import { a as projectPluginSessionExtensionsSync, i as patchPluginSessionExtension, n as enqueuePluginNextTurnInjection, r as getPluginSessionExtensionStateSync, t as drainPluginNextTurnInjectionContext } from "./host-hook-state-C4UiW1p8.mjs";
+export { drainPluginNextTurnInjectionContext, enqueuePluginNextTurnInjection, getPluginSessionExtensionStateSync, patchPluginSessionExtension, projectPluginSessionExtensionsSync };

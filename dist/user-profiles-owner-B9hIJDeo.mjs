@@ -1,0 +1,65 @@
+import { n as executeSqliteQuerySync, r as executeSqliteQueryTakeFirstSync } from "./kysely-sync-Bn6Qrpbz.mjs";
+import { t as GATEWAY_OWNER_PROFILE_ID } from "./user-profile-constants-DfyZS95p.mjs";
+import { S as UserProfileOwnerError, b as userProfilesDb } from "./user-profiles-internal-BxQLnWfo.mjs";
+import { i as publishUserProfilesChange } from "./user-profile-list-B5pNqyXa.mjs";
+//#region src/state/user-profiles-owner.ts
+const OWNER_PROVIDER = "gateway.local";
+const OWNER_SUBJECT = "owner";
+/** Read raw rows: the shared owner must never inherit a person through a merge. */
+function readGatewayOwnerProfileRows(db) {
+	const kysely = userProfilesDb(db);
+	return {
+		owner: executeSqliteQueryTakeFirstSync(db, kysely.selectFrom("user_profiles").selectAll().where("id", "=", GATEWAY_OWNER_PROFILE_ID)),
+		identified: executeSqliteQueryTakeFirstSync(db, kysely.selectFrom("user_profiles").innerJoin("user_profile_identities", "user_profile_identities.profile_id", "user_profiles.id").selectAll("user_profiles").where("provider", "=", OWNER_PROVIDER).where("subject", "=", OWNER_SUBJECT))
+	};
+}
+function readGatewayOwnerProfileForEnsure(db) {
+	const { owner, identified } = readGatewayOwnerProfileRows(db);
+	if (owner?.merged_into || identified?.merged_into || owner && identified && owner.id !== identified.id) throw new UserProfileOwnerError("repair-required");
+	return {
+		existing: owner ?? identified,
+		identified
+	};
+}
+/** Queue roster invalidation only for actual changes, after the owning transaction commits. */
+function ensureGatewayOwnerProfileRow(db, displayName, mutation) {
+	const { existing, identified } = readGatewayOwnerProfileForEnsure(db);
+	const kysely = userProfilesDb(db);
+	const now = Date.now();
+	mutation?.before(db, existing?.id ?? "gateway-owner");
+	const row = existing ? {
+		...existing,
+		display_name: existing.display_name?.trim() || !displayName ? existing.display_name : displayName
+	} : {
+		id: GATEWAY_OWNER_PROFILE_ID,
+		display_name: displayName,
+		avatar: null,
+		avatar_mime: null,
+		avatar_sha256: null,
+		merged_into: null,
+		created_at: now,
+		updated_at: now
+	};
+	if (!existing) executeSqliteQuerySync(db, kysely.insertInto("user_profiles").values(row));
+	else if (row.display_name !== existing.display_name) {
+		row.updated_at = now;
+		executeSqliteQuerySync(db, kysely.updateTable("user_profiles").set({
+			display_name: row.display_name,
+			updated_at: now
+		}).where("id", "=", row.id));
+	}
+	executeSqliteQuerySync(db, kysely.insertInto("user_profile_identities").values({
+		provider: OWNER_PROVIDER,
+		subject: OWNER_SUBJECT,
+		profile_id: row.id,
+		canonical_login: null,
+		created_at: now
+	}).onConflict((conflict) => conflict.columns(["provider", "subject"]).doNothing()));
+	if (!existing || row.display_name !== existing.display_name || !identified) {
+		mutation?.publish(row.id);
+		publishUserProfilesChange(db, row.id);
+	}
+	return row;
+}
+//#endregion
+export { readGatewayOwnerProfileForEnsure as n, readGatewayOwnerProfileRows as r, ensureGatewayOwnerProfileRow as t };

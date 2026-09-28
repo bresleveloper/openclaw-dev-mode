@@ -1,0 +1,2 @@
+import { a as resolveExtendedStablePackage, c as resolveUpdateInstallKind, i as formatGitInstallLabel, n as compareSemverStrings, o as resolveNpmChannelTag, r as fetchNpmTagVersion, s as resolveUpdateInstallIdentity, t as checkUpdateStatus } from "./update-check-CtYi2ZDp.mjs";
+export { checkUpdateStatus, compareSemverStrings, fetchNpmTagVersion, formatGitInstallLabel, resolveExtendedStablePackage, resolveNpmChannelTag, resolveUpdateInstallIdentity, resolveUpdateInstallKind };

@@ -1,0 +1,9 @@
+//#region src/infra/outbound/delivery-queue-namespaces.ts
+const LEGACY_OUTBOUND_DELIVERY_QUEUE_NAME = "outbound";
+const OUTBOUND_LEGACY_PREPARATION_QUEUE_NAME = "outbound-legacy-preparing-v1";
+const OUTBOUND_DELIVERY_PREPARATION_QUEUE_NAME = "outbound-preparing-v1";
+const OUTBOUND_DELIVERY_MIGRATION_QUEUE_NAME = "outbound-prepared-migration-v1";
+const OUTBOUND_DELIVERY_QUEUE_NAME = "outbound-prepared-v1";
+const DELIVERY_QUEUE_MEDIA_STAGING_QUEUE_NAME = "outbound-media-staging";
+//#endregion
+export { OUTBOUND_DELIVERY_QUEUE_NAME as a, OUTBOUND_DELIVERY_PREPARATION_QUEUE_NAME as i, LEGACY_OUTBOUND_DELIVERY_QUEUE_NAME as n, OUTBOUND_LEGACY_PREPARATION_QUEUE_NAME as o, OUTBOUND_DELIVERY_MIGRATION_QUEUE_NAME as r, DELIVERY_QUEUE_MEDIA_STAGING_QUEUE_NAME as t };

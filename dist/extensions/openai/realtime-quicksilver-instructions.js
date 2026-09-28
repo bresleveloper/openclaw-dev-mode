@@ -1,0 +1,2 @@
+import { i as buildOpenAIQuicksilverInstructions, n as buildOpenAIQuicksilverBackgroundContext, r as buildOpenAIQuicksilverDelegationPrompt, t as OPENAI_QUICKSILVER_HOST_CONTROL_INSTRUCTIONS } from "../../realtime-quicksilver-instructions-CkYwSLJz.mjs";
+export { OPENAI_QUICKSILVER_HOST_CONTROL_INSTRUCTIONS, buildOpenAIQuicksilverBackgroundContext, buildOpenAIQuicksilverDelegationPrompt, buildOpenAIQuicksilverInstructions };

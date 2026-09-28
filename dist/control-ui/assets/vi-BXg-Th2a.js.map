@@ -1,0 +1,1 @@
+{"version":3,"file":"vi-BXg-Th2a.js","names":[],"sources":["../../../ui/src/i18n/locales/vi.ts"],"sourcesContent":["export { default as vi } from \"virtual:openclaw-control-ui-locale/vi\";\n"],"mappings":""}

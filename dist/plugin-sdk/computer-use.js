@@ -1,0 +1,3 @@
+import { _ as registerComputerUseProvider, a as COMPUTER_USE_V2_ACTION_NAMES, c as ComputerUseCapabilityDescriptorSchema, d as compileComputerUseValidator, f as parseComputerActParamsJSON, h as parseScreenSnapshotParamsJSON, l as ScreenSnapshotParamsSchema, o as ComputerActParamsSchema, s as ComputerActResultSchema, u as ScreenSnapshotResultSchema } from "../computer-use-contract-DzawlQtp.mjs";
+import "../computer-use-tSE8M6p_.mjs";
+export { COMPUTER_USE_V2_ACTION_NAMES, ComputerActParamsSchema, ComputerActResultSchema, ComputerUseCapabilityDescriptorSchema, ScreenSnapshotParamsSchema, ScreenSnapshotResultSchema, compileComputerUseValidator, parseComputerActParamsJSON, parseScreenSnapshotParamsJSON, registerComputerUseProvider };

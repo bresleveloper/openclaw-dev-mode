@@ -1,0 +1,1 @@
+{"version":3,"file":"es-DLM0BtQe.js","names":[],"sources":["../../../ui/src/i18n/locales/es.ts"],"sourcesContent":["export { default as es } from \"virtual:openclaw-control-ui-locale/es\";\n"],"mappings":""}

@@ -1,0 +1,2 @@
+import { a as runPluginSetupConfigMigrations, i as resolvePluginSetupRegistry, n as resolvePluginSetupCliBackend, r as resolvePluginSetupProviderCore, t as resolvePluginSetupAutoEnableReasons } from "./setup-registry-D5VN3YGP.mjs";
+export { resolvePluginSetupAutoEnableReasons, resolvePluginSetupCliBackend, resolvePluginSetupProviderCore, resolvePluginSetupRegistry, runPluginSetupConfigMigrations };

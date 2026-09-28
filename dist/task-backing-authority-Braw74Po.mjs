@@ -1,0 +1,3 @@
+import { E as readTaskBackingInstance, S as createSubagentTaskBackingDetail } from "./task-registry.store.kernel-BuNI8UuR.mjs";
+import { a as prepareTaskBackingRead, i as hasResidentTaskBacking, n as getManagedTaskBackingInstance, o as resolveManagedTaskBackingDetail, r as hasAuthoritativeTaskBacking, t as createNextAcpTaskBackingDetail } from "./task-backing-authority-CIHk-jEg.mjs";
+export { createNextAcpTaskBackingDetail, createSubagentTaskBackingDetail, getManagedTaskBackingInstance, hasAuthoritativeTaskBacking, hasResidentTaskBacking, prepareTaskBackingRead, readTaskBackingInstance, resolveManagedTaskBackingDetail };

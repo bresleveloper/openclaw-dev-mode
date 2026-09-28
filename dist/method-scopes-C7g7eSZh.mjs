@@ -1,0 +1,3466 @@
+import { c as isRecord } from "./record-coerce-DItp3I4t.mjs";
+import { l as normalizeOptionalString } from "./string-coerce-CIXf7egm.mjs";
+import { n as getPluginRegistryForContext } from "./gateway-request-scope-BLBH-Gpf.mjs";
+import { r as isIncognitoSessionKey } from "./session-key-CUi_tcgF.mjs";
+import { a as READ_SCOPE, d as isOperatorScope, i as QUESTIONS_SCOPE, l as TALK_SECRETS_SCOPE, n as APPROVALS_SCOPE, r as PAIRING_SCOPE, t as ADMIN_SCOPE, u as WRITE_SCOPE } from "./operator-scopes-D-CL26h0.mjs";
+import { a as roleScopesAllow, n as operatorScopeSatisfied } from "./operator-scope-compat-Ci6GBcmU.mjs";
+import { M as isBrowserProxyNodeInvokeCommand, j as isAdminOnlyNodeInvokeCommand } from "./node-commands-BLhGKTZa.mjs";
+import { a as resolveReservedGatewayMethodScope, n as NODE_GATEWAY_METHOD_SCOPE, t as DYNAMIC_GATEWAY_METHOD_SCOPE } from "./descriptor-ByqpE-ah.mjs";
+import { n as validateSessionsMoveParams, t as validateSessionsDispatchParams } from "./session-placement-validators-C2Fz-CfU.mjs";
+import { i as isSessionProfileDependentMethod } from "./session-method-policy-DfouRHm3.mjs";
+//#region src/shared/session-method-scopes-base.ts
+const SESSION_READ_METHODS = /* @__PURE__ */ new Set([
+	"sessions.list",
+	"sessions.subscribe",
+	"sessions.messages.subscribe",
+	"sessions.messages.unsubscribe",
+	"sessions.viewers.set",
+	"sessions.preview",
+	"sessions.describe",
+	"sessions.branches.list",
+	"sessions.get",
+	"sessions.resolve",
+	"sessions.search",
+	"sessions.files.list",
+	"sessions.files.get",
+	"sessions.setInvolvement",
+	"chat.history",
+	"chat.startup",
+	"chat.metadata",
+	"chat.message.get",
+	"session.members.list",
+	"session.members.listEvidence"
+]);
+const SESSION_WRITE_METHODS = /* @__PURE__ */ new Set([
+	"question.request",
+	"question.waitAnswer",
+	"question.resolve",
+	"question.get",
+	"question.list",
+	"chat.send",
+	"chat.abort",
+	"sessions.create",
+	"sessions.patch",
+	"sessions.patchMany",
+	"sessions.delete",
+	"sessions.fork",
+	"sessions.recover",
+	"sessions.send",
+	"sessions.steer",
+	"sessions.abort",
+	"sessions.goal.update",
+	"sessions.goal.clear"
+]);
+/** Admission only: reads retain sharing policy; mutation owners must bind the caller's own row. */
+function resolveSessionMethodScope(method, params) {
+	if (SESSION_READ_METHODS.has(method)) return "operator.sessions.read";
+	if (SESSION_WRITE_METHODS.has(method) && resolveBaseSessionMutationRequiredScope(method, params) !== "operator.admin") return "operator.sessions.write";
+}
+const SESSIONS_PATCH_WRITE_SCOPE_MUTATIONS = /* @__PURE__ */ new Set([
+	"label",
+	"autoLabel",
+	"icon",
+	"color",
+	"category",
+	"boardFace",
+	"boardPresentation",
+	"pinned",
+	"archived",
+	"unread",
+	"model",
+	"agentRuntime",
+	"thinkingLevel",
+	"fastMode",
+	"permissionMode"
+]);
+const SESSIONS_PATCH_WRITE_SCOPE_ENVELOPE_FIELDS = /* @__PURE__ */ new Set([
+	"key",
+	"agentId",
+	"expectedSessionId",
+	"expectedLifecycleRevision",
+	"expectedPermissionMode",
+	"expectedMarkedUnreadAt"
+]);
+const SESSIONS_DELETE_WRITE_SCOPE_FIELDS = /* @__PURE__ */ new Set([
+	"key",
+	"agentId",
+	"deleteTranscript",
+	"expectedSessionId",
+	"archivedOnly"
+]);
+function resolveSessionsPatchRequiredScope(params) {
+	if (!isRecord(params)) return "operator.write";
+	if (params.permissionMode === "full" || Object.hasOwn(params, "sandboxMode")) return "operator.admin";
+	return Object.keys(params).every((key) => SESSIONS_PATCH_WRITE_SCOPE_ENVELOPE_FIELDS.has(key) || SESSIONS_PATCH_WRITE_SCOPE_MUTATIONS.has(key)) ? "operator.write" : "operator.admin";
+}
+function resolveSessionsPatchManyRequiredScope(params) {
+	if (!isRecord(params) || !isRecord(params.patch)) return "operator.write";
+	if (params.patch.permissionMode === "full" || Object.hasOwn(params.patch, "sandboxMode")) return "operator.admin";
+	return Object.keys(params.patch).every((key) => SESSIONS_PATCH_WRITE_SCOPE_MUTATIONS.has(key)) ? "operator.write" : "operator.admin";
+}
+function resolveSessionsCreateRequiredScope(params) {
+	if (!isRecord(params)) return "operator.write";
+	if (params.incognito === true || typeof params.key === "string" && isIncognitoSessionKey(params.key) || typeof params.parentSessionKey === "string" && isIncognitoSessionKey(params.parentSessionKey) || Object.hasOwn(params, "execNode") || Object.hasOwn(params, "toolOverrides") || params.permissionMode === "full") return "operator.admin";
+	return "operator.write";
+}
+function resolveSessionsDeleteRequiredScope(params) {
+	if (!isRecord(params) || params.archivedOnly !== true) return "operator.admin";
+	return Object.keys(params).every((key) => SESSIONS_DELETE_WRITE_SCOPE_FIELDS.has(key)) ? "operator.write" : "operator.admin";
+}
+/** Browser-safe session mutation policy for methods without protocol validation. */
+function resolveBaseSessionMutationRequiredScope(method, params) {
+	if (method === "sessions.recover") return "operator.write";
+	if (method === "sessions.create") return resolveSessionsCreateRequiredScope(params);
+	if (method === "sessions.patch") return resolveSessionsPatchRequiredScope(params);
+	if (method === "sessions.patchMany") return resolveSessionsPatchManyRequiredScope(params);
+	if (method === "sessions.delete") return resolveSessionsDeleteRequiredScope(params);
+}
+//#endregion
+//#region src/shared/session-method-scopes.ts
+/** Returns the exact Gateway/CLI scope for params-aware session mutations. */
+function resolveDynamicSessionMutationRequiredScope(method, params) {
+	if (method === "sessions.dispatch") {
+		if (!validateSessionsDispatchParams(params)) return "operator.write";
+		return params.deviceId !== void 0 || params.autoDevice === true ? "operator.write" : "operator.admin";
+	}
+	if (method === "sessions.move") return validateSessionsMoveParams(params) && params.target.kind === "profile" ? "operator.admin" : "operator.write";
+	return resolveBaseSessionMutationRequiredScope(method, params);
+}
+//#endregion
+//#region src/gateway/agent-command-policy.ts
+/** Commands routed through `agent` that mutate session lifecycle state. */
+const AGENT_SESSION_RESET_COMMAND_RE = /^\/(new|reset)(?:\s+([\s\S]*))?$/i;
+/** Returns true when an agent message requests a session reset. */
+function isAgentSessionResetCommand(message) {
+	return typeof message === "string" && AGENT_SESSION_RESET_COMMAND_RE.test(message);
+}
+//#endregion
+//#region src/gateway/methods/core-descriptors.ts
+const CONTROL_PLANE_WRITE = { controlPlaneWrite: true };
+const CORE_GATEWAY_METHOD_SPECS = [
+	[
+		"health",
+		"health",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"diagnostics.stability",
+		"diagnostics",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"doctor.memory.status",
+		"doctor",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"doctor.memory.dreamDiary",
+		"doctor",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"doctor.memory.backfillDreamDiary",
+		"doctor",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"doctor.memory.resetDreamDiary",
+		"doctor",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"doctor.memory.resetGroundedShortTerm",
+		"doctor",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"doctor.memory.repairDreamingArtifacts",
+		"doctor",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"doctor.memory.dedupeDreamDiary",
+		"doctor",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"logs.tail",
+		"logs",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"channels.status",
+		"channels",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"channels.start",
+		"channels",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"channels.stop",
+		"channels",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"channels.logout",
+		"channels",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"status",
+		"health",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"usage.status",
+		"usage",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"usage.cost",
+		"usage",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"tts.status",
+		"tts",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"tts.providers",
+		"tts",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"tts.personas",
+		"tts",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"tts.enable",
+		"tts",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"tts.disable",
+		"tts",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"tts.convert",
+		"tts",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"tts.setProvider",
+		"tts",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"tts.setPersona",
+		"tts",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"config.get",
+		"config",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"config.set",
+		"config",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"config.apply",
+		"config",
+		"operator.admin",
+		"<=2026.7",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"config.patch",
+		"config",
+		"operator.admin",
+		"<=2026.7",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"config.schema",
+		"config",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"config.schema.lookup",
+		"config",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"exec.approvals.get",
+		"exec-approvals",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"exec.approvals.set",
+		"exec-approvals",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"exec.approvals.node.get",
+		"exec-approvals",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"exec.approvals.node.set",
+		"exec-approvals",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"exec.approval.get",
+		null,
+		"operator.approvals",
+		"<=2026.7"
+	],
+	[
+		"exec.approval.list",
+		null,
+		"operator.approvals",
+		"<=2026.7"
+	],
+	[
+		"exec.approval.request",
+		null,
+		"operator.approvals",
+		"<=2026.7"
+	],
+	[
+		"exec.approval.waitDecision",
+		null,
+		"operator.approvals",
+		"<=2026.7"
+	],
+	[
+		"exec.approval.resolve",
+		null,
+		"operator.approvals",
+		"<=2026.7"
+	],
+	[
+		"exec.approval.grants.list",
+		null,
+		"operator.approvals",
+		"2026.8"
+	],
+	[
+		"exec.approval.grants.revoke",
+		null,
+		"operator.approvals",
+		"2026.8"
+	],
+	[
+		"question.request",
+		null,
+		"operator.questions",
+		"2026.7"
+	],
+	[
+		"question.waitAnswer",
+		null,
+		"operator.questions",
+		"2026.7"
+	],
+	[
+		"question.resolve",
+		null,
+		"operator.questions",
+		"2026.7"
+	],
+	[
+		"question.get",
+		null,
+		"operator.questions",
+		"2026.7"
+	],
+	[
+		"question.list",
+		null,
+		"operator.questions",
+		"2026.7"
+	],
+	[
+		"plugin.approval.list",
+		null,
+		"operator.approvals",
+		"<=2026.7"
+	],
+	[
+		"plugin.approval.request",
+		null,
+		"operator.approvals",
+		"<=2026.7"
+	],
+	[
+		"plugin.approval.waitDecision",
+		null,
+		"operator.approvals",
+		"<=2026.7"
+	],
+	[
+		"plugin.approval.resolve",
+		null,
+		"operator.approvals",
+		"<=2026.7"
+	],
+	[
+		"plugins.uiDescriptors",
+		"plugin-host-hooks",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"plugins.sessionAction",
+		"plugin-host-hooks",
+		"dynamic",
+		"<=2026.7"
+	],
+	[
+		"openclaw.chat",
+		"system-agent",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"openclaw.chat.history",
+		"system-agent",
+		"operator.admin",
+		"2026.7"
+	],
+	[
+		"openclaw.changes.list",
+		"system-changes",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"openclaw.approval.list",
+		"system-agent",
+		"operator.approvals",
+		"<=2026.7"
+	],
+	[
+		"openclaw.setup.detect",
+		"system-agent",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"openclaw.setup.activate",
+		"system-agent",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"openclaw.setup.activate.start",
+		"system-agent",
+		"operator.admin",
+		"2026.8"
+	],
+	[
+		"openclaw.setup.auth.start",
+		"system-agent",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"openclaw.setup.prepare.start",
+		"system-agent",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"wizard.start",
+		"wizard",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"wizard.next",
+		"wizard",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"wizard.cancel",
+		"wizard",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"wizard.status",
+		"wizard",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"talk.catalog",
+		"talk",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"talk.config",
+		"talk",
+		"dynamic",
+		"<=2026.7"
+	],
+	[
+		"talk.client.create",
+		"talk",
+		"operator.talk",
+		"<=2026.7"
+	],
+	[
+		"talk.client.transcript",
+		"talk",
+		"operator.talk",
+		"<=2026.7"
+	],
+	[
+		"talk.client.close",
+		"talk",
+		"operator.talk",
+		"<=2026.7"
+	],
+	[
+		"talk.client.toolCall",
+		"talk",
+		"operator.talk",
+		"<=2026.7"
+	],
+	[
+		"talk.client.steer",
+		"talk",
+		"operator.talk",
+		"<=2026.7"
+	],
+	[
+		"talk.session.create",
+		"talk",
+		"operator.talk",
+		"<=2026.7"
+	],
+	[
+		"talk.session.appendAudio",
+		"talk",
+		"operator.talk",
+		"<=2026.7"
+	],
+	[
+		"talk.session.cancelOutput",
+		"talk",
+		"operator.talk",
+		"<=2026.7"
+	],
+	[
+		"talk.session.acknowledgeMark",
+		"talk",
+		"operator.talk",
+		"<=2026.7"
+	],
+	[
+		"talk.session.submitToolResult",
+		"talk",
+		"operator.talk",
+		"<=2026.7"
+	],
+	[
+		"talk.session.steer",
+		"talk",
+		"operator.talk",
+		"<=2026.7"
+	],
+	[
+		"talk.session.close",
+		"talk",
+		"operator.talk",
+		"<=2026.7"
+	],
+	[
+		"talk.speak",
+		"talk",
+		"operator.talk",
+		"<=2026.7"
+	],
+	[
+		"talk.mode",
+		"talk-mode",
+		"operator.talk",
+		"<=2026.7"
+	],
+	[
+		"commands.list",
+		"commands",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"models.list",
+		"models",
+		"operator.read",
+		"<=2026.7",
+		{ startup: true }
+	],
+	[
+		"models.authStatus",
+		"models-auth-status",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"models.authLogout",
+		"models-auth-status",
+		"operator.admin",
+		"<=2026.7",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"tools.catalog",
+		"tools-catalog",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"tools.effective",
+		"tools-effective",
+		"operator.read",
+		"<=2026.7",
+		{ startup: true }
+	],
+	[
+		"tools.invoke",
+		"tools-invoke",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"mcp.app.view",
+		"mcp-app",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"mcp.app.listTools",
+		"mcp-app",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"mcp.app.listResources",
+		"mcp-app",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"mcp.app.listResourceTemplates",
+		"mcp-app",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"mcp.app.readResource",
+		"mcp-app",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"mcp.app.callTool",
+		"mcp-app",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"mcp.app.updateModelContext",
+		"mcp-app",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"board.get",
+		"board",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"board.update",
+		"board",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"board.widget.put",
+		"board",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"board.widget.grant",
+		"board",
+		"operator.approvals",
+		"<=2026.7"
+	],
+	[
+		"board.widget.appView",
+		"board",
+		"operator.read",
+		"2026.7"
+	],
+	[
+		"board.event",
+		"board",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"audit.list",
+		"audit",
+		"operator.read",
+		"2026.7"
+	],
+	[
+		"audit.activity.list",
+		"audit",
+		"operator.read",
+		"2026.7"
+	],
+	[
+		"users.list",
+		"users",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"users.self",
+		"users",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"users.linkEmail",
+		"users",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"users.setDisplayName",
+		"users",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"users.setAvatar",
+		"users",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"users.setRole",
+		"users",
+		"operator.admin",
+		"2026.8"
+	],
+	[
+		"users.listAuthLinks",
+		"users",
+		"operator.read",
+		"2026.8"
+	],
+	[
+		"users.listModelAccounts",
+		"users",
+		"operator.read",
+		"2026.8"
+	],
+	[
+		"users.selectModelAccount",
+		"users",
+		"operator.write",
+		"2026.8"
+	],
+	[
+		"users.linkAuthProfile",
+		"users",
+		"operator.admin",
+		"2026.8"
+	],
+	[
+		"users.unlinkAuthProfile",
+		"users",
+		"operator.write",
+		"2026.8"
+	],
+	[
+		"users.authConnect.start",
+		"users",
+		"operator.write",
+		"2026.8"
+	],
+	[
+		"users.authConnect.answer",
+		"users",
+		"operator.write",
+		"2026.8"
+	],
+	[
+		"users.authConnect.status",
+		"users",
+		"operator.write",
+		"2026.8"
+	],
+	[
+		"users.authConnect.cancel",
+		"users",
+		"operator.write",
+		"2026.8"
+	],
+	[
+		"users.authConnect.catalog",
+		"users",
+		"operator.write",
+		"2026.8"
+	],
+	[
+		"tasks.list",
+		"tasks",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"tasks.get",
+		"tasks",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"tasks.cancel",
+		"tasks",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"taskSuggestions.list",
+		"task-suggestions",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"taskSuggestions.create",
+		"task-suggestions",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"taskSuggestions.accept",
+		"task-suggestions",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"taskSuggestions.dismiss",
+		"task-suggestions",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"environments.list",
+		"environments",
+		"dynamic",
+		"2026.7"
+	],
+	[
+		"environments.status",
+		"environments",
+		"operator.read",
+		"2026.7"
+	],
+	[
+		"worktrees.list",
+		"worktrees",
+		"operator.read",
+		"2026.7"
+	],
+	[
+		"worktrees.branches",
+		"worktrees",
+		"operator.write",
+		"2026.7"
+	],
+	[
+		"fs.listDir",
+		"fs",
+		"dynamic",
+		"<=2026.7"
+	],
+	[
+		"worktrees.create",
+		"worktrees",
+		"operator.write",
+		"2026.7",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"worktrees.remove",
+		"worktrees",
+		"operator.admin",
+		"2026.7",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"worktrees.restore",
+		"worktrees",
+		"operator.admin",
+		"2026.7",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"worktrees.gc",
+		"worktrees",
+		"operator.admin",
+		"2026.7",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"agents.list",
+		"agents",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"agents.create",
+		"agents",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"agents.update",
+		"agents",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"agents.delete",
+		"agents",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"agents.files.list",
+		"agents",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"agents.files.get",
+		"agents",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"agents.files.set",
+		"agents",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"sessions.files.list",
+		"sessions-files",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"sessions.files.get",
+		"sessions-files",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"sessions.files.set",
+		"sessions-files",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"sessions.files.reveal",
+		"sessions-files",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"artifacts.list",
+		"artifacts",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"artifacts.get",
+		"artifacts",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"artifacts.download",
+		"artifacts",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"skills.status",
+		"skills",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"skills.library.list",
+		"skills",
+		"operator.read",
+		"2026.8"
+	],
+	[
+		"skills.library.read",
+		"skills",
+		"operator.read",
+		"2026.8"
+	],
+	[
+		"skills.library.save",
+		"skills",
+		"operator.write",
+		"2026.8"
+	],
+	[
+		"skills.library.mutate",
+		"skills",
+		"operator.write",
+		"2026.8"
+	],
+	[
+		"skills.library.activate",
+		"skills",
+		"operator.write",
+		"2026.8"
+	],
+	[
+		"skills.library.import",
+		"skills",
+		"operator.write",
+		"2026.8"
+	],
+	[
+		"skills.library.upload",
+		"skills",
+		"operator.write",
+		"2026.8"
+	],
+	[
+		"skills.search",
+		"skills",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"skills.detail",
+		"skills",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"skills.securityVerdicts",
+		"skills",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"skills.skillCard",
+		"skills",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"skills.bins",
+		"skills",
+		"node",
+		"<=2026.7"
+	],
+	[
+		"skills.upload.begin",
+		"skills",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"skills.upload.chunk",
+		"skills",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"skills.upload.commit",
+		"skills",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"skills.install",
+		"skills",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"skills.update",
+		"skills",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"skills.curator.status",
+		"skills",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"skills.curator.pin",
+		"skills",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"skills.curator.unpin",
+		"skills",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"skills.curator.restore",
+		"skills",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"skills.proposals.list",
+		"skills",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"skills.proposals.inspect",
+		"skills",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"skills.proposals.historyStatus",
+		"skills",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"skills.proposals.historyScan",
+		"skills",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"skills.proposals.create",
+		"skills",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"skills.proposals.update",
+		"skills",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"skills.proposals.revise",
+		"skills",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"skills.proposals.requestRevision",
+		"skills",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"skills.proposals.apply",
+		"skills",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"skills.proposals.reject",
+		"skills",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"skills.proposals.quarantine",
+		"skills",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"update.status",
+		"update",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"update.run",
+		"update",
+		"operator.admin",
+		"<=2026.7",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"voicewake.get",
+		"voicewake",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"voicewake.set",
+		"voicewake",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"secrets.reload",
+		null,
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"secrets.resolve",
+		null,
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"voicewake.routing.get",
+		"voicewake-routing",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"sessions.list",
+		"sessions-read",
+		"operator.read",
+		"<=2026.7",
+		{ startup: true }
+	],
+	[
+		"sessions.subscribe",
+		"sessions-subscriptions",
+		"operator.read",
+		"<=2026.7",
+		{ startup: true }
+	],
+	[
+		"sessions.messages.subscribe",
+		"sessions-subscriptions",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"sessions.messages.unsubscribe",
+		"sessions-subscriptions",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"sessions.viewers.set",
+		"sessions-subscriptions",
+		"operator.read",
+		"2026.7"
+	],
+	[
+		"sessions.preview",
+		"sessions-read",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"sessions.describe",
+		"sessions-read",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"sessions.branches.list",
+		"sessions-rewind",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"sessions.branches.switch",
+		"sessions-rewind",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"sessions.rewind",
+		"sessions-rewind",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"sessions.fork",
+		"sessions-rewind",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"sessions.create",
+		"sessions-create",
+		"dynamic",
+		"<=2026.7",
+		{ startup: true }
+	],
+	[
+		"sessions.recover",
+		"sessions-recover",
+		"operator.write",
+		"2026.8",
+		{ startup: true }
+	],
+	[
+		"sessions.send",
+		"sessions-messaging",
+		"operator.write",
+		"<=2026.7",
+		{ startup: true }
+	],
+	[
+		"sessions.abort",
+		"sessions-abort",
+		"operator.write",
+		"<=2026.7",
+		{ startup: true }
+	],
+	[
+		"sessions.patch",
+		"sessions-mutations",
+		"dynamic",
+		"<=2026.7"
+	],
+	[
+		"sessions.goal.update",
+		"sessions-goal",
+		"operator.write",
+		"2026.8"
+	],
+	[
+		"sessions.goal.clear",
+		"sessions-goal",
+		"operator.write",
+		"2026.8"
+	],
+	[
+		"sessions.pluginPatch",
+		"sessions-mutations",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"sessions.cleanup",
+		"sessions-read",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"sessions.reset",
+		"sessions-mutations",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"sessions.delete",
+		"sessions-delete",
+		"dynamic",
+		"<=2026.7"
+	],
+	[
+		"sessions.compact",
+		"sessions-compact",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"sessions.groups.list",
+		"sessions-groups",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"sessions.groups.defaults",
+		"sessions-groups",
+		"operator.write",
+		"2026.8"
+	],
+	[
+		"sessions.groups.put",
+		"sessions-groups",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"sessions.groups.rename",
+		"sessions-groups",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"sessions.groups.update",
+		"sessions-groups",
+		"operator.write",
+		"2026.8"
+	],
+	[
+		"sessions.groups.delete",
+		"sessions-groups",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"last-heartbeat",
+		"system",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"set-heartbeats",
+		"system",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"wake",
+		"cron",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"node.pair.list",
+		"nodes",
+		"operator.pairing",
+		"<=2026.7"
+	],
+	[
+		"node.pair.approve",
+		"nodes",
+		"operator.pairing",
+		"<=2026.7"
+	],
+	[
+		"node.pair.reject",
+		"nodes",
+		"operator.pairing",
+		"<=2026.7"
+	],
+	[
+		"node.pair.remove",
+		"nodes",
+		"operator.pairing",
+		"<=2026.7"
+	],
+	[
+		"device.pair.list",
+		"devices",
+		"operator.pairing",
+		"<=2026.7"
+	],
+	[
+		"device.pair.approve",
+		"devices",
+		"operator.pairing",
+		"<=2026.7"
+	],
+	[
+		"device.pair.reject",
+		"devices",
+		"operator.pairing",
+		"<=2026.7"
+	],
+	[
+		"device.pair.remove",
+		"devices",
+		"operator.pairing",
+		"<=2026.7"
+	],
+	[
+		"device.pair.rename",
+		"devices",
+		"operator.pairing",
+		"2026.7"
+	],
+	[
+		"device.token.rotate",
+		"devices",
+		"operator.pairing",
+		"<=2026.7"
+	],
+	[
+		"device.token.revoke",
+		"devices",
+		"operator.pairing",
+		"<=2026.7"
+	],
+	[
+		"device.pair.setupCode",
+		"device-pair-setup",
+		"operator.admin",
+		"<=2026.7",
+		{ advertise: false }
+	],
+	[
+		"device.pair.setupStatus",
+		"device-pair-setup",
+		"operator.admin",
+		"2026.8",
+		{ advertise: false }
+	],
+	[
+		"node.rename",
+		"nodes",
+		"operator.pairing",
+		"<=2026.7"
+	],
+	[
+		"node.list",
+		"nodes",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"node.describe",
+		"nodes",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"node.pluginSurface.refresh",
+		"nodes",
+		"node",
+		"<=2026.7"
+	],
+	[
+		"node.pluginTools.update",
+		"nodes",
+		"node",
+		"<=2026.7"
+	],
+	[
+		"node.skills.update",
+		"nodes",
+		"node",
+		"<=2026.7"
+	],
+	[
+		"node.runnerInventory.update",
+		"nodes",
+		"node",
+		"2026.8",
+		{ advertise: false }
+	],
+	[
+		"node.pending.drain",
+		"nodes-pending",
+		"node",
+		"<=2026.7"
+	],
+	[
+		"node.pending.enqueue",
+		"nodes-pending",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"node.invoke",
+		"nodes",
+		"dynamic",
+		"<=2026.7"
+	],
+	[
+		"node.pending.pull",
+		"nodes",
+		"node",
+		"<=2026.7"
+	],
+	[
+		"node.pending.ack",
+		"nodes",
+		"node",
+		"<=2026.7"
+	],
+	[
+		"node.invoke.progress",
+		"nodes",
+		"node",
+		"<=2026.7"
+	],
+	[
+		"node.invoke.result",
+		"nodes",
+		"node",
+		"<=2026.7"
+	],
+	[
+		"node.event",
+		"nodes",
+		"node",
+		"<=2026.7"
+	],
+	[
+		"cron.get",
+		"cron",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"cron.list",
+		"cron",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"cron.status",
+		"cron",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"cron.scratch.get",
+		"cron",
+		"operator.admin",
+		"2026.7"
+	],
+	[
+		"cron.scratch.set",
+		"cron",
+		"operator.admin",
+		"2026.7"
+	],
+	[
+		"cron.add",
+		"cron",
+		"operator.admin",
+		"<=2026.7",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"cron.update",
+		"cron",
+		"operator.admin",
+		"<=2026.7",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"cron.remove",
+		"cron",
+		"operator.admin",
+		"<=2026.7",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"cron.run",
+		"cron",
+		"operator.admin",
+		"<=2026.7",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"cron.runs",
+		"cron",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"gateway.identity.get",
+		"system",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"gateway.restart.preflight",
+		"restart",
+		"operator.read",
+		"<=2026.7",
+		{ compatibilityRestored: true }
+	],
+	[
+		"gateway.restart.request",
+		"restart",
+		"operator.admin",
+		"<=2026.7",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"system-presence",
+		"system",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"system-event",
+		"system",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"message.action",
+		"send",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"conversations.send",
+		"conversations",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"conversations.turn",
+		"conversations",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"conversations.turn.cancel",
+		"conversations",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"send",
+		"send",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"agent",
+		"agent",
+		"dynamic",
+		"<=2026.7",
+		{ startup: true }
+	],
+	[
+		"agent.identity.get",
+		"agent-identity",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"agent.wait",
+		"agent",
+		"operator.write",
+		"<=2026.7",
+		{ startup: true }
+	],
+	[
+		"chat.history",
+		"chat",
+		"operator.read",
+		"<=2026.7",
+		{ startup: true }
+	],
+	[
+		"chat.startup",
+		"chat",
+		"operator.read",
+		"<=2026.7",
+		{ startup: true }
+	],
+	[
+		"chat.metadata",
+		"chat",
+		"operator.read",
+		"<=2026.7",
+		{ startup: true }
+	],
+	[
+		"chat.message.get",
+		"chat",
+		"operator.read",
+		"<=2026.7",
+		{ startup: true }
+	],
+	[
+		"chat.abort",
+		"chat-abort",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"chat.send",
+		"chat-send",
+		"operator.write",
+		"<=2026.7",
+		{ startup: true }
+	],
+	[
+		"terminal.open",
+		"terminal",
+		"operator.admin",
+		"2026.7"
+	],
+	[
+		"terminal.input",
+		"terminal",
+		"operator.admin",
+		"2026.7"
+	],
+	[
+		"terminal.resize",
+		"terminal",
+		"operator.admin",
+		"2026.7"
+	],
+	[
+		"terminal.close",
+		"terminal",
+		"operator.admin",
+		"2026.7"
+	],
+	[
+		"channels.pairing.list",
+		"channel-pairing",
+		"operator.pairing",
+		"2026.7"
+	],
+	[
+		"channels.pairing.approve",
+		"channel-pairing",
+		"dynamic",
+		"2026.7"
+	],
+	[
+		"channels.pairing.dismiss",
+		"channel-pairing",
+		"operator.pairing",
+		"2026.7"
+	],
+	[
+		"assistant.media.get",
+		null,
+		"operator.read",
+		"<=2026.7",
+		{ advertise: false }
+	],
+	[
+		"sessions.get",
+		"sessions-read",
+		"operator.read",
+		"<=2026.7",
+		{ advertise: false }
+	],
+	[
+		"sessions.resolve",
+		"sessions-read",
+		"operator.read",
+		"<=2026.7",
+		{ advertise: false }
+	],
+	[
+		"sessions.usage",
+		"usage",
+		"operator.read",
+		"<=2026.7",
+		{ advertise: false }
+	],
+	[
+		"sessions.usage.timeseries",
+		"usage",
+		"operator.read",
+		"<=2026.7",
+		{ advertise: false }
+	],
+	[
+		"sessions.usage.logs",
+		"usage",
+		"operator.read",
+		"<=2026.7",
+		{ advertise: false }
+	],
+	[
+		"poll",
+		"send",
+		"operator.write",
+		"<=2026.7",
+		{ advertise: false }
+	],
+	[
+		"sessions.steer",
+		"sessions-messaging",
+		"operator.write",
+		"<=2026.7",
+		{
+			advertise: false,
+			description: "Deprecated alias for chat.send queueMode interrupt; removal per protocol deprecation policy."
+		}
+	],
+	[
+		"push.test",
+		"push",
+		"operator.write",
+		"<=2026.7",
+		{ advertise: false }
+	],
+	[
+		"attach.grant",
+		"attach",
+		"operator.admin",
+		"<=2026.7",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"attach.revoke",
+		"attach",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"push.web.vapidPublicKey",
+		"push",
+		"operator.write",
+		"<=2026.7",
+		{ advertise: false }
+	],
+	[
+		"push.web.subscribe",
+		"push",
+		"operator.write",
+		"<=2026.7",
+		{ advertise: false }
+	],
+	[
+		"push.web.unsubscribe",
+		"push",
+		"operator.write",
+		"<=2026.7",
+		{ advertise: false }
+	],
+	[
+		"push.web.test",
+		"push",
+		"operator.write",
+		"<=2026.7",
+		{ advertise: false }
+	],
+	[
+		"push.web.preferences.get",
+		"push",
+		"operator.read",
+		"2026.8"
+	],
+	[
+		"push.web.preferences.set",
+		"push",
+		"operator.write",
+		"2026.8"
+	],
+	[
+		"config.openFile",
+		"config",
+		"operator.admin",
+		"<=2026.7",
+		{ advertise: false }
+	],
+	[
+		"connect",
+		"connect",
+		"operator.admin",
+		"<=2026.7",
+		{ advertise: false }
+	],
+	[
+		"chat.inject",
+		"chat",
+		"operator.admin",
+		"<=2026.7",
+		{ advertise: false }
+	],
+	[
+		"nativeHook.invoke",
+		"native-hook-relay",
+		"operator.admin",
+		"<=2026.7",
+		{ advertise: false }
+	],
+	[
+		"web.login.start",
+		"web",
+		"operator.admin",
+		"<=2026.7",
+		{ advertise: false }
+	],
+	[
+		"web.login.wait",
+		"web",
+		"operator.admin",
+		"<=2026.7",
+		{ advertise: false }
+	],
+	[
+		"terminal.attach",
+		"terminal",
+		"operator.admin",
+		"2026.7"
+	],
+	[
+		"terminal.list",
+		"terminal",
+		"operator.admin",
+		"2026.7"
+	],
+	[
+		"controlUi.githubPreview",
+		"control-ui",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"system.info",
+		"system",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"agents.workspace.list",
+		"agents-workspace",
+		"operator.read",
+		"2026.7"
+	],
+	[
+		"agents.workspace.get",
+		"agents-workspace",
+		"operator.read",
+		"2026.7"
+	],
+	[
+		"tts.speak",
+		"tts",
+		"operator.write",
+		"2026.7"
+	],
+	[
+		"plugins.list",
+		"plugins",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"plugins.search",
+		"plugins",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"plugins.install",
+		"plugins-mutations",
+		"operator.admin",
+		"<=2026.7",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"plugins.setEnabled",
+		"plugins-mutations",
+		"operator.admin",
+		"<=2026.7",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"plugins.uninstall",
+		"plugins-mutations",
+		"operator.admin",
+		"<=2026.7",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"plugins.refresh",
+		"plugins-mutations",
+		"operator.admin",
+		"<=2026.7",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"controlUi.sessionPullRequests.subscribe",
+		"control-ui",
+		"operator.read",
+		"2026.7"
+	],
+	[
+		"controlUi.sessionPreview",
+		"control-ui",
+		"operator.read",
+		"2026.8"
+	],
+	[
+		"gateway.suspend.prepare",
+		"suspend",
+		"operator.admin",
+		"2026.7",
+		{
+			startup: true,
+			controlPlaneWrite: true
+		}
+	],
+	[
+		"gateway.suspend.status",
+		"suspend",
+		"operator.read",
+		"2026.7"
+	],
+	[
+		"gateway.suspend.resume",
+		"suspend",
+		"operator.admin",
+		"2026.7"
+	],
+	[
+		"chat.toolTitles",
+		"chat",
+		"operator.write",
+		"<=2026.7"
+	],
+	[
+		"sessions.diff",
+		"sessions-diff",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"openclaw.setup.verify",
+		"system-agent",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"environments.create",
+		"environments",
+		"operator.admin",
+		"2026.7",
+		{
+			startup: true,
+			controlPlaneWrite: true
+		}
+	],
+	[
+		"environments.destroy",
+		"environments",
+		"operator.admin",
+		"2026.7",
+		{
+			startup: true,
+			controlPlaneWrite: true
+		}
+	],
+	[
+		"sessions.catalog.list",
+		"session-catalog",
+		"operator.read",
+		"2026.7"
+	],
+	[
+		"sessions.catalog.read",
+		"session-catalog",
+		"operator.read",
+		"2026.7"
+	],
+	[
+		"terminal.upload",
+		"terminal",
+		"operator.admin",
+		"2026.7"
+	],
+	[
+		"sessions.catalog.continue",
+		"session-catalog",
+		"operator.write",
+		"2026.7"
+	],
+	[
+		"sessions.catalog.archive",
+		"session-catalog",
+		"operator.write",
+		"2026.7"
+	],
+	[
+		"approval.get",
+		null,
+		"operator.approvals",
+		"2026.7"
+	],
+	[
+		"approval.resolve",
+		null,
+		"operator.approvals",
+		"2026.7"
+	],
+	[
+		"sessions.search",
+		"sessions-read",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"sessions.dispatch",
+		"sessions-dispatch",
+		"dynamic",
+		"2026.7",
+		{
+			startup: true,
+			controlPlaneWrite: true
+		}
+	],
+	[
+		"sessions.reclaim",
+		"sessions-dispatch",
+		"operator.write",
+		"2026.7",
+		{
+			startup: true,
+			controlPlaneWrite: true
+		}
+	],
+	[
+		"models.probe",
+		"models-probe",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"migrations.memory.plan",
+		"migrations",
+		"operator.admin",
+		"2026.7"
+	],
+	[
+		"migrations.memory.apply",
+		"migrations",
+		"operator.admin",
+		"2026.7",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"ui.command",
+		"ui-command",
+		"operator.write",
+		"2026.7"
+	],
+	[
+		"approval.history",
+		null,
+		"operator.approvals",
+		"2026.7"
+	],
+	[
+		"plugin.surface.refresh",
+		"nodes",
+		"operator.read",
+		"<=2026.7"
+	],
+	[
+		"conversations.list",
+		"conversations",
+		"operator.admin",
+		"<=2026.7"
+	],
+	[
+		"session.discussion.info",
+		"session-discussion",
+		"operator.read",
+		"2026.7"
+	],
+	[
+		"session.discussion.open",
+		"session-discussion",
+		"operator.write",
+		"2026.7"
+	],
+	[
+		"board.prompt.authorize",
+		"board",
+		"operator.read",
+		"2026.7"
+	],
+	[
+		"board.data.read",
+		"board",
+		"operator.read",
+		"2026.7"
+	],
+	[
+		"board.action",
+		"board",
+		"operator.write",
+		"2026.7"
+	],
+	[
+		"sessions.observer.visibility",
+		"session-observer-rpc",
+		"operator.read",
+		"2026.7"
+	],
+	[
+		"session.visibility.set",
+		"sessions-sharing",
+		"operator.write",
+		"2026.7"
+	],
+	[
+		"session.members.list",
+		"sessions-sharing",
+		"operator.read",
+		"2026.7"
+	],
+	[
+		"session.members.add",
+		"sessions-sharing",
+		"operator.write",
+		"2026.7"
+	],
+	[
+		"session.members.remove",
+		"sessions-sharing",
+		"operator.write",
+		"2026.7"
+	],
+	[
+		"session.suggestions.add",
+		"sessions-suggestions",
+		"operator.write",
+		"2026.7"
+	],
+	[
+		"session.suggestions.list",
+		"sessions-suggestions",
+		"operator.read",
+		"2026.7"
+	],
+	[
+		"session.suggestions.resolve",
+		"sessions-suggestions",
+		"operator.write",
+		"2026.7"
+	],
+	[
+		"session.typing",
+		"sessions-suggestions",
+		"operator.write",
+		"2026.7"
+	],
+	[
+		"sessions.companion.ask",
+		"session-companion-rpc",
+		"operator.read",
+		"2026.7"
+	],
+	[
+		"sessions.companion.state",
+		"session-companion-rpc",
+		"operator.read",
+		"2026.7"
+	],
+	[
+		"sessions.companion.reset",
+		"session-companion-rpc",
+		"operator.write",
+		"2026.7",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"memory.search",
+		"memory-search",
+		"operator.read",
+		"2026.7"
+	],
+	[
+		"skills.proposals.events.list",
+		"skills",
+		"operator.read",
+		"2026.7"
+	],
+	[
+		"skills.proposals.evaluate",
+		"skills",
+		"operator.admin",
+		"2026.7",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"hooks.status",
+		"hooks-status",
+		"operator.read",
+		"2026.7"
+	],
+	[
+		"tasks.retry",
+		"tasks",
+		"operator.write",
+		"2026.7"
+	],
+	[
+		"tasks.dismiss",
+		"tasks",
+		"operator.write",
+		"2026.7"
+	],
+	[
+		"audit.run.inspect",
+		"audit",
+		"operator.read",
+		"2026.7"
+	],
+	[
+		"sessions.patchMany",
+		"sessions-mutations",
+		"dynamic",
+		"2026.8"
+	],
+	[
+		"update.hold",
+		"update",
+		"operator.admin",
+		"2026.8",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"sessions.catalog.startTerminal",
+		"session-catalog",
+		"operator.admin",
+		"2026.8"
+	],
+	[
+		"worker.desktop.observe",
+		"environments",
+		"operator.admin",
+		"2026.8",
+		{ startup: true }
+	],
+	[
+		"projects.list",
+		"projects",
+		"operator.read",
+		"2026.8"
+	],
+	[
+		"projects.register",
+		"projects",
+		"operator.admin",
+		"2026.8"
+	],
+	[
+		"projects.remove",
+		"projects",
+		"operator.admin",
+		"2026.8"
+	],
+	[
+		"worker.desktop.launch",
+		"environments",
+		"operator.admin",
+		"2026.8",
+		{ startup: true }
+	],
+	[
+		"secrets.store.list",
+		null,
+		"operator.admin",
+		"2026.8"
+	],
+	[
+		"secrets.store.set",
+		null,
+		"operator.admin",
+		"2026.8",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"secrets.store.delete",
+		null,
+		"operator.admin",
+		"2026.8",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"users.prefs.get",
+		"users",
+		"operator.read",
+		"2026.8"
+	],
+	[
+		"users.prefs.set",
+		"users",
+		"operator.write",
+		"2026.8"
+	],
+	[
+		"projects.add",
+		"projects",
+		"operator.write",
+		"2026.8",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"projects.searchRemote",
+		"projects",
+		"operator.read",
+		"2026.8",
+		{ description: "Search GitHub repositories that can be cloned as managed projects." }
+	],
+	[
+		"desktop.observe",
+		"environments",
+		"operator.admin",
+		"2026.8",
+		{ startup: true }
+	],
+	[
+		"desktop.launch",
+		"environments",
+		"operator.admin",
+		"2026.8",
+		{ startup: true }
+	],
+	[
+		"device.scopes.requestUpgrade",
+		"devices",
+		"operator.read",
+		"2026.8"
+	],
+	[
+		"device.scopes.waitUpgrade",
+		"devices",
+		"operator.read",
+		"2026.8"
+	],
+	[
+		"portal.list",
+		"portals",
+		"operator.read",
+		"2026.8"
+	],
+	[
+		"portal.open",
+		"portals",
+		"operator.write",
+		"2026.8",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"portal.close",
+		"portals",
+		"operator.write",
+		"2026.8",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"sessions.move",
+		"sessions-dispatch",
+		"dynamic",
+		"2026.8",
+		{
+			startup: true,
+			controlPlaneWrite: true
+		}
+	],
+	[
+		"sessions.assignOwner",
+		"sessions-mutations",
+		"operator.write",
+		"2026.8"
+	],
+	[
+		"progressCard.get",
+		"progress-card",
+		"operator.read",
+		"2026.8"
+	],
+	[
+		"progressCard.put",
+		"progress-card",
+		"operator.write",
+		"2026.8"
+	],
+	[
+		"tools.github.status",
+		"tools-github",
+		"operator.read",
+		"2026.8"
+	],
+	[
+		"tools.github.configure",
+		"tools-github",
+		"operator.admin",
+		"2026.8",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"tools.github.authorize.start",
+		"tools-github",
+		"operator.admin",
+		"2026.8",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"tools.github.authorize.poll",
+		"tools-github",
+		"operator.admin",
+		"2026.8",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"tools.github.authorize.cancel",
+		"tools-github",
+		"operator.admin",
+		"2026.8",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"sessions.github.publish",
+		"sessions-github",
+		"operator.sessions.write",
+		"2026.8",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"diagnostics.lanes",
+		"diagnostics",
+		"operator.read",
+		"2026.8"
+	],
+	[
+		"session.members.listEvidence",
+		"sessions-sharing",
+		"operator.read",
+		"2026.8"
+	],
+	[
+		"plugins.inspect",
+		"plugins",
+		"operator.read",
+		"2026.8"
+	],
+	[
+		"users.github.status",
+		"users",
+		"operator.read",
+		"2026.8",
+		{ startup: true }
+	],
+	[
+		"users.github.authorize.start",
+		"users",
+		"operator.read",
+		"2026.8",
+		{
+			startup: true,
+			controlPlaneWrite: true
+		}
+	],
+	[
+		"users.github.authorize.poll",
+		"users",
+		"operator.read",
+		"2026.8",
+		{
+			startup: true,
+			controlPlaneWrite: true
+		}
+	],
+	[
+		"users.github.authorize.cancel",
+		"users",
+		"operator.read",
+		"2026.8",
+		{
+			startup: true,
+			controlPlaneWrite: true
+		}
+	],
+	[
+		"users.github.disconnect",
+		"users",
+		"operator.read",
+		"2026.8",
+		{
+			startup: true,
+			controlPlaneWrite: true
+		}
+	],
+	[
+		"sessions.github.options",
+		"sessions-github",
+		"operator.read",
+		"2026.8",
+		{ startup: true }
+	],
+	[
+		"sessions.github.status",
+		"sessions-github",
+		"operator.read",
+		"2026.8",
+		{ startup: true }
+	],
+	[
+		"sessions.github.confirm",
+		"sessions-github",
+		"operator.write",
+		"2026.8",
+		{
+			startup: true,
+			controlPlaneWrite: true
+		}
+	],
+	[
+		"sessions.title.prepare",
+		"sessions-title",
+		"operator.write",
+		"2026.8",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"users.mentionable",
+		"users-mentionable",
+		"operator.read",
+		"2026.8",
+		{ startup: true }
+	],
+	[
+		"mentions.list",
+		"mentions",
+		"operator.read",
+		"2026.8",
+		{ startup: true }
+	],
+	[
+		"mentions.dismiss",
+		"mentions",
+		"operator.read",
+		"2026.8",
+		{ startup: true }
+	],
+	[
+		"transcripts.list",
+		"transcripts",
+		"operator.read",
+		"2026.8"
+	],
+	[
+		"transcripts.get",
+		"transcripts",
+		"operator.read",
+		"2026.8"
+	],
+	[
+		"models.authOrderSet",
+		"models-auth-order",
+		"operator.admin",
+		"2026.8",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"canvas.document.view",
+		"canvas",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"plugins.controlUi.list",
+		"plugins-control-ui",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"plugins.controlUi.reload",
+		"plugins-control-ui",
+		"operator.admin",
+		"2026.9",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"plugins.controlUi.report",
+		"plugins-control-ui",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"plugins.controlUi.status",
+		"plugins-control-ui",
+		"operator.admin",
+		"2026.9"
+	],
+	[
+		"update.runs.get",
+		"update",
+		"operator.admin",
+		"2026.9"
+	],
+	[
+		"update.runs.list",
+		"update",
+		"operator.admin",
+		"2026.9"
+	],
+	[
+		"gateway.suspend.handoff",
+		"suspend",
+		"operator.admin",
+		"2026.9",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"transcripts.export",
+		"transcripts",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"transcripts.status",
+		"transcripts",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"update.report",
+		"update",
+		"operator.admin",
+		"2026.9",
+		{ controlPlaneWrite: true }
+	],
+	[
+		"skills.workshop.read",
+		"skills",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"session.publicShare.set",
+		"sessions-sharing",
+		"operator.write",
+		"2026.9"
+	],
+	[
+		"claws.monitors",
+		"claws-monitors",
+		"operator.admin",
+		"2026.9",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"plugins.catalog.browse",
+		"plugins",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"plugins.catalog.categories",
+		"plugins",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"plugins.catalog.get",
+		"plugins",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"tasks.history",
+		"tasks",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"environments.prepare",
+		"environments",
+		"operator.admin",
+		"2026.9",
+		{
+			startup: true,
+			controlPlaneWrite: true
+		}
+	],
+	[
+		"models.authRefresh",
+		"models-auth-status",
+		"operator.admin",
+		"2026.9",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"models.authLogin",
+		"models-auth-login",
+		"operator.admin",
+		"2026.9",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"models.authSetApiKey",
+		"models-auth-status",
+		"operator.admin",
+		"2026.9",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"sessions.storage.status",
+		"sessions-read",
+		"operator.admin",
+		"2026.9"
+	],
+	[
+		"sessions.storage.run",
+		"sessions-read",
+		"operator.admin",
+		"2026.9"
+	],
+	[
+		"plugins.reload",
+		"plugins-mutations",
+		"operator.admin",
+		"2026.9",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"claws.packages.remove",
+		"claws-packages",
+		"operator.admin",
+		"2026.9",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"canvas.document.preview",
+		"canvas",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"computer.status",
+		"computer",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"computer.invoke",
+		"computer",
+		"operator.write",
+		"2026.9"
+	],
+	[
+		"sessions.activitySummary.ensure",
+		"session-activity-summary",
+		"operator.write",
+		"2026.9"
+	],
+	[
+		"controlUi.sessionPullRequests.checks",
+		"control-ui",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"diagnostics.cpuProfile",
+		"diagnostics",
+		"operator.admin",
+		"2026.9"
+	],
+	[
+		"talk.voice.get",
+		"talk",
+		"operator.talk",
+		"2026.9"
+	],
+	[
+		"talk.voice.set",
+		"talk",
+		"operator.talk",
+		"2026.9"
+	],
+	[
+		"talk.voice.complete",
+		"talk",
+		"operator.talk",
+		"2026.9"
+	],
+	[
+		"plugins.credentials.inspect",
+		"plugins",
+		"operator.admin",
+		"2026.9"
+	],
+	[
+		"plugins.skills.read",
+		"plugins",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"diagnostics.heapProfile",
+		"diagnostics",
+		"operator.admin",
+		"2026.9"
+	],
+	[
+		"desktop.release",
+		"environments",
+		"operator.admin",
+		"2026.9",
+		{ startup: true }
+	],
+	[
+		"mcp.authLogin",
+		"mcp-auth-login",
+		"operator.admin",
+		"2026.9",
+		CONTROL_PLANE_WRITE
+	],
+	[
+		"environments.session.status",
+		"environments",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"environments.session.create",
+		"environments",
+		"operator.admin",
+		"2026.9",
+		{ controlPlaneWrite: true }
+	],
+	[
+		"environments.session.destroy",
+		"environments",
+		"operator.admin",
+		"2026.9",
+		{ controlPlaneWrite: true }
+	],
+	[
+		"environments.session.exec",
+		"environments",
+		"operator.admin",
+		"2026.9"
+	],
+	[
+		"sessions.setInvolvement",
+		"sessions-mutations",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"transcripts.summarize",
+		"transcripts",
+		"operator.write",
+		"2026.9"
+	],
+	[
+		"controlUi.linkPreview",
+		"control-ui",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"themes.list",
+		"themes",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"themes.get",
+		"themes",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"themes.set",
+		"themes",
+		"operator.write",
+		"2026.9"
+	],
+	[
+		"themes.import",
+		"themes",
+		"operator.write",
+		"2026.9"
+	],
+	[
+		"controlUi.githubDetail",
+		"control-ui",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"progressCard.refresh",
+		"progress-card",
+		"operator.write",
+		"2026.9"
+	],
+	[
+		"webSearch.status",
+		"web-search",
+		"operator.read",
+		"2026.9"
+	],
+	[
+		"webSearch.test",
+		"web-search",
+		"operator.admin",
+		"2026.9"
+	],
+	[
+		"sessions.providerReview.continue",
+		"sessions-provider-review",
+		"operator.write",
+		"2026.9"
+	],
+	[
+		"users.linkChannelIdentity",
+		"users",
+		"operator.admin",
+		"2026.9"
+	],
+	[
+		"users.unlinkChannelIdentity",
+		"users",
+		"operator.admin",
+		"2026.9"
+	],
+	[
+		"users.listChannelIdentities",
+		"users",
+		"operator.admin",
+		"2026.9"
+	]
+];
+//#endregion
+//#region src/gateway/methods/core-profile-access.ts
+const PROFILE_DEPENDENT_CORE_METHODS = /* @__PURE__ */ new Set([
+	"agent.wait",
+	"models.list",
+	"webSearch.status",
+	"webSearch.test",
+	"talk.config",
+	"talk.voice.get",
+	"ui.command",
+	"users.linkAuthProfile",
+	"users.linkEmail",
+	"users.linkChannelIdentity",
+	"users.unlinkChannelIdentity",
+	"users.listChannelIdentities",
+	"users.listAuthLinks",
+	"users.listModelAccounts",
+	"users.selectModelAccount",
+	"users.mentionable",
+	"users.setAvatar",
+	"users.setDisplayName",
+	"users.setRole",
+	"users.unlinkAuthProfile"
+]);
+const PROFILE_DEPENDENT_CORE_PREFIXES = [
+	"artifacts.",
+	"chat.",
+	"conversations.",
+	"controlUi.session",
+	"mcp.app.",
+	"mentions.",
+	"openclaw.approval.",
+	"openclaw.chat",
+	"progressCard.",
+	"projects.",
+	"secrets.",
+	"session.",
+	"sessions.",
+	"taskSuggestions.",
+	"tasks.",
+	"terminal.",
+	"transcripts.",
+	"users.authConnect.",
+	"users.prefs.",
+	"themes.",
+	"users.github.",
+	"skills.library."
+];
+/** Classifies core methods whose behavior reads or mutates durable user/session ownership. */
+function isCoreGatewayMethodProfileDependent(method) {
+	return isSessionProfileDependentMethod(method) || PROFILE_DEPENDENT_CORE_METHODS.has(method) || PROFILE_DEPENDENT_CORE_PREFIXES.some((prefix) => method.startsWith(prefix));
+}
+//#endregion
+//#region src/gateway/methods/core-method-policy.ts
+const CORE_GATEWAY_METHOD_SPEC_LIST = CORE_GATEWAY_METHOD_SPECS.map(([name, family, scope, since, policy]) => Object.assign({
+	name,
+	scope,
+	since,
+	...family ? { family } : {}
+}, policy));
+const CORE_GATEWAY_METHOD_SPEC_BY_NAME = new Map(CORE_GATEWAY_METHOD_SPEC_LIST.map((spec) => [spec.name, spec]));
+/** Core methods that are listed early but return retryable unavailable until sidecars are ready. */
+const STARTUP_UNAVAILABLE_GATEWAY_METHODS = CORE_GATEWAY_METHOD_SPEC_LIST.filter((spec) => spec.startup === true).map((spec) => spec.name);
+/** Returns the core methods that should be advertised to external gateway clients. */
+function listCoreAdvertisedGatewayMethodNames() {
+	return CORE_GATEWAY_METHOD_SPEC_LIST.filter((spec) => spec.advertise !== false).map((spec) => spec.name);
+}
+/** Returns all registered core method names, including hidden/internal compatibility methods. */
+function listCoreGatewayMethodNames() {
+	return CORE_GATEWAY_METHOD_SPEC_LIST.map((spec) => spec.name);
+}
+/** Groups lazy-owned core methods by the module family that dispatches them. */
+function listCoreGatewayHandlerMethodNames() {
+	const methodsByFamily = /* @__PURE__ */ new Map();
+	for (const [name, family] of CORE_GATEWAY_METHOD_SPECS) if (family) {
+		const methods = methodsByFamily.get(family) ?? [];
+		methods.push(name);
+		methodsByFamily.set(family, methods);
+	}
+	return methodsByFamily;
+}
+/** Looks up an operator-only core method scope, excluding node and dynamic methods. */
+function resolveCoreOperatorGatewayMethodScope(method) {
+	const scope = CORE_GATEWAY_METHOD_SPEC_BY_NAME.get(method)?.scope;
+	return scope === "node" || scope === "dynamic" ? void 0 : scope;
+}
+/** Returns true for core methods reserved for authenticated node clients. */
+function isCoreNodeGatewayMethod(method) {
+	return CORE_GATEWAY_METHOD_SPEC_BY_NAME.get(method)?.scope === NODE_GATEWAY_METHOD_SCOPE;
+}
+/** Returns true for core methods whose required operator scope is resolved by the handler. */
+function isDynamicOperatorGatewayMethod(method) {
+	return CORE_GATEWAY_METHOD_SPEC_BY_NAME.get(method)?.scope === DYNAMIC_GATEWAY_METHOD_SCOPE;
+}
+/** Returns true when a method name has an explicit core policy entry. */
+function isCoreGatewayMethodClassified(method) {
+	return CORE_GATEWAY_METHOD_SPEC_BY_NAME.has(method);
+}
+/** Creates dispatch descriptors for core handlers and fails if any handler lacks policy. */
+function createCoreGatewayMethodDescriptors(handlers) {
+	const descriptors = [];
+	for (const spec of CORE_GATEWAY_METHOD_SPEC_LIST) {
+		const handler = handlers[spec.name];
+		if (!handler) continue;
+		descriptors.push({
+			name: spec.name,
+			handler,
+			owner: {
+				kind: "core",
+				area: "gateway"
+			},
+			scope: spec.scope,
+			profileAccess: isCoreGatewayMethodProfileDependent(spec.name) ? "required" : "independent",
+			...spec.since ? { since: spec.since } : {},
+			...spec.advertise === false ? { advertise: false } : {},
+			...spec.startup === true ? { startup: "unavailable-until-sidecars" } : {},
+			...spec.controlPlaneWrite === true ? { controlPlaneWrite: true } : {},
+			...spec.description ? { description: spec.description } : {}
+		});
+	}
+	for (const name of Object.keys(handlers)) if (!CORE_GATEWAY_METHOD_SPEC_BY_NAME.has(name)) throw new Error(`gateway method handler is missing a descriptor: ${name}`);
+	return descriptors;
+}
+//#endregion
+//#region src/gateway/node-browser-proxy-policy.ts
+function normalizeBrowserProxyPath(value) {
+	const trimmed = value.trim();
+	if (!trimmed) return trimmed;
+	const withLeadingSlash = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+	if (withLeadingSlash.length <= 1) return withLeadingSlash;
+	return withLeadingSlash.replace(/\/+$/, "");
+}
+function isPersistentBrowserProxyMutation(method, path) {
+	const normalizedPath = normalizeBrowserProxyPath(path);
+	if (method === "POST" && (normalizedPath === "/profiles/create" || normalizedPath === "/reset-profile")) return true;
+	return method === "DELETE" && /^\/profiles\/[^/]+$/.test(normalizedPath);
+}
+function isForbiddenBrowserProxyMutation(params) {
+	if (!params || typeof params !== "object") return false;
+	const candidate = params;
+	const method = (normalizeOptionalString(candidate.method) ?? "").toUpperCase();
+	const path = normalizeOptionalString(candidate.path) ?? "";
+	return Boolean(method && path && isPersistentBrowserProxyMutation(method, path));
+}
+//#endregion
+//#region src/gateway/method-scopes.ts
+/** Default scopes granted to CLI/operator clients when no narrower local policy is known. */
+const CLI_DEFAULT_OPERATOR_SCOPES = [
+	ADMIN_SCOPE,
+	READ_SCOPE,
+	WRITE_SCOPE,
+	APPROVALS_SCOPE,
+	QUESTIONS_SCOPE,
+	PAIRING_SCOPE,
+	TALK_SECRETS_SCOPE
+];
+function resolveScopedMethod(method) {
+	const explicitScope = resolveCoreOperatorGatewayMethodScope(method);
+	if (explicitScope) return explicitScope;
+	const reservedScope = resolveReservedGatewayMethodScope(method);
+	if (reservedScope) return reservedScope;
+	const pluginScope = (getPluginRegistryForContext()?.gatewayMethodDescriptors?.find((descriptor) => descriptor.name === method))?.scope;
+	return pluginScope === "node" || pluginScope === "dynamic" ? void 0 : pluginScope;
+}
+/** Returns true when a method requires the approvals operator scope. */
+function isApprovalMethod(method) {
+	return resolveScopedMethod(method) === APPROVALS_SCOPE;
+}
+/** Returns true when a method is reserved for node-role clients instead of operators. */
+function isNodeRoleMethod(method) {
+	return isCoreNodeGatewayMethod(method);
+}
+function resolveSessionActionRegisteredScopes(params) {
+	if (!params || typeof params !== "object" || Array.isArray(params)) return;
+	const pluginId = normalizeOptionalString(params.pluginId);
+	const actionId = normalizeOptionalString(params.actionId);
+	if (!pluginId || !actionId) return;
+	const registration = getPluginRegistryForContext()?.sessionActions?.find((entry) => entry.pluginId === pluginId && entry.action.id === actionId);
+	if (!registration) return;
+	const requiredScopes = registration.action.requiredScopes;
+	return requiredScopes && requiredScopes.length > 0 ? [...requiredScopes] : [WRITE_SCOPE];
+}
+function resolveSessionActionLeastPrivilegeScopes(params) {
+	const registeredScopes = resolveSessionActionRegisteredScopes(params);
+	if (registeredScopes) return registeredScopes;
+	if (params && typeof params === "object" && !Array.isArray(params)) {
+		const pluginId = normalizeOptionalString(params.pluginId);
+		const actionId = normalizeOptionalString(params.actionId);
+		if (pluginId && actionId) return [...CLI_DEFAULT_OPERATOR_SCOPES];
+	}
+	return [WRITE_SCOPE];
+}
+function resolveDynamicLeastPrivilegeOperatorScopesForMethod(method, params) {
+	if (method === "plugins.sessionAction") return resolveSessionActionLeastPrivilegeScopes(params);
+	if (method === "agent") return isAgentSessionResetCommand(params && typeof params === "object" && !Array.isArray(params) ? params.message : void 0) ? [ADMIN_SCOPE] : [WRITE_SCOPE];
+	if (method === "node.invoke") {
+		const record = params && typeof params === "object" && !Array.isArray(params) ? params : void 0;
+		const command = record?.command;
+		if (isBrowserProxyNodeInvokeCommand(command) && isForbiddenBrowserProxyMutation(record?.params)) return [WRITE_SCOPE];
+		return isAdminOnlyNodeInvokeCommand(command) ? [ADMIN_SCOPE] : [WRITE_SCOPE];
+	}
+	if (method === "talk.config") return (params && typeof params === "object" && !Array.isArray(params) ? params.includeSecrets : void 0) === true ? [READ_SCOPE, TALK_SECRETS_SCOPE] : [READ_SCOPE];
+	if (method === "environments.list") {
+		const runtimeId = params && typeof params === "object" && !Array.isArray(params) && "runtimeId" in params ? params.runtimeId : void 0;
+		return typeof runtimeId === "string" && runtimeId ? [WRITE_SCOPE] : [READ_SCOPE];
+	}
+	if (method === "channels.pairing.approve") return (params && typeof params === "object" && !Array.isArray(params) ? params.bootstrapCommandOwner : void 0) === true ? [PAIRING_SCOPE, ADMIN_SCOPE] : [PAIRING_SCOPE];
+	if (method === "fs.listDir") return [params !== null && typeof params === "object" && !Array.isArray(params) && Object.hasOwn(params, "nodeId") ? ADMIN_SCOPE : WRITE_SCOPE];
+	if (method === "sessions.patch") return [resolveDynamicSessionMutationRequiredScope(method, params) ?? "operator.write"];
+	if (method === "sessions.patchMany") return [resolveDynamicSessionMutationRequiredScope(method, params) ?? "operator.write"];
+	if (method === "sessions.create") return [resolveDynamicSessionMutationRequiredScope(method, params) ?? "operator.write"];
+	if (method === "sessions.dispatch") return [resolveDynamicSessionMutationRequiredScope(method, params) ?? "operator.write"];
+	if (method === "sessions.move") return [resolveDynamicSessionMutationRequiredScope(method, params) ?? "operator.write"];
+	if (method === "sessions.delete") return [resolveDynamicSessionMutationRequiredScope(method, params) ?? "operator.admin"];
+	return [WRITE_SCOPE];
+}
+function findMissingOperatorScope(requiredScopes, scopes) {
+	return requiredScopes.find((scope) => !operatorScopeSatisfied(scope, scopes));
+}
+/** Returns the narrowest known operator scopes needed to call a gateway method. */
+function resolveLeastPrivilegeOperatorScopesForMethod(method, params) {
+	if (isDynamicOperatorGatewayMethod(method)) return resolveDynamicLeastPrivilegeOperatorScopesForMethod(method, params);
+	const requiredScope = resolveScopedMethod(method);
+	if (requiredScope) return [requiredScope];
+	return [];
+}
+/** Projects requested scopes through the original grant and this call's exact scope policy. */
+function projectOperatorScopesForMethod(params) {
+	const requiredScopes = params.requiredScope ? [params.requiredScope] : resolveLeastPrivilegeOperatorScopesForMethod(params.method, params.requestParams);
+	const sessionScope = resolveSessionMethodScope(params.method, params.requestParams);
+	return params.requestedScopes.flatMap((requestedScope) => {
+		if (roleScopesAllow({
+			role: "operator",
+			requestedScopes: [requestedScope],
+			allowedScopes: params.allowedScopes
+		})) return [requestedScope];
+		if (!isOperatorScope(requestedScope) || !requiredScopes.includes(requestedScope)) return [];
+		const authorization = authorizeOperatorScopesForRequiredScope(requestedScope, params.allowedScopes, sessionScope, params.method);
+		return authorization.allowed && authorization.sessionScope ? [authorization.sessionScope] : [];
+	});
+}
+/** Checks whether a presented operator scope set authorizes a gateway method call. */
+function authorizeOperatorScopesForMethod(method, scopes, params) {
+	if (scopes.includes("operator.admin")) return { allowed: true };
+	if (isDynamicOperatorGatewayMethod(method)) {
+		if (method === "plugins.sessionAction") {
+			const registeredScopes = resolveSessionActionRegisteredScopes(params);
+			if (!registeredScopes && params && typeof params === "object" && !Array.isArray(params)) {
+				const pluginId = normalizeOptionalString(params.pluginId);
+				const actionId = normalizeOptionalString(params.actionId);
+				if (!pluginId || !actionId) return scopes.some((scope) => isOperatorScope(scope)) ? { allowed: true } : {
+					allowed: false,
+					missingScope: WRITE_SCOPE
+				};
+			}
+			const missingScope = findMissingOperatorScope(registeredScopes ?? ["operator.write"], scopes);
+			return missingScope ? {
+				allowed: false,
+				missingScope
+			} : { allowed: true };
+		}
+		const missingScope = findMissingOperatorScope(resolveDynamicLeastPrivilegeOperatorScopesForMethod(method, params), scopes);
+		return missingScope ? authorizeOperatorScopesForRequiredScope(missingScope, scopes, resolveSessionMethodScope(method, params), method) : { allowed: true };
+	}
+	return authorizeOperatorScopesForRequiredScope(resolveScopedMethod(method) ?? "operator.admin", scopes, resolveSessionMethodScope(method, params), method);
+}
+/** Checks a method registry's already-resolved static scope against presented operator scopes. */
+function authorizeOperatorScopesForRequiredScope(requiredScope, scopes, sessionScope, method) {
+	if (operatorScopeSatisfied(requiredScope, scopes)) return { allowed: true };
+	if ((requiredScope === "operator.read" && sessionScope === "operator.sessions.read" || (requiredScope === "operator.write" || requiredScope === "operator.questions" && method?.startsWith("question.")) && sessionScope === "operator.sessions.write") && operatorScopeSatisfied(sessionScope, scopes)) return {
+		allowed: true,
+		sessionScope
+	};
+	return {
+		allowed: false,
+		missingScope: requiredScope
+	};
+}
+/** Returns true when a method has any core, node, dynamic, reserved, or plugin scope policy. */
+function isGatewayMethodClassified(method) {
+	if (isNodeRoleMethod(method)) return true;
+	if (isDynamicOperatorGatewayMethod(method)) return true;
+	return isCoreGatewayMethodClassified(method) || resolveScopedMethod(method) !== void 0;
+}
+//#endregion
+export { resolveSessionMethodScope as _, isGatewayMethodClassified as a, resolveLeastPrivilegeOperatorScopesForMethod as c, createCoreGatewayMethodDescriptors as d, isCoreGatewayMethodClassified as f, AGENT_SESSION_RESET_COMMAND_RE as g, listCoreGatewayMethodNames as h, isApprovalMethod as i, isForbiddenBrowserProxyMutation as l, listCoreGatewayHandlerMethodNames as m, authorizeOperatorScopesForMethod as n, isNodeRoleMethod as o, listCoreAdvertisedGatewayMethodNames as p, authorizeOperatorScopesForRequiredScope as r, projectOperatorScopesForMethod as s, CLI_DEFAULT_OPERATOR_SCOPES as t, STARTUP_UNAVAILABLE_GATEWAY_METHODS as u };

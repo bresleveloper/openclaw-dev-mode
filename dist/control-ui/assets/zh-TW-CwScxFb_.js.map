@@ -1,0 +1,1 @@
+{"version":3,"file":"zh-TW-CwScxFb_.js","names":[],"sources":["../../../ui/src/i18n/locales/zh-TW.ts"],"sourcesContent":["export { default as zh_TW } from \"virtual:openclaw-control-ui-locale/zh-TW\";\n"],"mappings":""}

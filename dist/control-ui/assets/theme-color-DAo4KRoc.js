@@ -1,0 +1,2 @@
+import{n as e}from"./rolldown-runtime-8BhlS34s.js";function t(e,t){let n=e.getPropertyValue(t).trim();if(!n||/^#[\da-f]{6}$/iu.test(n))return n.toLowerCase();let r=document.createElement(`canvas`);r.width=r.height=1;let i=r.getContext(`2d`);return i?(i.fillStyle=n,i.fillRect(0,0,1,1),`#${Array.from(i.getImageData(0,0,1,1).data).slice(0,3).map(e=>e.toString(16).padStart(2,`0`)).join(``)}`):n}function n(){return(n=e((()=>{})))()}export{t as n,n as t};
+//# sourceMappingURL=theme-color-DAo4KRoc.js.map

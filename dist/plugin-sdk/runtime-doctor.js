@@ -1,0 +1,14 @@
+import { r as asNullableRecord } from "../record-coerce-DItp3I4t.mjs";
+import { n as buildLegacyMigrationPreview, t as definePluginDoctorMigrationFromPlans } from "../doctor-migration-plan-adapter-TVpF1vTR.mjs";
+import { t as mergeMissing } from "../merge-missing-Ctlz6gbI.mjs";
+import { o as repairOpenClawStateDatabaseSchema } from "../openclaw-state-db-BFK9cMiV.mjs";
+import { t as detectOpenClawStateDatabaseSchemaMigrations } from "../openclaw-state-db-schema-discovery-DeDrkSPY.mjs";
+import { r as normalizeLegacyDmAliases } from "../dm-access-BjWg2ea5.mjs";
+import { i as createPluginStateSyncKeyedStore } from "../plugin-state-store-CgyXRuSI.mjs";
+import { n as removePluginFromConfig } from "../uninstall-config-BEZgXs77.mjs";
+import { n as formatPluginInstallPathIssue, t as detectPluginInstallPathIssue } from "../doctor-repair-runtime-CyEx4Epb.mjs";
+import { a as defineChannelAliasMigration, c as normalizeLegacyChannelAliases, i as defineStrayPluginEntryConfigMigration, l as normalizeLegacyStreamingAliases, n as defineKeyMoveMigration, o as hasLegacyAccountStreamingAliases, r as defineLegacyJsonStateMigration, s as hasLegacyStreamingAliases, t as collectChannelAccountScopes, u as resolveLegacyAliasStreamingMode } from "../runtime-doctor-migrations-_pMXigSc.mjs";
+import { n as legacyStateFileExists, t as archiveLegacyStateSource } from "../doctor-state-migration-fs-CfVap4xL.mjs";
+import { t as collectProviderDangerousNameMatchingScopes } from "../dangerous-name-matching-CthX7x2f.mjs";
+import { a as normalizeChannelAccounts, i as materializeInheritedAccountStreaming, n as hasLegacyFlatAllowPrivateNetworkAlias, o as normalizeChannelConfigEntries, r as migrateLegacyFlatAllowPrivateNetworkAlias, s as stripRetiredChannelKeys, t as createLegacyPrivateNetworkDoctorContract } from "../legacy-private-network-migration-qYG07znx.mjs";
+export { archiveLegacyStateSource, asNullableRecord as asObjectRecord, buildLegacyMigrationPreview, collectChannelAccountScopes, collectProviderDangerousNameMatchingScopes, createLegacyPrivateNetworkDoctorContract, createPluginStateSyncKeyedStore, defineChannelAliasMigration, defineKeyMoveMigration, defineLegacyJsonStateMigration, definePluginDoctorMigrationFromPlans, defineStrayPluginEntryConfigMigration, detectOpenClawStateDatabaseSchemaMigrations, detectPluginInstallPathIssue, formatPluginInstallPathIssue, hasLegacyAccountStreamingAliases, hasLegacyFlatAllowPrivateNetworkAlias, hasLegacyStreamingAliases, legacyStateFileExists, materializeInheritedAccountStreaming, mergeMissing, migrateLegacyFlatAllowPrivateNetworkAlias, normalizeChannelAccounts, normalizeChannelConfigEntries, normalizeLegacyChannelAliases, normalizeLegacyDmAliases, normalizeLegacyStreamingAliases, removePluginFromConfig, repairOpenClawStateDatabaseSchema, resolveLegacyAliasStreamingMode, stripRetiredChannelKeys };

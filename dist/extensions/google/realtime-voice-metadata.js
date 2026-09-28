@@ -1,0 +1,2 @@
+import { n as GOOGLE_REALTIME_VOICE_METADATA, t as GOOGLE_REALTIME_DEFAULT_MODEL } from "../../realtime-voice-metadata-BfpYKwoa.mjs";
+export { GOOGLE_REALTIME_DEFAULT_MODEL, GOOGLE_REALTIME_VOICE_METADATA };

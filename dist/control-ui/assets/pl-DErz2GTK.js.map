@@ -1,0 +1,1 @@
+{"version":3,"file":"pl-DErz2GTK.js","names":[],"sources":["../../../ui/src/i18n/locales/pl.ts"],"sourcesContent":["export { default as pl } from \"virtual:openclaw-control-ui-locale/pl\";\n"],"mappings":""}

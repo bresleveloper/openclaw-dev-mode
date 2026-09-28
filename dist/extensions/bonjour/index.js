@@ -1,0 +1,43 @@
+import { t as definePluginEntry } from "../../plugin-entry-BOulgRcx.mjs";
+//#region extensions/bonjour/index.ts
+/**
+* Bonjour gateway-discovery plugin entry. It advertises the local gateway over
+* mDNS and lazily loads the ciao-based advertiser.
+*/
+function formatBonjourInstanceName(displayName) {
+	const trimmed = displayName.trim();
+	if (!trimmed) return "OpenClaw";
+	if (/openclaw/i.test(trimmed)) return trimmed;
+	return `${trimmed} (OpenClaw)`;
+}
+/** Plugin entry for Bonjour/mDNS gateway discovery. */
+var bonjour_default = definePluginEntry({
+	id: "bonjour",
+	name: "Bonjour Gateway Discovery",
+	description: "Advertise the local OpenClaw gateway over Bonjour/mDNS.",
+	register(api) {
+		api.registerGatewayDiscoveryService({
+			id: "bonjour",
+			advertise: async (ctx) => {
+				const [{ startGatewayBonjourAdvertiser }, { registerUncaughtExceptionHandler, registerUnhandledRejectionHandler }] = await Promise.all([import("../../advertiser-DYrXMtrY.mjs"), import("../../plugin-sdk/runtime.js")]);
+				return { stop: (await startGatewayBonjourAdvertiser({
+					instanceName: formatBonjourInstanceName(ctx.machineDisplayName),
+					gatewayPort: ctx.gatewayPort,
+					gatewayTlsEnabled: ctx.gatewayTlsEnabled,
+					gatewayTlsFingerprintSha256: ctx.gatewayTlsFingerprintSha256,
+					gatewayDirectReachable: ctx.gatewayDirectReachable,
+					sshPort: ctx.sshPort,
+					tailnetDns: ctx.tailnetDns,
+					cliPath: ctx.cliPath,
+					minimal: ctx.minimal
+				}, {
+					logger: api.logger,
+					registerUncaughtExceptionHandler,
+					registerUnhandledRejectionHandler
+				})).stop };
+			}
+		});
+	}
+});
+//#endregion
+export { bonjour_default as default };
