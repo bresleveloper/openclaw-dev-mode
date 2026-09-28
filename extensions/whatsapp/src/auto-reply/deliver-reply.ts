@@ -12,6 +12,7 @@ import {
   sendMediaWithLeadingCaption,
 } from "openclaw/plugin-sdk/reply-payload";
 import { logVerbose, shouldLogVerbose } from "openclaw/plugin-sdk/runtime-env";
+import { formatDevModeReasoningPayload } from "../dev-mode/reasoning.js";
 import { requireWhatsAppInboundAdmission } from "../inbound/admission.js";
 import {
   listWhatsAppSendResultMessageIds,
@@ -147,8 +148,10 @@ export async function deliverWebReply(
 async function deliverWebReplyInActivityScope(
   params: WhatsAppReplyDeliveryParams,
 ): Promise<WhatsAppReplyDeliveryResult> {
-  const { replyResult, transport, maxMediaBytes, textLimit, replyLogger, connectionId, skipLog } =
-    params;
+  const { transport, maxMediaBytes, textLimit, replyLogger, connectionId, skipLog } = params;
+  // [dev-mode] SEC-WA1: paths that bypass inbound dispatch (routed replies) still show
+  // reasoning as 💭 instead of hitting the suppression below.
+  const replyResult = formatDevModeReasoningPayload(params.replyResult) ?? params.replyResult;
   const conversationId = transport.conversationId;
   const isGroupConversation = transport.conversationKind === "group";
   const replyStarted = Date.now();

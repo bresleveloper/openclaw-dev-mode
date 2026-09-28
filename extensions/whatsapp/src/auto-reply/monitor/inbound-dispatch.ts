@@ -15,6 +15,7 @@ import {
 import { buildInboundHistoryFromEntries } from "openclaw/plugin-sdk/reply-history";
 import type { FinalizedMsgContext, ReplyDispatchKind } from "openclaw/plugin-sdk/reply-runtime";
 import { normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
+import { formatDevModeReasoningPayload } from "../../dev-mode/reasoning.js";
 import {
   requireWhatsAppInboundAdmission,
   resolveWhatsAppAdmissionChannelIngress,
@@ -759,7 +760,11 @@ export function createWhatsAppReplyPlan(params: {
   const delivery: ChannelInboundTurnPlan["delivery"] = {
     observeMessageSent: true,
     preparePayload: async (payload: ReplyPayload, info: { kind: ReplyDispatchKind }) => {
-      const deliveryPayload = resolveWhatsAppDeliverablePayload(payload, info);
+      const reasoningPayload = formatDevModeReasoningPayload(
+        payload,
+        params.replyPipeline.responsePrefix,
+      );
+      const deliveryPayload = resolveWhatsAppDeliverablePayload(reasoningPayload ?? payload, info);
       if (!deliveryPayload) {
         return null;
       }
@@ -859,6 +864,9 @@ export function createWhatsAppReplyPlan(params: {
       : {}),
     suppressTyping: replyPolicy.suppressTyping,
     disableBlockStreaming: replyPolicy.disableBlockStreaming,
+    // [dev-mode] SEC-WA1: receive reasoning payloads (emitted only when the session's
+    // /reasoning level is "on"); preparePayload renders them as 💭 messages.
+    ...(process.env.OPENCLAW_DEV_MODE === "1" ? { reasoningPayloadsEnabled: true } : {}),
     ...(replyPolicy.sourceReplyDeliveryMode
       ? { sourceReplyDeliveryMode: replyPolicy.sourceReplyDeliveryMode }
       : {}),
