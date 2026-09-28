@@ -1,4 +1,5 @@
 import { pathKey } from "../../components/config-form.shared.ts";
+import { isDevModeRevealApplied } from "./dev-mode.ts";
 import type { ConfigProps, ConfigViewState } from "./view-types.ts";
 
 export function createConfigViewState(): ConfigViewState {
@@ -15,9 +16,11 @@ export function createConfigViewState(): ConfigViewState {
 }
 
 export function resetConfigEphemeralState(viewState: ConfigViewState) {
-  viewState.rawRevealed = false;
+  // [dev-mode] SEC-97: keep the dev-mode reveal across context resets (false otherwise).
+  const devModeReveal = isDevModeRevealApplied(viewState);
+  viewState.rawRevealed = devModeReveal;
   viewState.rawDiffOpen = false;
-  viewState.envRevealed = false;
+  viewState.envRevealed = devModeReveal;
   viewState.validityDismissed = false;
   viewState.revealedSensitivePaths.clear();
   viewState.lastCustomThemeImportFocusToken = null;
