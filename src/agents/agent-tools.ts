@@ -392,7 +392,9 @@ export function createOpenClawCodingToolsInternal(
   // Exact-run capabilities authorize only their automation operations. Keep every
   // other owner-only control-plane tool denied for senderless operator turns.
   const ownerOnlyCoreToolDenylist =
-    options?.senderIsOwner === false
+    // SEC-100: dev-mode is a single-owner box, so owner-only tools stay available on every turn
+    // (update.run keeps its own owner check in gateway-tool.ts).
+    options?.senderIsOwner === false && !isDevMode()
       ? GATEWAY_OWNER_ONLY_CORE_TOOLS.filter(
           (toolName) =>
             toolName !== AUTOMATIONS_TOOL_NAME ||

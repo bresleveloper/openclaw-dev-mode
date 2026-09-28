@@ -26,7 +26,7 @@ import {
 } from "../../agents/tools/cron-tool.js";
 import type { SessionEntry } from "../../config/sessions.js";
 import type { OpenClawConfig } from "../../config/types.openclaw.js";
-import { logVerbose } from "../../globals.js";
+import { isDevMode, logVerbose } from "../../globals.js";
 import { getPluginToolMeta } from "../../plugins/tool-metadata.js";
 import { GATEWAY_OWNER_ONLY_CORE_TOOLS } from "../../security/dangerous-tools.js";
 import { resolveGatewayMessageChannel } from "../../utils/message-channel.js";
@@ -130,9 +130,12 @@ export function resolveSkillDispatchTools(
     sessionKey: params.sessionKey,
   });
   const sandboxPolicy = sandboxRuntime.sandboxed ? sandboxRuntime.toolPolicy : undefined;
-  const ownerOnlyCoreToolPolicy = !params.senderIsOwner
-    ? { deny: [...GATEWAY_OWNER_ONLY_CORE_TOOLS] }
-    : undefined;
+  // SEC-100: dev-mode is a single-owner box, so owner-only tools stay available on every turn
+  // (update.run keeps its own owner check in gateway-tool.ts).
+  const ownerOnlyCoreToolPolicy =
+    !params.senderIsOwner && !isDevMode()
+      ? { deny: [...GATEWAY_OWNER_ONLY_CORE_TOOLS] }
+      : undefined;
   const explicitPolicyList: Array<ToolPolicyLike | undefined> = [
     profilePolicy,
     providerProfilePolicy,

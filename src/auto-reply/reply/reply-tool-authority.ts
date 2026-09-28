@@ -21,6 +21,7 @@ import { normalizeChatType } from "../../channels/chat-type.js";
 import { cloneConfigWithResolutionFacts } from "../../config/resolution-facts.js";
 import type { SessionEntry } from "../../config/sessions.js";
 import { resolveGroupSessionKey } from "../../config/sessions/group.js";
+import { isDevMode } from "../../globals.js";
 import { GATEWAY_OWNER_ONLY_CORE_TOOLS } from "../../security/dangerous-tools.js";
 import { resolveGlobalSingleton } from "../../shared/global-singleton.js";
 import type { RuntimeMsgContext } from "../templating.js";
@@ -273,7 +274,11 @@ function isReplyToolAllowed(
   });
   return isToolAllowedByPolicies(toolName, [
     ...Object.values(policies),
-    input.run.senderIsOwner === false ? { deny: [...GATEWAY_OWNER_ONLY_CORE_TOOLS] } : undefined,
+    // SEC-100: dev-mode is a single-owner box, so owner-only tools stay available on every turn
+    // (update.run keeps its own owner check in gateway-tool.ts).
+    input.run.senderIsOwner === false && !isDevMode()
+      ? { deny: [...GATEWAY_OWNER_ONLY_CORE_TOOLS] }
+      : undefined,
   ]);
 }
 

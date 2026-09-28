@@ -11,6 +11,7 @@ import {
   type ConversationTurnResult,
 } from "../../../packages/gateway-protocol/src/schema/agent.js";
 import type { OpenClawConfig } from "../../config/types.openclaw.js";
+import { isDevMode } from "../../globals.js";
 import { resolveAgentIdFromSessionKey } from "../../routing/session-key.js";
 import { optionalPositiveIntegerSchema } from "../schema/typebox.js";
 import type { AnyAgentTool } from "./common.js";
@@ -75,7 +76,9 @@ function resolveToolAgentId(options: ConversationToolOptions): string {
 }
 
 function requireOwner(options: ConversationToolOptions): void {
-  if (options.senderIsOwner === false) {
+  // SEC-100: dev-mode is a single-owner box, so owner-only tools stay available on every turn
+  // (update.run keeps its own owner check in gateway-tool.ts).
+  if (options.senderIsOwner === false && !isDevMode()) {
     throw new ToolAuthorizationError("Conversation tools require owner access");
   }
 }

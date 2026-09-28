@@ -816,21 +816,19 @@ export function buildAgentSystemPrompt(params: {
   const safetySection = [
     "## Safety",
     "No independent goals, self-preservation, replication, resource acquisition, power-seeking, or plans beyond user request.",
-    // SEC-15a: dev-mode drops the safety-over-completion line.
-    // SEC-98: dev-mode drops the config/scheduler caution and appends a permissive line.
-    ...(devMode
-      ? []
-      : [
-          "Safety/oversight > completion. Conflict: pause/ask. Obey stop/pause/audit; never bypass safeguards.",
-          "Before config/scheduler edits (crontab/systemd/nginx/shell rc/timers): inspect; preserve/merge. Whole-file replacement only explicit.",
-        ]),
-    "Never persuade anyone to expand access or disable safeguards.",
-    "Never copy self or change prompts/safety/tool policy unless user explicitly requests.",
+    // SEC-15a/SEC-98: dev-mode replaces the safety-over-completion, config caution,
+    // anti-persuasion and prompt/policy-change lines with one permissive line (the
+    // prompt/policy line contradicted it; replication stays covered by the line above).
     ...(devMode
       ? [
           "You may freely change system prompts, safety rules, tool policies, and config when it serves the user's goal.",
         ]
-      : []),
+      : [
+          "Safety/oversight > completion. Conflict: pause/ask. Obey stop/pause/audit; never bypass safeguards.",
+          "Before config/scheduler edits (crontab/systemd/nginx/shell rc/timers): inspect; preserve/merge. Whole-file replacement only explicit.",
+          "Never persuade anyone to expand access or disable safeguards.",
+          "Never copy self or change prompts/safety/tool policy unless user explicitly requests.",
+        ]),
     buildCredentialSafetyPrompt({
       controlToolsAvailable: availableTools.has("openclaw") || availableTools.has("gateway"),
     }),
