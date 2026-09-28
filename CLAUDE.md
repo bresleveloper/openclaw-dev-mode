@@ -18,7 +18,7 @@
 
 1. **Remove GitHub Actions workflows** — `git rm -r .github/workflows` (106 files at 9.6). No CI in this fork. Leave other `.github/` content.
 2. **WhatsApp build exclusion** — since 9.x the ONLY source is `package.json` `files` (`!dist/extensions/whatsapp/**`); `scripts/lib/root-package-bundled-plugin-excludes.mjs` derives the build excludes from it. Delete that line. If it slips back, the build DELETES `dist/extensions/whatsapp` and the VPS falls back to the stock ClawHub package.
-3. **Keep-ours on `README.md`** — the fork's landing page.
+3. **Keep-ours on `README.md`** — Ariel's landing page; see "README is Ariel's domain" below.
 4. **Stage dist — regular files only**: `find dist packages/ai/dist -type f > /tmp/dist-files.txt && git add -f --pathspec-from-file=/tmp/dist-files.txt`, then commit with `--no-verify` (the pre-commit formatter would rewrite generated files). Plain `git add -f dist/` also grabs ~300 symlinks the build's `external-plugins:local-dist` step leaves under `dist/extensions/*/node_modules/` (links into this machine's pnpm store) — never commit those. The real-file shim `dist/extensions/node_modules/openclaw/` (plugin-sdk) IS committed. See the ⚠️ in Build & Deploy.
 5. **Re-verify patches survived** — grep `isDevMode()` anchors in src/; on the VPS after deploy: `grep -rl attachWaHistoryLogger /opt/openclaw-dev-mode/dist/extensions/whatsapp/` and `grep -rl formatDevModeReasoningPayload /opt/openclaw-dev-mode/dist/extensions/whatsapp/` must be NON-empty.
 6. **Self-referencing symlinks** — the TRACKED `packages/speech-core/node_modules/openclaw` → repo-root link (7.1-era `.git`-corruption hazard, see Upgrade History) is gone at 9.6. `pnpm install` still creates UNTRACKED `node_modules/openclaw` links in ~40 workspace packages (ignored dirs git never traverses) — never `git add -f` anything under `node_modules/`. On a 7.1-era checkout, `rm packages/speech-core/node_modules/openclaw` (plain rm) before switching branches.
@@ -36,6 +36,10 @@
 **Ariel, 2026-09-27**: the main thread (Opus) writes ALL code changes. Delegate to a Sonnet subagent (Agent tool, `subagent_type: general-purpose`, `model: sonnet`) only simple execution: VPS/SSH ops, git fetch, read-only investigations/fan-out analysis, builds/test runs. Verify subagent claims before acting — the 9.6 analyses were wrong three times (FIX-06 helper "compiles unchanged", `session-url-contract` "needs a dist force-add", "non-main sessions are sandboxed by default").
 
 **Fork patch style (Ariel, 2026-09-28)**: touch upstream code as little as possible — logic in fork-owned files (`extensions/whatsapp/src/dev-mode/*`, `ui/src/pages/config/dev-mode.ts`), one guarded hook in the upstream file, comments with a regression checklist.
+
+### README is Ariel's domain
+
+**Ariel, 2026-09-28** (after Claude rewrote the whole README): changes to `README.md` must ALWAYS be minimal. Before touching it, read the current README and learn Ariel's taste and style — his voice and wording (typos included), the header and logo block, emoji, table shapes, the changelog format — and match it. Add or adjust only the lines a change requires (e.g. one changelog entry, one table row). Never rewrite, restructure, re-order, or "improve" it. Detailed explanations belong in `CLAUDE.md` / `dev-mode/`, not the README. When in doubt, propose the diff and let Ariel decide.
 
 ### SSH Access to VPS
 
