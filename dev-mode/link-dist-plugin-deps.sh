@@ -8,10 +8,13 @@
 # (the plugin's own pnpm-installed deps). Without it, plugins whose runtime deps are not bundled
 # (acpx at v2026.9.6) fail with "required dependencies are missing".
 #
-# Safe to re-run: replaces existing links, never touches real directories.
+# Safe to re-run: replaces existing links. A real directory there is a leftover from older
+# npm-era deploys (the VPS had a stale acpx without the ./agent-registry export) and is replaced
+# too, unless it contains tracked files.
 set -eu
 cd "$(dirname "$0")/.."
 linked=0
+replaced=0
 for dir in dist/extensions/*/; do
   id=$(basename "$dir")
   src="extensions/$id/node_modules"
@@ -20,9 +23,11 @@ for dir in dist/extensions/*/; do
   if [ -L "$dest" ]; then
     rm "$dest"
   elif [ -e "$dest" ]; then
-    continue
+    [ -z "$(git ls-files -- "$dest" | head -n 1)" ] || continue
+    rm -rf "$dest"
+    replaced=$((replaced + 1))
   fi
   ln -s "../../../$src" "$dest"
   linked=$((linked + 1))
 done
-echo "dev-mode: linked $linked plugin node_modules dirs under dist/extensions"
+echo "dev-mode: linked $linked plugin node_modules dirs under dist/extensions ($replaced stale dirs replaced)"
