@@ -5,15 +5,13 @@
 - **Repo**: https://github.com/bresleveloper/openclaw-dev-mode
 - **Fork of**: https://github.com/openclaw/openclaw
 - **Fork point**: commit `029c47372` (V2026.3.2)
-- **Current base**: V2026.7.1 on `main` (deployed 2026-07-21).
-- **Upgrade in progress**: V2026.9.6 on branch `upgrade-2026.9.6` (clean-room from tag `v2026.9.6`, ported 2026-09-27/28, NOT yet deployed/promoted). See "V2026.9.6 Upgrade".
+- **Current base**: V2026.9.6 on `main` (clean-room from tag `v2026.9.6`, deployed and promoted 2026-09-28). See "V2026.9.6 Upgrade". Previous: V2026.7.1 (tag `main-pre-2026.9.6`).
 - **Purpose**: one env flag (`OPENCLAW_DEV_MODE=1`) relaxes OpenClaw's security for a single-owner dev VPS, plus WhatsApp and Control UI conveniences. User-facing summary with reasons: `README.md`.
 
 ## Branches
 
-- `main` — Ariel's ONLY long-lived branch. At the V2026.7.1 base. Has `dist/` + `packages/ai/dist/` committed for easy VPS deployment. Experimental, practical, no polish needed.
-- `upgrade-2026.9.6` — clean-room V2026.9.6 port (local, unpushed until Ariel approves). Promote like 7.1: deploy, tag the old `main` head `main-pre-2026.9.6`, force-move `main` onto the branch, delete the branch.
-- Tag `main-pre-2026.7.1` (pushed) preserves the V2026.6.11-era main head (`244849d3575`).
+- `main` — Ariel's ONLY branch, at the V2026.9.6 base. Has `dist/` + `packages/ai/dist/` committed for easy VPS deployment. Experimental, practical, no polish needed.
+- Tags (pushed): `main-pre-2026.9.6` (V2026.7.1-era head `89a6d855229`), `main-pre-2026.7.1` (V2026.6.11-era head `244849d3575`).
 - Future upgrades: same clean-room pattern — branch from the upstream tag, re-apply patches, deploy, force-move `main`.
 
 ## Post-Merge Cleanup Checklist (run after EVERY upstream merge)
@@ -53,7 +51,7 @@ Never log VPS connection details in commits or output. Batch commands into few s
 - **Self-ref symlink**: `/opt/openclaw-dev-mode/node_modules/openclaw → /opt/openclaw-dev-mode` — still recreated by the update recipe (V2026.5.6 proved it necessary; re-verify on 9.6)
 - **Home**: `~/.openclaw/` — config `openclaw.json`, env `.env` (`OPENCLAW_DEV_MODE=1`), WA creds `credentials/whatsapp/default/`, WA history `dev-mode/wa-history.db`
 - **Gateway**: user-level systemd `openclaw-gateway.service` (`~/.config/systemd/user/`), port 18789, loopback. `journalctl` is empty — logs are `/tmp/openclaw/openclaw-YYYY-MM-DD.log` (JSON lines)
-- **Node**: v24.18.0 (nodesource apt) — satisfies 9.6 engines
+- **Node**: v24.21.0 (nodesource apt, 2026-09-28) — satisfies 9.6 engines. OS: Ubuntu 24.04; pnpm 12.4.0 via `npm i -g`
 
 ## Build & Deploy
 
@@ -203,13 +201,23 @@ Clean-room from tag `v2026.9.6` (upstream 2026-09-22), ~33.4k commits / 48k file
 
 **Upstream changes that shaped the port**: automatic session reset OFF by default (#111140, `e23dde3de55`; no doctor migration re-adds it) → FIX-05/06 dropped; bundled `session-memory` hook (opt-in); reasoning delivery/suppression + "Thinking" preamble → SEC-WA1 rebuilt; message-id echo dedupe → echo filter kept as safety net; WA "directory" sockets → history logger on normal sockets only; config page without Quick/Advanced → SEC-97 client rebuilt; `readLocalMediaFile` re-checks roots → SEC-102 moved; `MEMORY.md` = setup-completion evidence → FIX-01 after setup; subagent deny list non-overridable + `message` added (#120025, `8994c7799ba`) while default spawn depth went 1 → 5; WhatsApp exclusion derived from `package.json` only; fork WA code bundles under `dist/extensions/whatsapp/`; ~20 new state migrations; pnpm 12.4.0; `CLAUDE.md` had been committed as a symlink (mode `120000`) holding 69 KB of markdown → fixed in `89a6d85522`.
 
+**Deploy (2026-09-28)** — OS `apt full-upgrade` first (40 packages, Node 24.19 → 24.21, kernel 6.8.0-142 installed, reboot pending), full backup `/root/.openclaw.bak-pre-9.6-20260928` (9.6 GB), then the recipe. Lessons:
+- Run `openclaw doctor --fix` with the gateway STOPPED — while it runs, migrations refuse with "Agent main database is still open in another process" and every later step is skipped (looks like scary failures, isn't).
+- `doctor` migrated the config to the 9.6 shape (`agents.list` → `agents.entries`, `memorySearch` → `memory.search`, `messages.tts` → `tts`, …) and restored `openclaw.json.last-good` over a clobbered write — verified no settings lost (same 3 agents).
+- `acpx` failed to load: the VPS had stale real `dist/extensions/*/node_modules` dirs from npm-era deploys (7 of them; old acpx without `./agent-registry`) and never gets the build's local links → `dev-mode/link-dist-plugin-deps.sh` (now in the update recipe) replaces them with one link per plugin.
+- `agents.defaults.subagents.maxSpawnDepth` was pinned to 2 in the config → set to 5 (Ariel: "if i have 5 depths i'm ok").
+- Empty leftover `dev-mode/openclaw-whatsapp-claw.db` deleted.
+
 **Pre-existing test failure**: `src/acp/translator.abort-cause.e2e.test.ts` fails on pristine `v2026.9.6` too (Linux, Node 26.8; A/B verified) — ignore.
 
 **First-deploy checklist for 9.6 (VPS)**: snapshot `~/.openclaw`; upgrade pnpm to 12.4.0; update recipe; confirm no `session.reset` block in `openclaw.json` (any block re-enables daily reset); check `agents.defaults.subagents.maxSpawnDepth` isn't pinned below 5; `openclaw hooks enable session-memory < /dev/null`; `openclaw doctor --fix < /dev/null` and read every warning; restart; WA checks (checklist item 5); `/reasoning on` in self-chat → `💭 Reasoning:` messages, no loop, no `Dropped self-chat reasoning echo` log line; Control UI → Settings → Advanced opens Raw unblurred; `/status` shows `▶️ Active model`; ask the agent to use `gateway`/`nodes` from a cron turn (SEC-100).
 
 ## Open Items
 
-- VPS: OS upgrade + 9.6 deploy pending (SSH works since 2026-09-28); then promote `main` (needs Ariel's OK to push).
+- VPS reboot pending (kernel 6.8.0-142 installed 2026-09-28); the user-level gateway service needs lingering to come back — verify `loginctl show-user root | grep Linger` before rebooting.
+- Manual checks after deploy: WhatsApp `/reasoning on` → 💭 messages without a loop; Control UI → Settings → Advanced opens Raw, unblurred; `/status` shows `▶️ Active model`.
+- Delete `/root/.openclaw.bak-pre-9.6-20260928` (9.6 GB) once 9.6 is trusted.
+- `doctor` advisories: legacy `agents.defaults.models` needs explicit provider/model refs before it can migrate to `agents.defaults.modelPolicy.allow`; bundled `github` plugin not in `plugins.allow` (link previews off); 9 historical transcripts deferred (header mismatch, originals untouched); no command owner configured (keeps `/update` owner-only — fine given the no-update rule); service policy refresh skipped because `~/.openclaw` is owned by `coder`.
 - Gateway token NOT rotated (was plaintext in the deleted kapso-era `wa-claw-panel.service`) — Ariel's call.
 - No web-search provider configured (bundled `duckduckgo`/`brave` available).
 - Systemd unit carries a stale version stamp — cosmetic, `gateway status` warns.
