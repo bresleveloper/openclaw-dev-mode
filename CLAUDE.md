@@ -39,6 +39,8 @@
 
 ### README is Ariel's domain
 
+**NEVER change `README.md` without Ariel's explicit permission** (Ariel, 2026-09-29) — not even a typo, a changelog line, or formatting. Propose the exact diff and wait for his OK. When he hands over a README, commit it **exactly as written**: `git commit --no-verify` (the pre-commit formatter would realign his tables) and verify with `git show HEAD:README.md | cmp - <his file>`.
+
 **Ariel, 2026-09-28** (after Claude rewrote the whole README): changes to `README.md` must ALWAYS be minimal. Before touching it, read the current README and learn Ariel's taste and style — his voice and wording (typos included), the header and logo block, emoji, table shapes, the changelog format — and match it. Add or adjust only the lines a change requires (e.g. one changelog entry, one table row). Never rewrite, restructure, re-order, or "improve" it. Detailed explanations belong in `CLAUDE.md` / `dev-mode/`, not the README. When in doubt, propose the diff and let Ariel decide.
 
 ### SSH Access to VPS
