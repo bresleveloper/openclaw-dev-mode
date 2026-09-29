@@ -134,11 +134,11 @@ All gated by `OPENCLAW_DEV_MODE=1` alone — no extra flags to remember.
 
 ### Fix
 
-| ID     | What it does                                                                                                                                                                                                                                                                                                           |
-| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| FIX-01 | Auto-bootstrap `MEMORY.md` in new workspaces (right after onboarding)                                                                                                                                                                                                                                                  |
-| FIX-03 | `/status` renders a `▶️ Active model` line below `🧠 Model:` so config-vs-runtime mismatches are visible at a glance (the spurious `gpt-5.5` fallback got fixed upstream)                                                                                                                                              |
-| FIX-04 | Inbound `/new` and `/reset` restore the bare-reset greeting (`BARE_SESSION_RESET_PROMPT_BASE`) instead of the hardcoded `"✅ New session started."` ACK that upstream introduced in V2026.5.4 (commit `a68ca1ae0b`). Affects WhatsApp + any inbound channel; TUI `/new` is unaffected (always silent since V2026.3.22) |
+| ID     | What it does                                                                                                                                                              |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| FIX-01 | Auto-bootstrap `MEMORY.md` in new workspaces (right after onboarding)                                                                                                     |
+| FIX-03 | `/status` renders a `▶️ Active model` line below `🧠 Model:` so config-vs-runtime mismatches are visible at a glance (the spurious `gpt-5.5` fallback got fixed upstream) |
+| FIX-04 | `/new` and `/reset` restore the greeting                                                                                                                                  |
 
 ## How to install
 
