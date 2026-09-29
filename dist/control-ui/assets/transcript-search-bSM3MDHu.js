@@ -1,0 +1,2 @@
+import{n as e}from"./rolldown-runtime-8BhlS34s.js";import{Ro as t,zo as n}from"./control-ui-core-DkXlmHxW.js";async function r(e){if(e.isCurrent&&!e.isCurrent())return{results:[],sessions:[]};let{limit:n,offset:r,includeDerivedTitles:i,includeLastMessage:a,ownerFirst:o,...s}=t(e.listOptions);return e.client.request(`sessions.search`,{query:e.query,limit:25,scope:s})}function i(){return(i=e((()=>{n()})))()}export{r as n,i as t};
+//# sourceMappingURL=transcript-search-bSM3MDHu.js.map

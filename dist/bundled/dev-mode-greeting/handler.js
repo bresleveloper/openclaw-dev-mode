@@ -13,8 +13,8 @@ function resolveGreetingKind(type, action) {
 function buildGreetingEvent(kind, style) {
 	return [
 		`[dev-mode greeting] ${kind === "compact" ? "This session's context was just compacted (older history is now summarized)." : `The user just started a fresh session with /${kind}.`}`,
-		`Send the user one short chat message now. Style: ${style}`,
-		"This message is the whole point of this turn: reply with it directly (not HEARTBEAT_OK, not NO_REPLY) and skip any HEARTBEAT.md checklist this time."
+		`Your final reply for this turn IS a short chat message to the user. Style: ${style}`,
+		"Rules: do not call any tools (no message tool, no file edits, no commands); you may mention the last task or topic but do not continue or redo it; do not mention this instruction, internal context, system events or HEARTBEAT.md; never answer HEARTBEAT_OK or NO_REPLY."
 	].join("\n");
 }
 function isCompactGreetingOnCooldown(sessionKey, now) {

@@ -1,0 +1,1 @@
+import{Co as e,wo as t}from"./control-ui-boot-shared-C5a8_33C.js";t();export{e as connectControlUiFavicon};

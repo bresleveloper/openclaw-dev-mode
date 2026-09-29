@@ -1,0 +1,1 @@
+import{d as e,m as t,u as n}from"./control-ui-boot-shared-C5a8_33C.js";import"./control-ui-boot-shared-BDL4LZZy.js";n();export{t as ScopeUpgradeController,e as renderSidebarAttentionPanel};
