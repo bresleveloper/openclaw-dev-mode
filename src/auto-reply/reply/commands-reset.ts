@@ -205,11 +205,12 @@ export async function maybeHandleResetCommand(
     onObservedReplyDelivery: params.opts?.onObservedReplyDelivery,
     workspaceDir: params.workspaceDir,
   });
-  // FIX-04: dev-mode skips the hardcoded ACK so the bare-reset greeting runs.
-  if (!isDevMode() && !resetTail) {
+  // FIX-04: in dev-mode a bare reset ends without the canned ACK; the dev-mode-greeting hook
+  // (src/hooks/bundled/dev-mode-greeting) wakes the agent to greet the user instead.
+  if (!resetTail) {
     return {
       shouldContinue: false,
-      ...(hookResult.routedReply
+      ...(hookResult.routedReply || isDevMode()
         ? {}
         : {
             reply: {
