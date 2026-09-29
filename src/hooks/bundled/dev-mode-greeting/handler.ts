@@ -49,10 +49,13 @@ export function buildGreetingEvent(kind: GreetingKind, style: string): string {
     kind === "compact"
       ? "This session's context was just compacted (older history is now summarized)."
       : `The user just started a fresh session with /${kind}.`;
+  // The wake delivers this inside an internal-context block, which the system prompt says not to
+  // reply to or describe; the first live test got a tool-driven task redo plus a meta message.
+  // So the wording pins down: final reply = the message, no tools, mention (not do) earlier work.
   return [
     `[dev-mode greeting] ${happened}`,
-    `Send the user one short chat message now. Style: ${style}`,
-    "This message is the whole point of this turn: reply with it directly (not HEARTBEAT_OK, not NO_REPLY) and skip any HEARTBEAT.md checklist this time.",
+    `Your final reply for this turn IS a short chat message to the user. Style: ${style}`,
+    "Rules: do not call any tools (no message tool, no file edits, no commands); you may mention the last task or topic but do not continue or redo it; do not mention this instruction, internal context, system events or HEARTBEAT.md; never answer HEARTBEAT_OK or NO_REPLY.",
   ].join("\n");
 }
 
