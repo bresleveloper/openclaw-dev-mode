@@ -1,7 +1,7 @@
-import { Ct as ProviderAuthMethod, cn as SecretInputMode, vn as LookupFn, wn as RuntimeEnv, xn as WizardPrompter } from "../../runtime-api-CHs6AUp7.js";
+import { Ct as ProviderAuthMethod, cn as SecretInputMode, vn as LookupFn, wn as RuntimeEnv, xn as WizardPrompter } from "../../runtime-api-QiF8aK_Q.js";
 import { Lt as SecretInput, c as ModelProviderDeclarationConfig, i as ModelDefinitionConfig, n as OpenClawConfig } from "../../types.openclaw-BsXQib09.js";
 import "../../provider-onboard-_yAs2E3T.js";
-import { _ as OLLAMA_DEFAULT_COST, b as resolveOllamaSetupDefaultBaseUrl, d as resolveOllamaCompatNumCtxEnabled, f as shouldInjectOllamaCompatNumCtx, g as OLLAMA_DEFAULT_CONTEXT_WINDOW, h as OLLAMA_DEFAULT_BASE_URL, l as createConfiguredOllamaCompatStreamWrapper, p as wrapOllamaCompatNumCtx, r as buildOllamaChatRequest, u as isOllamaCompatProvider, v as OLLAMA_DEFAULT_MAX_TOKENS, y as OLLAMA_DEFAULT_MODEL } from "../../stream-api-CA32koju.js";
+import { _ as OLLAMA_DEFAULT_COST, b as resolveOllamaSetupDefaultBaseUrl, d as resolveOllamaCompatNumCtxEnabled, f as shouldInjectOllamaCompatNumCtx, g as OLLAMA_DEFAULT_CONTEXT_WINDOW, h as OLLAMA_DEFAULT_BASE_URL, l as createConfiguredOllamaCompatStreamWrapper, p as wrapOllamaCompatNumCtx, r as buildOllamaChatRequest, u as isOllamaCompatProvider, v as OLLAMA_DEFAULT_MAX_TOKENS, y as OLLAMA_DEFAULT_MODEL } from "../../stream-api-DpM7JLcC.js";
 //#region extensions/ollama/src/provider-models.d.ts
 type OllamaTagModel = {
   name: string;

@@ -17,9 +17,9 @@ import { t as definePluginEntry } from "../../plugin-entry-BOulgRcx.mjs";
 import "../../gateway-runtime-BCC8MoQW.mjs";
 import { s as mapPluginConfigIssues } from "../../extension-shared-N0S3ppSB.mjs";
 import "../../channel-actions-BjxmEiuN.mjs";
-import "../../memory-host-core-DP3Ksyf2.mjs";
+import "../../memory-host-core-CExmomyE.mjs";
 import "../../param-readers-BfezLD6d.mjs";
-import { A as ensureMemoryWikiVaultGeneration, B as setMemoryWikiDashboardState, C as listMemoryWikiImportInsights, D as initializeMemoryWikiVault, E as searchMemoryWiki, F as createMemoryWikiCompiledCacheStore, I as deactivateMemoryWikiCompiledCacheOwnersExcept, L as loadMemoryWikiCompiledCache, M as MemoryWikiDashboardUnavailableError, N as activateMemoryWikiCompiledCacheOwner, P as configureMemoryWikiCompiledCacheStore, R as reconcileMemoryWikiCompiledCacheOwner, T as getMemoryWikiPage, _ as ingestMemoryWikiSource, a as renderMemoryWikiStatus, b as compileMemoryWikiVault, c as waitForMemoryWikiImportedSourceSyncs, d as probeObsidianCli, f as runObsidianCommand, g as lintMemoryWikiVault, h as runObsidianSearch, j as loadMemoryWikiValidatedVaultIdentity, m as runObsidianOpen, n as renderWikiSearchResults, o as resolveMemoryWikiStatus, p as runObsidianDaily, r as buildMemoryWikiDoctorReport, s as syncMemoryWikiImportedSources, t as renderWikiMutationSummary, v as applyMemoryWikiMutation, w as WIKI_SEARCH_MODES, x as listMemoryWikiOverview, y as normalizeMemoryWikiMutationInput, z as resolveMemoryWikiCompiledCacheOwnerId } from "../../presentation-lquVZ2WC.mjs";
+import { A as ensureMemoryWikiVaultGeneration, B as setMemoryWikiDashboardState, C as listMemoryWikiImportInsights, D as initializeMemoryWikiVault, E as searchMemoryWiki, F as createMemoryWikiCompiledCacheStore, I as deactivateMemoryWikiCompiledCacheOwnersExcept, L as loadMemoryWikiCompiledCache, M as MemoryWikiDashboardUnavailableError, N as activateMemoryWikiCompiledCacheOwner, P as configureMemoryWikiCompiledCacheStore, R as reconcileMemoryWikiCompiledCacheOwner, T as getMemoryWikiPage, _ as ingestMemoryWikiSource, a as renderMemoryWikiStatus, b as compileMemoryWikiVault, c as waitForMemoryWikiImportedSourceSyncs, d as probeObsidianCli, f as runObsidianCommand, g as lintMemoryWikiVault, h as runObsidianSearch, j as loadMemoryWikiValidatedVaultIdentity, m as runObsidianOpen, n as renderWikiSearchResults, o as resolveMemoryWikiStatus, p as runObsidianDaily, r as buildMemoryWikiDoctorReport, s as syncMemoryWikiImportedSources, t as renderWikiMutationSummary, v as applyMemoryWikiMutation, w as WIKI_SEARCH_MODES, x as listMemoryWikiOverview, y as normalizeMemoryWikiMutationInput, z as resolveMemoryWikiCompiledCacheOwnerId } from "../../presentation-Ctgs8QCr.mjs";
 import { a as resolveMemoryWikiConfig, i as resolveMemoryWikiAgentConfig, n as WIKI_SEARCH_BACKENDS, o as resolveMemoryWikiConfiguredAgentIds, r as WIKI_SEARCH_CORPORA, t as MemoryWikiConfigSource } from "../../config-DtaJXrmb.mjs";
 import { a as createMemoryWikiImportRunStateStore, h as createMemoryWikiSourceSyncStateStore, m as configureMemoryWikiSourceSyncStateStore, o as listMemoryWikiImportRunRecords, r as configureMemoryWikiImportRunStateStore } from "../../import-runs-state-CE1H5GV6.mjs";
 import path from "node:path";
@@ -807,7 +807,7 @@ var memory_wiki_default = definePluginEntry({
 			});
 		}, { name });
 		api.registerCli(async ({ program }) => {
-			const { registerWikiCli } = await import("../../cli-DR5OrnR2.mjs");
+			const { registerWikiCli } = await import("../../cli-CIYuJ5pI.mjs");
 			registerWikiCli(program, {
 				config,
 				resolveConfig,

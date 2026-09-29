@@ -1,6 +1,6 @@
 import { r as createLazyRuntimeModule } from "../../lazy-runtime-BPNHa36e.mjs";
 import { t as defineBundledChannelEntry } from "../../channel-entry-contract-DDxZbSmZ.mjs";
-import { n as registerReefCliMetadata } from "../../cli-metadata-ikfXH3p6.mjs";
+import { n as registerReefCliMetadata } from "../../cli-metadata-C_4AbLZy.mjs";
 //#region extensions/reef/index.ts
 const loadReefCommandsRuntime = createLazyRuntimeModule(() => import("./commands.runtime.js"));
 function registerReefFullRuntime(api) {

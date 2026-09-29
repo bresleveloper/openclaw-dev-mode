@@ -1,0 +1,1 @@
+import"./control-ui-foundation-Bju0LxrM.js";import{Fr as e,Pr as t}from"./control-ui-core-QgEwr0pF.js";e();export{t as OpenClawModalDialog};

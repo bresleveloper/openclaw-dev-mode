@@ -15,7 +15,7 @@ if (!existsSync(new URL("entry.ts", import.meta.url)) && (existsSync(new URL(".o
 const [{ formatCliFailureLines, formatCliJsonFailure, isExpectedCliError }, { isJsonOutputModeActive }, { runCliWithExitFinalization }, { withCliProcessScope }, { installDistEsmResolveFastPath }, { tryHandleRootVersionFastPath }, { formatUncaughtError }, { runFatalErrorHooks }, { isMainModule }, { installUnhandledRejectionHandler, isBenignUncaughtExceptionError, isUncaughtExceptionHandled }] = await Promise.all([
 	import("./failure-output-Tnld8e4L.mjs"),
 	import("./json-output-mode-pwhUEVjJ.mjs"),
-	import("./one-shot-exit-BTBpeVJl.mjs"),
+	import("./one-shot-exit-DFhtxTFN.mjs"),
 	import("./runtime-cleanup-scope-DzOJviEP.mjs"),
 	import("./entry.esm-resolve-fast-path-nYOOyhlm.mjs"),
 	import("./entry.version-fast-path-BilyiJnB.mjs"),
@@ -57,7 +57,7 @@ async function runLegacyCliEntry(argv = process.argv, deps, options) {
 const isMain = isMainModule({ currentFile: fileURLToPath(import.meta.url) });
 if (isMain) installDistEsmResolveFastPath(import.meta.url);
 const handledRootVersion = isMain && tryHandleRootVersionFastPath(process.argv);
-if (!isMain) ({applyTemplate, createDefaultDeps, deriveSessionKey, describePortOwner, ensureBinary, ensurePortAvailable, getReplyFromConfig, handlePortError, loadConfig, loadSessionStore, monitorWebChannel, normalizeE164, PortInUseError, promptYesNo, resolveSessionKey, resolveStorePath, runCommandWithTimeout, runExec, saveSessionStore, waitForever} = await import("./library-BHDU5ZCa.mjs"));
+if (!isMain) ({applyTemplate, createDefaultDeps, deriveSessionKey, describePortOwner, ensureBinary, ensurePortAvailable, getReplyFromConfig, handlePortError, loadConfig, loadSessionStore, monitorWebChannel, normalizeE164, PortInUseError, promptYesNo, resolveSessionKey, resolveStorePath, runCommandWithTimeout, runExec, saveSessionStore, waitForever} = await import("./library-YHWpv0dG.mjs"));
 if (isMain && !handledRootVersion) {
 	const { defaultRuntime, restoreRuntimeTerminalState } = await import("./runtime-pvh-jBbt.mjs");
 	installUnhandledRejectionHandler();

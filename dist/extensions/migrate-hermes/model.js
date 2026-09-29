@@ -1,2 +1,2 @@
-import { a as resolveHermesConfiguredProviderId, i as resolveCurrentModelRef, n as normalizeHermesCustomProviderId, o as resolveHermesModelRef, r as normalizeHermesProviderId, s as usesRetiredHermesQwenProvider, t as applyModelItem } from "../../model-BKk7dhKP.mjs";
+import { a as resolveHermesConfiguredProviderId, i as resolveCurrentModelRef, n as normalizeHermesCustomProviderId, o as resolveHermesModelRef, r as normalizeHermesProviderId, s as usesRetiredHermesQwenProvider, t as applyModelItem } from "../../model-hH_VJDW0.mjs";
 export { applyModelItem, normalizeHermesCustomProviderId, normalizeHermesProviderId, resolveCurrentModelRef, resolveHermesConfiguredProviderId, resolveHermesModelRef, usesRetiredHermesQwenProvider };

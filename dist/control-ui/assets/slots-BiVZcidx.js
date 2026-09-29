@@ -1,0 +1,2 @@
+import{n as e}from"./rolldown-runtime-8BhlS34s.js";import{do as t,uo as n}from"./control-ui-foundation-Bju0LxrM.js";function r(e){return o[e]}function i(e){let r=t(e);if(r)return n(r)===`none`?null:r}function a(e,t){let n=i(t);return n===void 0?{kind:`default`,pluginId:r(e)}:n===null?{kind:`off`}:{kind:`pinned`,pluginId:n}}var o;function s(){return(s=e((()=>{o={memory:`memory-core`,contextEngine:`legacy`},Object.keys(o)})))()}export{s as n,a as r,r as t};
+//# sourceMappingURL=slots-BiVZcidx.js.map

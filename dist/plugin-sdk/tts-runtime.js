@@ -1,7 +1,7 @@
 import { C as TtsAutoSchema, E as TtsProviderSchema, T as TtsModeSchema, w as TtsConfigSchema } from "../zod-schema.core-DyJd-bbI.mjs";
 import { _ as resolveTtsPrefsPath, a as getTtsMaxLength, c as isTtsEnabled, h as resolveTtsConfig, i as buildTtsSystemPromptHint, l as listTtsPersonas, m as resolveTtsAutoMode, o as getTtsPersona, s as isSummarizationEnabled } from "../tts-settings-CuXW4C4p.mjs";
-import { D as resolveTtsProviderOrder, T as isTtsProviderConfigured, _ as setTtsProvider, a as textToSpeechStream, c as getLastTtsAttempt, d as setLastTtsAttempt, f as setSummarizationEnabled, g as setTtsPersona, h as setTtsMaxLength, i as streamSpeech, l as listSpeechVoices, m as setTtsEnabled, n as testApi, p as setTtsAutoMode, r as textToSpeechTelephony, s as resolveExplicitTtsOverrides, t as getTtsProvider, v as synthesizeSpeech, w as getResolvedSpeechProviderConfig } from "../runtime-api-JsepPOHv.mjs";
-import { n as textToSpeech, t as maybeApplyTtsToPayload } from "../tts-DFUY8QkW.mjs";
+import { D as resolveTtsProviderOrder, T as isTtsProviderConfigured, _ as setTtsProvider, a as textToSpeechStream, c as getLastTtsAttempt, d as setLastTtsAttempt, f as setSummarizationEnabled, g as setTtsPersona, h as setTtsMaxLength, i as streamSpeech, l as listSpeechVoices, m as setTtsEnabled, n as testApi, p as setTtsAutoMode, r as textToSpeechTelephony, s as resolveExplicitTtsOverrides, t as getTtsProvider, v as synthesizeSpeech, w as getResolvedSpeechProviderConfig } from "../runtime-api-BvEX7sJP.mjs";
+import { n as textToSpeech, t as maybeApplyTtsToPayload } from "../tts-DydeHokL.mjs";
 //#region src/plugin-sdk/tts-runtime.ts
 /** Compatibility no-op retained for callers that prewarm facade runtimes generically. */
 function prewarmTtsRuntimeFacade() {}

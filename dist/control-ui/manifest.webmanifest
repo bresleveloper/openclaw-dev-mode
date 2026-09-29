@@ -8,18 +8,18 @@
   "background_color": "#0a0a0a",
   "icons": [
     {
-      "src": "./favicon.svg?v=2026.9.6-31f452be4a95-2026-09-28T16-17-34.406Z-314f5d487e3c5ae6aed7f2edbb68f93f274b3d7ca0e9fdca8f6e8f654f92c54c",
+      "src": "./favicon.svg?v=2026.9.6-b4fad3f79baa-2026-09-29T13-44-48.992Z-314f5d487e3c5ae6aed7f2edbb68f93f274b3d7ca0e9fdca8f6e8f654f92c54c",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
     },
     {
-      "src": "./favicon-32.png?v=2026.9.6-31f452be4a95-2026-09-28T16-17-34.406Z-314f5d487e3c5ae6aed7f2edbb68f93f274b3d7ca0e9fdca8f6e8f654f92c54c",
+      "src": "./favicon-32.png?v=2026.9.6-b4fad3f79baa-2026-09-29T13-44-48.992Z-314f5d487e3c5ae6aed7f2edbb68f93f274b3d7ca0e9fdca8f6e8f654f92c54c",
       "sizes": "32x32",
       "type": "image/png"
     },
     {
-      "src": "./apple-touch-icon.png?v=2026.9.6-31f452be4a95-2026-09-28T16-17-34.406Z-314f5d487e3c5ae6aed7f2edbb68f93f274b3d7ca0e9fdca8f6e8f654f92c54c",
+      "src": "./apple-touch-icon.png?v=2026.9.6-b4fad3f79baa-2026-09-29T13-44-48.992Z-314f5d487e3c5ae6aed7f2edbb68f93f274b3d7ca0e9fdca8f6e8f654f92c54c",
       "sizes": "180x180",
       "type": "image/png"
     }

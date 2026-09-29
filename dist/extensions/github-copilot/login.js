@@ -1,2 +1,2 @@
-import { t as runGitHubCopilotDeviceFlow } from "../../login-CN29DtCO.mjs";
+import { t as runGitHubCopilotDeviceFlow } from "../../login-coEHIMZo.mjs";
 export { runGitHubCopilotDeviceFlow };

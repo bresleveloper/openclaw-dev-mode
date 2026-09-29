@@ -10,5 +10,5 @@ import { n as renderQrPngDataUrl, r as writeQrPngTempFile, t as renderQrPngBase6
 import { t as resolveAdvertisedLanHost } from "../../gateway-runtime-BCC8MoQW.mjs";
 import { n as approveDevicePairing } from "../../device-pairing-approval-6orhFPdN.mjs";
 import { p as revokeDeviceBootstrapToken, s as issueDeviceBootstrapToken, t as clearDeviceBootstrapTokens } from "../../device-bootstrap-BtrqJlcg.mjs";
-import "../../api-BT7x4kQo.mjs";
+import "../../api-J8UA3hsV.mjs";
 export { PAIRING_SETUP_BOOTSTRAP_PROFILE, approveDevicePairing, clearDeviceBootstrapTokens, definePluginEntry, issueDeviceBootstrapToken, listDevicePairing, renderQrPngBase64, renderQrPngDataUrl, resolveAdvertisedLanHost, resolveGatewayBindUrl, resolveGatewayPort, resolvePreferredOpenClawTmpDir, resolveTailnetHostWithRunner, resolveTailscaleServeGatewayUrlsWithRunner, revokeDeviceBootstrapToken, runPluginCommandWithTimeout, writeQrPngTempFile };

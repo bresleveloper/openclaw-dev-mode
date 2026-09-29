@@ -1,22 +1,22 @@
-import { i as resolveCommandAuthorization } from "../command-auth-rFSl4uOZ.mjs";
+import { i as resolveCommandAuthorization } from "../command-auth-2PSSAYYJ.mjs";
 import { n as resolveControlCommandGate, r as resolveDualTextControlCommandGate, t as resolveCommandAuthorizedFromAuthorizers } from "../command-gating-65fgTdwb.mjs";
 import { a as parseAccessGroupAllowFromEntry, t as ACCESS_GROUP_ALLOW_FROM_PREFIX } from "../allow-from-Dq2DvsNl.mjs";
 import { n as listChatCommands, r as listChatCommandsForConfig, t as isCommandEnabled } from "../commands-registry-list-dv4qVJuy.mjs";
 import { i as resolveTextCommand, n as maybeResolveTextAlias, r as normalizeCommandBody, t as getCommandDetection } from "../commands-registry-normalize-DJeLLZwD.mjs";
-import { a as shouldComputeCommandAuthorized, n as hasInlineCommandTokens, r as isControlCommandMessage, t as hasControlCommand } from "../command-detection-CzqdezWl.mjs";
+import { a as shouldComputeCommandAuthorized, n as hasInlineCommandTokens, r as isControlCommandMessage, t as hasControlCommand } from "../command-detection-CBYe7EC-.mjs";
 import { n as shouldHandleTextCommands, t as isNativeCommandSurface } from "../commands-text-routing-BAYDrHHM.mjs";
-import { a as formatCommandArgMenuTitle, c as listNativeCommandSpecs, d as parseCommandArgs, f as resolveCommandArgChoices, i as findCommandByNativeName, l as listNativeCommandSpecsForConfig, m as serializeCommandArgs, n as buildCommandTextFromArgs, p as resolveCommandArgMenu, s as isCommandMessage, t as buildCommandText } from "../commands-registry-BUZjd6Tx.mjs";
-import { n as resolveStoredModelOverride } from "../stored-model-overrides-Covy02dM.mjs";
+import { a as formatCommandArgMenuTitle, c as listNativeCommandSpecs, d as parseCommandArgs, f as resolveCommandArgChoices, i as findCommandByNativeName, l as listNativeCommandSpecsForConfig, m as serializeCommandArgs, n as buildCommandTextFromArgs, p as resolveCommandArgMenu, s as isCommandMessage, t as buildCommandText } from "../commands-registry-Dw3-bHwm.mjs";
+import { n as resolveStoredModelOverride } from "../stored-model-overrides-Cd0DtWCi.mjs";
 import { r as resolveDmGroupAccessWithLists } from "../dm-policy-shared-NwS6IC07.mjs";
-import { i as listProviderPluginCommandSpecs, r as getPluginCommandSpecs } from "../command-specs-B3RP0SmZ.mjs";
+import { i as listProviderPluginCommandSpecs, r as getPluginCommandSpecs } from "../command-specs-enEeJ24Y.mjs";
 import { i as listReservedChatSlashCommandNames, o as resolveSkillCommandInvocation } from "../chat-command-invocation-C1oJ052R.mjs";
 import { n as resolveAccessGroupAllowFromMatches, r as resolveAccessGroupAllowFromState, t as expandAllowFromWithAccessGroups } from "../access-groups-C6biHkvZ.mjs";
 import "../channel-access-compat-DPCgli7T.mjs";
 import { n as resolveInboundDirectDmAccessWithRuntime, t as createPreCryptoDirectDmAuthorizer } from "../direct-dm-access-SRroUKK-.mjs";
 import { t as resolveNativeCommandSessionTargets } from "../native-command-session-targets-BtwIxFQ8.mjs";
-import { n as listSkillCommandsForWorkspace, t as listSkillCommandsForAgents } from "../chat-commands-TSrzWQ3Y.mjs";
-import { i as resolveModelsCommandReply, n as formatModelsAvailableHeader } from "../commands-models-C40zUQy-.mjs";
-import { t as buildModelsProviderData } from "../models-provider-runtime-sOpYOxNH.mjs";
+import { n as listSkillCommandsForWorkspace, t as listSkillCommandsForAgents } from "../chat-commands-DZNqfvMX.mjs";
+import { i as resolveModelsCommandReply, n as formatModelsAvailableHeader } from "../commands-models-Br8TkBOP.mjs";
+import { t as buildModelsProviderData } from "../models-provider-runtime-BYDEv6xW.mjs";
 //#region src/plugin-sdk/telegram-command-ui.ts
 /**
 * Telegram command UI helpers exposed for plugin command pagination.

@@ -5,8 +5,8 @@ import { t as sessionChanges } from "../../session-row-changes-xuu0eHng.mjs";
 import { s as getOpenClawAgentDatabaseIfOpen } from "../../openclaw-agent-db-CaQAStOA.mjs";
 import { g as toDatabaseOptions, u as resolveSqliteScope } from "../../session-accessor.sqlite-scope-DHC66DLY.mjs";
 import { m as readSqliteSessionParticipantProjection } from "../../session-accessor.sqlite-entry-read-yAa3_SVY.mjs";
-import { i as recordSessionParticipant, n as removeSessionMember, t as addSessionMember } from "../../session-sharing-store.native-CWwd7VsS.mjs";
-import { n as assertSessionGroupCategoryDestination, r as prepareSessionGroupCategoryMutation, t as applySessionGroupCategoryMutation } from "../../session-group-categories.kernel-CfOyr4JE.mjs";
+import { i as recordSessionParticipant, n as removeSessionMember, t as addSessionMember } from "../../session-sharing-store.native-CfGI05Li.mjs";
+import { n as assertSessionGroupCategoryDestination, r as prepareSessionGroupCategoryMutation, t as applySessionGroupCategoryMutation } from "../../session-group-categories.kernel-i48SkY8N.mjs";
 //#region src/config/sessions/session-sharing-store.worker.ts
 /** The canonical agent executor retains the connection and both live admission checks. */
 function bindSqliteWorkerBackend(_input, context) {

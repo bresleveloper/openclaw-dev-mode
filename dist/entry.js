@@ -3,7 +3,7 @@ import { u as isRootHelpInvocation } from "./argv-IYTsfFsq.mjs";
 import { r as isForegroundGatewayRunArgv } from "./gateway-run-argv-L1ml5gbH.mjs";
 import { n as parseCliContainerArgs, r as resolveCliContainerTarget } from "./container-target-QMB0jS0E.mjs";
 import { r as defaultRuntime } from "./runtime-BC29JSZp.mjs";
-import { n as requestExitAfterOneShotOutput, r as runCliWithExitFinalization } from "./one-shot-exit-f6PhkiZS.mjs";
+import { n as requestExitAfterOneShotOutput, r as runCliWithExitFinalization } from "./one-shot-exit-maXyqxro.mjs";
 import { t as tryOutputPrecomputedCommandHelp } from "./precomputed-help-CjXdQ-GT.mjs";
 import { n as parseCliProfileArgs, t as applyCliProfileEnv } from "./profile-wa21S6WO.mjs";
 import { a as isNativeHookRelayArgv, i as isForegroundGmailRunArgv, n as runCliRespawnPlan, o as isTerminalInteractiveRespawnArgv, r as runRespawnChildWithSignalBridge, s as shouldKeepNativeHookRelayInProcess, t as buildCliRespawnPlan } from "./entry.respawn-DrPviqKU.mjs";
@@ -304,7 +304,7 @@ async function tryHandleRootHelpFastPath(argv, deps = {}) {
 		if (!liveRootHelpOptions) {
 			if ((deps.outputPrecomputedRootHelpText ?? (await loadRootHelpMetadataModule()).outputPrecomputedRootHelpText)()) return true;
 		}
-		await (deps.outputRootHelp ?? (await import("./root-help-CKrcTbXT.mjs")).outputRootHelp)(liveRootHelpOptions ?? void 0);
+		await (deps.outputRootHelp ?? (await import("./root-help-5In6uMzS.mjs")).outputRootHelp)(liveRootHelpOptions ?? void 0);
 		return true;
 	} catch (error) {
 		await handleError(error);

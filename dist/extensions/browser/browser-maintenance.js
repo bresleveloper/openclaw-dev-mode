@@ -1,4 +1,4 @@
-import { n as closeTrackedBrowserTabsForSessions$1 } from "../../session-tab-registry-BJ4WvzwC.mjs";
+import { n as closeTrackedBrowserTabsForSessions$1 } from "../../session-tab-registry-Bl0lE-XG.mjs";
 import { t as movePathToTrash } from "../../trash-CAu63IBo.mjs";
 //#region extensions/browser/browser-maintenance.ts
 /**
@@ -10,7 +10,7 @@ async function closeTrackedBrowserTabsForSessions(params) {
 	return await closeTrackedBrowserTabsForSessions$1({
 		...params,
 		getResolvedBrowserConfig: async () => {
-			const { getBrowserControlState } = await import("../../browser-control-state-Cq84uujF.mjs");
+			const { getBrowserControlState } = await import("../../browser-control-state-DNhn_3YX.mjs");
 			return getBrowserControlState()?.resolved ?? null;
 		}
 	});

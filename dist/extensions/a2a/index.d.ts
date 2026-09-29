@@ -1,4 +1,4 @@
-import { Cn as ChannelOutboundAdapter, bn as ChannelPlugin, r as OpenClawPluginApi$1 } from "../../runtime-api-CHs6AUp7.js";
+import { Cn as ChannelOutboundAdapter, bn as ChannelPlugin, r as OpenClawPluginApi$1 } from "../../runtime-api-QiF8aK_Q.js";
 import { Q as ChannelConfigSchema } from "../../types.openclaw-BsXQib09.js";
 import { createJiti } from "jiti";
 //#region src/plugins/jiti-factory.d.ts

@@ -5,7 +5,7 @@ import { p as resolveProviderHttpRequestConfig, t as buildAudioTranscriptionForm
 import "../../provider-http-Dn9NddwC.mjs";
 import { t as XAI_BASE_URL } from "../../model-definitions-DA8Fbxqz.mjs";
 import { l as createXaiMediaUnderstandingProviderMetadata } from "../../capability-provider-metadata-factory-CGFzChAW.mjs";
-import "../../capability-provider-metadata-LLP29-xk.mjs";
+import "../../capability-provider-metadata-DmNr9WEi.mjs";
 //#region extensions/xai/stt.ts
 function resolveXaiSttBaseUrl(value) {
 	return normalizeOptionalString(value ?? process.env.XAI_BASE_URL) ?? XAI_BASE_URL;

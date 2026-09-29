@@ -1,0 +1,48 @@
+import { o as normalizeLowercaseStringOrEmpty } from "./string-coerce-CIXf7egm.mjs";
+import { r as createLazyRuntimeModule } from "./lazy-runtime-BPNHa36e.mjs";
+import { i as logVerbose, o as shouldLogVerbose } from "./globals-QODkv80i.mjs";
+import { t as isDeliverableMessageChannel } from "./message-channel-normalize-2tAtQt1g.mjs";
+import "./message-channel-DDcHHhpX.mjs";
+//#region src/media-understanding/echo-transcript.ts
+const loadMessageRuntime = createLazyRuntimeModule(() => import("./runtime-D4NP4Fhn.mjs"));
+/** Default operator-visible transcript echo format for preflight audio transcription. */
+const DEFAULT_ECHO_TRANSCRIPT_FORMAT = "📝 \"{transcript}\"";
+function formatEchoTranscript(transcript, format) {
+	return format.replace("{transcript}", () => transcript);
+}
+/** Sends a best-effort transcript echo back to the originating deliverable chat. */
+async function sendTranscriptEcho(params) {
+	const { ctx, cfg, transcript } = params;
+	const channel = ctx.Provider ?? ctx.Surface ?? "";
+	const to = ctx.OriginatingTo ?? ctx.From ?? "";
+	if (!channel || !to) {
+		if (shouldLogVerbose()) logVerbose("media: echo-transcript skipped (no channel/to resolved from ctx)");
+		return;
+	}
+	const normalizedChannel = normalizeLowercaseStringOrEmpty(channel);
+	if (!isDeliverableMessageChannel(normalizedChannel)) {
+		if (shouldLogVerbose()) logVerbose(`media: echo-transcript skipped (channel "${normalizedChannel}" is not deliverable)`);
+		return;
+	}
+	const text = formatEchoTranscript(transcript, params.format ?? "📝 \"{transcript}\"");
+	try {
+		const { sendDurableMessageBatchCore } = await loadMessageRuntime();
+		const send = await sendDurableMessageBatchCore({
+			cfg,
+			channel: normalizedChannel,
+			to,
+			accountId: ctx.AccountId ?? void 0,
+			threadId: ctx.MessageThreadId ?? void 0,
+			payloads: [{ text }],
+			bestEffort: true,
+			durability: "best_effort"
+		});
+		if (send.status === "failed") throw send.error;
+		if ((params.logSuccess ?? true) && shouldLogVerbose()) logVerbose(`media: echo-transcript sent to ${normalizedChannel}/${to}`);
+	} catch (err) {
+		const prefix = params.failureLogPrefix ?? "media: echo-transcript delivery failed";
+		logVerbose(`${prefix}: ${String(err)}`);
+	}
+}
+//#endregion
+export { sendTranscriptEcho as n, DEFAULT_ECHO_TRANSCRIPT_FORMAT as t };

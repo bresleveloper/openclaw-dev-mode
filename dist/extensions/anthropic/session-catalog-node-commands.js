@@ -3,8 +3,8 @@ import { i as runNodePtyCommand, n as decodeNodePtyResumeParams, r as decodeNode
 import { t as resolveClaudeTerminalExecutable } from "../../session-catalog-executable-BtzrAp2a.mjs";
 import { s as isResumableClaudeSource } from "../../session-catalog-shared-CiyzxK6Y.mjs";
 import { t as isExactClaudeSessionCursor } from "../../session-catalog-cursor-NPLrVaSJ.mjs";
-import { o as readLocalClaudeTranscriptPage, r as listLocalClaudeSessionPage } from "../../session-catalog-listing-2hy6qgsY.mjs";
-import "../../session-catalog-BdJW1jNk.mjs";
+import { o as readLocalClaudeTranscriptPage, r as listLocalClaudeSessionPage } from "../../session-catalog-listing-B1rK2PN6.mjs";
+import "../../session-catalog-Dilii9ty.mjs";
 //#region extensions/anthropic/session-catalog-node-commands.ts
 const CLAUDE_NODE_LOOKUP_PAGE_LIMIT = 100;
 function parseNodeParams(paramsJSON) {

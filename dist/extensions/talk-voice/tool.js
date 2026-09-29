@@ -2,8 +2,8 @@ import { a as asOptionalRecord } from "../../record-coerce-DItp3I4t.mjs";
 import { t as jsonResult } from "../../tool-results-BCM3fdVS.mjs";
 import { h as readToolStringParam } from "../../common-XfKigJno.mjs";
 import "../../string-coerce-runtime-C_MKhRVt.mjs";
-import { t as callGatewayTool } from "../../gateway-DVDJurQC.mjs";
-import "../../agent-harness-runtime-DJD87w0k.mjs";
+import { t as callGatewayTool } from "../../gateway-fiwofDIl.mjs";
+import "../../agent-harness-runtime-k4x7zJ-U.mjs";
 import "../../param-readers-BfezLD6d.mjs";
 //#region extensions/talk-voice/tool.ts
 const executeTalkVoiceTool = async (_id, args, signal) => {

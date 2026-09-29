@@ -1,12 +1,12 @@
 import { t as coerceErrorMessage } from "../../error-coercion-C787aVxk.mjs";
 import { d as normalizeStringEntries } from "../../string-normalization-_gRhJUDw.mjs";
 import { h as readProviderTextResponse, m as readProviderJsonResponse, r as assertOkOrThrowProviderError } from "../../provider-http-errors-CTY_-ABT.mjs";
-import { M as withRemoteHttpResponse } from "../../gateway-startup-plugin-config-XCCRUavD.mjs";
+import { M as withRemoteHttpResponse } from "../../gateway-startup-plugin-config-AVh0bjkO.mjs";
 import "../../error-runtime-Bf1fYXFh.mjs";
 import "../../string-coerce-runtime-C_MKhRVt.mjs";
 import { g as waitProviderOperationPollInterval, h as resolveProviderOperationTimeoutMs, r as createProviderOperationDeadline } from "../../shared-BLFkM12I.mjs";
 import "../../provider-http-Dn9NddwC.mjs";
-import { D as formatBatchErrorDetail, E as extractBatchErrorMessage, O as formatUnavailableBatchError, b as waitForEmbeddingBatch, d as buildEmbeddingBatchGroupOptions, l as resolveEmbeddingEndpointUrl, m as buildBatchHeaders, p as runEmbeddingBatches, s as uploadBatchJsonlFile, w as postJsonWithRetry, x as EMBEDDING_BATCH_ENDPOINT } from "../../memory-core-host-engine-embeddings-CRt6gGvK.mjs";
+import { D as formatBatchErrorDetail, E as extractBatchErrorMessage, O as formatUnavailableBatchError, b as waitForEmbeddingBatch, d as buildEmbeddingBatchGroupOptions, l as resolveEmbeddingEndpointUrl, m as buildBatchHeaders, p as runEmbeddingBatches, s as uploadBatchJsonlFile, w as postJsonWithRetry, x as EMBEDDING_BATCH_ENDPOINT } from "../../memory-core-host-engine-embeddings-B_fgzgsI.mjs";
 //#region extensions/openai/embedding-batch.ts
 const OPENAI_BATCH_ENDPOINT = EMBEDDING_BATCH_ENDPOINT;
 const OPENAI_BATCH_COMPLETION_WINDOW = "24h";

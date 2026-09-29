@@ -3,7 +3,7 @@ import { l as normalizeOptionalString } from "../../string-coerce-CIXf7egm.mjs";
 import "../../string-coerce-runtime-C_MKhRVt.mjs";
 import { t as XAI_BASE_URL } from "../../model-definitions-DA8Fbxqz.mjs";
 import { m as normalizeXaiRealtimeTranscriptionProviderConfig, u as createXaiRealtimeTranscriptionProviderMetadata } from "../../capability-provider-metadata-factory-CGFzChAW.mjs";
-import { n as xaiUserAgentHeaderFor } from "../../xai-user-agent-BZ2gwPem.mjs";
+import { n as xaiUserAgentHeaderFor } from "../../xai-user-agent-D6jVFWMW.mjs";
 //#region extensions/xai/realtime-transcription-provider-factory.ts
 const XAI_REALTIME_STT_DEFAULT_SAMPLE_RATE = 8e3;
 const XAI_REALTIME_STT_DEFAULT_ENCODING = "mulaw";

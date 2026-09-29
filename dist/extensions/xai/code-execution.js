@@ -1,13 +1,13 @@
 import { s as getRuntimeConfigSnapshot } from "../../runtime-snapshot-DbgWcCyV.mjs";
 import { t as jsonResult } from "../../tool-results-BCM3fdVS.mjs";
 import { h as readToolStringParam } from "../../common-XfKigJno.mjs";
-import "../../runtime-config-snapshot-Bc7N5SpK.mjs";
+import "../../runtime-config-snapshot-Bm2YKbTW.mjs";
 import "../../provider-web-search-CRDOBhl4.mjs";
 import { n as createCodeExecutionToolDefinition, t as buildMissingCodeExecutionApiKeyPayload } from "../../code-execution-tool-shared-CeAkKo1Y.mjs";
 import { a as XAI_DEFAULT_MODEL_ID } from "../../model-definitions-DA8Fbxqz.mjs";
 import { r as resolveXaiToolApiKeyWithAuth } from "../../tool-auth-shared-BKm-JLrq.mjs";
 import { n as readPluginCodeExecutionConfig, r as resolveCodeExecutionEnabled, t as readCodeExecutionConfigRecord } from "../../code-execution-config-B0N75YRG.mjs";
-import { a as requestXaiResponsesTool, i as XAI_RESPONSES_ENDPOINT, l as resolveXaiToolDefaultReasoningEffort, n as resolveNormalizedXaiToolModel, o as requireXaiResponseTextAndCitations, r as resolvePositiveIntegerToolConfig } from "../../tool-config-shared-C1JjZS0I.mjs";
+import { a as requestXaiResponsesTool, i as XAI_RESPONSES_ENDPOINT, l as resolveXaiToolDefaultReasoningEffort, n as resolveNormalizedXaiToolModel, o as requireXaiResponseTextAndCitations, r as resolvePositiveIntegerToolConfig } from "../../tool-config-shared-DzpBoXuC.mjs";
 //#region extensions/xai/src/code-execution-shared.ts
 const XAI_CODE_EXECUTION_ENDPOINT = XAI_RESPONSES_ENDPOINT;
 const XAI_DEFAULT_CODE_EXECUTION_MODEL = XAI_DEFAULT_MODEL_ID;

@@ -4,11 +4,11 @@ import { r as theme } from "../../theme-DzaUZY4q.mjs";
 import { t as formatDocsLink } from "../../links-B3qXeqz-.mjs";
 import "../../number-runtime-CGwowceO.mjs";
 import { t as formatHelpExamples } from "../../help-format-Ctl5AOqy.mjs";
-import "../../memory-core-host-runtime-cli-Duccl2aD.mjs";
+import "../../memory-core-host-runtime-cli-ee_djNcN.mjs";
 import { p as configureMemoryCoreDreamingState } from "../../dreaming-state-DJfKblhZ.mjs";
 import { n as DEFAULT_PROMOTION_MIN_SCORE, r as DEFAULT_PROMOTION_MIN_UNIQUE_QUERIES, t as DEFAULT_PROMOTION_MIN_RECALL_COUNT } from "../../short-term-promotion-types-CF6lUGQN.mjs";
 //#region extensions/memory-core/src/cli.ts
-const loadMemoryCliRuntime = createLazyRuntimeModule(() => import("../../cli.runtime-DtzNXDpT.mjs"));
+const loadMemoryCliRuntime = createLazyRuntimeModule(() => import("../../cli.runtime-B6F8Th_R.mjs"));
 const DECIMAL_NUMBER_RE = /^[+-]?(?:\d+(?:\.\d+)?|\.\d+)$/;
 const DEFAULT_SESSION_BACKFILL_LIMIT_DAYS = 92;
 function invalidCliArgument(message) {

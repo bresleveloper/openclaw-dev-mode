@@ -1,10 +1,10 @@
 import { r as normalizeXaiModelId } from "../../model-id-BpefGMul.mjs";
 import { a as XAI_DEFAULT_MODEL_ID, c as buildXaiCatalogModels, d as resolveXaiCatalogEntry, i as XAI_DEFAULT_MAX_TOKENS, l as buildXaiModelDefinition, n as XAI_DEFAULT_CONTEXT_WINDOW, o as XAI_IMAGE_MODELS, r as XAI_DEFAULT_IMAGE_MODEL, t as XAI_BASE_URL } from "../../model-definitions-DA8Fbxqz.mjs";
-import { n as XAI_TOOL_SCHEMA_PROFILE, r as applyXaiModelCompat, t as HTML_ENTITY_TOOL_CALL_ARGUMENTS_ENCODING } from "../../model-compat-DJMBHfe0.mjs";
+import { n as XAI_TOOL_SCHEMA_PROFILE, r as applyXaiModelCompat, t as HTML_ENTITY_TOOL_CALL_ARGUMENTS_ENCODING } from "../../model-compat-DZTqgH8b.mjs";
 import { i as applyXaiProviderConfig, n as applyXaiConfig, t as XAI_DEFAULT_MODEL_REF } from "../../onboard-LZsrk0v7.mjs";
-import { r as buildXaiProvider } from "../../provider-catalog-D0G5iX9j.mjs";
+import { r as buildXaiProvider } from "../../provider-catalog-1_qb880U.mjs";
 import { t as resolveXaiTransport } from "../../provider-routing-CM5xf7if.mjs";
-import { t as applyXaiRuntimeModelCompat } from "../../runtime-model-compat-CIAAaij7.mjs";
-import { r as resolveXaiForwardCompatModel, t as isModernXaiModel } from "../../provider-models-BjIPf2Hv.mjs";
-import { t as buildXaiImageGenerationProvider } from "../../image-generation-provider-D8QHsbHJ.mjs";
+import { t as applyXaiRuntimeModelCompat } from "../../runtime-model-compat-DwjNw5Fa.mjs";
+import { r as resolveXaiForwardCompatModel, t as isModernXaiModel } from "../../provider-models-DZEOfBZO.mjs";
+import { t as buildXaiImageGenerationProvider } from "../../image-generation-provider-B4d7QYLr.mjs";
 export { HTML_ENTITY_TOOL_CALL_ARGUMENTS_ENCODING, XAI_BASE_URL, XAI_DEFAULT_CONTEXT_WINDOW, XAI_DEFAULT_IMAGE_MODEL, XAI_DEFAULT_MAX_TOKENS, XAI_DEFAULT_MODEL_ID, XAI_DEFAULT_MODEL_REF, XAI_IMAGE_MODELS, XAI_TOOL_SCHEMA_PROFILE, applyXaiConfig, applyXaiModelCompat, applyXaiProviderConfig, applyXaiRuntimeModelCompat, buildXaiCatalogModels, buildXaiImageGenerationProvider, buildXaiModelDefinition, buildXaiProvider, isModernXaiModel, normalizeXaiModelId, resolveXaiCatalogEntry, resolveXaiForwardCompatModel, resolveXaiTransport };

@@ -4,7 +4,7 @@ import { r as buildProviderToolCompatFamilyHooks } from "../../provider-tools-BD
 import { t as buildOpenAIImageGenerationProvider } from "../../image-generation-provider-uWH6wuEl.mjs";
 import { t as openaiMediaUnderstandingProvider } from "../../media-understanding-provider-CXO0EvwX.mjs";
 import { t as openAiMemoryEmbeddingProviderAdapter } from "../../memory-embedding-adapter-BPExAKfB.mjs";
-import { t as buildOpenAIProvider } from "../../openai-provider-GIr7Cuuv.mjs";
+import { t as buildOpenAIProvider } from "../../openai-provider-B_aQ47Oi.mjs";
 import { n as resolveOpenAISystemPromptContribution, t as resolveOpenAIPromptOverlayMode } from "../../prompt-overlay-CYqP-X87.mjs";
 import { t as OPENAI_QUICKSILVER_OFFER_PATH } from "../../realtime-quicksilver-session-CyB914kA.mjs";
 import { n as releaseOpenAIQuicksilverBrowserSessionBroker, t as acquireOpenAIQuicksilverBrowserSessionBroker } from "../../realtime-quicksilver-session-owner-BOO0H3xk.mjs";

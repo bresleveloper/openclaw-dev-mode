@@ -53,7 +53,7 @@ serveWorkerTasks(async (input, channel, control) => {
 		};
 	}
 	if (request.kind === "usage-cost") {
-		const { executeUsageCostWorker, usageCostWorkerFailure } = await import("../../session-cost-usage-worker-BFpnz0nm.mjs");
+		const { executeUsageCostWorker, usageCostWorkerFailure } = await import("../../session-cost-usage-worker-EeyPnPb-.mjs");
 		try {
 			if (!channel) throw new Error("Usage cost worker requires its host channel");
 			const closed = /* @__PURE__ */ new Map();
@@ -73,7 +73,7 @@ serveWorkerTasks(async (input, channel, control) => {
 	}
 	try {
 		if (request.kind === "transcript-search") {
-			const { searchSessionTranscriptsReadOnlySync } = await import("../../session-transcript-search-BjoUcOmt.mjs");
+			const { searchSessionTranscriptsReadOnlySync } = await import("../../session-transcript-search-CIjdwV68.mjs");
 			return {
 				ok: true,
 				...await withHistoryDatabase(request.database, () => ({
@@ -86,28 +86,28 @@ serveWorkerTasks(async (input, channel, control) => {
 			};
 		}
 		if (request.kind === "session-store-target") {
-			const { readSessionStoreTarget } = await import("../../session-store-target-inventory-DjhW2iwB.mjs");
+			const { readSessionStoreTarget } = await import("../../session-store-target-inventory-Bn-qCGOj.mjs");
 			return {
 				ok: true,
 				value: readSessionStoreTarget(request.request)
 			};
 		}
 		if (request.kind === "session-exact-entries") {
-			const { readExactSessionEntriesWithLifecycle } = await import("../../session-entry-read.worker-DPI--ee5.mjs");
+			const { readExactSessionEntriesWithLifecycle } = await import("../../session-entry-read.worker-Cf3CqyCE.mjs");
 			return {
 				ok: true,
 				...await withHistoryDatabase(request.database, () => readExactSessionEntriesWithLifecycle(request))
 			};
 		}
 		if (request.kind === "session-row-facts") {
-			const { readSessionRowDatabaseFacts } = await import("../../session-entry-read.worker-DPI--ee5.mjs");
+			const { readSessionRowDatabaseFacts } = await import("../../session-entry-read.worker-Cf3CqyCE.mjs");
 			return {
 				ok: true,
 				...await withHistoryDatabase(request.database, () => readSessionRowDatabaseFacts(request))
 			};
 		}
 		if (request.kind === "session-target-inventory") {
-			const { readSessionStoreTargetInventory } = await import("../../session-store-target-inventory-DjhW2iwB.mjs");
+			const { readSessionStoreTargetInventory } = await import("../../session-store-target-inventory-Bn-qCGOj.mjs");
 			return {
 				ok: true,
 				value: readSessionStoreTargetInventory(request.request)
@@ -115,7 +115,7 @@ serveWorkerTasks(async (input, channel, control) => {
 		}
 		if (request.kind === "session-identity-evidence") {
 			const { withOpenClawAgentDatabaseReadOnly } = await import("../../openclaw-agent-db-readonly-B0YVDehL.mjs");
-			const { readSessionIdentityEvidenceInDatabase } = await import("../../session-accessor.sqlite-entry-availability-DYWnhqlM.mjs");
+			const { readSessionIdentityEvidenceInDatabase } = await import("../../session-accessor.sqlite-entry-availability-CNLRZln1.mjs");
 			const { readWithCanonicalSessionReaderContinuation } = await import("../../session-canonical-key-zI3qud6z.mjs");
 			return {
 				ok: true,
@@ -135,7 +135,7 @@ serveWorkerTasks(async (input, channel, control) => {
 			};
 		}
 		if (request.kind === "session-entry-list") {
-			const { listSessionEntriesReadOnly } = await import("../../session-accessor.sqlite-entry-DVlqaBEB.mjs");
+			const { listSessionEntriesReadOnly } = await import("../../session-accessor.sqlite-entry-OTTDavDk.mjs");
 			return {
 				ok: true,
 				...await withHistoryDatabase(request.database, () => ({
@@ -158,7 +158,7 @@ serveWorkerTasks(async (input, channel, control) => {
 			};
 		}
 		if (request.kind === "branch-summaries") {
-			const { readSessionBranchSummariesInWorker } = await import("../../session-accessor.sqlite-branches-l2o30ylS.mjs");
+			const { readSessionBranchSummariesInWorker } = await import("../../session-accessor.sqlite-branches-BPeG6fkF.mjs");
 			return {
 				ok: true,
 				value: readSessionBranchSummariesInWorker(request.request)
@@ -215,7 +215,7 @@ serveWorkerTasks(async (input, channel, control) => {
 			};
 		}
 		if (request.kind === "session-row-presence") {
-			const { loadSessionEntryReadOnlyInScope } = await import("../../session-accessor.sqlite-entry-DVlqaBEB.mjs");
+			const { loadSessionEntryReadOnlyInScope } = await import("../../session-accessor.sqlite-entry-OTTDavDk.mjs");
 			return {
 				ok: true,
 				...await withHistoryDatabase(request.database, () => loadSessionEntryReadOnlyInScope({
@@ -226,7 +226,7 @@ serveWorkerTasks(async (input, channel, control) => {
 		}
 		return await runWithSessionTranscriptReadFence(request.admission, async () => {
 			if (request.kind === "session-title-fields") {
-				const { readSessionTitleFieldsFromTranscript } = await import("../../session-transcript-title-reader-BzP7IS-w.mjs");
+				const { readSessionTitleFieldsFromTranscript } = await import("../../session-transcript-title-reader-ClkXuWt7.mjs");
 				return {
 					ok: true,
 					...await withHistoryDatabase(request.database, () => ({
@@ -253,7 +253,7 @@ serveWorkerTasks(async (input, channel, control) => {
 				const quarantine = readOpenClawDatabaseQuarantineFailure("agent", request.database.path, { env: request.target.env });
 				if (quarantine) throw quarantine;
 				if (request.kind === "current-turn-entry") {
-					const { readSessionTranscriptCurrentTurnEntry } = await import("../../session-accessor.sqlite-current-turn-BWATCH8U.mjs");
+					const { readSessionTranscriptCurrentTurnEntry } = await import("../../session-accessor.sqlite-current-turn-DaEM6xgX.mjs");
 					return {
 						ok: true,
 						...await withHistoryDatabase(request.database, () => readSessionTranscriptCurrentTurnEntry(request.target, {
@@ -266,7 +266,7 @@ serveWorkerTasks(async (input, channel, control) => {
 					};
 				}
 				const { readSessionTranscriptBoundedActiveContextCore } = await import("../../session-accessor.sqlite-active-context-9vZE8MvL.mjs");
-				const { streamSessionTranscriptHydration } = await import("../../session-transcript-hydration.worker-Dea3h54g.mjs");
+				const { streamSessionTranscriptHydration } = await import("../../session-transcript-hydration.worker-Dm--XkJz.mjs");
 				return {
 					ok: true,
 					...await withHistoryDatabase(request.database, () => {
@@ -308,27 +308,27 @@ serveWorkerTasks(async (input, channel, control) => {
 						messages: await options.readers.readSessionMessagesMatchingIdAsync(request.request.params.target, request.request.params.messageId)
 					};
 					if (request.request.kind === "delta") {
-						const { prepareSessionHistoryDelta } = await import("../../session-history-delta-visibility-BKXyE5wU.mjs");
+						const { prepareSessionHistoryDelta } = await import("../../session-history-delta-visibility-BYQcowjC.mjs");
 						return {
 							kind: "delta",
 							...prepareSessionHistoryDelta(options.readers.readTranscriptDisplayDelta(request.request.params.limits), options.readers.subagentCoordination)
 						};
 					}
 					if (request.request.kind === "rpc") {
-						const { readChatHistoryPageKernel } = await import("../../chat-history-page-kernel-BuUeQvP8.mjs");
+						const { readChatHistoryPageKernel } = await import("../../chat-history-page-kernel-B8N380gU.mjs");
 						return {
 							kind: "rpc",
 							page: await readChatHistoryPageKernel(request.request.params, options)
 						};
 					}
-					const { readSessionHistorySnapshotKernel } = await import("../../session-history-snapshot-BMrJw9lf.mjs");
+					const { readSessionHistorySnapshotKernel } = await import("../../session-history-snapshot-C25Sca1M.mjs");
 					return {
 						kind: "http",
 						snapshot: await readSessionHistorySnapshotKernel(request.request.params, options)
 					};
 				})
 			};
-			const { buildSessionEntryInProcess, readSessionEntryResetRecallCutoff } = await import("../../session-files-DcX2EDvm.mjs");
+			const { buildSessionEntryInProcess, readSessionEntryResetRecallCutoff } = await import("../../session-files-BsKcy_0Y.mjs");
 			const { createSensitiveTextRedactor } = await import("../../redact-omZQGwDV.mjs");
 			const entry = await buildSessionEntryInProcess(request.absPath, request.options, createSensitiveTextRedactor(request.redaction));
 			return {

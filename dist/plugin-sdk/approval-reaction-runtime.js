@@ -6,11 +6,11 @@ import "../error-runtime-Bf1fYXFh.mjs";
 import { n as summarizeApprovalScope } from "../approval-scope-CfvRogZm.mjs";
 import { n as sanitizeForPromptLiteral } from "../sanitize-for-prompt-bzCyHFCH.mjs";
 import { t as formatApprovalDisplayPath } from "../approval-display-paths-DlQSsCnq.mjs";
-import { a as buildExecApprovalPendingReplyPayload, f as formatExecApprovalExpiresIn } from "../exec-approval-reply-CwK_qfht.mjs";
-import { s as normalizeApprovalRequest } from "../approval-request-account-binding-DSNpCt32.mjs";
-import { c as shouldSuppressLocalNativeExecApprovalPrompt } from "../approval-native-helpers-D6phb2Ps.mjs";
-import { r as buildPluginApprovalPendingReplyPayload, t as buildApprovalPendingReplyPayload } from "../approval-renderers-CaRwqZ0Z.mjs";
-import { n as buildPendingApprovalView } from "../approval-view-model-CsOj-5-X.mjs";
+import { a as buildExecApprovalPendingReplyPayload, f as formatExecApprovalExpiresIn } from "../exec-approval-reply-Cd667sf7.mjs";
+import { s as normalizeApprovalRequest } from "../approval-request-account-binding-CJyRIlPn.mjs";
+import { c as shouldSuppressLocalNativeExecApprovalPrompt } from "../approval-native-helpers-Bu6FTCbI.mjs";
+import { r as buildPluginApprovalPendingReplyPayload, t as buildApprovalPendingReplyPayload } from "../approval-renderers-CXRXTpSo.mjs";
+import { n as buildPendingApprovalView } from "../approval-view-model-CMf56Nbk.mjs";
 //#region src/plugin-sdk/approval-reaction-binding.ts
 /** Build the private marker revalidated after channel delivery. */
 function buildApprovalReactionDeliveredBindingMarker(binding) {

@@ -5,17 +5,17 @@ import { t as createSubsystemLogger } from "../../subsystem-DleLyu58.mjs";
 import { y as ssrfPolicyFromHttpBaseUrlAllowedHostname } from "../../ssrf-BQRtcdBp.mjs";
 import { t as normalizeOptionalSecretInput } from "../../normalize-secret-input-Df_qhWv_.mjs";
 import { n as CUSTOM_LOCAL_AUTH_MARKER } from "../../model-auth-markers-BfYDKFYI.mjs";
-import "../../llm-DOLzmv8G.mjs";
+import "../../llm-CLV5ZXaS.mjs";
 import "../../string-coerce-runtime-C_MKhRVt.mjs";
-import { i as streamSimple } from "../../stream-V1Shd8lY.mjs";
-import { f as createPlainTextToolCallCompatWrapper, u as createOpenAICompatibleCompletionsThinkingOffWrapper } from "../../provider-stream-shared-BtT7wZpQ.mjs";
+import { i as streamSimple } from "../../stream-BDeJVJpD.mjs";
+import { f as createPlainTextToolCallCompatWrapper, u as createOpenAICompatibleCompletionsThinkingOffWrapper } from "../../provider-stream-shared-CuBHNQvM.mjs";
 import { t as definePluginEntry } from "../../plugin-entry-BOulgRcx.mjs";
 import "../../ssrf-runtime-Darh53Ay.mjs";
-import "../../logging-core-CUJDGfv-.mjs";
-import "../../provider-auth-C_UP8nFt.mjs";
+import "../../logging-core-PsFqpLw0.mjs";
+import "../../provider-auth-eHeoP8se.mjs";
 import { r as buildProviderToolCompatFamilyHooks } from "../../provider-tools-BDV45rRZ.mjs";
-import { B as LMSTUDIO_PROVIDER_LABEL, S as normalizeLmstudioProviderConfig, b as normalizeLmstudioConfiguredCatalogEntries, d as resolveLmstudioRuntimeApiKey, g as shouldUseLmstudioSyntheticAuth, i as prepareLmstudioModelForInference, k as LMSTUDIO_DEFAULT_API_KEY_ENV_VAR, l as resolveLmstudioProviderHeaders, w as resolveLmstudioInferenceBase, z as LMSTUDIO_PROVIDER_ID } from "../../models.fetch-B8g4AjMf.mjs";
-import { t as lmstudioMemoryEmbeddingProviderAdapter } from "../../memory-embedding-adapter-Bsu52cvO.mjs";
+import { B as LMSTUDIO_PROVIDER_LABEL, S as normalizeLmstudioProviderConfig, b as normalizeLmstudioConfiguredCatalogEntries, d as resolveLmstudioRuntimeApiKey, g as shouldUseLmstudioSyntheticAuth, i as prepareLmstudioModelForInference, k as LMSTUDIO_DEFAULT_API_KEY_ENV_VAR, l as resolveLmstudioProviderHeaders, w as resolveLmstudioInferenceBase, z as LMSTUDIO_PROVIDER_ID } from "../../models.fetch-BKIrnKDJ.mjs";
+import { t as lmstudioMemoryEmbeddingProviderAdapter } from "../../memory-embedding-adapter-DhZRvRe1.mjs";
 //#region extensions/lmstudio/src/stream.ts
 const log = createSubsystemLogger("extensions/lmstudio/stream");
 const preloadInFlight = /* @__PURE__ */ new Map();
@@ -243,7 +243,7 @@ function resolveLmstudioAugmentedCatalogEntries(config) {
 }
 /** Lazily loads setup helpers so provider wiring stays lightweight at startup. */
 async function loadProviderSetup() {
-	return await import("../../setup-D1E3I404.mjs");
+	return await import("../../setup-BwOaGb_S.mjs");
 }
 var lmstudio_default = definePluginEntry({
 	id: PROVIDER_ID,

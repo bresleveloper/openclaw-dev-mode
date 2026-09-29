@@ -1,2 +1,2 @@
-import { t as prepareFoundryRuntimeAuth } from "../../runtime-CfveHD70.mjs";
+import { t as prepareFoundryRuntimeAuth } from "../../runtime-C0exb-Oc.mjs";
 export { prepareFoundryRuntimeAuth };

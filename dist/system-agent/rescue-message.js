@@ -6,7 +6,7 @@ import { n as createCorePluginStateSyncKeyedStore } from "../plugin-state-store-
 import "../exec-approvals-BgZlQ2Qp.mjs";
 import { a as isPersistentSystemAgentOperation, i as formatSystemAgentPersistentPlan, o as parseSystemAgentOperation } from "../operations-parse-B6VcQhEV.mjs";
 import { t as listAgentRoles } from "../agent-roles-DYbzEdi7.mjs";
-import { t as executeSystemAgentOperation } from "../operations-BL6aYbqc.mjs";
+import { t as executeSystemAgentOperation } from "../operations-BIpdn-VT.mjs";
 import { t as classifySystemAgentApprovalText } from "../operator-approval-D1diph2c.mjs";
 import { createHash } from "node:crypto";
 //#region src/system-agent/rescue-policy.ts

@@ -15,7 +15,7 @@ async function readCodexSessionTranscriptEventsBeforeAdmission(params, admission
 }
 /** Runs the bundled Codex mirror under the transcript writer lock. */
 async function withCodexSessionTranscriptMirrorWriteLock(params, run) {
-	const { withProjectedSessionTranscriptWriteLock } = await import("../session-transcript-lock-runtime-CynOeq45.mjs");
+	const { withProjectedSessionTranscriptWriteLock } = await import("../session-transcript-lock-runtime-DO6JzWEh.mjs");
 	return await withProjectedSessionTranscriptWriteLock(params, run, (context, locked) => ({
 		...context,
 		appendMessageWithMessageSequence: (options) => locked.appendMessageWithMessageSequence({

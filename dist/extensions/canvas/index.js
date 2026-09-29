@@ -1,12 +1,12 @@
 import { r as createLazyRuntimeModule } from "../../lazy-runtime-BPNHa36e.mjs";
 import { t as formatErrorMessage } from "../../errors-DnjwnOju.mjs";
 import "../../error-runtime-Bf1fYXFh.mjs";
-import { a as selectDefaultNodeFromList } from "../../nodes-utils-CdKXjEQN.mjs";
+import { a as selectDefaultNodeFromList } from "../../nodes-utils-CWXEO3Tj.mjs";
 import { t as definePluginEntry } from "../../plugin-entry-BOulgRcx.mjs";
-import "../../agent-harness-runtime-DJD87w0k.mjs";
+import "../../agent-harness-runtime-k4x7zJ-U.mjs";
 import { n as isCanvasHostEnabled, t as canvasConfigSchema } from "../../config-Drt7Rfeo.mjs";
 import { t as A2UI_PATH } from "../../a2ui-shared-BVnsAcOM.mjs";
-import { i as CanvasToolSchema, n as isEligibleCanvasNode, t as CANVAS_PRESENT_COMMAND } from "../../node-eligibility-BXc025Sj.mjs";
+import { i as CanvasToolSchema, n as isEligibleCanvasNode, t as CANVAS_PRESENT_COMMAND } from "../../node-eligibility-CFaKE8Iq.mjs";
 import { randomUUID } from "node:crypto";
 //#region node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/helpers/util.js
 var util;
@@ -3903,7 +3903,7 @@ const CANVAS_NODE_COMMANDS = [
 	"canvas.navigate"
 ];
 function createLazyCanvasTool(agentSessionKey) {
-	const loadTool = createLazyRuntimeModule(() => import("../../tool-bPwwsq7B.mjs").then(({ createCanvasTool }) => createCanvasTool({ agentSessionKey })));
+	const loadTool = createLazyRuntimeModule(() => import("../../tool-BpCkkDIA.mjs").then(({ createCanvasTool }) => createCanvasTool({ agentSessionKey })));
 	return {
 		label: "Canvas",
 		name: "canvas",

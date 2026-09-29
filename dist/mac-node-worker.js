@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { r as defaultRuntime } from "./runtime-BC29JSZp.mjs";
-import { r as runCliWithExitFinalization } from "./one-shot-exit-f6PhkiZS.mjs";
+import { r as runCliWithExitFinalization } from "./one-shot-exit-maXyqxro.mjs";
 import { n as parseCliProfileArgs, t as applyCliProfileEnv } from "./profile-wa21S6WO.mjs";
 import { i as normalizeEnv } from "./env-C4a8LL2I.mjs";
 import { t as isMainModule } from "./is-main-CH4EEB_R.mjs";
@@ -11,10 +11,10 @@ import { t as assertSupportedRuntime } from "./runtime-guard-QhifpZGP.mjs";
 import "./logging-CrcvifP_.mjs";
 import { a as withConsoleLogsRoutedToStderrForJson } from "./json-output-mode-DRPBa2uN.mjs";
 import { t as resolveCliStartupPolicy } from "./command-startup-policy-gB_2DGw2.mjs";
-import { n as ensureCliExecutionBootstrap } from "./command-execution-startup-CiFHqswd.mjs";
+import { n as ensureCliExecutionBootstrap } from "./command-execution-startup-BVq3u9D6.mjs";
 import { t as loadCliDotEnv } from "./dotenv-Bn1InbsD.mjs";
 import { n as createNodeWorkerCommand } from "./command-options-5SoYNuSl.mjs";
-import { t as runNodeHostWorker } from "./worker-CrLRmEp6.mjs";
+import { t as runNodeHostWorker } from "./worker-Bp_b1hu_.mjs";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 //#region src/node-host/mac-worker-entry.ts

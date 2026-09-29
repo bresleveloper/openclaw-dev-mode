@@ -13,11 +13,11 @@ import "../../runtime-env-BaPIl5PP.mjs";
 import "../../fetch-runtime-CknSDlAV.mjs";
 import "../../number-runtime-CGwowceO.mjs";
 import "../../ssrf-runtime-Darh53Ay.mjs";
-import { o as toFormUrlEncoded } from "../../provider-auth-C_UP8nFt.mjs";
+import { o as toFormUrlEncoded } from "../../provider-auth-eHeoP8se.mjs";
 import { t as buildOauthProviderAuthResult } from "../../provider-auth-result-ByCutRUI.mjs";
 import { r as applyXaiOAuthConfig, t as XAI_DEFAULT_MODEL_REF } from "../../onboard-LZsrk0v7.mjs";
-import { r as buildXaiProvider, t as buildLiveXaiOAuthProvider } from "../../provider-catalog-D0G5iX9j.mjs";
-import { t as xaiUserAgent } from "../../xai-user-agent-BZ2gwPem.mjs";
+import { r as buildXaiProvider, t as buildLiveXaiOAuthProvider } from "../../provider-catalog-1_qb880U.mjs";
+import { t as xaiUserAgent } from "../../xai-user-agent-D6jVFWMW.mjs";
 //#region extensions/xai/xai-oauth.ts
 const PROVIDER_ID = "xai";
 const XAI_OAUTH_CLIENT_ID = "b1a00492-073a-47ea-816f-4c329264a828";

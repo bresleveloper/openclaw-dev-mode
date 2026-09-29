@@ -1,6 +1,6 @@
-import { Ot as EmbeddingProvider, yn as SsrFPolicy } from "../../runtime-api-CHs6AUp7.js";
+import { kt as EmbeddingProvider, yn as SsrFPolicy } from "../../runtime-api-QiF8aK_Q.js";
 import { n as OpenClawConfig } from "../../types.openclaw-BsXQib09.js";
-import { a as createConfiguredOllamaStreamFn, c as resolveOllamaBaseUrlForRun, d as resolveOllamaCompatNumCtxEnabled, f as shouldInjectOllamaCompatNumCtx, i as convertToOllamaMessages, l as createConfiguredOllamaCompatStreamWrapper, m as DEFAULT_OLLAMA_EMBEDDING_MODEL, n as buildAssistantMessage, o as createOllamaStreamFn, p as wrapOllamaCompatNumCtx, r as buildOllamaChatRequest, s as parseNdjsonStream, t as OLLAMA_NATIVE_BASE_URL, u as isOllamaCompatProvider } from "../../stream-api-CA32koju.js";
+import { a as createConfiguredOllamaStreamFn, c as resolveOllamaBaseUrlForRun, d as resolveOllamaCompatNumCtxEnabled, f as shouldInjectOllamaCompatNumCtx, i as convertToOllamaMessages, l as createConfiguredOllamaCompatStreamWrapper, m as DEFAULT_OLLAMA_EMBEDDING_MODEL, n as buildAssistantMessage, o as createOllamaStreamFn, p as wrapOllamaCompatNumCtx, r as buildOllamaChatRequest, s as parseNdjsonStream, t as OLLAMA_NATIVE_BASE_URL, u as isOllamaCompatProvider } from "../../stream-api-DpM7JLcC.js";
 declare namespace embedding_provider_runtime_d_exports {
   export { DEFAULT_OLLAMA_EMBEDDING_MODEL, OllamaEmbeddingClient, OllamaEmbeddingProvider, createOllamaEmbeddingProvider$1 as createOllamaEmbeddingProvider };
 }

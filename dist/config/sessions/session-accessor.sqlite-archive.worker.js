@@ -337,7 +337,7 @@ if (isSqliteTranscriptArchiveWorkerData(workerData)) {
 	const operation = workerData.operation;
 	if (operation === "canonical-validation-pool") {
 		const { serveWorkerTasks } = await import("../../worker-task-server-BDPOy8uz.mjs");
-		const { runReclamationWorkerPort } = await import("../../session-accessor.sqlite-mutation-worker.runtime-Bz-DOG9a.mjs");
+		const { runReclamationWorkerPort } = await import("../../session-accessor.sqlite-mutation-worker.runtime-djKzr_xg.mjs");
 		const taskSequence = { operationId: 0 };
 		serveWorkerTasks(async (value, channel) => {
 			const task = value;
@@ -378,7 +378,7 @@ if (isSqliteTranscriptArchiveWorkerData(workerData)) {
 		}, []);
 		parentPort.close();
 	} else if (operation === "maintenance-size") {
-		const { readSessionTranscriptJsonlBytesInDatabase } = await import("../../session-accessor.sqlite-maintenance-store-DTzRY4sw.mjs");
+		const { readSessionTranscriptJsonlBytesInDatabase } = await import("../../session-accessor.sqlite-maintenance-store-ByQRGOuX.mjs");
 		const { input } = workerData;
 		const opened = withFreshOpenClawAgentDatabaseReadOnly((database) => readSessionTranscriptJsonlBytesInDatabase(database, input.sessionIds), input);
 		if (!opened.found) throw new Error(`Cannot size SQLite session transcripts: ${opened.reason.replaceAll("-", " ")}`);
@@ -388,7 +388,7 @@ if (isSqliteTranscriptArchiveWorkerData(workerData)) {
 		}, []);
 		parentPort.close();
 	} else if (operation === "cold-mutate" || operation === "reclaim") {
-		const { runColdMutationWorkerPort, runReclamationWorkerPort } = await import("../../session-accessor.sqlite-mutation-worker.runtime-Bz-DOG9a.mjs");
+		const { runColdMutationWorkerPort, runReclamationWorkerPort } = await import("../../session-accessor.sqlite-mutation-worker.runtime-djKzr_xg.mjs");
 		if (operation === "cold-mutate") await runColdMutationWorkerPort(parentPort, workerData);
 		else await runReclamationWorkerPort(parentPort, workerData.databaseOptions);
 	} else throw new Error("SQLite transcript archive worker requires a supported operation");

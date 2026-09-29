@@ -1,2 +1,2 @@
-import { t as buildGoogleLiveCatalogProvider } from "../../provider-catalog-runtime-TeTsr7Bf.mjs";
+import { t as buildGoogleLiveCatalogProvider } from "../../provider-catalog-runtime-BaPcXKf7.mjs";
 export { buildGoogleLiveCatalogProvider };

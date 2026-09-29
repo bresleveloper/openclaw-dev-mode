@@ -3,19 +3,19 @@ import { i as readResponseWithLimit } from "../../http-response-body-DXfezLdR.mj
 import { d as readProviderBinaryResponse, m as readProviderJsonResponse } from "../../provider-http-errors-CTY_-ABT.mjs";
 import { i as fetchWithSsrFGuard } from "../../fetch-guard-EFfAF2PS.mjs";
 import "../../string-coerce-runtime-C_MKhRVt.mjs";
-import { n as resolveGeneratedMediaMaxBytes } from "../../configured-max-bytes-Cf0SSUBz.mjs";
+import { n as resolveGeneratedMediaMaxBytes } from "../../configured-max-bytes-CWCWnxsU.mjs";
 import { t as executeProviderOperationWithRetry } from "../../operation-retry-Dopl7EnK.mjs";
 import { g as waitProviderOperationPollInterval, h as resolveProviderOperationTimeoutMs, r as createProviderOperationDeadline } from "../../shared-BLFkM12I.mjs";
 import "../../response-limit-runtime-Wtkm2X7a.mjs";
 import "../../ssrf-runtime-Darh53Ay.mjs";
-import "../../media-generation-runtime-D5Q_N64V.mjs";
-import { a as resolveApiKeyForProvider } from "../../provider-auth-runtime-BveQzsWa.mjs";
+import "../../media-generation-runtime-qNqD21TK.mjs";
+import { a as resolveApiKeyForProvider } from "../../provider-auth-runtime-CYwZwijM.mjs";
 import "../../provider-http-Dn9NddwC.mjs";
 import { n as resolveGoogleGenerativeAiApiOrigin } from "../../provider-policy-BWkzSuhk.mjs";
-import { c as GOOGLE_VIDEO_ALLOWED_DURATION_SECONDS, l as GOOGLE_VIDEO_MAX_DURATION_SECONDS, m as createGoogleVideoGenerationProviderMetadata, u as GOOGLE_VIDEO_MIN_DURATION_SECONDS } from "../../generation-provider-metadata-BY3cTHtL.mjs";
+import { c as GOOGLE_VIDEO_ALLOWED_DURATION_SECONDS, l as GOOGLE_VIDEO_MAX_DURATION_SECONDS, m as createGoogleVideoGenerationProviderMetadata, u as GOOGLE_VIDEO_MIN_DURATION_SECONDS } from "../../generation-provider-metadata-B7IbWlRp.mjs";
 import { t as parseGeminiAuth } from "../../gemini-auth-CGSaK1is.mjs";
 import { t as resolveGoogleApiClientHeaders } from "../../google-api-client-header-BGxuny7v.mjs";
-import "../../api-C2Pkbct7.mjs";
+import "../../api-hbN_YyfC.mjs";
 import { t as canonicalizeGoogleProviderBase64 } from "../../base64-m7hzKALO.mjs";
 import { t as createGoogleGenAI } from "../../google-genai-runtime-I16xkIJE.mjs";
 //#region extensions/google/video-generation-provider.ts

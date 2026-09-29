@@ -8,12 +8,12 @@ import { n as validateJsonSchemaValue } from "../../schema-validator-G8odGT6Q.mj
 import "../../string-coerce-runtime-C_MKhRVt.mjs";
 import "../../routing-JKvWkBDR.mjs";
 import "../../agent-scope-runtime-OY7yRyJL.mjs";
-import { _ as createSessionCatalogGitHubLinker, g as readSessionTranscriptCatalogTitle, h as readSessionTranscriptCatalogPage, v as createSessionCatalogSourceActorProjector } from "../../session-transcript-runtime-CcxVjmxZ.mjs";
+import { _ as createSessionCatalogGitHubLinker, g as readSessionTranscriptCatalogTitle, h as readSessionTranscriptCatalogPage, v as createSessionCatalogSourceActorProjector } from "../../session-transcript-runtime-BW5gMlRE.mjs";
 import { t as definePluginEntry } from "../../plugin-entry-BOulgRcx.mjs";
 import "../../json-schema-runtime-ty5aNvzs.mjs";
-import "../../logging-core-CUJDGfv-.mjs";
+import "../../logging-core-PsFqpLw0.mjs";
 import "../../diagnostic-runtime-dzEIwnbc.mjs";
-import "../../session-catalog-Jbn13-Qi.mjs";
+import "../../session-catalog-BvzVZkO1.mjs";
 import { n as sessionCatalogPaging } from "../../session-catalog-paging-Bvcta34E.mjs";
 //#region extensions/session-share/src/config.ts
 function sessionShareConfig(config) {

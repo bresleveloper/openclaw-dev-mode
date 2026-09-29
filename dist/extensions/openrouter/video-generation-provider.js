@@ -1,3 +1,3 @@
-import { t as listOpenRouterVideoModelCatalog } from "../../video-model-catalog-DbCHjplV.mjs";
-import { t as buildOpenRouterVideoGenerationProvider } from "../../video-generation-provider-D5kNI91N.mjs";
+import { t as listOpenRouterVideoModelCatalog } from "../../video-model-catalog-BlWzFGEw.mjs";
+import { t as buildOpenRouterVideoGenerationProvider } from "../../video-generation-provider-Bmfj24F4.mjs";
 export { buildOpenRouterVideoGenerationProvider, listOpenRouterVideoModelCatalog };

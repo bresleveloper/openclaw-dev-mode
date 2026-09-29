@@ -1,22 +1,22 @@
 import { a as resolveAgentDir, l as resolveAgentWorkspaceDir } from "../../agent-scope-config-IQKOEtZ4.mjs";
 import { l as normalizePluginsConfig } from "../../config-state-BEAL5gWH.mjs";
-import { a as getMemoryCapabilityRegistration } from "../../memory-state-CGjwGUK0.mjs";
+import { a as getMemoryCapabilityRegistration } from "../../memory-state-D4zZpGOe.mjs";
 import { t as definePluginEntry } from "../../plugin-entry-BOulgRcx.mjs";
 import { n as resolveLivePluginConfigObject } from "../../plugin-config-runtime-CaI6yWBc.mjs";
-import "../../agent-runtime-vMVS3kbD.mjs";
-import "../../memory-host-core-DP3Ksyf2.mjs";
+import "../../agent-runtime-BXs_VkH-.mjs";
+import "../../memory-host-core-CExmomyE.mjs";
 import { L as MAX_SETUP_GRACE_TIMEOUT_MS, M as HOOK_TIMEOUT_RECOVERY_GRACE_MS, R as MAX_TIMEOUT_MS, l as ACTIVE_MEMORY_STATUS_PREFIX } from "../../types-DgEaE0BK.mjs";
 import { c as resetActiveMemoryConfigForTests, d as setMinimumTimeoutMsForTests, f as setSetupGraceTimeoutMsForTests, i as isMissingRegisteredMemoryToolsError, o as normalizePluginConfig, r as hasDeprecatedModelFallbackPolicy, s as readActiveMemoryConfig, t as applyCliRuntimeRecallTimeoutDefault } from "../../config-BxNoMMde.mjs";
 import { n as resolveRecallEscalationDecision } from "../../escalation-B0r0wGN-.mjs";
-import { n as buildSearchQuery, o as getModelRef, r as extractRecentTurns, t as buildQuery } from "../../query-OBXHW90K.mjs";
-import { n as buildPromptPrefix, r as buildRecallOutcomePrefix } from "../../prompt-CxzFbTjp.mjs";
-import { c as resetActiveRecallStateForTests, f as setCachedResult, i as getCachedResult, m as toSingleLineErrorMessage, n as buildCircuitBreakerKey, o as isCircuitBreakerOpen, r as forgetActiveRecallRun, t as buildCacheKey } from "../../recall-state-Y1cKVKa7.mjs";
-import { i as resolveCanonicalSessionKeyFromSessionId, o as resolveStatusUpdateAgentId, r as persistPluginStatusLines } from "../../session-DKG1YEAF.mjs";
-import { o as hasUsableMemoryResultInSessionRecord, t as createActiveMemoryHookDeadline } from "../../transcript-B36Eu2pe.mjs";
-import { a as readPartialAssistantText, c as resetActiveMemoryTranscriptForTests, l as setTimeoutPartialDataGraceMsForTests } from "../../transcript-result-CXjUFcY_.mjs";
-import { t as maybeResolveActiveRecall } from "../../recall-CzcB-VsR.mjs";
-import { a as isAllowedChatId, c as isEnabledForAgent, d as lacksAdminToMutateActiveMemoryGlobal, f as resolveCommandSessionKey, g as updateActiveMemoryGlobalEnabledInConfig, h as shouldSkipActiveMemoryForHarnessSession, i as isActiveMemoryPluginEnabled, l as isPrivateRecallDestination, m as shouldRememberAcrossConversations, n as formatActiveMemoryCommandHelp, o as isAllowedChatType, p as setSessionActiveMemoryDisabled, r as isActiveMemoryGloballyEnabled, s as isEligibleInteractiveSession, t as ACTIVE_MEMORY_GLOBAL_MUTATION_ADMIN_REQUIRED_TEXT, u as isSessionActiveMemoryDisabled } from "../../session-policy-CEH5DExD.mjs";
-import { a as resetTriggerRecallRunsForTests, o as resolveTriggerRecall, r as forgetTriggerRecallRun } from "../../trigger-recall-Bc7J6Lka.mjs";
+import { n as buildSearchQuery, o as getModelRef, r as extractRecentTurns, t as buildQuery } from "../../query-BDQoVIAg.mjs";
+import { n as buildPromptPrefix, r as buildRecallOutcomePrefix } from "../../prompt-CWowzqLF.mjs";
+import { c as resetActiveRecallStateForTests, f as setCachedResult, i as getCachedResult, m as toSingleLineErrorMessage, n as buildCircuitBreakerKey, o as isCircuitBreakerOpen, r as forgetActiveRecallRun, t as buildCacheKey } from "../../recall-state-Da6a2By7.mjs";
+import { i as resolveCanonicalSessionKeyFromSessionId, o as resolveStatusUpdateAgentId, r as persistPluginStatusLines } from "../../session-DY9rSceD.mjs";
+import { o as hasUsableMemoryResultInSessionRecord, t as createActiveMemoryHookDeadline } from "../../transcript-D9PdlBeF.mjs";
+import { a as readPartialAssistantText, c as resetActiveMemoryTranscriptForTests, l as setTimeoutPartialDataGraceMsForTests } from "../../transcript-result-CYXFyLjf.mjs";
+import { t as maybeResolveActiveRecall } from "../../recall-D55fPMNK.mjs";
+import { a as isAllowedChatId, c as isEnabledForAgent, d as lacksAdminToMutateActiveMemoryGlobal, f as resolveCommandSessionKey, g as updateActiveMemoryGlobalEnabledInConfig, h as shouldSkipActiveMemoryForHarnessSession, i as isActiveMemoryPluginEnabled, l as isPrivateRecallDestination, m as shouldRememberAcrossConversations, n as formatActiveMemoryCommandHelp, o as isAllowedChatType, p as setSessionActiveMemoryDisabled, r as isActiveMemoryGloballyEnabled, s as isEligibleInteractiveSession, t as ACTIVE_MEMORY_GLOBAL_MUTATION_ADMIN_REQUIRED_TEXT, u as isSessionActiveMemoryDisabled } from "../../session-policy-BO2kd1mL.mjs";
+import { a as resetTriggerRecallRunsForTests, o as resolveTriggerRecall, r as forgetTriggerRecallRun } from "../../trigger-recall-CGLSW3sE.mjs";
 //#region extensions/active-memory/index.ts
 var active_memory_default = definePluginEntry({
 	id: "active-memory",

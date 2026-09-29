@@ -3,12 +3,12 @@ import { t as jsonResult } from "../../tool-results-BCM3fdVS.mjs";
 import { h as readToolStringParam, p as readStringArrayParam } from "../../common-XfKigJno.mjs";
 import { c as resolveTimeoutSeconds, i as readCache, l as writeCache, o as resolveCacheTtlMs } from "../../web-shared-7z6bteLg.mjs";
 import { c as normalizeToIsoDate } from "../../web-search-provider-common-6Yt6-I5E.mjs";
-import "../../runtime-config-snapshot-Bc7N5SpK.mjs";
+import "../../runtime-config-snapshot-Bm2YKbTW.mjs";
 import "../../provider-web-search-CRDOBhl4.mjs";
 import { r as resolveXaiToolApiKeyWithAuth, t as isXaiToolEnabled } from "../../tool-auth-shared-BKm-JLrq.mjs";
 import { t as resolveEffectiveXSearchConfig } from "../../x-search-config-Dj2uABTe.mjs";
 import { n as buildMissingXSearchApiKeyPayload, r as createXSearchToolDefinition } from "../../x-search-tool-shared-nlZ40kdg.mjs";
-import { a as resolveXaiXSearchInlineCitations, i as resolveXaiXSearchEndpoint, n as buildXaiXSearchPayload, o as resolveXaiXSearchMaxTurns, r as requestXaiXSearch, s as resolveXaiXSearchModel } from "../../x-search-shared-iiIPeHwF.mjs";
+import { a as resolveXaiXSearchInlineCitations, i as resolveXaiXSearchEndpoint, n as buildXaiXSearchPayload, o as resolveXaiXSearchMaxTurns, r as requestXaiXSearch, s as resolveXaiXSearchModel } from "../../x-search-shared-D943LUUs.mjs";
 //#region extensions/xai/x-search.ts
 var PluginToolInputError = class extends Error {
 	constructor(message) {

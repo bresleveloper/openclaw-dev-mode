@@ -1,13 +1,13 @@
 import { c as resolveFirstProviderCatalogAuth } from "../../provider-catalog-DaDnKUnq.mjs";
-import { a as buildProviderReplayFamilyHooks } from "../../provider-model-shared-DUNuGxOQ.mjs";
-import { h as runLiveProviderCatalog } from "../../provider-catalog-live-runtime-BAhXMc_e.mjs";
+import { a as buildProviderReplayFamilyHooks } from "../../provider-model-shared-DwrT_ZjA.mjs";
+import { h as runLiveProviderCatalog } from "../../provider-catalog-live-runtime-8rOzIDOV.mjs";
 import "../../provider-catalog-shared-D7_lTYyN.mjs";
-import { t as defineSingleProviderPluginEntry } from "../../provider-entry-Wjr777L1.mjs";
+import { t as defineSingleProviderPluginEntry } from "../../provider-entry-D3wDLM3X.mjs";
 import { t as opencodeGoMediaUnderstandingProvider } from "../../media-understanding-provider-Fpof7f9k.mjs";
 import { t as OPENCODE_GO_DEFAULT_MODEL_REF } from "../../onboard-Bp8A_rOc.mjs";
-import { a as normalizeOpencodeGoBaseUrl, c as resolveOpencodeGoStarterModel, i as listOpencodeGoModelCatalogEntries, l as openclaw_plugin_default, n as buildStaticOpencodeGoProviderConfig, o as normalizeOpencodeGoResolvedModel, s as resolveOpencodeGoModel, t as buildOpencodeGoLiveProviderConfig } from "../../provider-catalog-6YKUwAOs.mjs";
+import { a as normalizeOpencodeGoBaseUrl, c as resolveOpencodeGoStarterModel, i as listOpencodeGoModelCatalogEntries, l as openclaw_plugin_default, n as buildStaticOpencodeGoProviderConfig, o as normalizeOpencodeGoResolvedModel, s as resolveOpencodeGoModel, t as buildOpencodeGoLiveProviderConfig } from "../../provider-catalog-aVDNYbEe.mjs";
 import { r as resolveThinkingProfile } from "../../provider-policy-api-DFDI0g_1.mjs";
-import { n as createOpencodeGoWrapper, t as createOpencodeGoWireWrapper } from "../../stream-CmPcdJj8.mjs";
+import { n as createOpencodeGoWrapper, t as createOpencodeGoWireWrapper } from "../../stream-DDvIbOUJ.mjs";
 //#region extensions/opencode-go/index.ts
 const PROVIDER_ID = "opencode-go";
 var opencode_go_default = defineSingleProviderPluginEntry({

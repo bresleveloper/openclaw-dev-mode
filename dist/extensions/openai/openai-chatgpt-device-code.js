@@ -10,7 +10,7 @@ import "../../number-runtime-CGwowceO.mjs";
 import { t as classifyTransientNetworkErrorCode } from "../../retry-runtime-BLMk_EI2.mjs";
 import "../../ssrf-runtime-Darh53Ay.mjs";
 import "../../provider-http-Dn9NddwC.mjs";
-import "../../provider-auth-C_UP8nFt.mjs";
+import "../../provider-auth-eHeoP8se.mjs";
 import { t as trimNonEmptyString } from "../../openai-chatgpt-shared-CkH8x7Yx.mjs";
 //#region extensions/openai/openai-chatgpt-device-code.ts
 const OPENAI_AUTH_BASE_URL = "https://auth.openai.com";

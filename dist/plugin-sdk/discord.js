@@ -2,16 +2,16 @@ import { n as normalizeAccountId, t as DEFAULT_ACCOUNT_ID } from "../account-id-
 import { i as loadBundledPluginPublicSurfaceModuleSyncCore, n as createLazyFacadeObjectValue } from "../facade-loader-BWw5NpKt.mjs";
 import { s as getRuntimeConfigSnapshot } from "../runtime-snapshot-DbgWcCyV.mjs";
 import { n as getChatChannelMeta } from "../chat-meta-CrZhPtTU.mjs";
-import { r as getRuntimeConfig } from "../io.runtime-CZWcIUDk.mjs";
+import { r as getRuntimeConfig } from "../io.runtime-BN-rPaec.mjs";
 import { i as buildChannelConfigSchema } from "../config-schema-BJ55TtqJ.mjs";
 import { c as resolveConfiguredFromCredentialStatuses, i as projectCredentialSnapshotFields } from "../account-snapshot-fields-DpvG7B4L.mjs";
-import { o as buildTokenChannelStatusSummary, r as buildComputedAccountStatusSnapshot } from "../status-helpers-Dx120xqp.mjs";
+import { o as buildTokenChannelStatusSummary, r as buildComputedAccountStatusSnapshot } from "../status-helpers-wGusDyWV.mjs";
 import { r as emptyPluginConfigSchema } from "../config-schema-c9utjSlx.mjs";
 import { o as migrateBaseNameToDefaultAccount, t as applyAccountNameToChannelSection } from "../setup-helpers-gXEiNGC9.mjs";
-import "../runtime-config-snapshot-Bc7N5SpK.mjs";
+import "../runtime-config-snapshot-Bm2YKbTW.mjs";
 import { t as PAIRING_APPROVED_MESSAGE } from "../pairing-message-DNhqI-OE.mjs";
 import "../channel-plugin-common-BxGpMLRx.mjs";
-import "../channel-status-B92gNw43.mjs";
+import "../channel-status-BQN6vzY7.mjs";
 //#region src/plugin-sdk/discord.ts
 function loadDiscordApiFacadeModule() {
 	return loadBundledPluginPublicSurfaceModuleSyncCore({

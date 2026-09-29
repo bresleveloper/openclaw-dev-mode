@@ -1,5 +1,5 @@
 import { t as definePluginEntry } from "../../plugin-entry-BOulgRcx.mjs";
-import { i as registerBrowserPlugin, n as browserPluginReload, r as browserSecurityAuditCollectors, t as browserPluginNodeHostCommands } from "../../plugin-registration-Cr7-gyvo.mjs";
+import { i as registerBrowserPlugin, n as browserPluginReload, r as browserSecurityAuditCollectors, t as browserPluginNodeHostCommands } from "../../plugin-registration-qS-EeAGH.mjs";
 //#region extensions/browser/index.ts
 /**
 * Browser plugin entry. It wires the browser tool, gateway request handler,

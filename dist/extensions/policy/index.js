@@ -1,6 +1,6 @@
 import { t as definePluginEntry } from "../../plugin-entry-BOulgRcx.mjs";
 import { t as POLICY_CLI_DESCRIPTOR } from "../../cli-output-mode-B_1LewQH.mjs";
-import { t as registerPolicyDoctorChecks } from "../../register-FSUcxqCZ.mjs";
+import { t as registerPolicyDoctorChecks } from "../../register-BgK-5RXZ.mjs";
 //#region extensions/policy/index.ts
 var policy_default = definePluginEntry({
 	id: "policy",
@@ -8,7 +8,7 @@ var policy_default = definePluginEntry({
 	description: "Adds policy-backed doctor checks for workspace conformance.",
 	register(api) {
 		api.registerCli(async ({ program }) => {
-			const { registerPolicyCli } = await import("../../cli-DHL6nz59.mjs");
+			const { registerPolicyCli } = await import("../../cli-BhjunFZT.mjs");
 			registerPolicyCli(program);
 		}, { descriptors: [POLICY_CLI_DESCRIPTOR] });
 		registerPolicyDoctorChecks();

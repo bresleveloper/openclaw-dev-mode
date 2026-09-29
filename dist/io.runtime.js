@@ -1,7 +1,7 @@
 // Published updater config reads run in the candidate's dependency tree.
 import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-const target = new URL("./io.runtime-C6JAaD49.mjs", import.meta.url).href;
+const target = new URL("./io.runtime-Q4L--AGf.mjs", import.meta.url).href;
 const readerEntry = new URL(import.meta.url);
 readerEntry.searchParams.set("openclaw-config-read", "1");
 const root = fileURLToPath(new URL("../", import.meta.url));

@@ -3,7 +3,7 @@ import { t as consumeTrustedToolNoStartError } from "../tool-result-error-CWadvC
 import { r as getCoreTtsToolResultMediaUrls } from "../tts-tool-result-provenance-z42MPFVT.mjs";
 import { t as runWithAsyncWorkResources } from "../async-work-resources-CUDFzL8J.mjs";
 import { i as normalizeAcceptedSessionSpawnResult } from "../accepted-session-spawn-4qfWSWlu.mjs";
-import { t as createAgentHarnessToolSurfaceRuntimeCore } from "../tool-surface-bridge-DCUFbyYe.mjs";
+import { t as createAgentHarnessToolSurfaceRuntimeCore } from "../tool-surface-bridge-D5MBEJLb.mjs";
 //#region src/plugin-sdk/agent-harness-tool-runtime.ts
 function createAgentHarnessToolSurfaceRuntime(params) {
 	const runtime = createAgentHarnessToolSurfaceRuntimeCore(params);

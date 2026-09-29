@@ -1,4 +1,4 @@
-import { Fn as DEFAULT_ACCOUNT_ID, bn as ChannelPlugin, ln as getA2aChannelRuntime, un as setA2aChannelRuntime } from "../../runtime-api-CHs6AUp7.js";
+import { Fn as DEFAULT_ACCOUNT_ID, bn as ChannelPlugin, ln as getA2aChannelRuntime, un as setA2aChannelRuntime } from "../../runtime-api-QiF8aK_Q.js";
 import { n as OpenClawConfig } from "../../types.openclaw-BsXQib09.js";
 //#region extensions/a2a/src/types.d.ts
 type A2aPeerConfig = {

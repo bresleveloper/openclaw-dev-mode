@@ -1,5 +1,5 @@
 import { t as createSubsystemLogger } from "../../subsystem-DleLyu58.mjs";
-import { a as isAgentBootstrapEvent } from "../../internal-hooks-CUWGd3wf.mjs";
+import { a as isAgentBootstrapEvent } from "../../internal-hooks-B-eMkNRp.mjs";
 import { t as loadDeclaredExtraBootstrapFiles } from "../../declared-files-BuPlzy3t.mjs";
 //#region src/hooks/bundled/bootstrap-extra-files/handler.ts
 const log = createSubsystemLogger("bootstrap-extra-files");

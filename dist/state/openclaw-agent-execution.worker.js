@@ -249,7 +249,7 @@ function openExistingSqliteWorkerBackend(input, opening) {
 	};
 	return {
 		prepare(command) {
-			if (command.type === "session.providerReview.compare") return import("../provider-review-store.worker-BVyW0Epd.mjs").then((module) => {
+			if (command.type === "session.providerReview.compare") return import("../provider-review-store.worker-CZ8XVLUt.mjs").then((module) => {
 				providerReview = module;
 			});
 			if (command.type === "database.domain.bind" || command.type === "database.domain.execute" || command.type === "database.domain.close") return domain.prepare(command);

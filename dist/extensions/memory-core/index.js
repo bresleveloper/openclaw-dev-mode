@@ -11,10 +11,10 @@ import { v as parseNonNegativeByteSize } from "../../zod-schema-B-u3AXjg.mjs";
 import { t as ErrorCodes } from "../../gateway-error-details-D85F07e9.mjs";
 import { f as errorShape } from "../../error-codes-DvB36bCj.mjs";
 import { C as resolveMemoryDreamingPluginConfig, E as resolveMemoryDreamingWorkspaces, O as resolveMemoryRemDreamingConfig, _ as MANAGED_MEMORY_DREAMING_CRON_TAG, g as MANAGED_MEMORY_DREAMING_CRON_NAME, v as MEMORY_DREAMING_SYSTEM_EVENT_TEXT, x as resolveMemoryDeepDreamingConfig } from "../../dreaming-Rnb_FGdU.mjs";
-import { l as peekSystemEventEntriesFromSdk } from "../../system-events-DevGIiH8.mjs";
+import { l as peekSystemEventEntriesFromSdk } from "../../system-events-DJITEjfa.mjs";
 import { n as resolveCronStyleNow } from "../../current-time-ojiw0e0p.mjs";
 import { t as resolveEffectiveCompactionReserveTokens } from "../../agent-compaction-constants-DmXQuPyL.mjs";
-import { t as DEFAULT_AGENT_COMPACTION_RESERVE_TOKENS_FLOOR } from "../../openclaw-runtime-agent-C9en88xH.mjs";
+import { t as DEFAULT_AGENT_COMPACTION_RESERVE_TOKENS_FLOOR } from "../../openclaw-runtime-agent-oSJXdEpK.mjs";
 import { t as jsonResult } from "../../tool-results-BCM3fdVS.mjs";
 import { d as readPositiveIntegerParam, h as readToolStringParam } from "../../common-XfKigJno.mjs";
 import { t as resolveMemoryBackendConfig } from "../../backend-config-D3tXhXDP.mjs";
@@ -23,19 +23,19 @@ import "../../routing-JKvWkBDR.mjs";
 import "../../agent-scope-runtime-OY7yRyJL.mjs";
 import { t as definePluginEntry } from "../../plugin-entry-BOulgRcx.mjs";
 import { r as resolvePluginConfigObject } from "../../plugin-config-runtime-CaI6yWBc.mjs";
-import "../../system-event-runtime-BeN9tHJs.mjs";
+import "../../system-event-runtime-CW0kUkre.mjs";
 import "../../gateway-runtime-BCC8MoQW.mjs";
 import "../../channel-actions-BjxmEiuN.mjs";
 import "../../memory-core-host-status-CWOM9o6Y.mjs";
-import "../../memory-core-host-runtime-core-gHJe4_81.mjs";
-import "../../memory-core-host-runtime-files-u1TC5L8O.mjs";
+import "../../memory-core-host-runtime-core-C8uEsC2w.mjs";
+import "../../memory-core-host-runtime-files-XBnONNUl.mjs";
 import { p as configureMemoryCoreDreamingState } from "../../dreaming-state-DJfKblhZ.mjs";
 import { n as includesSystemEventToken, t as formatRecallRepairDetails } from "../../dreaming-shared-CofeOWBR.mjs";
 import { t as resolveMemoryCoreNowMs } from "../../time-BhFVUM0b.mjs";
 import { t as appendFailedDreamingEvent } from "../../dreaming-events-BzCNFdHR.mjs";
 import { r as resolveMemoryPromotionFileMaxChars } from "../../memory-budget-BD5Ujhwr.mjs";
 import "../../background-context-tbmmWTrm.mjs";
-import { i as resolveMemoryToolContext, n as MEMORY_SEARCH_TOOL_CONTRACT, r as buildMemoryPromptSection, t as MEMORY_GET_TOOL_CONTRACT } from "../../memory-tool-contract-6TdJ3y2j.mjs";
+import { i as resolveMemoryToolContext, n as MEMORY_SEARCH_TOOL_CONTRACT, r as buildMemoryPromptSection, t as MEMORY_GET_TOOL_CONTRACT } from "../../memory-tool-contract-BszrX-0d.mjs";
 import { r as prepareMemoryManagerReload } from "../../lifecycle-CtUK0V21.mjs";
 import { t as normalizeSessionBackfillSelection } from "../../session-backfill-selection-CjIn4YJO.mjs";
 //#region extensions/memory-core/src/dreaming-cron.ts
@@ -294,10 +294,10 @@ async function runShortTermDreamingPromotionIfTriggered(params) {
 	const pluginConfig = params.cfg ? resolveMemoryDreamingPluginConfig(params.cfg) : void 0;
 	const detachNarratives = params.trigger === "cron";
 	const [{ writeDeepDreamingReport }, { appendFallbackNarrativeEntry, runDreamNarrative }, { runDreamingSweepPhases }, { applyShortTermPromotions, repairShortTermPromotionArtifacts, rankShortTermPromotionCandidates }] = await Promise.all([
-		import("../../dreaming-markdown-6vlMsWHM.mjs"),
-		import("../../dreaming-narrative-B0v5K0Tx.mjs"),
-		import("../../dreaming-phases-9t0JaSng.mjs"),
-		import("../../short-term-promotion-6_TYe__0.mjs")
+		import("../../dreaming-markdown-CotMJYvk.mjs"),
+		import("../../dreaming-narrative-8ySduDGB.mjs"),
+		import("../../dreaming-phases-CJbcKp73.mjs"),
+		import("../../short-term-promotion-D3mmQyrC.mjs")
 	]);
 	for (const { agentId, agentIds, workspaceDir } of workspaces) {
 		const sweepNowMs = Date.now();
@@ -504,7 +504,7 @@ function registerShortTermPromotionDreaming(api) {
 		return task;
 	};
 	const startDreamingSessionCleanup = async (config, generation, startupStartedAtMs) => {
-		const { DREAMING_ORPHAN_MIN_AGE_MS, scrubDreamingNarrativeArtifacts } = await import("../../dreaming-session-cleanup-Ui8XheL9.mjs");
+		const { DREAMING_ORPHAN_MIN_AGE_MS, scrubDreamingNarrativeArtifacts } = await import("../../dreaming-session-cleanup-CBIztbE2.mjs");
 		if (disposed || generation !== gatewayLifecycleGeneration) return;
 		const scrubConfiguredAgents = async (currentConfig, nowMs) => {
 			const agentIds = uniqueStrings(resolveMemoryDreamingWorkspaces(currentConfig).flatMap(({ agentIds: workspaceAgentIds }) => workspaceAgentIds));
@@ -696,7 +696,7 @@ const SESSION_BACKFILL_GATEWAY_METHODS = {
 	rollback: "memory.sessionBackfill.rollback"
 };
 var InvalidSessionBackfillRequestError = class extends Error {};
-const loadSessionBackfillGatewayRuntime = createLazyRuntimeModule(() => import("../../session-backfill-gateway.runtime-BkswF1Rt.mjs"));
+const loadSessionBackfillGatewayRuntime = createLazyRuntimeModule(() => import("../../session-backfill-gateway.runtime-DB5ilR4a.mjs"));
 function paramsRecord(value) {
 	if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("params must be an object.");
 	return value;
@@ -835,10 +835,10 @@ function registerSessionBackfillGatewayMethods(api) {
 }
 //#endregion
 //#region extensions/memory-core/index.ts
-const loadMemoryToolsModule = createLazyRuntimeModule(() => import("../../tools-BJe5Xw7B.mjs"));
+const loadMemoryToolsModule = createLazyRuntimeModule(() => import("../../tools-CwWRZzgn.mjs"));
 const loadStandingIntentsModule = createLazyRuntimeModule(() => import("../../standing-intents-DCNg_exD.mjs"));
-const loadStandingIntentToolModule = createLazyRuntimeModule(() => import("../../standing-intents-tool-D8yY29a-.mjs"));
-const loadRuntimeProviderModule = createLazyRuntimeModule(() => import("../../runtime-provider-BAxxPbIo.mjs"));
+const loadStandingIntentToolModule = createLazyRuntimeModule(() => import("../../standing-intents-tool-B4hS952H.mjs"));
+const loadRuntimeProviderModule = createLazyRuntimeModule(() => import("../../runtime-provider-BCvvQn5O.mjs"));
 function createLazyMemoryTool(params) {
 	const initialContext = resolveMemoryToolContext(params.options);
 	if (!initialContext) return null;
@@ -995,7 +995,7 @@ function createLazyMemoryRuntime(host) {
 			return await createMemoryRuntime(host).authorizeSearchHits(params);
 		},
 		async classifyWorkspaceMemoryPaths(params) {
-			const [{ classifyWorkspaceMemoryPaths }, dreamingState] = await Promise.all([import("../../workspace-path-classifier-BDngnDce.mjs"), import("../../dreaming-state-GgIReYWB.mjs")]);
+			const [{ classifyWorkspaceMemoryPaths }, dreamingState] = await Promise.all([import("../../workspace-path-classifier-DYGghFa5.mjs"), import("../../dreaming-state-GgIReYWB.mjs")]);
 			if (host.openKeyedStore) dreamingState.configureMemoryCoreDreamingState(host.openKeyedStore);
 			return await classifyWorkspaceMemoryPaths(params);
 		},
@@ -1041,7 +1041,7 @@ var memory_core_default = definePluginEntry({
 			flushPlanResolver: buildMemoryFlushPlan,
 			runtime: memoryRuntime,
 			publicArtifacts: { async listArtifacts(params) {
-				const { listMemoryCorePublicArtifacts } = await import("../../public-artifacts-BhrV2PiZ.mjs");
+				const { listMemoryCorePublicArtifacts } = await import("../../public-artifacts-sHDz5ypL.mjs");
 				return await listMemoryCorePublicArtifacts(params);
 			} }
 		});

@@ -2,13 +2,13 @@ import { a as asOptionalRecord } from "../../record-coerce-DItp3I4t.mjs";
 import { r as declareAgentWorkspaceAccess, s as registerAgentWorkspaceAccess } from "../../workspace-access-BNUXOhfF.mjs";
 import "../../string-coerce-runtime-C_MKhRVt.mjs";
 import { t as definePluginEntry } from "../../plugin-entry-BOulgRcx.mjs";
-import { i as createWorkspaceAttachmentPreparer } from "../../agent-workspace-runtime-8l4U0NcT.mjs";
+import { i as createWorkspaceAttachmentPreparer } from "../../agent-workspace-runtime-DioN1Z8u.mjs";
 import { t as FILE_TRANSFER_NODE_INVOKE_COMMANDS } from "../../node-invoke-policy-commands-BEizdTVP.mjs";
 import { l as FILE_WRITE_TOOL_DESCRIPTOR, o as FILE_FETCH_TOOL_DESCRIPTOR, r as DIR_LIST_TOOL_DESCRIPTOR, t as DIR_FETCH_TOOL_DESCRIPTOR } from "../../descriptors-kcLNZgGx.mjs";
 import path from "node:path";
 //#region extensions/file-transfer/src/shared/lazy-node-invoke-policy.ts
 const loadFileTransferNodeInvokePolicy = async () => {
-	const { createFileTransferNodeInvokePolicy } = await import("../../node-invoke-policy-VkAWOAjy.mjs");
+	const { createFileTransferNodeInvokePolicy } = await import("../../node-invoke-policy-D-3dN2fA.mjs");
 	return createFileTransferNodeInvokePolicy();
 };
 function createLazyFileTransferNodeInvokePolicy(loadPolicy = loadFileTransferNodeInvokePolicy) {
@@ -80,7 +80,7 @@ function registerNodeWorkspaces(api) {
 				const invoke = ctx.invokeNode;
 				if (!invoke) throw new Error("Node workspaces require Gateway service node access");
 				const { createNodeWorkspaceBridge } = await import("../../workspace-bridge-7lqq4Jcl.mjs");
-				const { createNodeWorkspaceMemory } = await import("../../workspace-memory-BgHo_Bh9.mjs");
+				const { createNodeWorkspaceMemory } = await import("../../workspace-memory-CjBj6IZq.mjs");
 				const { createNodeWorkspaceSkills } = await import("../../workspace-skills-DOpOpmlD.mjs");
 				controller.signal.throwIfAborted();
 				for (const entry of bindings.values()) {
@@ -229,7 +229,7 @@ var file_transfer_default = definePluginEntry({
 			dangerous: true,
 			duplex: true,
 			handle: async (...args) => {
-				const { createWorkspaceMemoryCommand } = await import("../../workspace-memory-BOvvpMPA.mjs");
+				const { createWorkspaceMemoryCommand } = await import("../../workspace-memory-CIB1BZOG.mjs");
 				return await createWorkspaceMemoryCommand(api).handle(...args);
 			}
 		});
@@ -237,7 +237,7 @@ var file_transfer_default = definePluginEntry({
 			commands: ["workspace.memory"],
 			dangerous: true,
 			async handle(ctx) {
-				const { createWorkspaceMemoryPolicy } = await import("../../workspace-memory-policy-7iNAyHTO.mjs");
+				const { createWorkspaceMemoryPolicy } = await import("../../workspace-memory-policy-CW_ebxqS.mjs");
 				return await createWorkspaceMemoryPolicy().handle(ctx);
 			}
 		});
@@ -247,7 +247,7 @@ var file_transfer_default = definePluginEntry({
 			dangerous: true,
 			duplex: true,
 			handle: async (...args) => {
-				const { createWorkspaceSkillsCommand } = await import("../../workspace-memory-BOvvpMPA.mjs");
+				const { createWorkspaceSkillsCommand } = await import("../../workspace-memory-CIB1BZOG.mjs");
 				return await createWorkspaceSkillsCommand(api).handle(...args);
 			}
 		});
@@ -255,13 +255,13 @@ var file_transfer_default = definePluginEntry({
 			commands: ["workspace.skills"],
 			dangerous: true,
 			async handle(ctx) {
-				const { createWorkspaceSkillsPolicy } = await import("../../workspace-memory-policy-7iNAyHTO.mjs");
+				const { createWorkspaceSkillsPolicy } = await import("../../workspace-memory-policy-CW_ebxqS.mjs");
 				return await createWorkspaceSkillsPolicy().handle(ctx);
 			}
 		});
 		registerNodeWorkspaces(api);
 		api.registerCli(async ({ program }) => {
-			const { registerFileTransferCli } = await import("../../cli-CQF4URMi.mjs");
+			const { registerFileTransferCli } = await import("../../cli-1aFtl-5s.mjs");
 			registerFileTransferCli(program);
 		}, { descriptors: [{
 			name: "file-transfer",
@@ -270,19 +270,19 @@ var file_transfer_default = definePluginEntry({
 		}] });
 		api.registerNodeInvokePolicy(createLazyFileTransferNodeInvokePolicy());
 		api.registerTool(createLazyTool(FILE_FETCH_TOOL_DESCRIPTOR, async () => {
-			const { createFileFetchTool } = await import("../../file-fetch-tool-CMtM6oXC.mjs");
+			const { createFileFetchTool } = await import("../../file-fetch-tool-MJOvRFbS.mjs");
 			return createFileFetchTool();
 		}));
 		api.registerTool(createLazyTool(DIR_LIST_TOOL_DESCRIPTOR, async () => {
-			const { createDirListTool } = await import("../../dir-list-tool-CKJ2wZqX.mjs");
+			const { createDirListTool } = await import("../../dir-list-tool-eXTMsbl-.mjs");
 			return createDirListTool();
 		}));
 		api.registerTool(createLazyTool(DIR_FETCH_TOOL_DESCRIPTOR, async () => {
-			const { createDirFetchTool } = await import("../../dir-fetch-tool-BGawN3Pv.mjs");
+			const { createDirFetchTool } = await import("../../dir-fetch-tool-gt4HLuy0.mjs");
 			return createDirFetchTool();
 		}));
 		api.registerTool(createLazyTool(FILE_WRITE_TOOL_DESCRIPTOR, async () => {
-			const { createFileWriteTool } = await import("../../file-write-tool-xeKRCSEd.mjs");
+			const { createFileWriteTool } = await import("../../file-write-tool-RR0cobCj.mjs");
 			return createFileWriteTool();
 		}));
 	}

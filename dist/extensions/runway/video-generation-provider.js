@@ -1,2 +1,2 @@
-import { t as buildRunwayVideoGenerationProvider } from "../../video-generation-provider-Bk36WbjY.mjs";
+import { t as buildRunwayVideoGenerationProvider } from "../../video-generation-provider-BMBAA-CY.mjs";
 export { buildRunwayVideoGenerationProvider };

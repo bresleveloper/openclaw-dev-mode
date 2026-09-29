@@ -1,8 +1,8 @@
 import { l as normalizeOptionalString } from "../../string-coerce-CIXf7egm.mjs";
 import "../../string-coerce-runtime-C_MKhRVt.mjs";
 import { a as normalizeXaiTtsBaseUrl, c as resolveDirectXaiAudioApiKey, l as resolveXaiSpeechResponseFormat, o as readXaiSpeechOverrides, s as readXaiSpeechProviderConfig, t as XAI_TTS_FALLBACK_VOICES, u as xaiSpeechResponseFormatToFileExtension } from "../../speech-provider-metadata-factory-UbZbU00a.mjs";
-import { t as createXaiSpeechProviderMetadata } from "../../speech-provider-metadata-Btx6JtEY.mjs";
-import { n as xaiTTS, r as xaiTTSStream, t as listXaiTtsVoices } from "../../tts-KPer8ZGb.mjs";
+import { t as createXaiSpeechProviderMetadata } from "../../speech-provider-metadata-B5HDsgTz.mjs";
+import { n as xaiTTS, r as xaiTTSStream, t as listXaiTtsVoices } from "../../tts-Gj9-isDj.mjs";
 //#region extensions/xai/speech-provider.ts
 async function resolveXaiSpeechSynthesisRequest(req, forcedResponseFormat) {
 	const config = readXaiSpeechProviderConfig(req.providerConfig);

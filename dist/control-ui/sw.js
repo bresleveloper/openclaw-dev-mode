@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "openclaw-control-";
-const EMBEDDED_CACHE_VERSION = "2026.9.6-31f452be4a95-2026-09-28T16-17-34.406Z";
+const EMBEDDED_CACHE_VERSION = "2026.9.6-b4fad3f79baa-2026-09-29T13-44-48.992Z";
 const URL_CACHE_VERSION = new URL(self.location.href).searchParams
   .get("v")
   ?.replace(/[^a-zA-Z0-9._-]/g, "-");

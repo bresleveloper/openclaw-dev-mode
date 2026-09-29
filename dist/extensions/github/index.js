@@ -32,7 +32,7 @@ var github_default = definePluginEntry({
 			"github.detail",
 			"github.image"
 		]) api.registerGatewayMethod(method, async (options) => {
-			const { githubHandlers } = await import("../../handlers-DF-cgmIS.mjs");
+			const { githubHandlers } = await import("../../handlers-D898KN6z.mjs");
 			await githubHandlers[method](options);
 		}, {
 			scope: "operator.read",

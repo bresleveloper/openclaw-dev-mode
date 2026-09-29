@@ -1,4 +1,4 @@
-import { F as resolveGoogleGemini3ThinkingLevel, I as sanitizeGoogleThinkingPayload, L as stripInvalidGoogleThinkingBudget, N as isGoogleGemini25ThinkingBudgetModel, P as isGoogleThinkingRequiredModel, c as createGoogleThinkingPayloadWrapper, l as createGoogleThinkingStreamWrapper } from "../../provider-stream-shared-BtT7wZpQ.mjs";
+import { F as resolveGoogleGemini3ThinkingLevel, I as sanitizeGoogleThinkingPayload, L as stripInvalidGoogleThinkingBudget, N as isGoogleGemini25ThinkingBudgetModel, P as isGoogleThinkingRequiredModel, c as createGoogleThinkingPayloadWrapper, l as createGoogleThinkingStreamWrapper } from "../../provider-stream-shared-CuBHNQvM.mjs";
 import { n as isGoogleGemini3ProModel, r as isGoogleGemini3ThinkingLevelModel, t as isGoogleGemini3FlashModel } from "../../provider-thinking-runtime-BjDyROFK.mjs";
-import "../../thinking-api-DXAHpcmB.mjs";
+import "../../thinking-api-DfyXXC-Y.mjs";
 export { createGoogleThinkingPayloadWrapper, createGoogleThinkingStreamWrapper, isGoogleGemini25ThinkingBudgetModel, isGoogleGemini3FlashModel, isGoogleGemini3ProModel, isGoogleGemini3ThinkingLevelModel, isGoogleThinkingRequiredModel, resolveGoogleGemini3ThinkingLevel, sanitizeGoogleThinkingPayload, stripInvalidGoogleThinkingBudget };

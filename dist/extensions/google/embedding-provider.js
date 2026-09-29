@@ -1,2 +1,2 @@
-import { a as isValidGeminiEmbeddingValues, i as isGeminiEmbedding2Model, n as buildGeminiEmbeddingRequest, o as sanitizeGeminiEmbedding, r as createGeminiEmbeddingProvider, t as DEFAULT_GEMINI_EMBEDDING_MODEL } from "../../embedding-provider-D0LgDFtE.mjs";
+import { a as isValidGeminiEmbeddingValues, i as isGeminiEmbedding2Model, n as buildGeminiEmbeddingRequest, o as sanitizeGeminiEmbedding, r as createGeminiEmbeddingProvider, t as DEFAULT_GEMINI_EMBEDDING_MODEL } from "../../embedding-provider-CBsmD6SG.mjs";
 export { DEFAULT_GEMINI_EMBEDDING_MODEL, buildGeminiEmbeddingRequest, createGeminiEmbeddingProvider, isGeminiEmbedding2Model, isValidGeminiEmbeddingValues, sanitizeGeminiEmbedding };

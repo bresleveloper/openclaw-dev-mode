@@ -1,2 +1,2 @@
-import { t as a2aChannelPlugin } from "../../channel-Ba2b_DE2.mjs";
+import { t as a2aChannelPlugin } from "../../channel-DnAkRxIG.mjs";
 export { a2aChannelPlugin };

@@ -8,9 +8,9 @@ import "../../setup-tools-D_Fbo3nn.mjs";
 import { i as isPrivateNetworkOptInEnabled } from "../../ssrf-policy-BDNqzgyV.mjs";
 import { n as redactCdpUrl } from "../../browser-cdp-nPpqdqz_.mjs";
 import { i as resolveBrowserConfig, s as resolveProfile } from "../../config-fMVye_Fl.mjs";
-import { n as resolveBrowserControlAuth } from "../../control-auth-C64SeqmO.mjs";
-import { a as runBrowserProxyCommand, i as hasBrowserNodeHostWork, o as createBrowserTool, r as handleBrowserGatewayRequest, t as createBrowserPluginService } from "../../plugin-service-DzN-hpi5.mjs";
-import { n as stopBrowserControlService } from "../../control-service-BY6XWalP.mjs";
+import { n as resolveBrowserControlAuth } from "../../control-auth-DbeC6Sro.mjs";
+import { a as runBrowserProxyCommand, i as hasBrowserNodeHostWork, o as createBrowserTool, r as handleBrowserGatewayRequest, t as createBrowserPluginService } from "../../plugin-service-CdAzW2Qn.mjs";
+import { n as stopBrowserControlService } from "../../control-service-CaNBYCPw.mjs";
 //#region extensions/browser/src/security-audit.ts
 const BLOCKED_HOSTNAMES = /* @__PURE__ */ new Set([
 	"localhost",

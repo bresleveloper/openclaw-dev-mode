@@ -1,7 +1,7 @@
 import { t as definePluginEntry } from "../../plugin-entry-BOulgRcx.mjs";
-import { n as createProviderApiKeyAuthMethod } from "../../provider-api-key-auth-hH2FGen5.mjs";
-import "../../provider-entry-Wjr777L1.mjs";
-import { t as alibabaVideoGenerationProvider } from "../../video-generation-provider-CTAaeS8I.mjs";
+import { n as createProviderApiKeyAuthMethod } from "../../provider-api-key-auth-Chp7QFG3.mjs";
+import "../../provider-entry-D3wDLM3X.mjs";
+import { t as alibabaVideoGenerationProvider } from "../../video-generation-provider-XHgG9c19.mjs";
 //#region extensions/alibaba/index.ts
 /**
 * Alibaba Model Studio plugin entry. Registers the DashScope-backed video

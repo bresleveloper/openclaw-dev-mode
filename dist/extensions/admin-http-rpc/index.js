@@ -4,8 +4,8 @@ import { o as sendHttpRequestRejection } from "../../http-request-lifecycle-JdoS
 import { o as readJsonBodyWithLimit } from "../../http-body-Bl_jph25.mjs";
 import "../../string-coerce-runtime-C_MKhRVt.mjs";
 import { t as definePluginEntry } from "../../plugin-entry-BOulgRcx.mjs";
-import "../../plugin-runtime-BUxbDDeH.mjs";
-import { t as dispatchGatewayMethod } from "../../gateway-method-runtime-BBiV-h8r.mjs";
+import "../../plugin-runtime-BivgNBzV.mjs";
+import { t as dispatchGatewayMethod } from "../../gateway-method-runtime-Bj3Lw6sd.mjs";
 import { t as WEBHOOK_BODY_READ_DEFAULTS } from "../../webhook-request-guards-CccCHICi.mjs";
 import { randomUUID } from "node:crypto";
 //#region extensions/admin-http-rpc/src/methods.ts

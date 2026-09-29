@@ -1,2 +1,2 @@
-import { t as createOpenAICodexProviderRuntime } from "../../openai-chatgpt-provider-runtime.factory-DuOApRb9.mjs";
+import { t as createOpenAICodexProviderRuntime } from "../../openai-chatgpt-provider-runtime.factory-BXpxgCDK.mjs";
 export { createOpenAICodexProviderRuntime };

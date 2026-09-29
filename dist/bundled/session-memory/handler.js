@@ -12,11 +12,11 @@ import { l as resolveAgentIdByWorkspacePath } from "../../agent-scope-CTuYDtny.m
 import { C as runWithGatewayIndependentRootWorkContinuation } from "../../gateway-work-admission-CHv_0noy.mjs";
 import { t as resolveHookConfig } from "../../policy-D4HXkRoG.mjs";
 import { o as resolveUserTimezone } from "../../date-time-CaOYkXPL.mjs";
-import { p as createMemoryWriteProvenanceObserver } from "../../agent-tools.read-C0ZS55lg.mjs";
-import { t as generateSlugViaLLM } from "../../llm-slug-generator-A_Q6XwXl.mjs";
+import { p as createMemoryWriteProvenanceObserver } from "../../agent-tools.read-UMP_lsJ-.mjs";
+import { t as generateSlugViaLLM } from "../../llm-slug-generator-3iG_Thbw.mjs";
 import "../../config-VEO9vtlh.mjs";
-import { t as captureSessionMemoryTranscript } from "../../capture-DZCUQf21.mjs";
-import { r as isSessionAutoResetReason } from "../../session-auto-reset-BntkBLgH.mjs";
+import { t as captureSessionMemoryTranscript } from "../../capture-BDy3nRM-.mjs";
+import { r as isSessionAutoResetReason } from "../../session-auto-reset-CVhMOmo8.mjs";
 import path from "node:path";
 import fs from "node:fs/promises";
 import os from "node:os";
