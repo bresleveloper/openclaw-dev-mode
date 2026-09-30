@@ -1,1 +1,0 @@
-import{Bo as e,Lo as t,Ro as n,zo as r}from"./control-ui-boot-shared-SOjXo6bG.js";n();export{t as applyControlUiPresentation,r as invalidateControlUiFaviconPalette,e as syncControlUiFavicon};

@@ -26,6 +26,7 @@ saving full log to enjoy my journey with OC ♥
 - 2026-09-28
   - updated to v2026.9.6 
   - removed FIX-05 + FIX-06 => upstream removed auto-resets sessions
+  - revised FIX-04 (/new || /compact || auto-compact) to have its own global hook for greeting message
 - 2026-07-21
   - updated to v2026.7.1
   - remove Kapso-WA plugin, and return old WA history db and baileys plugin adaptation
@@ -138,7 +139,7 @@ All gated by `OPENCLAW_DEV_MODE=1` alone — no extra flags to remember.
 | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | FIX-01 | Auto-bootstrap `MEMORY.md` in new workspaces (right after onboarding)                                                                                                     |
 | FIX-03 | `/status` renders a `▶️ Active model` line below `🧠 Model:` so config-vs-runtime mismatches are visible at a glance (the spurious `gpt-5.5` fallback got fixed upstream) |
-| FIX-04 | `/new` and `/reset` restore the greeting                                                                                                                                  |
+| FIX-04 | revised to new global hook for `/new` and `/reset` and `/compact` and `auto-compact` to enable the greeting                                                                                                                                  |
 
 ## How to install
 

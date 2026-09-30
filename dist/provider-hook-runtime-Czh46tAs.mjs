@@ -1,5 +1,0 @@
-import { a as nativePluginBindings } from "./loader-runtime-load-DitY2Htf.mjs";
-//#region src/plugins/provider-hook-runtime.ts
-const { attachModelProviderRuntimePluginHandle, getModelProviderRuntimePluginHandle, resolveLoadedProviderPluginsForHooks, resolveProviderPluginsForHooks, resolveProviderRuntimePlugin, resolveLoadedProviderRuntimePlugin, resolveProviderHookPlugin, resolveProviderRuntimePluginHandle, ensureProviderRuntimePluginHandle, resolveProviderAuthProfileId, resolveProviderFollowupFallbackRoute, wrapProviderSimpleCompletionStreamFn } = nativePluginBindings.providerHooks;
-//#endregion
-export { resolveLoadedProviderRuntimePlugin as a, resolveProviderHookPlugin as c, resolveProviderRuntimePluginHandle as d, wrapProviderSimpleCompletionStreamFn as f, resolveLoadedProviderPluginsForHooks as i, resolveProviderPluginsForHooks as l, ensureProviderRuntimePluginHandle as n, resolveProviderAuthProfileId as o, getModelProviderRuntimePluginHandle as r, resolveProviderFollowupFallbackRoute as s, attachModelProviderRuntimePluginHandle as t, resolveProviderRuntimePlugin as u };

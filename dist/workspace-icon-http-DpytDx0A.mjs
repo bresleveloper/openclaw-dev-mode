@@ -1,2 +1,0 @@
-import { a as prepareSessionWorkspaceIcon, i as handleWorkspaceIconHttpRequest, n as WORKSPACE_ICON_MAX_BYTES, o as resolveWorkspaceIcon, r as clearWorkspaceIconCacheForTest, t as SVG_ICON_MAX_BYTES } from "./workspace-icon-http-CNY18jfC.mjs";
-export { SVG_ICON_MAX_BYTES, WORKSPACE_ICON_MAX_BYTES, clearWorkspaceIconCacheForTest, handleWorkspaceIconHttpRequest, prepareSessionWorkspaceIcon, resolveWorkspaceIcon };

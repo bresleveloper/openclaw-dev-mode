@@ -1,2 +1,0 @@
-import { a as getActiveMemorySearchManagerCore, i as closeActiveMemorySearchManagersCore, r as closeActiveMemorySearchManagerCore, s as resolveActiveMemoryBackendConfig } from "./memory-runtime-Dxg3qwYx.mjs";
-export { closeActiveMemorySearchManagerCore as closeActiveMemorySearchManager, closeActiveMemorySearchManagersCore as closeActiveMemorySearchManagers, getActiveMemorySearchManagerCore as getActiveMemorySearchManager, resolveActiveMemoryBackendConfig };
