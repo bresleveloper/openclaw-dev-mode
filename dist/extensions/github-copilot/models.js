@@ -1,2 +1,2 @@
-import { a as resolveCopilotForwardCompatModel, i as isCopilotCatalogModelVisible, n as PROVIDER_ID, o as selectCopilotStarterModel, r as fetchCopilotModelCatalog, t as COPILOT_MODELS_LIST_DEFAULT_TIMEOUT_MS } from "../../models-4bPcKrk0.mjs";
+import { a as resolveCopilotForwardCompatModel, i as isCopilotCatalogModelVisible, n as PROVIDER_ID, o as selectCopilotStarterModel, r as fetchCopilotModelCatalog, t as COPILOT_MODELS_LIST_DEFAULT_TIMEOUT_MS } from "../../models-t-UiXp8D.mjs";
 export { COPILOT_MODELS_LIST_DEFAULT_TIMEOUT_MS, PROVIDER_ID, fetchCopilotModelCatalog, isCopilotCatalogModelVisible, resolveCopilotForwardCompatModel, selectCopilotStarterModel };

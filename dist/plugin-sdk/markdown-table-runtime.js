@@ -1,5 +1,5 @@
-import { i as getMarkdownTableSource } from "../ir-CdrgmCrl.mjs";
-import { t as convertMarkdownTables } from "../tables-COj_oUWP.mjs";
-import { t as resolveMarkdownTableMode } from "../markdown-tables-DCbmBy_n.mjs";
-import "../markdown-table-runtime-3O2Eq18w.mjs";
+import { i as getMarkdownTableSource } from "../ir-DH3ufxvi.mjs";
+import { t as convertMarkdownTables } from "../tables-CbzLTjde.mjs";
+import { t as resolveMarkdownTableMode } from "../markdown-tables-CW8wVbrs.mjs";
+import "../markdown-table-runtime-C30iYl0O.mjs";
 export { convertMarkdownTables, getMarkdownTableSource, resolveMarkdownTableMode };

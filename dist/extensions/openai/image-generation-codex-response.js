@@ -3,7 +3,7 @@ import { Fn as object, Jn as string, Nt as array, sr as unknown } from "../../sc
 import { n as sanitizeTerminalText } from "../../safe-text-CBmKtmbt.mjs";
 import { t as canonicalizeBase64 } from "../../base64-B5EyWEOm.mjs";
 import "../../text-utility-runtime-D7I29NA0.mjs";
-import "../../text-chunking-zFGQSbFt.mjs";
+import "../../text-chunking-B0xcZLe-.mjs";
 //#region extensions/openai/image-generation-codex-response.ts
 const MAX_CODEX_IMAGE_SSE_BYTES = 67108864;
 const MAX_CODEX_IMAGE_SSE_EVENTS = 512;

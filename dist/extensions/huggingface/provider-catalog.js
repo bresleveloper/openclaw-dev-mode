@@ -1,2 +1,2 @@
-import { t as buildHuggingfaceProvider } from "../../provider-catalog-2nv_jc8b.mjs";
+import { t as buildHuggingfaceProvider } from "../../provider-catalog-DY6wVNn9.mjs";
 export { buildHuggingfaceProvider };

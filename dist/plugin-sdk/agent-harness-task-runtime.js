@@ -2,15 +2,15 @@ import { l as normalizeOptionalString } from "../string-coerce-CIXf7egm.mjs";
 import { a as getGatewayContextResolver } from "../gateway-context-binding-VqB7gkMe.mjs";
 import { o as withPluginRuntimeGatewayContextResolver } from "../gateway-request-scope-BLBH-Gpf.mjs";
 import { t as captureTaskExecutionOwner } from "../task-execution-owner-CARpGK5P.mjs";
-import { s as listTaskRecords } from "../task-registry-query-Cb1HIUfX.mjs";
-import "../runtime-internal-BQjc0KPP.mjs";
-import { a as finalizeTaskRunByRunId, l as recordTaskRunProgressByRunId, r as createRunningTaskRun, u as setDetachedTaskDeliveryStatusByRunId } from "../detached-task-runtime-DG7veuVf.mjs";
-import { F as buildAnnounceIdempotencyKey } from "../subagent-completion-admission.store-S2mDR3VB.mjs";
+import { s as listTaskRecords } from "../task-registry-query-BYJUw4nw.mjs";
+import "../runtime-internal-_MK6t5mi.mjs";
+import { a as finalizeTaskRunByRunId, l as recordTaskRunProgressByRunId, r as createRunningTaskRun, u as setDetachedTaskDeliveryStatusByRunId } from "../detached-task-runtime-apzFreR5.mjs";
+import { F as buildAnnounceIdempotencyKey } from "../subagent-completion-admission.store-BUdtkQzy.mjs";
 import { t as AGENT_INTERNAL_EVENT_TYPE_TASK_COMPLETION } from "../internal-event-contract-pF6FHp8g.mjs";
 import { i as formatAgentInternalEventsForPrompt } from "../internal-events-CfvyIQfQ.mjs";
-import { a as loadRequesterSessionEntry, i as resolveSubagentCompletionOrigin, n as isInternalAnnounceRequesterSession, r as resolveAnnounceOrigin, t as deliverSubagentAnnouncement } from "../subagent-announce-delivery-DmYtEKbx.mjs";
+import { a as loadRequesterSessionEntry, i as resolveSubagentCompletionOrigin, n as isInternalAnnounceRequesterSession, r as resolveAnnounceOrigin, t as deliverSubagentAnnouncement } from "../subagent-announce-delivery-BtYAPQYV.mjs";
 import { t as assertAgentHarnessTaskRuntimeScope } from "../agent-harness-task-runtime-scope-CtBT1UtN.mjs";
-import { t as reconcileHarnessCompletionDelivery } from "../agent-harness-completion-delivery-DGLh_tWK.mjs";
+import { t as reconcileHarnessCompletionDelivery } from "../agent-harness-completion-delivery-DRCwe6s8.mjs";
 //#region src/plugin-sdk/agent-harness-task-runtime.ts
 /**
 * Runtime SDK helpers for agent harness task persistence and completion delivery.

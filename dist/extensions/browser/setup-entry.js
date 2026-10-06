@@ -1,5 +1,5 @@
-import { t as readBrowserHostConfig } from "../../extension-host-config-B3chzZ2L.mjs";
-import { n as runBrowserExtensionSetup, r as normalizeExtensionInstallWaitMs, u as NativeHostSetupContextError } from "../../extension-setup-XGIz5oUn.mjs";
+import { t as readBrowserHostConfig } from "../../extension-host-config-MrZ1ItAq.mjs";
+import { n as runBrowserExtensionSetup, r as normalizeExtensionInstallWaitMs, u as NativeHostSetupContextError } from "../../extension-setup-BOboG6z7.mjs";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import path from "node:path";

@@ -16,22 +16,22 @@ import { v as mergeRuntimeExternalProfileReferences } from "../persisted-B486xwB
 import { T as listExternalCliSyncProviderIds } from "../store-CTvq6MSF.mjs";
 import { C as replaceRuntimeAuthProfileStoreSnapshots } from "../runtime-snapshots-CBozwlR0.mjs";
 import { d as preserveResolvedSecretBackedCredentials } from "../runtime-snapshot-owner-BaV0Qukl.mjs";
-import { a as listRuntimePluginIdsFromRegistry } from "../active-runtime-registry-BttqxLSq.mjs";
+import { a as listRuntimePluginIdsFromRegistry } from "../active-runtime-registry-CRSv3imk.mjs";
 import { t as manifestPluginResolvesRuntimeModelCatalogAugment } from "../providers-Bx7WoFEI.mjs";
-import { l as loadAuthProfileStoreWithoutExternalProfiles } from "../store-runtime-BcoYkagW.mjs";
+import { l as loadAuthProfileStoreWithoutExternalProfiles } from "../store-runtime-CEcQpLad.mjs";
 import { r as planRuntimePluginDiscovery } from "../provider-discovery-gl0uPs1A.mjs";
-import { F as resolveAmbientAgentCredentialsForDiscovery, I as resolveAgentCredentialMapFromStore, L as resolveUsableAgentCredentialModes, f as retainPreparedPluginRegistry, o as discardPreparedPluginGeneration, p as PreparedModelRuntimeBuildResources, s as ownPreparedPluginGeneration } from "../prepared-model-runtime.plugin-generation-CUjNdQbs.mjs";
-import { U as restorePreparedSyntheticAuthFacts } from "../provider-runtime-BofzCM_V.mjs";
+import { F as resolveAmbientAgentCredentialsForDiscovery, I as resolveAgentCredentialMapFromStore, L as resolveUsableAgentCredentialModes, f as retainPreparedPluginRegistry, o as discardPreparedPluginGeneration, p as PreparedModelRuntimeBuildResources, s as ownPreparedPluginGeneration } from "../prepared-model-runtime.plugin-generation-B0DsIaMf.mjs";
+import { U as restorePreparedSyntheticAuthFacts } from "../provider-runtime-CvYrnip_.mjs";
 import { i as resolveRuntimeSyntheticAuthProviderRefs } from "../synthetic-auth.runtime-DvxRYdyh.mjs";
-import { i as AuthStorage } from "../model-registry-DrVlc5_5.mjs";
-import { n as prepareModelCatalogAuthLabels } from "../model-catalog-auth-labels-DJYoaWTB.mjs";
+import { i as AuthStorage } from "../model-registry-C74FqYiS.mjs";
+import { n as prepareModelCatalogAuthLabels } from "../model-catalog-auth-labels-cvwLGaDu.mjs";
 import { c as withClawInstallSchemaVersionFacts } from "../provenance-runtime-read-Di4oRDaq.mjs";
 import { t as captureProviderCatalogExpiries } from "../provider-catalog-expiry-D85fDr1r.mjs";
-import { r as resolveImplicitProviderDiscoveryScope } from "../models-config.providers.implicit-73Aeo3j3.mjs";
-import { d as prepareOwnedPluginLoadContext, s as scopeSyntheticAuthProviderRefs } from "../prepared-model-runtime.facts-X8iUOGNf.mjs";
-import { a as fingerprintPreparedModelWorkerRequest, i as fingerprintPreparedModelCatalogGeneration, t as PREPARED_MODEL_CATALOG_WORKER_TIMEOUT_MS } from "../prepared-model-catalog-worker-CCaSTZQT.mjs";
+import { r as resolveImplicitProviderDiscoveryScope } from "../models-config.providers.implicit-B09OShL7.mjs";
+import { d as prepareOwnedPluginLoadContext, s as scopeSyntheticAuthProviderRefs } from "../prepared-model-runtime.facts-CYVCJA_H.mjs";
+import { a as fingerprintPreparedModelWorkerRequest, i as fingerprintPreparedModelCatalogGeneration, t as PREPARED_MODEL_CATALOG_WORKER_TIMEOUT_MS } from "../prepared-model-catalog-worker-ByxGiHU7.mjs";
 import { n as serveWorkerTasks } from "../worker-task-server-CwtaNZgU.mjs";
-import { n as overlayExternalAuthProfiles } from "../external-auth-runtime-C-hR-a2W.mjs";
+import { n as overlayExternalAuthProfiles } from "../external-auth-runtime-BSBkO1V1.mjs";
 import { parentPort, workerData } from "node:worker_threads";
 //#region src/agents/prepared-model-catalog.worker.ts
 /** Worker-thread entrypoint for complete model-catalog discovery. */
@@ -68,7 +68,7 @@ function restoreWorkerConfig(value) {
 	setRuntimeConfigSnapshot(value.input.config, value.sourceConfigForSecrets);
 }
 async function prepareWorkerGeneration(value) {
-	const { prepareWorkspaceBuildGroup } = await import("../prepared-model-runtime.facts-5FRecWmz.mjs");
+	const { prepareWorkspaceBuildGroup } = await import("../prepared-model-runtime.facts-T86zYfgd.mjs");
 	const metadata = restorePluginMetadataSnapshot(value.pluginMetadataSnapshot);
 	const normalizedConfig = normalizePluginsConfig(value.input.config.plugins);
 	const basePluginIds = metadata.plugins.filter((plugin) => manifestPluginResolvesRuntimeModelCatalogAugment(plugin) && isManifestPluginAvailableForControlPlane({
@@ -169,8 +169,8 @@ async function runCatalogRequest(value, request, work, prepareGeneration) {
 				authModes: resolveUsableAgentCredentialModes(credentials)
 			};
 		}
-		const { prepareAgentCatalogSource } = await import("../prepared-model-runtime.scoped-catalog-ClmSX6y9.mjs");
-		const { prepareFullCatalogFacts } = await import("../prepared-model-runtime.full-catalog-CmazlY6H.mjs");
+		const { prepareAgentCatalogSource } = await import("../prepared-model-runtime.scoped-catalog-C96nwMpm.mjs");
+		const { prepareFullCatalogFacts } = await import("../prepared-model-runtime.full-catalog-1umo_afQ.mjs");
 		const authStore = refreshAuthStore({
 			agentDir: value.input.agentDir,
 			inheritedAuthDir: value.input.inheritedAuthDir,

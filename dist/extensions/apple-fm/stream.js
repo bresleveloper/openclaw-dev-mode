@@ -1,8 +1,8 @@
 import { n as validateJsonSchemaValue } from "../../schema-validator-G8odGT6Q.mjs";
-import { v as createAssistantMessageEventStream } from "../../llm-CLV5ZXaS.mjs";
+import { v as createAssistantMessageEventStream } from "../../llm-CC0ygSwA.mjs";
 import "../../json-schema-runtime-ty5aNvzs.mjs";
 import { r as quoteUnsafeIntegerLiterals } from "../../json-unsafe-integers-BeeNmB5X.mjs";
-import { d as failTransportStream, o as createEmptyTransportUsage } from "../../provider-transport-runtime-BWh0ty1f.mjs";
+import { d as failTransportStream, o as createEmptyTransportUsage } from "../../provider-transport-runtime-BH3-seDb.mjs";
 //#region extensions/apple-fm/stream.ts
 /** Native tools propose calls; the OpenClaw agent loop validates and executes them. */
 function createAppleFmStream(native) {

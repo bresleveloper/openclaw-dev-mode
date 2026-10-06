@@ -81,7 +81,7 @@ async function openMemoryTable(params) {
 		table: null,
 		dbPath
 	};
-	const lancedb = await import("./.setup/dist-BjiCSHUs.mjs").then((m) => /* @__PURE__ */ __toESM(m.default, 1));
+	const lancedb = await import("./.setup/dist-SKvOTreh.mjs").then((m) => /* @__PURE__ */ __toESM(m.default, 1));
 	const storageOptions = resolveStorageOptions(params.config, params.env);
 	const connection = await lancedb.connect(dbPath, storageOptions ? { storageOptions } : {});
 	return {

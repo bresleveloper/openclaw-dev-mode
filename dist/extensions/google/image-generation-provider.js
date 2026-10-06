@@ -4,18 +4,18 @@ import { l as normalizeOptionalString, o as normalizeLowercaseStringOrEmpty } fr
 import { m as readProviderJsonResponse, n as assertOkOrThrowHttpError } from "../../provider-http-errors-CTY_-ABT.mjs";
 import { p as sanitizeConfiguredModelProviderRequest } from "../../provider-request-config-DOrVD029.mjs";
 import "../../string-coerce-runtime-C_MKhRVt.mjs";
-import { n as resolveGeneratedMediaMaxBytes } from "../../configured-max-bytes-CWCWnxsU.mjs";
+import { n as resolveGeneratedMediaMaxBytes } from "../../configured-max-bytes-CDM4I6hy.mjs";
 import { l as postJsonRequest } from "../../shared-BLFkM12I.mjs";
 import "../../number-runtime-CGwowceO.mjs";
-import { t as isProviderApiKeyConfigured } from "../../provider-auth-availability-BdVQKAmB.mjs";
-import "../../media-generation-runtime-qNqD21TK.mjs";
-import { a as resolveApiKeyForProvider } from "../../provider-auth-runtime-CYwZwijM.mjs";
+import { t as isProviderApiKeyConfigured } from "../../provider-auth-availability-CGFQSDYH.mjs";
+import "../../media-generation-runtime-B6kPuR7v.mjs";
+import { a as resolveApiKeyForProvider } from "../../provider-auth-runtime-BimWo0Fm.mjs";
 import "../../provider-http-Dn9NddwC.mjs";
-import { l as resolveInlineImageJsonResponseMaxBytes, n as generatedImageAssetFromBase64 } from "../../image-generation-1hdRJmv4.mjs";
-import "../../provider-auth-eHeoP8se.mjs";
+import { l as resolveInlineImageJsonResponseMaxBytes, n as generatedImageAssetFromBase64 } from "../../image-generation-D8kFaQB5.mjs";
+import "../../provider-auth-Da-_mZ0a.mjs";
 import { n as normalizeGoogleModelId } from "../../model-id-CAmKILzd.mjs";
-import { d as createGoogleImageGenerationProviderMetadata } from "../../generation-provider-metadata-B7IbWlRp.mjs";
-import { t as resolveGoogleGenerativeAiHttpRequestConfig } from "../../api-hbN_YyfC.mjs";
+import { d as createGoogleImageGenerationProviderMetadata } from "../../generation-provider-metadata-DOrzUMlQ.mjs";
+import { t as resolveGoogleGenerativeAiHttpRequestConfig } from "../../api-BoceXjFL.mjs";
 import { n as toStandardGoogleProviderBase64 } from "../../base64-m7hzKALO.mjs";
 //#region extensions/google/image-generation-provider.ts
 const DEFAULT_IMAGE_TIMEOUT_MS = 18e4;

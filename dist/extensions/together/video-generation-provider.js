@@ -1,2 +1,2 @@
-import { t as buildTogetherVideoGenerationProvider } from "../../video-generation-provider-Dw5ChIu2.mjs";
+import { t as buildTogetherVideoGenerationProvider } from "../../video-generation-provider-DODpMb_0.mjs";
 export { buildTogetherVideoGenerationProvider };

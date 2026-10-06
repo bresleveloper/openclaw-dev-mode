@@ -21,7 +21,7 @@ const platform = process.platform;
 const arch = process.arch;
 let loadPromise = null;
 async function loadLanceDbModule() {
-	if (!loadPromise) loadPromise = import("./.setup/dist-BjiCSHUs.mjs").then((m) => /* @__PURE__ */ __toESM(m.default, 1)).catch((error) => {
+	if (!loadPromise) loadPromise = import("./.setup/dist-SKvOTreh.mjs").then((m) => /* @__PURE__ */ __toESM(m.default, 1)).catch((error) => {
 		loadPromise = null;
 		if (isUnsupportedNativePlatform({
 			platform,

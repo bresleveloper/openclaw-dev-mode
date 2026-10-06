@@ -1,1 +1,1 @@
-export * from "./transcripts-bridge.runtime-BqyqYe3d.mjs";
+export * from "./transcripts-bridge.runtime-BQB_obow.mjs";

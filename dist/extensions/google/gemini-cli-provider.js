@@ -1,2 +1,2 @@
-import { n as registerGoogleGeminiCliProvider, t as buildGoogleGeminiCliProvider } from "../../gemini-cli-provider-BKn9waYB.mjs";
+import { n as registerGoogleGeminiCliProvider, t as buildGoogleGeminiCliProvider } from "../../gemini-cli-provider-wCEPdrRZ.mjs";
 export { buildGoogleGeminiCliProvider, registerGoogleGeminiCliProvider };

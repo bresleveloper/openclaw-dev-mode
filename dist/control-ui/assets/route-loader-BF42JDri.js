@@ -1,0 +1,1 @@
+import{n as e,t}from"./control-ui-boot-new-CEVUyh0K.js";t();export{e as load};

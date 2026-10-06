@@ -1,6 +1,6 @@
-import { t as defineSingleProviderPluginEntry } from "../../provider-entry-D3wDLM3X.mjs";
-import { a as openclaw_plugin_default, i as buildSelectableNvidiaProvider, n as buildLiveNvidiaProvider } from "../../provider-catalog-DT10bdkH.mjs";
-import { r as applyNvidiaConnectionConfig, t as NVIDIA_DEFAULT_MODEL_REF } from "../../onboard-DcqlBov-.mjs";
+import { t as defineSingleProviderPluginEntry } from "../../provider-entry-B0iWpuAs.mjs";
+import { a as openclaw_plugin_default, i as buildSelectableNvidiaProvider, n as buildLiveNvidiaProvider } from "../../provider-catalog-DpLfYIta.mjs";
+import { r as applyNvidiaConnectionConfig, t as NVIDIA_DEFAULT_MODEL_REF } from "../../onboard-CfMoZLW2.mjs";
 var nvidia_default = defineSingleProviderPluginEntry({
 	id: "nvidia",
 	name: "NVIDIA Provider",

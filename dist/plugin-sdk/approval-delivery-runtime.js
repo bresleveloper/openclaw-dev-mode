@@ -1,3 +1,3 @@
-import { a as splitChannelApprovalCapability, i as createChannelApprovalCapability, n as createApproverRestrictedNativeApprovalCapability, r as createApproverRestrictedNativeApprovalCapabilityFromForwardingRoutes, t as createApproverRestrictedNativeApprovalAdapter } from "../approval-delivery-helpers-3TrBi_Wa.mjs";
-import "../approval-delivery-runtime-DBbOa_ur.mjs";
+import { a as splitChannelApprovalCapability, i as createChannelApprovalCapability, n as createApproverRestrictedNativeApprovalCapability, r as createApproverRestrictedNativeApprovalCapabilityFromForwardingRoutes, t as createApproverRestrictedNativeApprovalAdapter } from "../approval-delivery-helpers-BqzBhZFs.mjs";
+import "../approval-delivery-runtime-CR9qxRjt.mjs";
 export { createApproverRestrictedNativeApprovalAdapter, createApproverRestrictedNativeApprovalCapability, createApproverRestrictedNativeApprovalCapabilityFromForwardingRoutes, createChannelApprovalCapability, splitChannelApprovalCapability };

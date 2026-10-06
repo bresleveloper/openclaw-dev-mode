@@ -1,7 +1,7 @@
 import { w as root } from "../../fs-safe-BAPek8At.mjs";
-import "../../memory-core-host-engine-storage-Dt5aD7j9.mjs";
+import "../../memory-core-host-engine-storage-g7n4E_hJ.mjs";
 import { a as listMemoryFiles, n as buildMultimodalChunkForIndexing, t as buildFileEntry } from "../../internal-CDL7w83q.mjs";
-import { n as readMemoryFile } from "../../read-file-CPDubmnq.mjs";
+import { n as readMemoryFile } from "../../read-file-s5zWjMAH.mjs";
 import "../../file-access-runtime-CWjkXCju.mjs";
 import path from "node:path";
 import fs from "node:fs/promises";
@@ -10,7 +10,7 @@ import { createInterface } from "node:readline";
 /** Same-version file IPC; the provisioned adapter owns admission and configured roots. */
 async function serveMemoryFiles(options) {
 	if (options.watch) {
-		const { MemoryFileWatcher } = await import("../../file-watcher-DxflqtSH.mjs");
+		const { MemoryFileWatcher } = await import("../../file-watcher-BlPeTJIx.mjs");
 		const lines = createInterface({
 			input: options.input,
 			crlfDelay: Infinity
@@ -127,31 +127,31 @@ async function runMaintenance(request, workspace) {
 			return null;
 		case "rename": return await fs.rename(...request.args);
 		case "resolveWritePath": {
-			const { resolveMemoryWritePath } = await import("../../short-term-promotion-memory-write-Dgw-35mL.mjs");
+			const { resolveMemoryWritePath } = await import("../../short-term-promotion-memory-write-CWQnq8E0.mjs");
 			return await resolveMemoryWritePath(...request.args);
 		}
 		case "commitContent": {
-			const { commitMemoryContent } = await import("../../short-term-promotion-memory-write-Dgw-35mL.mjs");
+			const { commitMemoryContent } = await import("../../short-term-promotion-memory-write-CWQnq8E0.mjs");
 			return await commitMemoryContent(...request.args);
 		}
 		case "resolveDreamsPath": {
-			const { resolveDreamsPath } = await import("../../dreaming-dreams-file-Bl6LWIU9.mjs");
+			const { resolveDreamsPath } = await import("../../dreaming-dreams-file-DbnY3cwa.mjs");
 			return await resolveDreamsPath(workspace);
 		}
 		case "readDreams": {
-			const { readDreamsFile } = await import("../../dreaming-dreams-file-Bl6LWIU9.mjs");
+			const { readDreamsFile } = await import("../../dreaming-dreams-file-DbnY3cwa.mjs");
 			return await readDreamsFile(...request.args);
 		}
 		case "writeDreams": {
-			const { writeDreamsFileAtomic } = await import("../../dreaming-dreams-file-Bl6LWIU9.mjs");
+			const { writeDreamsFileAtomic } = await import("../../dreaming-dreams-file-DbnY3cwa.mjs");
 			return await writeDreamsFileAtomic(...request.args);
 		}
 		case "replaceReport": {
-			const { replaceDreamingMarkdownFile } = await import("../../dreaming-markdown-CotMJYvk.mjs");
+			const { replaceDreamingMarkdownFile } = await import("../../dreaming-markdown-N7VsHctJ.mjs");
 			return await replaceDreamingMarkdownFile(...request.args);
 		}
 		case "appendCorpus": {
-			const { appendSessionCorpusText } = await import("../../session-ingestion-BqIVYWnM.mjs");
+			const { appendSessionCorpusText } = await import("../../session-ingestion-CugPBRWQ.mjs");
 			return await appendSessionCorpusText(...request.args);
 		}
 		default: throw new Error("Unknown Memory maintenance operation");

@@ -1,0 +1,2 @@
+import { a as getActiveMemorySearchManagerCore, i as closeActiveMemorySearchManagersCore, r as closeActiveMemorySearchManagerCore, s as resolveActiveMemoryBackendConfig } from "./memory-runtime-BPPgyo6H.mjs";
+export { closeActiveMemorySearchManagerCore as closeActiveMemorySearchManager, closeActiveMemorySearchManagersCore as closeActiveMemorySearchManagers, getActiveMemorySearchManagerCore as getActiveMemorySearchManager, resolveActiveMemoryBackendConfig };

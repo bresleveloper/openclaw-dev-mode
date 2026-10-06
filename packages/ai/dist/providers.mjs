@@ -62,31 +62,31 @@ function createLazyRegistration(api, importModule, select) {
 	};
 }
 const registerBuiltIns = [
-	createLazyRegistration("anthropic-messages", () => import("./anthropic-DvT9cX58.mjs").then((n) => n.t), (module) => ({
+	createLazyRegistration("anthropic-messages", () => import("./anthropic-DZQ_7gD1.mjs").then((n) => n.t), (module) => ({
 		stream: module.streamAnthropic,
 		streamSimple: module.streamSimpleAnthropic
 	})),
-	createLazyRegistration("openai-completions", () => import("./openai-completions-Dmj7bJob.mjs").then((n) => n.t), (module) => ({
+	createLazyRegistration("openai-completions", () => import("./openai-completions-BO6D_hrB.mjs").then((n) => n.t), (module) => ({
 		stream: module.streamOpenAICompletions,
 		streamSimple: module.streamSimpleOpenAICompletions
 	})),
-	createLazyRegistration("mistral-conversations", () => import("./mistral-6yGXWD_U.mjs"), (module) => ({
+	createLazyRegistration("mistral-conversations", () => import("./mistral-C_13dVBn.mjs"), (module) => ({
 		stream: module.streamMistral,
 		streamSimple: module.streamSimpleMistral
 	})),
-	createLazyRegistration("openai-responses", () => import("./openai-responses-dnM5X18f.mjs").then((n) => n.t), (module) => ({
+	createLazyRegistration("openai-responses", () => import("./openai-responses-BJ_IEoMU.mjs").then((n) => n.t), (module) => ({
 		stream: module.streamOpenAIResponses,
 		streamSimple: module.streamSimpleOpenAIResponses
 	})),
-	createLazyRegistration("azure-openai-responses", () => import("./azure-openai-responses-BDaeKfnP.mjs"), (module) => ({
+	createLazyRegistration("azure-openai-responses", () => import("./azure-openai-responses-DS86GYzq.mjs"), (module) => ({
 		stream: module.streamAzureOpenAIResponses,
 		streamSimple: module.streamSimpleAzureOpenAIResponses
 	})),
-	createLazyRegistration("openai-chatgpt-responses", () => import("./openai-chatgpt-responses-CKND8gZ-.mjs"), (module) => ({
+	createLazyRegistration("openai-chatgpt-responses", () => import("./openai-chatgpt-responses-sTxPl4zM.mjs"), (module) => ({
 		stream: module.streamOpenAICodexResponses,
 		streamSimple: module.streamSimpleOpenAICodexResponses
 	})),
-	createLazyRegistration("google-generative-ai", () => import("./google-DYJefZfv.mjs"), (module) => ({
+	createLazyRegistration("google-generative-ai", () => import("./google-BZJFjhuC.mjs"), (module) => ({
 		stream: module.streamGoogle,
 		streamSimple: module.streamSimpleGoogle
 	})),

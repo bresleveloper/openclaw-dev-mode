@@ -1,2 +1,2 @@
-import { t as openAIRealtimeHost } from "../../realtime-host-B85Tk-vx.mjs";
+import { t as openAIRealtimeHost } from "../../realtime-host-C6osz6QO.mjs";
 export { openAIRealtimeHost };

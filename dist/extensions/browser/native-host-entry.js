@@ -330,12 +330,12 @@ async function main() {
 			responseFrame = frame;
 		},
 		buildPairing: async (boundProfile) => {
-			const { buildBrowserNativeHostPairing } = await import("../../extension-native-host.runtime-BoKpayFp.mjs");
+			const { buildBrowserNativeHostPairing } = await import("../../extension-native-host.runtime-C73Vr1jC.mjs");
 			const profile = process.argv.indexOf("--browser-profile") >= 0 ? requiredArgument("--browser-profile") : void 0;
 			return await buildBrowserNativeHostPairing(boundProfile ?? profile);
 		},
 		ensureRelay: async (port) => {
-			const { ensureBrowserNativeRelay } = await import("../../extension-native-host.runtime-BoKpayFp.mjs");
+			const { ensureBrowserNativeRelay } = await import("../../extension-native-host.runtime-C73Vr1jC.mjs");
 			return await ensureBrowserNativeRelay(port, fileURLToPath(new URL("./relay-daemon-entry.js", import.meta.url)));
 		}
 	});

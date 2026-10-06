@@ -4,13 +4,13 @@ import { t as parseDurationMs } from "../../parse-duration-DBWI377R.mjs";
 import { p as listProfilesForProvider } from "../../order-BQhYF772.mjs";
 import { n as suggestOAuthProfileIdForLegacyDefault } from "../../repair-BcSbbkEG.mjs";
 import "../../number-runtime-CGwowceO.mjs";
-import { t as applyAuthProfileConfig } from "../../provider-auth-helpers-CVzRzfCc.mjs";
+import { t as applyAuthProfileConfig } from "../../provider-auth-helpers-D2hZnbFG.mjs";
 import "../../cli-runtime-BkyE6O-C.mjs";
-import "../../provider-auth-eHeoP8se.mjs";
-import { i as upsertAuthProfileWithLockOrThrowCompat } from "../../provider-auth-write-compat-Bqnhrgo_.mjs";
+import "../../provider-auth-Da-_mZ0a.mjs";
+import { i as upsertAuthProfileWithLockOrThrowCompat } from "../../provider-auth-write-compat-DVVCJ3xZ.mjs";
 import { n as validateAnthropicSetupToken, t as buildTokenProfileId } from "../../provider-auth-token-FoqRrJeD.mjs";
-import "../../provider-auth-api-key-DXkDoM_e.mjs";
-import { t as buildAnthropicCliBackend } from "../../cli-backend-CP9ybtr0.mjs";
+import "../../provider-auth-api-key-BHMu2alC.mjs";
+import { t as buildAnthropicCliBackend } from "../../cli-backend-D99EGgJm.mjs";
 import { t as probeClaudeCliAuthStatus } from "../../cli-auth-seam-Bgklw1Tj.mjs";
 import { t as buildAnthropicCliMigrationResult } from "../../cli-migration-_5H1Fnz5.mjs";
 //#region extensions/anthropic/auth.runtime.ts
