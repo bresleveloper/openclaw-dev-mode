@@ -35,7 +35,7 @@
 
 **Ariel, 2026-09-27**: the main thread (Opus) writes ALL code changes. Delegate to a Sonnet subagent (Agent tool, `subagent_type: general-purpose`, `model: sonnet`) only simple execution: VPS/SSH ops, git fetch, read-only investigations/fan-out analysis, builds/test runs. Verify subagent claims before acting — the 9.6 analyses were wrong three times (FIX-06 helper "compiles unchanged", `session-url-contract` "needs a dist force-add", "non-main sessions are sandboxed by default").
 
-**Fork patch style (Ariel, 2026-09-28)**: touch upstream code as little as possible — logic in fork-owned files (`extensions/whatsapp/src/dev-mode/*`, `ui/src/pages/config/dev-mode.ts`), one guarded hook in the upstream file, comments with a regression checklist.
+**Fork patch style (Ariel, 2026-09-28)**: touch upstream code as little as possible — logic in fork-owned files (`extensions/whatsapp/src/dev-mode/*`), one guarded hook in the upstream file, comments with a regression checklist.
 
 ### README is Ariel's domain
 
@@ -106,8 +106,6 @@ cd /opt/openclaw-dev-mode && git config core.symlinks false && git checkout -- .
 | SEC-72 | `src/cli/config-cli.ts` | `runConfigGet` skips `redactConfigObject()` |
 | SEC-78 | `src/gateway/control-plane-rate-limit.ts` | `consumeControlPlaneWriteBudget` → allowed (keeps 9.x per-method `key`) |
 | SEC-79 | `src/acp/translator.prompt-stream.ts` | `getMaxPromptBytes()` → 50 MB |
-| SEC-97 server | `src/config/redact-snapshot.raw.ts` + `redact-snapshot.ts` + `types.openclaw.ts` | Raw view never withheld (`shouldFallbackToStructuredRawRedaction()` → false); snapshot carries `devMode` via `config.get`. Secrets still `__OPENCLAW_REDACTED__` |
-| SEC-97 client | `ui/src/pages/config/dev-mode.ts` + hooks in `config-page.ts` (`synchronizeRuntimeConfig`, `resetConfigViewState`), `view-state.ts` (`resetConfigEphemeralState`), `ui/src/api/types.ts` | Advanced page opens in Raw, raw/env unblurred; follows the on-screen snapshot per view state (non-dev gateway re-blurs; manual toggles never overridden) |
 | SEC-99 | `src/auto-reply/reply/reply-elevated.ts` | Elevated gates skipped when dev-mode + `full` profile |
 | SEC-100 | `src/gateway/tool-resolution.ts`, `src/agents/agent-tools.ts`, `src/auto-reply/reply/reply-tool-authority.ts`, `src/skills/runtime/tool-dispatch.ts`, `src/agents/tools/conversation-tools.ts` | Owner-only tools (`GATEWAY_OWNER_ONLY_CORE_TOOLS`: gateway, plugins, automations, sessions, screen, terminal, portal, conversations_*, nodes, computer, mobile_ui, openclaw) stay available on every turn. Why: allowlisted ≠ owner (`src/auto-reply/command-auth.ts:487` — only `commands.ownerAllowFrom`/admin scope count), so Ariel's own chats and all cron/hook/API turns lost them (Ariel 2026-09-28: "i am owner… i dont have guests") |
 | SEC-101 | `src/agents/agent-tools.ts` | Skips `filterToolsByMessageProvider()` |
@@ -118,6 +116,7 @@ cd /opt/openclaw-dev-mode && git config core.symlinks false && git checkout -- .
 | FIX-01 | `src/agents/workspace.ts` | `MEMORY.md` via `publishBootstrapFile` only after `setupCompletedAt` (earlier seeding cancels onboarding) |
 | FIX-03 | `src/status/status-message.ts` | Dev-mode `▶️ Active model` line/row (model + auth that ran) |
 | FIX-04 | `src/auto-reply/reply/commands-reset.ts` | Skip the hardcoded reset ACK so the bare-reset greeting runs |
+| FIX-07 | `src/commands/doctor/config-content-fix.ts` + `src/cli/config-validate-fix.ts` (fork-owned) + hook in `src/cli/config-cli.ts` | `openclaw config validate --fix [--dry-run]` (not dev-mode gated): runs only doctor's config stages on `openclaw.json` (legacy migrations, value-format normalizers, unknown-key removal), then writes via doctor's `restoreDoctorConfigEnvRefs` + `transformConfigFile` only if the result validates (`.bak` kept, size-drop guard on). No installs, state migrations or service changes. Skips `$include` configs and rosters that need doctor's one-time migration (`agents.list`, `default` markers); drops the reader's in-memory `agents.entries.main` placeholder (an invalid file's candidate is otherwise written as-is) |
 
 **Dropped** (with reasons in `README.md`): FIX-05, FIX-06, Ollama `think` injection (upstream native at 9.6), FIX-03 selection merge, SEC-27 reply-context half, OpenAI reasoning injection (5.12), SEC-67 (skipped by choice), SEC-80, SEC-96, FIX-02, 7.x UI patches + localStorage cache, kapso plugin + socket tap, secondary env flags.
 
@@ -146,10 +145,9 @@ SSRF private-network block for `web_fetch` (knob if ever needed: `tools.web.fetc
 Upstream files carry small guarded hooks; fork-owned files hold the logic.
 
 - Infrastructure: `src/globals.ts`
-- Core hooks: `src/agents/system-prompt.ts`, `src/security/channel-metadata.ts`, `src/commands/onboard-config.ts`, `src/agents/tools/web-fetch.ts`, `src/cli/config-cli.ts`, `src/gateway/control-plane-rate-limit.ts`, `src/acp/translator.prompt-stream.ts`, `src/gateway/tool-resolution.ts`, `src/agents/agent-tools.ts`, `src/auto-reply/reply/reply-tool-authority.ts`, `src/skills/runtime/tool-dispatch.ts`, `src/agents/tools/conversation-tools.ts`, `src/media/local-media-access.ts`, `src/agents/workspace.ts`, `src/config/redact-snapshot.raw.ts`, `src/config/redact-snapshot.ts`, `src/config/types.openclaw.ts`, `src/auto-reply/reply/reply-elevated.ts`, `src/auto-reply/reply/commands-reset.ts`, `src/status/status-message.ts`
-- UI hooks: `ui/src/api/types.ts`, `ui/src/pages/config/config-page.ts`, `ui/src/pages/config/view-state.ts`
+- Core hooks: `src/agents/system-prompt.ts`, `src/security/channel-metadata.ts`, `src/commands/onboard-config.ts`, `src/agents/tools/web-fetch.ts`, `src/cli/config-cli.ts`, `src/gateway/control-plane-rate-limit.ts`, `src/acp/translator.prompt-stream.ts`, `src/gateway/tool-resolution.ts`, `src/agents/agent-tools.ts`, `src/auto-reply/reply/reply-tool-authority.ts`, `src/skills/runtime/tool-dispatch.ts`, `src/agents/tools/conversation-tools.ts`, `src/media/local-media-access.ts`, `src/agents/workspace.ts`, `src/auto-reply/reply/reply-elevated.ts`, `src/auto-reply/reply/commands-reset.ts`, `src/status/status-message.ts`
 - Extension hooks: `extensions/browser/src/browser/navigation-guard.ts`; `extensions/whatsapp/src/session.ts`, `auto-reply/monitor/inbound-dispatch.ts`, `auto-reply/deliver-reply.ts`, `auto-reply/monitor/on-message.ts`
-- Fork-owned: `ui/src/pages/config/dev-mode.ts`, `extensions/whatsapp/src/dev-mode/{wa-history,reasoning,echo-guard}.ts` (+ colocated tests)
+- Fork-owned: `extensions/whatsapp/src/dev-mode/{wa-history,reasoning,echo-guard}.ts`, `src/commands/doctor/config-content-fix.ts`, `src/cli/config-validate-fix.ts` (+ colocated tests)
 - Build: `package.json` `files` (WhatsApp exclusion removed). Docs: `README.md`, `CLAUDE.md`, `dev-mode/**`
 
 ## Key OpenClaw Internals
@@ -169,7 +167,7 @@ Upstream files carry small guarded hooks; fork-owned files hold the logic.
 - Discord: a user must be in BOTH the guild `users` list and the account `allowFrom`, or messages drop silently. Valid bot tokens are ~72 chars; 100+ means corrupted.
 - Debug-patching compiled `dist/*.js` on the VPS: use the already-imported `writeFileSync`, never `require("fs")` (ESM). Restore with `git config core.symlinks false && git checkout -- dist/<file> && git config --unset core.symlinks`.
 - Ollama `gemini-3-flash-preview:cloud` misbehaves on native `/api/chat`; set that model's `api` to `"openai-completions"` in `models.providers.ollama.models[]`.
-- Raw config tab: at 7.x new Zod defaults broke the raw round-trip (`config.get` → `raw: null`). At 9.6 the check compares against the pre-default parsed file, so new defaults can't break it; SEC-97 server also disables the fallback in dev-mode. If Raw is ever unclickable again, diff `snapshot.config` vs `JSON5.parse(snapshot.raw)` with a throwaway `.mts` under `dev-mode/` run via `./node_modules/.bin/tsx`.
+- Raw config tab: at 7.x new Zod defaults broke the raw round-trip (`config.get` → `raw: null`). At 9.6 the check compares against the pre-default parsed file, so new defaults can't break it. If Raw is ever unclickable again, diff `snapshot.config` vs `JSON5.parse(snapshot.raw)` with a throwaway `.mts` under `dev-mode/` run via `./node_modules/.bin/tsx`.
 
 ## VPS Operational Lessons
 
@@ -196,7 +194,7 @@ Upstream files carry small guarded hooks; fork-owned files hold the logic.
   - `@openclaw/ai` became a runtime workspace dep → pnpm on the VPS + `packages/ai/dist` force-add.
   - Startup-migration gate crash-looped the gateway (~10 min outage) on permanent warnings: legacy memory-core `.dreams/*.json` (archived to `~/.openclaw/legacy-state-archive-20260721/`) and the broken `openclaw-web-search` package (removed; no web-search provider configured now — bundled `duckduckgo`/`brave` exist). At 9.6 warnings only log; refusals are still fatal.
   - Tracked self-ref symlink `packages/speech-core/node_modules/openclaw` corrupted `.git` twice during checkouts (and likely wiped the laptop clone's `.git/index` on 2026-09-26). Gone at 9.6.
-  - Upstream rebuilt the Control UI (SEC-97 client redone twice since).
+  - Upstream rebuilt the Control UI.
   - `session.test.ts` failed on pristine 7.1 on Windows — pre-existing.
 - **9.6** — see below.
 
@@ -206,7 +204,7 @@ Clean-room from tag `v2026.9.6` (upstream 2026-09-22), ~33.4k commits / 48k file
 
 **Process that worked**: 4 parallel read-only Sonnet analyses (per patch SEAMLESS / ADAPT / THINK / DROP with 9.6 file:line) → Opus ports the confident set (`git apply --3way` of the fork diff for small hunks, manual re-homing otherwise) → Ariel decides THINK items one by one → rendered the real dev-mode system prompt (`buildAgentSystemPrompt` via `node --import ./scripts/tsx.mjs`) and swept runtime gates → docs.
 
-**Upstream changes that shaped the port**: automatic session reset OFF by default (#111140, `e23dde3de55`; no doctor migration re-adds it) → FIX-05/06 dropped; bundled `session-memory` hook (opt-in); reasoning delivery/suppression + "Thinking" preamble → SEC-WA1 rebuilt; message-id echo dedupe → echo filter kept as safety net; WA "directory" sockets → history logger on normal sockets only; config page without Quick/Advanced → SEC-97 client rebuilt; `readLocalMediaFile` re-checks roots → SEC-102 moved; `MEMORY.md` = setup-completion evidence → FIX-01 after setup; subagent deny list non-overridable + `message` added (#120025, `8994c7799ba`) while default spawn depth went 1 → 5; WhatsApp exclusion derived from `package.json` only; fork WA code bundles under `dist/extensions/whatsapp/`; ~20 new state migrations; pnpm 12.4.0; `CLAUDE.md` had been committed as a symlink (mode `120000`) holding 69 KB of markdown → fixed in `89a6d85522`.
+**Upstream changes that shaped the port**: automatic session reset OFF by default (#111140, `e23dde3de55`; no doctor migration re-adds it) → FIX-05/06 dropped; bundled `session-memory` hook (opt-in); reasoning delivery/suppression + "Thinking" preamble → SEC-WA1 rebuilt; message-id echo dedupe → echo filter kept as safety net; WA "directory" sockets → history logger on normal sockets only; `readLocalMediaFile` re-checks roots → SEC-102 moved; `MEMORY.md` = setup-completion evidence → FIX-01 after setup; subagent deny list non-overridable + `message` added (#120025, `8994c7799ba`) while default spawn depth went 1 → 5; WhatsApp exclusion derived from `package.json` only; fork WA code bundles under `dist/extensions/whatsapp/`; ~20 new state migrations; pnpm 12.4.0; `CLAUDE.md` had been committed as a symlink (mode `120000`) holding 69 KB of markdown → fixed in `89a6d85522`.
 
 **Deploy (2026-09-28)** — OS `apt full-upgrade` first (40 packages, Node 24.19 → 24.21, kernel 6.8.0-142 installed, reboot pending), full backup `/root/.openclaw.bak-pre-9.6-20260928` (9.6 GB), then the recipe. Lessons:
 - Run `openclaw doctor --fix` with the gateway STOPPED — while it runs, migrations refuse with "Agent main database is still open in another process" and every later step is skipped (looks like scary failures, isn't).
@@ -214,14 +212,14 @@ Clean-room from tag `v2026.9.6` (upstream 2026-09-22), ~33.4k commits / 48k file
 - `acpx` failed to load: the VPS had stale real `dist/extensions/*/node_modules` dirs from npm-era deploys (7 of them; old acpx without `./agent-registry`) and never gets the build's local links → `dev-mode/link-dist-plugin-deps.sh` (now in the update recipe) replaces them with one link per plugin.
 - `agents.defaults.subagents.maxSpawnDepth` was pinned to 2 in the config → set to 5 (Ariel: "if i have 5 depths i'm ok").
 - Empty leftover `dev-mode/openclaw-whatsapp-claw.db` deleted.
+- Verified after deploy: reboot into kernel 6.8.0-142 with `Linger=yes` — gateway came back by itself; 💭 reasoning in WhatsApp self-chat with `ollama/glm-5.3-flash:cloud` + `/reasoning on`, no loop.
 
 **Pre-existing test failure**: `src/acp/translator.abort-cause.e2e.test.ts` fails on pristine `v2026.9.6` too (Linux, Node 26.8; A/B verified) — ignore.
 
-**First-deploy checklist for 9.6 (VPS)**: snapshot `~/.openclaw`; upgrade pnpm to 12.4.0; update recipe; confirm no `session.reset` block in `openclaw.json` (any block re-enables daily reset); check `agents.defaults.subagents.maxSpawnDepth` isn't pinned below 5; `openclaw hooks enable session-memory < /dev/null`; `openclaw doctor --fix < /dev/null` and read every warning; restart; WA checks (checklist item 5); `/reasoning on` in self-chat → `💭 Reasoning:` messages, no loop, no `Dropped self-chat reasoning echo` log line; Control UI → Settings → Advanced opens Raw unblurred; `/status` shows `▶️ Active model`; ask the agent to use `gateway`/`nodes` from a cron turn (SEC-100).
+**First-deploy checklist for 9.6 (VPS)**: snapshot `~/.openclaw`; upgrade pnpm to 12.4.0; update recipe; confirm no `session.reset` block in `openclaw.json` (any block re-enables daily reset); check `agents.defaults.subagents.maxSpawnDepth` isn't pinned below 5; `openclaw hooks enable session-memory < /dev/null`; `openclaw doctor --fix < /dev/null` and read every warning; restart; WA checks (checklist item 5); `/reasoning on` in self-chat → `💭 Reasoning:` messages, no loop, no `Dropped self-chat reasoning echo` log line; `/status` shows `▶️ Active model`; ask the agent to use `gateway`/`nodes` from a cron turn (SEC-100).
 
 ## Open Items
 
-- Manual check still open: Control UI → Settings → Advanced opens Raw, unblurred. (Verified 2026-09-28: reboot into kernel 6.8.0-142 with `Linger=yes` — gateway came back by itself; 💭 reasoning in WhatsApp self-chat with `ollama/glm-5.3-flash:cloud` + `/reasoning on`, no loop.)
 - Delete `/root/.openclaw.bak-pre-9.6-20260928` (9.6 GB) once 9.6 is trusted.
 - `doctor` advisories: legacy `agents.defaults.models` needs explicit provider/model refs before it can migrate to `agents.defaults.modelPolicy.allow`; bundled `github` plugin not in `plugins.allow` (link previews off); 9 historical transcripts deferred (header mismatch, originals untouched); no command owner configured (keeps `/update` owner-only — fine given the no-update rule); service policy refresh skipped because `~/.openclaw` is owned by `coder`.
 - Gateway token NOT rotated (was plaintext in the deleted kapso-era `wa-claw-panel.service`) — Ariel's call.
@@ -241,5 +239,4 @@ dev-mode/
   trouble-shooting/       -- rescue + WhatsApp troubleshooting notes
   system-prompt/          -- captured system prompt (2026.5.2)
 extensions/whatsapp/src/dev-mode/   -- wa-history, reasoning (SEC-WA1), echo-guard
-ui/src/pages/config/dev-mode.ts     -- SEC-97 client
 ```

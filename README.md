@@ -6,8 +6,8 @@
 
 <p align="center">
     <picture>
-        <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/openclaw/openclaw/main/docs/assets/openclaw-logo-text-dark.png">
-        <img src="https://raw.githubusercontent.com/openclaw/openclaw/main/docs/assets/openclaw-logo-text.png" alt="OpenClaw" width="500">
+        <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/openclaw/openclaw/main/docs/assets/openclaw-banner-dark.png">
+        <img src="https://raw.githubusercontent.com/openclaw/openclaw/main/docs/assets/openclaw-banner-dark.png" alt="OpenClaw" width="500">
     </picture>
 </p>
 
@@ -23,6 +23,7 @@ saving full log to enjoy my journey with OC ♥
 
 ## CHANGE LOG
 
+- 2026-10-06 - - FIX-07 created `openclaw config validate --fix` to fix only the `openclaw.json` 
 - 2026-09-28
   - updated to v2026.9.6 
   - removed FIX-05 + FIX-06 => upstream removed auto-resets sessions
@@ -109,7 +110,6 @@ Gated by `OPENCLAW_DEV_MODE=1`. Each is a minimal `if (isDevMode()) { … }` che
 | SEC-72  | Unredacted config in CLI (API keys visible)                                                                                                          |
 | SEC-78  | No control plane rate limiting                                                                                                                       |
 | SEC-79  | 50MB prompt cap (instead of 2MB)                                                                                                                     |
-| SEC-97  | Always show raw config in web GUI (skip round-trip check)                                                                                            |
 | SEC-98  | Remove restrictive prompt sections (approval, config caution) + add permissive safety line + agent never updates OpenClaw (would overwrite the fork) |
 | SEC-99  | Skip elevated permission gates when dev-mode + Full profile                                                                                          |
 | SEC-100 | All owner-only tools (`gateway`, `openclaw`, `nodes`, `cron`...) available on every turn in dev-mode - i'm the only owner                            |
@@ -126,20 +126,14 @@ All gated by `OPENCLAW_DEV_MODE=1` alone — no extra flags to remember.
 | WA-HIST | Built-in WhatsApp history recorder — every message (DMs + groups, inbound + outbound) lands in a local SQLite db at `~/.openclaw/dev-mode/wa-history.db`. Uses Node's built-in `node:sqlite` (zero extra dependencies), resolves senders to real phone numbers (including Baileys 7.x `@lid` JIDs), and auto-backfills group names so the db is queryable by human-readable chat, number, or date |
 | WA-ECHO | In self-chat mode, filter inbound messages matching reasoning-echo patterns to break reply loops (now just a safety net, upstream dedupes echoes by message id)                                                                                                                                                                                                                                   |
 
-### Control UI (dev-mode)
-
-| ID    | What it does                                                              |
-| ----- | ------------------------------------------------------------------------- |
-| UI-01 | Settings → Advanced opens at raw — no Form → Raw click needed             |
-| UI-02 | Raw config + env values unblurred by default — no eye-toggle click needed |
-
 ### Fix
 
 | ID     | What it does                                                                                                                                                              |
 | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | FIX-01 | Auto-bootstrap `MEMORY.md` in new workspaces (right after onboarding)                                                                                                     |
-| FIX-03 | `/status` renders a `▶️ Active model` line below `🧠 Model:` so config-vs-runtime mismatches are visible at a glance (the spurious `gpt-5.5` fallback got fixed upstream) |
 | FIX-04 | revised to new global hook for `/new` and `/reset` and `/compact` and `auto-compact` to enable the greeting                                                                                                                                  |
+| FIX-07 | created `openclaw config validate --fix` to fix only the `openclaw.json`                                                                                                      |
+
 
 ## How to install
 
