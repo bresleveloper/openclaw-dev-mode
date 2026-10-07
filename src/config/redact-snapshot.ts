@@ -9,7 +9,6 @@ import {
   isRecord as isObjectRecord,
 } from "@openclaw/normalization-core/record-coerce";
 import { normalizeLowercaseStringOrEmpty } from "@openclaw/normalization-core/string-coerce";
-import { isDevMode } from "../globals.js";
 import { createSubsystemLogger } from "../logging/subsystem.js";
 import type { ConfigUiHints } from "../shared/config-ui-hints-types.js";
 import { containsEnvVarReference } from "./env-substitution.js";
@@ -307,8 +306,6 @@ export function redactConfigSnapshot(
       raw: null,
       parsed: null,
       resolved: redactedResolved,
-      // SEC-97: tells the Control UI to open config in dev-mode layout.
-      devMode: isDevMode(),
     };
   }
   const context = createRedactionContext(uiHints);
@@ -349,8 +346,6 @@ export function redactConfigSnapshot(
     raw: redactedRaw,
     parsed: redactedParsed,
     resolved: redactedResolved,
-    // SEC-97: tells the Control UI to open config in dev-mode layout.
-    devMode: isDevMode(),
   };
 }
 

@@ -335,6 +335,4 @@ export type ConfigFileSnapshot = {
   issues: ConfigValidationIssue[];
   warnings: ConfigValidationIssue[];
   legacyIssues: LegacyConfigIssue[];
-  // SEC-97: surfaces dev-mode to the Control UI config page.
-  devMode?: boolean;
 };

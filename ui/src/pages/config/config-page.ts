@@ -78,7 +78,6 @@ import {
 } from "./config-sections.ts";
 import * as themeImport from "./custom-theme-import-owner.ts";
 import { importCustomThemeFromUrl } from "./custom-theme-import.ts";
-import { syncDevModeReveal, takeDevModeRawDefault } from "./dev-mode.ts";
 import { renderMcp } from "./mcp.ts";
 import { renderMeetingCapture } from "./meeting-capture.ts";
 import { renderMemoryPage } from "./memory-page.ts";
@@ -648,11 +647,6 @@ export class ConfigPage extends OpenClawLightDomElement {
       this.resetConfigViewState();
     }
     const config = runtimeConfig.state;
-    // [dev-mode] SEC-97: Advanced opens in Raw, unblurred. See ./dev-mode.ts.
-    syncDevModeReveal(this.configViewState, config.configSnapshot);
-    if (takeDevModeRawDefault(this, config.configSnapshot)) {
-      this.formModes = { ...this.formModes, advanced: "raw" };
-    }
     if (!config.configSnapshot && !config.configLoading) {
       void runtimeConfig
         .ensureLoaded()
@@ -672,8 +666,6 @@ export class ConfigPage extends OpenClawLightDomElement {
   private resetConfigViewState() {
     // Revealed secrets and raw caches never cross a capability/source epoch.
     this.configViewState = createConfigViewState();
-    // [dev-mode] SEC-97: the new epoch re-derives its reveal from its own snapshot.
-    syncDevModeReveal(this.configViewState, this.context?.runtimeConfig.state.configSnapshot);
   }
 
   private handleGatewaySnapshot({
