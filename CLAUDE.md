@@ -57,6 +57,7 @@ Never log VPS connection details in commits or output. Batch commands into few s
 - **Self-ref symlink**: `/opt/openclaw-dev-mode/node_modules/openclaw → /opt/openclaw-dev-mode` — still recreated by the update recipe (V2026.5.6 proved it necessary; re-verify on 9.6)
 - **Home**: `~/.openclaw/` — config `openclaw.json`, env `.env` (`OPENCLAW_DEV_MODE=1`), WA creds `credentials/whatsapp/default/`, WA history `dev-mode/wa-history.db`
 - **Gateway**: user-level systemd `openclaw-gateway.service` (`~/.config/systemd/user/`), port 18789, loopback. `journalctl` is empty — logs are `/tmp/openclaw/openclaw-YYYY-MM-DD.log` (JSON lines)
+- **Owner (2026-10-11)**: `commands.ownerAllowFrom` = Ariel's WhatsApp number + Discord user id (`whatsapp:+…`, `discord:<id>` — the `discord:user:<id>` form is skipped by the matcher). It is the only source of owner status for chat turns now that SEC-100 is disabled. Config backup from before: `~/.openclaw/openclaw.json.pre-2026-10-11-fix09`.
 - **Node**: v24.21.0 (nodesource apt, 2026-09-28) — satisfies 9.6 engines. OS: Ubuntu 24.04; pnpm 12.4.0 via `npm i -g`
 - **Models (2026-09-28)**: default `ollama/kimi-k2.7-code:cloud`; `ollama/glm-5.3-flash:cloud` configured (reasoning always on, tools, 1M ctx, paid via Ollama Cloud credits) — good for testing 💭. Web search: `tools.web.search.provider = ollama` (works with any model; Z.ai's native search is not an OpenClaw provider).
 
@@ -79,11 +80,13 @@ Never log VPS connection details in commits or output. Batch commands into few s
 ### VPS Update Recipe
 
 ```
-cd /opt/openclaw-dev-mode && git config core.symlinks false && git checkout -- . 2>/dev/null; git pull && git config --unset core.symlinks && CI=true pnpm install --ignore-scripts && sh dev-mode/link-dist-plugin-deps.sh && ln -sf /opt/openclaw-dev-mode node_modules/openclaw && openclaw gateway restart
+cd /opt/openclaw-dev-mode && git config core.symlinks false && git checkout -- . 2>/dev/null; git pull && git config --unset core.symlinks && CI=true pnpm install --ignore-scripts && sh dev-mode/link-dist-plugin-deps.sh && ln -sfn /opt/openclaw-dev-mode node_modules/openclaw && openclaw gateway restart
 ```
 (`core.symlinks false` also covers pulls where a tracked symlink became a regular file, e.g. `CLAUDE.md`. `dev-mode/link-dist-plugin-deps.sh` recreates the `dist/extensions/<id>/node_modules` links the build makes on the build machine but that are never committed — without it `acpx` fails with "required dependencies are missing".)
 
-- WA/model warmup fails with `Cannot find package 'openclaw'` → re-run the `ln -sf` self-ref symlink, restart.
+- **What a deploy looks like at 9.6 (2026-10-11)**: seconds after `git pull` the running gateway logs `Installation replaced: running … build <old>; on-disk … build <new>`, shuts itself down and systemd starts it on the new build. Its shutdown logs `Cannot find module …/dist/<old-chunk>.mjs` (the pull deleted its chunks): expected. `openclaw gateway stop` refuses without `--force` ("This stops the operator's running gateway service"), and a manual `gateway start` right after fails with "another OpenClaw process owns state-lifecycle" because systemd already restarted it. Verify: `systemctl --user show openclaw-gateway -p ExecMainStartTimestamp` is after the pull, and the log has `gateway ready`, `Listening for WhatsApp inbound messages`, `[dev-mode] WhatsApp history logger attached`.
+- Self-ref link: use `ln -sfn` (fixed 2026-10-11). Plain `ln -sf` follows the existing link into the repo root and creates a stray `/opt/openclaw-dev-mode/openclaw-dev-mode` → itself (still there; `rm` it, it is only a symlink).
+- WA/model warmup fails with `Cannot find package 'openclaw'` → re-run the `ln -sfn` self-ref symlink, restart.
 - Plugin runtime deps missing → `rm -rf dist-runtime/extensions/*/node_modules && openclaw gateway restart` (first start then takes ~2 min).
 - **Revert**: stop gateway, remove `OPENCLAW_DEV_MODE=1` from `.env` (or check out the previous `main`/tag), start gateway.
 

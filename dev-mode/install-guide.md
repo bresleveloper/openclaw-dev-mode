@@ -25,7 +25,7 @@ CI=true pnpm install --ignore-scripts
 
 # 5. Link bundled plugins to their deps + self-reference link for `openclaw/plugin-sdk/*`
 sh dev-mode/link-dist-plugin-deps.sh
-ln -sf /opt/openclaw-dev-mode /opt/openclaw-dev-mode/node_modules/openclaw
+ln -sfn /opt/openclaw-dev-mode /opt/openclaw-dev-mode/node_modules/openclaw
 
 # 6. Symlink the fork into the original location
 #    (the systemd gateway service points at /usr/lib/node_modules/openclaw/)
@@ -56,11 +56,11 @@ Optional (recommended): `openclaw hooks enable session-memory < /dev/null` — s
 ## Updating
 
 ```bash
-cd /opt/openclaw-dev-mode && git config core.symlinks false && git checkout -- . 2>/dev/null; git pull && git config --unset core.symlinks && CI=true pnpm install --ignore-scripts && sh dev-mode/link-dist-plugin-deps.sh && ln -sf /opt/openclaw-dev-mode node_modules/openclaw && openclaw gateway restart
+cd /opt/openclaw-dev-mode && git config core.symlinks false && git checkout -- . 2>/dev/null; git pull && git config --unset core.symlinks && CI=true pnpm install --ignore-scripts && sh dev-mode/link-dist-plugin-deps.sh && ln -sfn /opt/openclaw-dev-mode node_modules/openclaw && openclaw gateway restart
 ```
 
 - pnpm refuses to remove an old `node_modules` without a TTY → `rm -rf node_modules` and rerun.
-- WhatsApp/model warmup fails with `Cannot find package 'openclaw'` → rerun the `ln -sf` step, restart.
+- WhatsApp/model warmup fails with `Cannot find package 'openclaw'` → rerun the `ln -sfn` step, restart.
 - After a version upgrade: `openclaw doctor --fix < /dev/null` and read its warnings. WhatsApp needs ~2 minutes after the restart before it answers.
 
 ## Reverting to original openclaw
