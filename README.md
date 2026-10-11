@@ -26,6 +26,7 @@ saving full log to enjoy my journey with OC ♥
 - 2026-10-11
   - disabled SEC-100 (commented out) => owner now from `commands.ownerAllowFrom`
   - FIX-09 hardcoded block for OpenClaw update => an update would overwrite the fork
+  - migrated main agent to my Claude subscription (Opus 5.5 via `claude-cli` runtime) => all docs + troubleshoot in [dev-mode/claude-sub/](dev-mode/claude-sub/)
 - 2026-10-06 - - FIX-07 created `openclaw config validate --fix` to fix only the `openclaw.json` 
 - 2026-09-28
   - updated to v2026.9.6 
