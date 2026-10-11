@@ -1,1 +1,0 @@
-import{f as e,i as t,t as n,u as r}from"./proposals-B9e-1R6o.js";n();export{r as createSkillWorkshopState,t as loadSkillWorkshopProposals,e as skillWorkshopRouteData};

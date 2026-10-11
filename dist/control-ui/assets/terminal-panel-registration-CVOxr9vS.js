@@ -1,0 +1,1 @@
+import{t as e}from"./terminal-panel-registration-B2fI7fZP.js";e();

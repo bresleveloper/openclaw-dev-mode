@@ -1,11 +1,11 @@
-import { r as OpenClawConfig } from "../types.openclaw-LzSbb55e.js";
+import { r as OpenClawConfig } from "../types.openclaw-Ccmw-oTa.js";
 import { M as ExecApprovalResolved, _ as PluginApprovalResolved, n as ChannelApprovalKind, s as SystemAgentApprovalResolved, t as ApprovalRequestInput } from "../approval-types-DIxuby8L.js";
-import { r as ChannelApprovalCapability } from "../types.adapters-dxHXA2rq.js";
-import { A as ChannelApprovalNativeAdapter, C as ResolvedApprovalView, S as PluginApprovalResolvedView, T as ChannelNativeApprovalTransportSpec, _ as ExecApprovalResolvedView, a as ChannelApprovalNativeFinalAction, b as PluginApprovalExpiredView, c as ChannelApprovalNativePresentationAdapter, d as ChannelApprovalNativeTransportAdapter, f as ApprovalActionView, g as ExecApprovalPendingView, h as ExecApprovalExpiredView, i as ChannelApprovalNativeAvailabilityAdapter, l as ChannelApprovalNativeRuntimeAdapter, m as ApprovalViewModel, n as ApprovalResolved$1, o as ChannelApprovalNativeInteractionAdapter, p as ApprovalMetadataView, r as ChannelApprovalCapabilityHandlerContext, s as ChannelApprovalNativeObserveAdapter, t as ApprovalRequest$1, u as ChannelApprovalNativeRuntimeSpec, v as ExpiredApprovalView, w as ChannelNativeApprovalDeliveryCallbacks, x as PluginApprovalPendingView, y as PendingApprovalView } from "../approval-handler-runtime-types-DuldNTAV.js";
-import "../exec-approvals-BN7bizpP.js";
-import { t as resolveApprovalOverGateway } from "../approval-gateway-runtime-C2BgXr14.js";
-import { n as createLazyChannelApprovalNativeRuntimeAdapter, t as CHANNEL_APPROVAL_NATIVE_RUNTIME_CONTEXT_CAPABILITY } from "../approval-handler-adapter-runtime-DXrf5gL7.js";
-import { i as ExecApprovalChannelRuntime } from "../exec-approval-channel-runtime-BUGbkn7z.js";
+import { r as ChannelApprovalCapability } from "../types.adapters-IC4-T9eq.js";
+import { A as ChannelApprovalNativeAdapter, C as ResolvedApprovalView, S as PluginApprovalResolvedView, T as ChannelNativeApprovalTransportSpec, _ as ExecApprovalResolvedView, a as ChannelApprovalNativeFinalAction, b as PluginApprovalExpiredView, c as ChannelApprovalNativePresentationAdapter, d as ChannelApprovalNativeTransportAdapter, f as ApprovalActionView, g as ExecApprovalPendingView, h as ExecApprovalExpiredView, i as ChannelApprovalNativeAvailabilityAdapter, l as ChannelApprovalNativeRuntimeAdapter, m as ApprovalViewModel, n as ApprovalResolved$1, o as ChannelApprovalNativeInteractionAdapter, p as ApprovalMetadataView, r as ChannelApprovalCapabilityHandlerContext, s as ChannelApprovalNativeObserveAdapter, t as ApprovalRequest$1, u as ChannelApprovalNativeRuntimeSpec, v as ExpiredApprovalView, w as ChannelNativeApprovalDeliveryCallbacks, x as PluginApprovalPendingView, y as PendingApprovalView } from "../approval-handler-runtime-types-CRr7HfI3.js";
+import "../exec-approvals-G-i4jWVS.js";
+import { t as resolveApprovalOverGateway } from "../approval-gateway-runtime-zcCb0-3W.js";
+import { n as createLazyChannelApprovalNativeRuntimeAdapter, t as CHANNEL_APPROVAL_NATIVE_RUNTIME_CONTEXT_CAPABILITY } from "../approval-handler-adapter-runtime-cag-AOcB.js";
+import { i as ExecApprovalChannelRuntime } from "../exec-approval-channel-runtime-TLg3aY2I.js";
 //#region src/infra/approval-handler-runtime.d.ts
 type ChannelApprovalHandler<TRequest extends ApprovalRequest$1 = ApprovalRequest$1, TResolved extends ApprovalResolved$1 = ApprovalResolved$1> = ExecApprovalChannelRuntime<TRequest, TResolved>;
 /** Adapts a strongly typed channel native approval spec into the erased runtime contract. */

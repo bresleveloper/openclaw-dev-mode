@@ -1,5 +1,5 @@
-import { i as ProviderWrapStreamFnContext } from "../../index-CAkAR5W-.js";
-import { Yr as StreamFn } from "../../types-BNSWPjt2.js";
+import { i as ProviderWrapStreamFnContext } from "../../index-DUVQdPAn.js";
+import { Yr as StreamFn } from "../../types-DxdHPaG-.js";
 //#region extensions/vllm/defaults.d.ts
 export declare const VLLM_DEFAULT_BASE_URL = "http://127.0.0.1:8000/v1";
 export declare const VLLM_PROVIDER_LABEL = "vLLM";

@@ -4,10 +4,10 @@ import { o as resolveAgentEntry } from "../agent-scope-config-IQKOEtZ4.mjs";
 import { d as resolveExecModePolicy } from "../exec-approvals-core-BZ3ECkXD.mjs";
 import { n as createCorePluginStateSyncKeyedStore } from "../plugin-state-store-CgyXRuSI.mjs";
 import "../exec-approvals-BgZlQ2Qp.mjs";
-import { a as isPersistentSystemAgentOperation, i as formatSystemAgentPersistentPlan, o as parseSystemAgentOperation } from "../operations-parse-B6VcQhEV.mjs";
+import { a as isPersistentSystemAgentOperation, i as formatSystemAgentPersistentPlan, o as parseSystemAgentOperation } from "../operations-parse-CQ52sADQ.mjs";
 import { t as listAgentRoles } from "../agent-roles-DYbzEdi7.mjs";
-import { t as executeSystemAgentOperation } from "../operations-dvZyW4yh.mjs";
-import { t as classifySystemAgentApprovalText } from "../operator-approval-D1diph2c.mjs";
+import { t as executeSystemAgentOperation } from "../operations-BC5CrCZX.mjs";
+import { t as classifySystemAgentApprovalText } from "../operator-approval-B3sjswyY.mjs";
 import { createHash } from "node:crypto";
 //#region src/system-agent/rescue-policy.ts
 function resolveScopedExecConfig(cfg, agentId) {

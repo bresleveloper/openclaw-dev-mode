@@ -1,4 +1,4 @@
-import { ui as PluginRuntime } from "../agent-harness-runtime-CWL0fcg5.js";
+import { ui as PluginRuntime } from "../agent-harness-runtime-wMciqZ6Z.js";
 //#region src/plugin-sdk/runtime-store.d.ts
 type PluginRuntimeStoreKeyOptions = {
   /** Explicit global registry key for shared runtime slots. */

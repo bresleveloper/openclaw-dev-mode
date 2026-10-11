@@ -6,7 +6,7 @@ const stateMigrations = [definePluginDoctorMigrationFromPlans({
 	id: "telegram-legacy-state",
 	label: "Telegram legacy state",
 	resolvePlans: async (params) => {
-		const { detectTelegramLegacyStateMigrations } = await import("../../state-migrations-hgxXvEus.mjs");
+		const { detectTelegramLegacyStateMigrations } = await import("../../state-migrations-HLP_vgfu.mjs");
 		return detectTelegramLegacyStateMigrations(params);
 	}
 })];

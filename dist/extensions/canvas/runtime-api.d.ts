@@ -1,6 +1,6 @@
-import { n as OpenClawConfig } from "../../types.openclaw-BGrO5JfP.js";
-import "../../types-BNSWPjt2.js";
-import "../../group-policy-25o-MYwN.js";
+import { n as OpenClawConfig } from "../../types.openclaw-DTrzhGcB.js";
+import "../../types-DxdHPaG-.js";
+import "../../group-policy-DKdVmM08.js";
 import { Command } from "commander";
 //#region extensions/canvas/src/config.d.ts
 /** Enablement for Canvas-owned document and renderer routes. */

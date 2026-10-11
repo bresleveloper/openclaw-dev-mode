@@ -1,6 +1,6 @@
-import { F as DevicePairSetupCompletionRecord, I as DeviceBootstrapProfile, J as resolveGatewayPort, L as DeviceBootstrapProfileInput, M as ApproveDevicePairingResult, N as DevicePairingApprovalOptions, P as DeviceBootstrapTokenRecord, R as PAIRING_SETUP_BOOTSTRAP_PROFILE, j as listDevicePairing, n as OpenClawPluginApi, t as definePluginEntry } from "../../runtime-api-B8EDHhvw.js";
-import "../../runtime-types-D_4MTyiD.js";
-import "../../auth-rate-limit-CSTFxQlr.js";
+import { F as DevicePairSetupCompletionRecord, I as DeviceBootstrapProfile, J as resolveGatewayPort, L as DeviceBootstrapProfileInput, M as ApproveDevicePairingResult, N as DevicePairingApprovalOptions, P as DeviceBootstrapTokenRecord, R as PAIRING_SETUP_BOOTSTRAP_PROFILE, j as listDevicePairing, n as OpenClawPluginApi, t as definePluginEntry } from "../../runtime-api-BQqQOWYL.js";
+import "../../runtime-types-3YLzQ8ua.js";
+import "../../auth-rate-limit-BfutR2FA.js";
 import { IncomingMessage } from "node:http";
 import { Command } from "commander";
 import "@openclaw/fs-safe/temp";

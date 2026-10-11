@@ -1,4 +1,4 @@
-import { b as ImageGenerationProvider, n as GenerateImageRuntimeResult, q as OpenClawConfig, s as getProviderEnvVarsCore, t as GenerateImageParams, w as SubsystemLogger } from "../../runtime-types-D_4MTyiD.js";
+import { b as ImageGenerationProvider, n as GenerateImageRuntimeResult, q as OpenClawConfig, s as getProviderEnvVarsCore, t as GenerateImageParams, w as SubsystemLogger } from "../../runtime-types-3YLzQ8ua.js";
 //#region src/media-generation/registry.d.ts
 /** Registry for image-generation providers contributed by plugin capabilities. */
 declare const listImageGenerationProviders: (cfg?: OpenClawConfig, additionalProviderIds?: readonly string[]) => ImageGenerationProvider[], getImageGenerationProvider: (providerId: string | undefined, cfg?: OpenClawConfig) => ImageGenerationProvider | undefined;

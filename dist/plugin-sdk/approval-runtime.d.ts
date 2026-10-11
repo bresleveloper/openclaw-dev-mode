@@ -1,17 +1,17 @@
-import { cn as formatApprovalDisplayPath } from "../agent-harness-runtime-CWL0fcg5.js";
+import { cn as formatApprovalDisplayPath } from "../agent-harness-runtime-wMciqZ6Z.js";
 import { A as ExecApprovalRequest, B as ExecHost, E as DEFAULT_EXEC_APPROVAL_TIMEOUT_MS, M as ExecApprovalResolved, T as ApprovalScope, _ as PluginApprovalResolved, a as SystemAgentApprovalRequest, b as buildPluginApprovalRequestMessage, g as PluginApprovalRequestPayload, h as PluginApprovalRequest, j as ExecApprovalRequestPayload, k as ExecApprovalDecision, l as DEFAULT_PLUGIN_APPROVAL_TIMEOUT_MS, o as SystemAgentApprovalRequestPayload, s as SystemAgentApprovalResolved, u as MAX_PLUGIN_APPROVAL_TIMEOUT_MS, x as buildPluginApprovalResolvedMessage, y as buildPluginApprovalExpiredMessage } from "../approval-types-DIxuby8L.js";
-import { C as ResolvedApprovalView } from "../approval-handler-runtime-types-DuldNTAV.js";
-import { T as resolveExecApprovalRequestAllowedDecisions, w as resolveExecApprovalAllowedDecisions } from "../exec-approvals-BN7bizpP.js";
-import { a as resolveApprovalApprovers, n as createResolvedApproverActionAuthAdapter } from "../approval-auth-helpers-DkwoXSVE.js";
-import { a as matchesApprovalRequestFilters, i as ApprovalRequestFilterInput, n as isChannelExecApprovalClientEnabledFromConfig, r as isChannelExecApprovalTargetRecipient, t as createChannelExecApprovalProfile } from "../approval-client-helpers-BYB9Sa8W.js";
-import { b as getExecApprovalApproverDmNoticeText, f as buildExecApprovalPendingReplyPayload, i as ExecApprovalReplyMetadata, n as ExecApprovalPendingReplyParams, r as ExecApprovalReplyDecision, x as getExecApprovalReplyMetadata } from "../exec-approval-reply-ZUfh_LBI.js";
-import { a as resolveApprovalRequestSessionTarget, n as ExecApprovalSessionTarget, o as resolveExecApprovalSessionTarget, r as resolveApprovalRequestOriginTarget } from "../exec-approval-session-target-D8fbKOxi.js";
-import { a as createChannelApproverDmTargetResolver, o as createChannelNativeOriginTargetResolver } from "../approval-native-helpers-BZIdxHd2.js";
-import { a as splitChannelApprovalCapability, i as createChannelApprovalCapability, n as createApproverRestrictedNativeApprovalCapability, t as createApproverRestrictedNativeApprovalAdapter } from "../approval-delivery-helpers-CWt2SrVm.js";
-import { t as doesApprovalRequestMatchChannelAccount } from "../approval-request-account-binding-ChF46XVk.js";
-import { t as resolveExecApprovalCommandDisplay } from "../exec-approval-command-display-O6-bJw3K.js";
-import { i as buildPluginApprovalResolvedReplyPayload, n as buildApprovalResolvedReplyPayload, r as buildPluginApprovalPendingReplyPayload, t as buildApprovalPendingReplyPayload } from "../approval-renderers-DV4n1zfb.js";
-import { t as createChannelNativeApprovalRuntime } from "../approval-native-runtime-D_j-xIVB.js";
+import { C as ResolvedApprovalView } from "../approval-handler-runtime-types-CRr7HfI3.js";
+import { T as resolveExecApprovalRequestAllowedDecisions, w as resolveExecApprovalAllowedDecisions } from "../exec-approvals-G-i4jWVS.js";
+import { a as resolveApprovalApprovers, n as createResolvedApproverActionAuthAdapter } from "../approval-auth-helpers-KNkxWSWN.js";
+import { a as matchesApprovalRequestFilters, i as ApprovalRequestFilterInput, n as isChannelExecApprovalClientEnabledFromConfig, r as isChannelExecApprovalTargetRecipient, t as createChannelExecApprovalProfile } from "../approval-client-helpers-D3nVc8sv.js";
+import { b as getExecApprovalApproverDmNoticeText, f as buildExecApprovalPendingReplyPayload, i as ExecApprovalReplyMetadata, n as ExecApprovalPendingReplyParams, r as ExecApprovalReplyDecision, x as getExecApprovalReplyMetadata } from "../exec-approval-reply-Ctn2kbmv.js";
+import { a as resolveApprovalRequestSessionTarget, n as ExecApprovalSessionTarget, o as resolveExecApprovalSessionTarget, r as resolveApprovalRequestOriginTarget } from "../exec-approval-session-target-MOXNJ7WQ.js";
+import { a as createChannelApproverDmTargetResolver, o as createChannelNativeOriginTargetResolver } from "../approval-native-helpers-O9mTB4Wo.js";
+import { a as splitChannelApprovalCapability, i as createChannelApprovalCapability, n as createApproverRestrictedNativeApprovalCapability, t as createApproverRestrictedNativeApprovalAdapter } from "../approval-delivery-helpers-p2r-elfP.js";
+import { t as doesApprovalRequestMatchChannelAccount } from "../approval-request-account-binding-B7QrCjsi.js";
+import { t as resolveExecApprovalCommandDisplay } from "../exec-approval-command-display-D281UkBa.js";
+import { i as buildPluginApprovalResolvedReplyPayload, n as buildApprovalResolvedReplyPayload, r as buildPluginApprovalPendingReplyPayload, t as buildApprovalPendingReplyPayload } from "../approval-renderers-DCKKYaEi.js";
+import { t as createChannelNativeApprovalRuntime } from "../approval-native-runtime-DGxXWBWM.js";
 //#region src/plugin-sdk/approval-terminal.d.ts
 type SystemAgentResolvedView = Extract<ResolvedApprovalView, {
   approvalKind: "system-agent";

@@ -1,10 +1,10 @@
 import { a as createLazyRuntimeSurface } from "../../lazy-runtime-BPNHa36e.mjs";
 import { t as definePluginEntry } from "../../plugin-entry-BOulgRcx.mjs";
 import { t as buildGoogleGeminiCliBackend } from "../../cli-backend-_dS2dNnJ.mjs";
-import { n as registerGoogleGeminiCliProvider } from "../../gemini-cli-provider-wCEPdrRZ.mjs";
-import { d as createGoogleImageGenerationProviderMetadata, f as createGoogleMediaUnderstandingProviderMetadata, m as createGoogleVideoGenerationProviderMetadata, p as createGoogleMusicGenerationProviderMetadata } from "../../generation-provider-metadata-DOrzUMlQ.mjs";
-import { t as geminiMemoryEmbeddingProviderAdapter } from "../../memory-embedding-adapter-8iNVUbQC.mjs";
-import { n as registerGoogleProvider } from "../../provider-registration-CrFBoVGx.mjs";
+import { n as registerGoogleGeminiCliProvider } from "../../gemini-cli-provider-BqeDzWER.mjs";
+import { d as createGoogleImageGenerationProviderMetadata, f as createGoogleMediaUnderstandingProviderMetadata, m as createGoogleVideoGenerationProviderMetadata, p as createGoogleMusicGenerationProviderMetadata } from "../../generation-provider-metadata-Rktr_0z6.mjs";
+import { t as geminiMemoryEmbeddingProviderAdapter } from "../../memory-embedding-adapter-kmMmHCZE.mjs";
+import { n as registerGoogleProvider } from "../../provider-registration-CxVjf1GC.mjs";
 import { t as createLazyGoogleRealtimeVoiceProvider } from "../../realtime-voice-lazy-sfaVU0eX.mjs";
 import { t as buildGoogleSpeechProvider } from "../../speech-provider-Bpg8udHZ.mjs";
 import { t as createGeminiWebSearchProvider } from "../../gemini-web-search-provider-8hAvYTDW.mjs";

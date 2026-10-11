@@ -12,7 +12,7 @@ import { r as executeOpenClawStateLeaseCommand, t as acquireOpenClawStateLeaseIn
 //#region src/state/openclaw-state.worker.ts
 const loadAgentCleanup = createLazyRuntimeModule(() => import("../openclaw-agent-execution-cleanup.worker-axZOkODY.mjs"));
 let agentCleanup;
-const loadRuntime = createLazyRuntimeModule(() => import("../openclaw-state-worker-runtime-C_A1uyeE.mjs"));
+const loadRuntime = createLazyRuntimeModule(() => import("../openclaw-state-worker-runtime-CjUTTlRN.mjs"));
 let runtime;
 function createSqliteWorkerBackend(_input, context) {
 	if (context.preparation?.type === "deviceIdentity") loadOrCreateDeviceIdentity({

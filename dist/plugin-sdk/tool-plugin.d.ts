@@ -1,9 +1,9 @@
-import { Fs as OpenClawPluginToolContext, Ns as OpenClawPluginApi, ni as definePluginEntry } from "../agent-harness-runtime-CWL0fcg5.js";
-import { an as PluginManifestActivation } from "../types.openclaw-LzSbb55e.js";
+import { Fs as OpenClawPluginToolContext, Ns as OpenClawPluginApi, ni as definePluginEntry } from "../agent-harness-runtime-wMciqZ6Z.js";
+import { an as PluginManifestActivation } from "../types.openclaw-Ccmw-oTa.js";
 import { d as JsonSchemaObject } from "../zod-schema.implicit-mentions-Du1YLL_X.js";
-import "../manifest-registry-CMnhqUB6.js";
-import { d as AgentToolUpdateCallback } from "../types-BRvdDyOm.js";
-import { n as AnyAgentTool } from "../common-BCM4z2Iy.js";
+import "../manifest-registry-Dcw0apVk.js";
+import { d as AgentToolUpdateCallback } from "../types-CSfW07HF.js";
+import { n as AnyAgentTool } from "../common-Y4Bsty3O.js";
 import { Static, TSchema } from "typebox";
 //#region src/plugin-sdk/tool-plugin.d.ts
 /** Non-enumerable metadata symbol attached to entries created by `defineToolPlugin`. */

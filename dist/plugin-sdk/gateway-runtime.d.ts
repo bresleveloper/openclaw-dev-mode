@@ -1,11 +1,11 @@
-import { $u as mintPluginNodeCapabilityToken, Kc as NodeSession, Os as GatewayRequestHandlerOptions, Qt as isGatewayTransportError, Qu as buildPluginNodeCapabilityScopedHostUrl, Xu as NormalizedPluginNodeCapabilityUrl, Yu as DEFAULT_PLUGIN_NODE_CAPABILITY_TTL_MS, Zt as isGatewayClientRequestError, Zu as PLUGIN_NODE_CAPABILITY_PATH_PREFIX, ed as normalizePluginNodeCapabilityScopedUrl, ks as GatewayRequestHandlers, td as RespondFn } from "../agent-harness-runtime-CWL0fcg5.js";
-import { F as GatewayTailscaleMode, I as GatewayTrustedProxyConfig, M as GatewayAuthConfig, P as GatewayTailscaleConfig, r as OpenClawConfig } from "../types.openclaw-LzSbb55e.js";
+import { $u as mintPluginNodeCapabilityToken, Kc as NodeSession, Os as GatewayRequestHandlerOptions, Qt as isGatewayTransportError, Qu as buildPluginNodeCapabilityScopedHostUrl, Xu as NormalizedPluginNodeCapabilityUrl, Yu as DEFAULT_PLUGIN_NODE_CAPABILITY_TTL_MS, Zt as isGatewayClientRequestError, Zu as PLUGIN_NODE_CAPABILITY_PATH_PREFIX, ed as normalizePluginNodeCapabilityScopedUrl, ks as GatewayRequestHandlers, td as RespondFn } from "../agent-harness-runtime-wMciqZ6Z.js";
+import { F as GatewayTailscaleMode, I as GatewayTrustedProxyConfig, M as GatewayAuthConfig, P as GatewayTailscaleConfig, r as OpenClawConfig } from "../types.openclaw-Ccmw-oTa.js";
 import { Yt as errorShape, tn as ErrorCodes } from "../index-hVvy_KTe.js";
-import { r as ChannelAccountSnapshot } from "../types.core-D1MQo5ra.js";
-import { t as isLoopbackHost } from "../net-BcWp0lhu.js";
-import { n as GatewayClientOptions, r as startGatewayClientWhenEventLoopReady, t as GatewayClient } from "../client-CL1XJAG_.js";
-import { n as callGatewayFromCli, r as GatewayRpcOpts, t as addGatewayClientOptions } from "../gateway-rpc-BAskVQCs.js";
-import "../auth-rate-limit-Hjf3XsCY.js";
+import { r as ChannelAccountSnapshot } from "../types.core-BfkZpaZ6.js";
+import { t as isLoopbackHost } from "../net-CCJeF4_i.js";
+import { n as GatewayClientOptions, r as startGatewayClientWhenEventLoopReady, t as GatewayClient } from "../client-CoSKDups.js";
+import { n as callGatewayFromCli, r as GatewayRpcOpts, t as addGatewayClientOptions } from "../gateway-rpc-JavFiplO.js";
+import "../auth-rate-limit-cQPMjVTf.js";
 import { IncomingMessage } from "node:http";
 //#region packages/net-policy/src/redact-sensitive-url.d.ts
 /** Redacts sensitive URL-looking substrings even when the full value is not a valid URL. */

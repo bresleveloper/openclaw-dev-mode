@@ -1,2 +1,2 @@
-import { t as registerWorkboardGatewayMethods } from "../../runtime-api-DdER4-BF.mjs";
+import { t as registerWorkboardGatewayMethods } from "../../runtime-api-BspYHj6x.mjs";
 export { registerWorkboardGatewayMethods };

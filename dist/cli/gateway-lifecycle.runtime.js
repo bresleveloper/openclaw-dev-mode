@@ -7,22 +7,22 @@ import { t as isContainerEnvironment } from "../container-environment-CNsJSTpY.m
 import { E as writeRestartSentinelIfUnchanged, g as readRestartSentinelReadOnly, m as markUpdateRestartSentinelFailure } from "../restart-sentinel-KM6PPxhT.mjs";
 import { n as scheduleDetachedLaunchdRestartHandoff } from "../launchd-restart-handoff-_boJ24Gr.mjs";
 import { n as resolveGatewayRestartDrainTimeoutMs } from "../restart-budget-4VeKpJhh.mjs";
-import { n as waitForGatewayHealthyRestart } from "../restart-health-C5aMniZP.mjs";
+import { n as waitForGatewayHealthyRestart } from "../restart-health-CfYI80Lp.mjs";
 import { n as consumeGatewayRestartIntentPayloadSync, r as consumeGatewayRestartIntentSync } from "../restart-intent-hiIYFAg0.mjs";
 import { i as writeGatewayRestartHandoffSync } from "../restart-handoff-Cb-qLJTf.mjs";
-import { a as claimManagedServiceUpdateHandoff, f as requestManagedServiceUpdateHandoffPark, i as captureForegroundUpdateHandoffStop, o as commitManagedServiceUpdateHandoff, r as cancelManagedServiceUpdateHandoff, s as completeForegroundUpdateHandoffAfterClose, u as isForegroundUpdateHandoff } from "../update-managed-service-handoff-7nmoIh-f.mjs";
+import { a as claimManagedServiceUpdateHandoff, f as requestManagedServiceUpdateHandoffPark, i as captureForegroundUpdateHandoffStop, o as commitManagedServiceUpdateHandoff, r as cancelManagedServiceUpdateHandoff, s as completeForegroundUpdateHandoffAfterClose, u as isForegroundUpdateHandoff } from "../update-managed-service-handoff-Dix99eHy.mjs";
 import { _ as rotateAgentEventLifecycleGeneration } from "../agent-events-BOSJcayE.mjs";
-import { r as reloadTaskRuntimeStateFromStore } from "../runtime-internal-_MK6t5mi.mjs";
+import { r as reloadTaskRuntimeStateFromStore } from "../runtime-internal-B8axyNgv.mjs";
 import { a as getDiagnosticSessionActivitySnapshot } from "../diagnostic-run-activity-DTzzZJ-S.mjs";
 import { s as writeDiagnosticStabilityBundleForFailureSync } from "../diagnostic-stability-bundle-CqpC4la9.mjs";
-import { n as abortEmbeddedAgentRun } from "../runs-DA0exOSb.mjs";
-import { n as listActiveEmbeddedRunSessionIds } from "../active-run-projections-JkuK_vrG.mjs";
-import { a as markGatewayRestartHandled, c as resetGatewayRestartStateForInProcessRestart, g as abortPendingChannelReloads, i as isGatewayRestartExternallyAllowed, l as rollbackGatewayRestartSignalAdmission, n as consumeGatewayRestartIntent, o as peekGatewayRestartReason, p as triggerOpenClawRestart, s as requestGatewayRestartWithSignalAdmission, t as consumeGatewayRestartAuthorization, u as scheduleGatewayRestart } from "../restart-CEV-q4ka.mjs";
+import { n as abortEmbeddedAgentRun } from "../runs-1VQeqQMi.mjs";
+import { n as listActiveEmbeddedRunSessionIds } from "../active-run-projections-ESx3qFOE.mjs";
+import { a as markGatewayRestartHandled, c as resetGatewayRestartStateForInProcessRestart, g as abortPendingChannelReloads, i as isGatewayRestartExternallyAllowed, l as rollbackGatewayRestartSignalAdmission, n as consumeGatewayRestartIntent, o as peekGatewayRestartReason, p as triggerOpenClawRestart, s as requestGatewayRestartWithSignalAdmission, t as consumeGatewayRestartAuthorization, u as scheduleGatewayRestart } from "../restart-F_MByM2R.mjs";
 import { E as waitForActiveCronJobs, T as resetCronActiveJobs, t as advanceCronActiveJobGeneration } from "../active-jobs-BdNx3YyC.mjs";
 import { a as retireActiveCronTaskRunTracking, s as waitForActiveCronTaskRuns, t as abortActiveCronTaskRuns } from "../active-run-cancellation-BIgTNPfC.mjs";
 import { f as markGatewayDraining, m as resetAllLanes } from "../command-queue-CaY517ob.mjs";
-import { r as waitForGatewayActiveWork, t as createGatewayActiveWorkSnapshot } from "../gateway-active-work-DcuYxcQT.mjs";
-import { o as resetGatewaySuspendCoordinatorForLifecycleRestart } from "../gateway-suspend-coordinator-BRoVOniD.mjs";
+import { r as waitForGatewayActiveWork, t as createGatewayActiveWorkSnapshot } from "../gateway-active-work-Bf_MlrLA.mjs";
+import { o as resetGatewaySuspendCoordinatorForLifecycleRestart } from "../gateway-suspend-coordinator-CYhfd7GR.mjs";
 import { spawn } from "node:child_process";
 //#region src/infra/process-respawn.ts
 function resolveGatewayRestartDecision() {

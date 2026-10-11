@@ -1,4 +1,4 @@
-import "../node-list-types-xFYBWpxJ.js";
+import "../node-list-types-DOyAbui_.js";
 import { Command } from "commander";
 //#region src/cli/nodes-cli/cli-utils.d.ts
 /** Return color helpers that degrade to plain text in non-rich terminals. */

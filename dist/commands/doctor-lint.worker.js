@@ -1,5 +1,5 @@
 import { r as defaultRuntime } from "../runtime-BC29JSZp.mjs";
-import { a as closeCliResources, r as runCliWithExitFinalization, s as runCliDisposer, t as exitCliAfterOutput } from "../one-shot-exit-DDBz8KJQ.mjs";
+import { a as closeCliResources, r as runCliWithExitFinalization, s as runCliDisposer, t as exitCliAfterOutput } from "../one-shot-exit-ZY0is37U.mjs";
 import { a as withCliCommandCleanup, o as withCliProcessScope } from "../runtime-cleanup-scope-C0g6_AIJ.mjs";
 import { Jn as string, Lt as boolean, Nt as array, qn as strictObject, xn as literal } from "../schemas-BOYIvvln.mjs";
 import { t as enableConsoleCapture } from "../console-DwqfhE-H.mjs";
@@ -35,7 +35,7 @@ async function runDoctorLintWorker() {
 	await withCliProcessScope(() => withCliCommandCleanup(false, async (cleanup) => {
 		let exitCode;
 		try {
-			const { runDoctorLintCliInProcess } = await import("../doctor-lint-BxErJy1N.mjs");
+			const { runDoctorLintCliInProcess } = await import("../doctor-lint-CEelRppo.mjs");
 			exitCode = await runDoctorLintCliInProcess(defaultRuntime, opts, true);
 		} finally {
 			await closeCliResources(cleanup);

@@ -3,16 +3,16 @@ import { t as createSubsystemLogger } from "../subsystem-DleLyu58.mjs";
 import { n as normalizeGooglePreviewModelId } from "../provider-model-id-normalize-DODOj1rv.mjs";
 import { o as resolveAgentModelFallbackValues, s as resolveAgentModelPrimaryValue } from "../model-input-DKxKaZGG.mjs";
 import { a as isFailoverError } from "../error-ON38hPhx.mjs";
-import { i as describeFailoverError } from "../failover-error-Bcr9sIeP.mjs";
-import { i as listImageGenerationProviders, t as getImageGenerationProvider } from "../registry-CwqTwPyh.mjs";
-import { d as throwCapabilityGenerationFailure, i as resolveCapabilityModelCandidates, n as buildNoCapabilityModelConfiguredMessage } from "../runtime-shared-8Qz7kroZ.mjs";
+import { i as describeFailoverError } from "../failover-error-DZJMNcvx.mjs";
+import { i as listImageGenerationProviders, t as getImageGenerationProvider } from "../registry-DyZRICSA.mjs";
+import { d as throwCapabilityGenerationFailure, i as resolveCapabilityModelCandidates, n as buildNoCapabilityModelConfiguredMessage } from "../runtime-shared-0ux8mfUC.mjs";
 import { t as parseGenerationModelRef } from "../model-ref-4WSJM5TU.mjs";
-import "../provider-model-shared-d94JMRWW.mjs";
+import "../provider-model-shared-CvgLZp0K.mjs";
 import { t as getProviderEnvVars } from "../provider-env-vars-BVYgJD4_.mjs";
 //#region src/plugin-sdk/image-generation-core.ts
 /** Default OpenAI image model used when image-generation provider config omits one. */
 const OPENAI_DEFAULT_IMAGE_MODEL = "gpt-image-2";
-const loadImageGenerationCoreAuthRuntime = createLazyRuntimeModule(() => import("../image-generation-core.auth.runtime-BxBuCtRB.mjs"));
+const loadImageGenerationCoreAuthRuntime = createLazyRuntimeModule(() => import("../image-generation-core.auth.runtime-DLlrDBVf.mjs"));
 /** Resolve image-generation provider API keys through the lazy auth runtime helper. */
 async function resolveApiKeyForProvider(...args) {
 	return (await loadImageGenerationCoreAuthRuntime()).resolveApiKeyForProvider(...args);

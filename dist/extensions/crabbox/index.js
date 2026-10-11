@@ -15,13 +15,13 @@ import { d as readPositiveIntegerParam, h as readToolStringParam } from "../../c
 import "../../string-coerce-runtime-C_MKhRVt.mjs";
 import "../../text-utility-runtime-D7I29NA0.mjs";
 import { t as SandboxRuntimeRetiredError } from "../../provisioning-error-uEcyhdqf.mjs";
-import { d as createRemoteShellSandboxSession, p as createRemoteShellSandboxBackend } from "../../ssh-backend-CH-P-9Ox.mjs";
-import { a as getSandboxBackendWorkdirResolver, o as registerSandboxBackend } from "../../backend-CGPDIYBL.mjs";
+import { d as createRemoteShellSandboxSession, p as createRemoteShellSandboxBackend } from "../../ssh-backend-ChhTI4gb.mjs";
+import { a as getSandboxBackendWorkdirResolver, o as registerSandboxBackend } from "../../backend-DKjO8rJo.mjs";
 import { t as definePluginEntry } from "../../plugin-entry-BOulgRcx.mjs";
-import "../../sandbox-0wuJ_eY0.mjs";
+import "../../sandbox-DhfdAKgB.mjs";
 import "../../process-runtime-BF3dUvYO.mjs";
 import "../../temp-path-PENdksor.mjs";
-import "../../logging-core-Dzl81xmx.mjs";
+import "../../logging-core-DinLJN7p.mjs";
 import "../../param-readers-BfezLD6d.mjs";
 import { n as ensureManagedCrabboxBinary } from "../../crabbox-managed-binary-B98pQW90.mjs";
 import { A as resolveCrabboxProvisionBaseTimeoutMs, C as CRABBOX_WARMUP_TIMEOUT_MS, D as countCrabboxProvisionSetupPhases, E as WARM_IMAGE_NATIVE_WAIT_TIMEOUT_MS, M as resolveCrabboxReadyPollIntervalMs, N as resolveCrabboxWarmImageCaptureTimeoutMs, O as resolveCrabboxCheckpointCaptureTimeoutMs, S as CRABBOX_STOP_TIMEOUT_MS, T as WARM_IMAGE_COMMAND_TIMEOUT_MS, _ as CRABBOX_LIFECYCLE_TIMEOUT_MS, a as buildCrabboxAllocationArgs, b as CRABBOX_NODE_ENROLLMENT_TIMEOUT_MS, c as operationSlug, d as resolveCrabboxProvisionProfile, f as resolveCrabboxWarmImageProfile, g as CRABBOX_DESKTOP_WARMUP_TIMEOUT_MS, h as CRABBOX_COMMAND_SETTLEMENT_TIMEOUT_MS, i as assertCrabboxLeaseId, j as resolveCrabboxProvisionCallTimeoutMs, k as resolveCrabboxLifecycleTimeoutMs, l as parseCrabboxOperatingSystem, m as resolveOpenClawRoot, n as CRABBOX_OS_LABELS, o as listCrabboxMachineOptions, p as resolveCrabboxWarmImageProfileKey, r as CRABBOX_WORKER_PROVIDER_ID, s as operationLeaseId, t as CRABBOX_ENROLLABLE_TARGETS, u as parseCrabboxProfile, v as CRABBOX_MACHINE_CATALOG_TIMEOUT_MS, w as WARM_IMAGE_COMMAND_ROUND_TRIP_TIMEOUT_MS, x as CRABBOX_SETUP_TIMEOUT_MS, y as CRABBOX_NODE_ENROLLMENT_DIAGNOSTIC_TIMEOUT_MS } from "../../crabbox-worker-profile-JlLsFEvg.mjs";

@@ -1,12 +1,12 @@
 import { n as findNormalizedProviderValue } from "../../provider-id-DCtsDflE.mjs";
 import { t as normalizeOptionalSecretInput } from "../../normalize-secret-input-Df_qhWv_.mjs";
 import { t as definePluginEntry } from "../../plugin-entry-BOulgRcx.mjs";
-import "../../provider-auth-Da-_mZ0a.mjs";
-import { n as createProviderApiKeyAuthMethod } from "../../provider-api-key-auth-D3uVngXJ.mjs";
-import { i as buildOpenAICompatibleProviderCatalog } from "../../provider-catalog-live-runtime-BXqZhQaR.mjs";
-import "../../provider-entry-B0iWpuAs.mjs";
+import "../../provider-auth-DFHjplgz.mjs";
+import { n as createProviderApiKeyAuthMethod } from "../../provider-api-key-auth-LIByB6QG.mjs";
+import { i as buildOpenAICompatibleProviderCatalog } from "../../provider-catalog-live-runtime-BprkJHe2.mjs";
+import "../../provider-entry-DP2O-chg.mjs";
 import { i as applyLitellmConfig, r as LITELLM_DEFAULT_MODEL_REF } from "../../onboard-BrJNxcU3.mjs";
-import { t as buildLitellmImageGenerationProvider } from "../../image-generation-provider-D4WDhHgz.mjs";
+import { t as buildLitellmImageGenerationProvider } from "../../image-generation-provider-xpaOZ2J_.mjs";
 import { t as buildLitellmProvider } from "../../provider-catalog-CDgedJHC.mjs";
 //#region extensions/litellm/index.ts
 const PROVIDER_ID = "litellm";

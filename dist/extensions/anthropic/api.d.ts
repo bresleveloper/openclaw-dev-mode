@@ -1,6 +1,6 @@
-import { a as ProviderPlugin, t as CliBackendPlugin } from "../../cli-backend.types-kTOThe9I.js";
-import "../../provider-model-shared-CP6E2ez3.js";
-import { a as resolveAnthropicFastMode, i as resolveAnthropicBetas, n as createAnthropicFastModeWrapper, o as resolveAnthropicServiceTier, r as createAnthropicServiceTierWrapper, s as wrapAnthropicProviderStream, t as createAnthropicBetaHeadersWrapper } from "../../stream-wrappers-D6TGhc3e.js";
+import { a as ProviderPlugin, t as CliBackendPlugin } from "../../cli-backend.types-B-oosdMB.js";
+import "../../provider-model-shared-1AXTwF07.js";
+import { a as resolveAnthropicFastMode, i as resolveAnthropicBetas, n as createAnthropicFastModeWrapper, o as resolveAnthropicServiceTier, r as createAnthropicServiceTierWrapper, s as wrapAnthropicProviderStream, t as createAnthropicBetaHeadersWrapper } from "../../stream-wrappers-B1UAROF2.js";
 //#region extensions/anthropic/cli-constants.d.ts
 /** Synthetic provider/backend id for Claude Code CLI-backed Anthropic models. */
 export declare const CLAUDE_CLI_BACKEND_ID = "claude-cli";

@@ -1,7 +1,7 @@
 import { d as normalizeStringEntries } from "../string-normalization-_gRhJUDw.mjs";
 import { n as isAbortError, t as createAbortError } from "../abort-signal-Z3A36sLL.mjs";
-import { i as logVerbose, o as shouldLogVerbose } from "../globals-QODkv80i.mjs";
 import { i as runCommandWithTimeout } from "../exec-shcN2-sN.mjs";
+import { i as logVerbose, o as shouldLogVerbose } from "../globals-QODkv80i.mjs";
 import { i as readResponseWithLimit, t as cancelUnreadResponseBody } from "../http-response-body-DXfezLdR.mjs";
 import "../http-body-Bl_jph25.mjs";
 import { c as isBlockedHostnameOrIp } from "../ssrf-BQRtcdBp.mjs";

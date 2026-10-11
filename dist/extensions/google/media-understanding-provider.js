@@ -2,9 +2,9 @@ import { m as readProviderJsonResponse, r as assertOkOrThrowProviderError } from
 import { l as postJsonRequest } from "../../shared-BLFkM12I.mjs";
 import "../../provider-http-Dn9NddwC.mjs";
 import { n as normalizeGoogleModelId } from "../../model-id-CAmKILzd.mjs";
-import { f as createGoogleMediaUnderstandingProviderMetadata, o as GOOGLE_MEDIA_UNDERSTANDING_DEFAULT_MODELS } from "../../generation-provider-metadata-DOrzUMlQ.mjs";
-import { t as resolveGoogleGenerativeAiHttpRequestConfig } from "../../api-BoceXjFL.mjs";
-import "../../runtime-api-CNKIQ9s2.mjs";
+import { f as createGoogleMediaUnderstandingProviderMetadata, o as GOOGLE_MEDIA_UNDERSTANDING_DEFAULT_MODELS } from "../../generation-provider-metadata-Rktr_0z6.mjs";
+import { t as resolveGoogleGenerativeAiHttpRequestConfig } from "../../api-BOVzuGpO.mjs";
+import "../../runtime-api-DsbI7YvO.mjs";
 //#region extensions/google/media-understanding-provider.ts
 const DEFAULT_GOOGLE_AUDIO_PROMPT = "Transcribe the audio.";
 const DEFAULT_GOOGLE_VIDEO_PROMPT = "Describe the video.";

@@ -1,5 +1,5 @@
-import { Ec as PluginCommandResult, Ed as PluginSessionActionContext, Fs as OpenClawPluginToolContext, Na as OpenClawPluginDefinition, Ns as OpenClawPluginApi, Pa as OpenClawPluginConfigSchema, Tc as PluginCommandContext } from "../agent-harness-runtime-CWL0fcg5.js";
-import { d as AgentToolUpdateCallback } from "../types-BRvdDyOm.js";
+import { Ec as PluginCommandResult, Ed as PluginSessionActionContext, Fs as OpenClawPluginToolContext, Na as OpenClawPluginDefinition, Ns as OpenClawPluginApi, Pa as OpenClawPluginConfigSchema, Tc as PluginCommandContext } from "../agent-harness-runtime-wMciqZ6Z.js";
+import { d as AgentToolUpdateCallback } from "../types-CSfW07HF.js";
 import { FeatureContract, FeatureEvent, FeatureEventName, FeatureInput, FeatureOperationName, FeatureOutput } from "./feature-contract.js";
 //#region src/plugin-sdk/feature-plugin.d.ts
 export type FeatureInvocationContext = {

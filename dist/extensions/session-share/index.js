@@ -6,14 +6,14 @@ import { t as areDiagnosticsEnabledForProcess } from "../../diagnostic-events-CV
 import { t as createSubsystemLogger } from "../../subsystem-DleLyu58.mjs";
 import { n as validateJsonSchemaValue } from "../../schema-validator-G8odGT6Q.mjs";
 import "../../string-coerce-runtime-C_MKhRVt.mjs";
-import "../../routing-JKvWkBDR.mjs";
+import "../../routing-gwrpgNm_.mjs";
 import "../../agent-scope-runtime-OY7yRyJL.mjs";
-import { _ as createSessionCatalogGitHubLinker, g as readSessionTranscriptCatalogTitle, h as readSessionTranscriptCatalogPage, v as createSessionCatalogSourceActorProjector } from "../../session-transcript-runtime-BPDkoWk2.mjs";
+import { _ as createSessionCatalogGitHubLinker, g as readSessionTranscriptCatalogTitle, h as readSessionTranscriptCatalogPage, v as createSessionCatalogSourceActorProjector } from "../../session-transcript-runtime-DSEPQ4mR.mjs";
 import { t as definePluginEntry } from "../../plugin-entry-BOulgRcx.mjs";
 import "../../json-schema-runtime-ty5aNvzs.mjs";
-import "../../logging-core-Dzl81xmx.mjs";
+import "../../logging-core-DinLJN7p.mjs";
 import "../../diagnostic-runtime-dzEIwnbc.mjs";
-import "../../session-catalog-CXvTyFxn.mjs";
+import "../../session-catalog-CBlzwWwY.mjs";
 import { n as sessionCatalogPaging } from "../../session-catalog-paging-Bvcta34E.mjs";
 //#region extensions/session-share/src/config.ts
 function sessionShareConfig(config) {

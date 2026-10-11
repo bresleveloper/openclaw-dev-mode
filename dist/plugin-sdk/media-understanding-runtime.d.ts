@@ -1,9 +1,9 @@
-import { r as OpenClawConfig } from "../types.openclaw-LzSbb55e.js";
-import { s as MsgContext } from "../templating-OpWn1DzT.js";
-import "../types-BnfxNjkF.js";
-import { _ as StructuredExtractionResult, i as ImageDescriptionResult } from "../types-Bl4TRRJl.js";
-import { c as TranscribeAudioFileParams, i as ExtractStructuredWithModelParams, n as DescribeImageFileWithModelParams, o as RunMediaUnderstandingFileParams, r as DescribeVideoFileParams, s as RunMediaUnderstandingFileResult, t as DescribeImageFileParams } from "../runtime-types-MEZA7eox.js";
-import { t as transcribeFirstAudio } from "../audio-preflight-DkG1hrbh.js";
+import { r as OpenClawConfig } from "../types.openclaw-Ccmw-oTa.js";
+import { s as MsgContext } from "../templating-0ElMwhje.js";
+import "../types-BaRTNmIt.js";
+import { _ as StructuredExtractionResult, i as ImageDescriptionResult } from "../types-DtHZVXiQ.js";
+import { c as TranscribeAudioFileParams, i as ExtractStructuredWithModelParams, n as DescribeImageFileWithModelParams, o as RunMediaUnderstandingFileParams, r as DescribeVideoFileParams, s as RunMediaUnderstandingFileResult, t as DescribeImageFileParams } from "../runtime-types-NGfGL3yx.js";
+import { t as transcribeFirstAudio } from "../audio-preflight-B0MiFHMT.js";
 //#region src/media-understanding/echo-transcript.d.ts
 /** Sends a best-effort transcript echo back to the originating deliverable chat. */
 declare function sendTranscriptEcho(params: {

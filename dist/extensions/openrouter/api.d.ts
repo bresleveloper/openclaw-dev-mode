@@ -1,7 +1,7 @@
-import { Gt as ImageGenerationProvider, Jt as OpenClawConfig, Ut as SpeechProviderPlugin, Wt as MusicGenerationProvider, Zt as ModelProviderDeclarationConfig } from "../../runtime-api-Bekxb7wO.js";
-import "../../provider-http-BGYBV4q_.js";
-import "../../provider-model-shared-D4njaASJ.js";
-import "../../provider-catalog-live-runtime-2BVXlv_j.js";
+import { Gt as ImageGenerationProvider, Jt as OpenClawConfig, Ut as SpeechProviderPlugin, Wt as MusicGenerationProvider, Zt as ModelProviderDeclarationConfig } from "../../runtime-api-DpOeiZhR.js";
+import "../../provider-http-OGQ1X-4k.js";
+import "../../provider-model-shared-Bq2qfQMS.js";
+import "../../provider-catalog-live-runtime-BtYklyhY.js";
 //#region extensions/openrouter/image-generation-provider.d.ts
 export declare function buildOpenRouterImageGenerationProvider(): ImageGenerationProvider;
 //#endregion

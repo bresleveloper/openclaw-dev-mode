@@ -1,6 +1,6 @@
-import { F as MessageReceipt, M as ChannelPlugin, N as ChannelOutboundAdapter, P as ChannelMessageSendTextContext, z as OpenClawConfig } from "../../cli-backend.types-kTOThe9I.js";
-import "../../context-visibility-B6IQ5BVZ.js";
-import { a as ReefProtocolCompatibilityError, c as InboxEntry, d as ReefIngressMessage, f as ReefKeys, h as GuardAdapter, i as ReefInboxConnection, l as ReefAccount, m as ReefChannelConfig, o as ReefTransportClient, p as RelayFriend, r as ReefFriendManager, s as WebSocketLike, t as ReefMessageFlow, u as ReefDependencies } from "../../flow-DHgGYNGA.js";
+import { F as MessageReceipt, M as ChannelPlugin, N as ChannelOutboundAdapter, P as ChannelMessageSendTextContext, z as OpenClawConfig } from "../../cli-backend.types-B-oosdMB.js";
+import "../../context-visibility-D6EaEt89.js";
+import { a as ReefProtocolCompatibilityError, c as InboxEntry, d as ReefIngressMessage, f as ReefKeys, h as GuardAdapter, i as ReefInboxConnection, l as ReefAccount, m as ReefChannelConfig, o as ReefTransportClient, p as RelayFriend, r as ReefFriendManager, s as WebSocketLike, t as ReefMessageFlow, u as ReefDependencies } from "../../flow-B3Nir4ui.js";
 //#region extensions/reef/src/channel.d.ts
 export declare const reefPlugin: ChannelPlugin<ReefAccount>;
 //#endregion

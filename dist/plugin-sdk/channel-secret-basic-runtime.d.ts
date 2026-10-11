@@ -1,5 +1,5 @@
 import { c as isRecord } from "../record-coerce-Ckpz2G3R.js";
-import { c as pushAssignment, i as collectSecretInputAssignment, l as pushInactiveSurfaceWarning, n as SecretDefaults, o as hasOwnProperty, s as isEnabledFlag, t as ResolverContext, u as pushWarning } from "../runtime-shared-BhZQISET.js";
+import { c as pushAssignment, i as collectSecretInputAssignment, l as pushInactiveSurfaceWarning, n as SecretDefaults, o as hasOwnProperty, s as isEnabledFlag, t as ResolverContext, u as pushWarning } from "../runtime-shared-COJIbUI5.js";
 import { n as SecretTargetRegistryEntry, r as SecretTargetShape, t as SecretTargetExpected } from "../target-registry-types-rt3qR_99.js";
 //#region src/secrets/channel-secret-basic-runtime.d.ts
 type ChannelSecretTargetPathSpec = {

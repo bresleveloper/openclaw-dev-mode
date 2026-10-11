@@ -1,5 +1,5 @@
-import { Ec as PluginCommandResult, Jm as PLUGIN_COMMAND_DISPATCH, Tc as PluginCommandContext, Ym as PluginCommandReplyOptions } from "../agent-harness-runtime-CWL0fcg5.js";
-import { r as OpenClawConfig } from "../types.openclaw-LzSbb55e.js";
+import { Ec as PluginCommandResult, Jm as PLUGIN_COMMAND_DISPATCH, Tc as PluginCommandContext, Ym as PluginCommandReplyOptions } from "../agent-harness-runtime-wMciqZ6Z.js";
+import { r as OpenClawConfig } from "../types.openclaw-Ccmw-oTa.js";
 //#region src/plugins/plugin-command-runtime.d.ts
 declare const pluginCommandDispatchBrand: unique symbol;
 type PluginCommandDispatchContext = Readonly<{

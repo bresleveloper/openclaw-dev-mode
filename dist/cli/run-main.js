@@ -5,7 +5,7 @@ import { c as normalizeOptionalLowercaseString, l as normalizeOptionalString, o 
 import { r as truncateUtf16Safe } from "../utf16-slice-D_ngcYKd.mjs";
 import { t as resolveCliArgvInvocation } from "../argv-invocation-DszZF2nA.mjs";
 import { n as parseCliContainerArgs, t as maybeRunCliInContainer } from "../container-target-QMB0jS0E.mjs";
-import { a as closeCliResources, n as requestExitAfterOneShotOutput, s as runCliDisposer } from "../one-shot-exit-DDBz8KJQ.mjs";
+import { a as closeCliResources, n as requestExitAfterOneShotOutput, s as runCliDisposer } from "../one-shot-exit-ZY0is37U.mjs";
 import { n as registerSignalExitBarrier, o as waitForSignalExitBarriers } from "../signal-exit-barrier-BG0KH3HC.mjs";
 import { t as tryOutputPrecomputedCommandHelp } from "../precomputed-help-CjXdQ-GT.mjs";
 import { n as tryProcessCwd } from "../safe-cwd-DOxDm8mD.mjs";
@@ -160,7 +160,7 @@ const UNKNOWN_COMMAND_DISPLAY_LIMIT = 128;
 const loadRootHelpLiveConfigModule = async () => await import("../root-help-live-config-DLFpCf-w.mjs");
 const loadRootHelpMetadataModule = async () => await import("../root-help-metadata-DoWAQ8F9.mjs");
 const loadLoggingModule = async () => await import("../console-Bu4DkpzH.mjs");
-const loadCliRegistryLoaderModule = async () => await import("../cli-registry-loader-Bu9fGrA4.mjs");
+const loadCliRegistryLoaderModule = async () => await import("../cli-registry-loader-fDkXO72B.mjs");
 const loadManifestCommandAliasesRuntimeModule = async () => await import("../manifest-command-aliases.runtime-DJ56q6FD.mjs");
 const loadProxyLifecycleModule = async () => await import("../proxy-lifecycle-DlUTQmRi.mjs");
 const loadProgressModule = async () => await import("../progress-CeixKJk_.mjs");
@@ -211,10 +211,10 @@ async function tryRunGatewayRunFastPath(argv, startupTrace) {
 	if (!isGatewayRunFastPathArgv(argv)) return false;
 	const [{ Command }, { addGatewayRunCommand }, { VERSION }, { emitCliBanner }, { ensureCliExecutionBootstrap }, { defaultRuntime }] = await startupTrace.measure("gateway-run-imports", () => Promise.all([
 		import("commander"),
-		import("../run-command-DjDhvFWj.mjs"),
+		import("../run-command-OL0-NTGp.mjs"),
 		import("../version-ATx9WpZZ.mjs"),
 		import("../banner-BtsIrLkD.mjs"),
-		import("../command-execution-startup-CIQQUCGZ.mjs"),
+		import("../command-execution-startup-Ckvz7pzc.mjs"),
 		import("../runtime-pvh-jBbt.mjs")
 	]));
 	const commandPath = resolveGatewayCatalogCommandPath(argv) ?? ["gateway"];
@@ -237,7 +237,7 @@ async function tryRunGatewayRunFastPath(argv, startupTrace) {
 		let skipPristineStartupStateMigrations = false;
 		let skipPristineCoreStateMigrations = false;
 		if (!await startupTrace.measure("gateway-run-pre-bootstrap", async () => {
-			const { prepareGatewayRunBootstrap, recheckGatewayRunBootstrap, wasPreparedGatewayRunCoreStatePristine, wasPreparedGatewayRunStatePristine } = await import("../pre-bootstrap-Kkv2pfU3.mjs");
+			const { prepareGatewayRunBootstrap, recheckGatewayRunBootstrap, wasPreparedGatewayRunCoreStatePristine, wasPreparedGatewayRunStatePristine } = await import("../pre-bootstrap-oitWNDMC.mjs");
 			const prepared = await prepareGatewayRunBootstrap({
 				opts,
 				runtime: defaultRuntime
@@ -263,7 +263,7 @@ async function tryRunGatewayRunFastPath(argv, startupTrace) {
 				...skipPristineStartupStateMigrations ? { skipPristineStartupStateMigrations: true } : {},
 				...skipPristineCoreStateMigrations ? { skipPristineCoreStateMigrations: true } : {}
 			});
-			const { reloadTrustedGatewayRunEnvironment } = await import("../pre-bootstrap-Kkv2pfU3.mjs");
+			const { reloadTrustedGatewayRunEnvironment } = await import("../pre-bootstrap-oitWNDMC.mjs");
 			await reloadTrustedGatewayRunEnvironment({ runtime: defaultRuntime });
 		});
 	};
@@ -341,7 +341,7 @@ function toReachableGateway(target, auth) {
 async function resolveReachableGateway(config, options) {
 	const { targets, auth } = await resolveGatewayProbePlan(config);
 	if (targets.length === 0) return { kind: "unreachable" };
-	const { probeGatewayConfiguredModel } = await import("../onboard-helpers-Bs3xm5rG.mjs");
+	const { probeGatewayConfiguredModel } = await import("../onboard-helpers-BC-sAzz2.mjs");
 	let missingModelGateway;
 	let reachableUnverifiedGateway;
 	let configuredGateway;
@@ -656,7 +656,7 @@ async function resolveUnownedCliPrimaryError(params) {
 	if (pluginPolicyMessage) return await createExpectedPluginPolicyError(pluginPolicyMessage);
 	const sanitizedPrimary = sanitizeTerminalText(params.primary);
 	const displayPrimary = sanitizedPrimary.length <= UNKNOWN_COMMAND_DISPLAY_LIMIT ? sanitizedPrimary : `${truncateUtf16Safe(sanitizedPrimary, 127)}…`;
-	const { createCliUnknownCommandError } = await import("../error-output-hCRGhi6j.mjs");
+	const { createCliUnknownCommandError } = await import("../error-output-Bmvm4zyz.mjs");
 	return createCliUnknownCommandError(displayPrimary, {
 		argv: params.argv,
 		...displayPrimary === params.primary ? {} : { commandNames: [] }
@@ -696,7 +696,7 @@ async function runCli(argv = process$1.argv, options = {}) {
 				});
 			} catch (error) {
 				if (isGatewayRunInvocationArgv(originalArgv) && !resolveCliArgvInvocation(originalArgv).hasHelpOrVersion) {
-					const { handleGatewayStartupMaintenance } = await import("../startup-maintenance-GZxM6BDV.mjs");
+					const { handleGatewayStartupMaintenance } = await import("../startup-maintenance-KZ1RSuWF.mjs");
 					if (await handleGatewayStartupMaintenance(error)) return;
 				}
 				throw error;
@@ -793,12 +793,12 @@ async function runCliWithPreparedOutputMode(originalArgv, options) {
 	});
 	let doctorDatabasePreflight;
 	if (!isHelpOrVersionInvocation && normalizedInvocation.primary === "doctor") {
-		const { preflightUpdateDoctorCli } = await import("../doctor-update-schema-guard-DLoWg0pX.mjs");
+		const { preflightUpdateDoctorCli } = await import("../doctor-update-schema-guard-D01tC1-e.mjs");
 		doctorDatabasePreflight = await preflightUpdateDoctorCli({ json: options.builtInMachineOutput });
 	}
 	await configureStartupTraces();
 	if (!isHelpOrVersionInvocation && isGatewayRunInvocation) await startupTrace.measure("gateway-run-select-environment", async () => {
-		const [{ selectGatewayRunEnvironment }, { defaultRuntime }] = await Promise.all([import("../pre-bootstrap-Kkv2pfU3.mjs"), import("../runtime-pvh-jBbt.mjs")]);
+		const [{ selectGatewayRunEnvironment }, { defaultRuntime }] = await Promise.all([import("../pre-bootstrap-oitWNDMC.mjs"), import("../runtime-pvh-jBbt.mjs")]);
 		await selectGatewayRunEnvironment({
 			opts: resolveGatewayRunPreBootstrapOptions(normalizedArgv) ?? {},
 			runtime: defaultRuntime
@@ -832,7 +832,7 @@ async function runCliWithPreparedOutputMode(originalArgv, options) {
 	});
 	const useSourceOnlyBestEffortConfig = !await isCurrentRuntimeSupported() || normalizedInvocation.primary === "update" || normalizedInvocation.primary === "doctor";
 	const readBestEffortCliConfig = async () => {
-		if (!bestEffortConfigPromise) bestEffortConfigPromise = import("../io-sHFUMqLW.mjs").then(async (configIo) => {
+		if (!bestEffortConfigPromise) bestEffortConfigPromise = import("../io-uWRNAPAv.mjs").then(async (configIo) => {
 			if (useSourceOnlyBestEffortConfig) return configIo.readSourceConfigBestEffort();
 			const readOptions = {
 				observe: false,
@@ -956,13 +956,13 @@ async function runCliWithPreparedOutputMode(originalArgv, options) {
 				const { outputPrecomputedRootHelpText } = await loadRootHelpMetadataModule();
 				if (outputPrecomputedRootHelpText()) return;
 			}
-			const { outputRootHelp } = await import("../root-help-CYAvWMf9.mjs");
+			const { outputRootHelp } = await import("../root-help-B1D2WwRy.mjs");
 			await outputRootHelp(liveRootHelpOptions ?? void 0);
 			return;
 		}
 		if (await tryOutputPrecomputedCommandHelp(normalizedArgv)) return;
 		if (shouldUseSetupOnboardConfigureHelpFastPath(normalizedArgv)) {
-			const { tryOutputSetupOnboardConfigureHelp } = await import("../setup-onboard-configure-help-fast-path-K8jzgr3q.mjs");
+			const { tryOutputSetupOnboardConfigureHelp } = await import("../setup-onboard-configure-help-fast-path--XZSvDwZ.mjs");
 			if (await tryOutputSetupOnboardConfigureHelp(normalizedArgv)) return;
 		}
 		await installConsoleCapture();
@@ -972,7 +972,7 @@ async function runCliWithPreparedOutputMode(originalArgv, options) {
 				process$1.exitCode = 1;
 				return;
 			}
-			const { runTuiCliAction } = await import("../tui-cli-DZofLY3y.mjs");
+			const { runTuiCliAction } = await import("../tui-cli-C4KS7aya.mjs");
 			await runTuiCliAction(bareSessionInvocation.target, bareSessionInvocation.options);
 			return;
 		}
@@ -999,7 +999,7 @@ async function runCliWithPreparedOutputMode(originalArgv, options) {
 					process$1.exitCode = 1;
 					return;
 				}
-				const { runRemoteGatewayInferenceOnboarding } = await import("../onboard-remote-gateway-CNg6kdfi.mjs");
+				const { runRemoteGatewayInferenceOnboarding } = await import("../onboard-remote-gateway-CwigvYI5.mjs");
 				await runRemoteGatewayInferenceOnboarding(bareRootLaunchTarget.target);
 				return;
 			}
@@ -1009,7 +1009,7 @@ async function runCliWithPreparedOutputMode(originalArgv, options) {
 					process$1.exitCode = 1;
 					return;
 				}
-				const { setupWizardCommand } = await import("../onboard-DeZ6IHXR.mjs");
+				const { setupWizardCommand } = await import("../onboard-vxiZ-KDs.mjs");
 				await setupWizardCommand(bareRootLaunchTarget.classic ? { classic: true } : {});
 				return;
 			}
@@ -1019,7 +1019,7 @@ async function runCliWithPreparedOutputMode(originalArgv, options) {
 					process$1.exitCode = 1;
 					return;
 				}
-				const { runTui } = await import("../tui-Bbzd2rUf.mjs");
+				const { runTui } = await import("../tui-BW9MOfrb.mjs");
 				await runTui({
 					...bareRootLaunchTarget.local ? {
 						deliver: false,
@@ -1050,7 +1050,7 @@ async function runCliWithPreparedOutputMode(originalArgv, options) {
 		if (!isHelpOrVersionInvocation && !isDatabaseInvocation) await bootstrapCliProxyCaptureAndDispatcher(startupTrace, { ensureDispatcher: shouldUseCliEnvProxy });
 		if (bootstrapProxyBeforeFastPath && await tryRunGatewayRunFastPath(normalizedArgv, startupTrace)) return;
 		if (!isHelpOrVersionInvocation) {
-			const route = await startupTrace.measure("route-import", () => import("../route-CaZq33yd.mjs"));
+			const route = await startupTrace.measure("route-import", () => import("../route-DHWggXME.mjs"));
 			if (await startupTrace.measure("route", () => options.builtInMachineOutput ? route.tryRouteCli(normalizedArgv, { machineOutput: true }) : route.tryRouteCli(normalizedArgv), { timeline: false })) return;
 		}
 		let parseArgv = normalizeGeneratedHelpCommandArgv(normalizedArgv);
@@ -1070,7 +1070,7 @@ async function runCliWithPreparedOutputMode(originalArgv, options) {
 		};
 		try {
 			const [{ buildProgram }, { formatUncaughtError }, { formatCliFailureLines, formatCliJsonFailure }, { runFatalErrorHooks }, { installUnhandledRejectionHandler, isBenignUncaughtExceptionError, isUncaughtExceptionHandled }, { defaultRuntime, restoreRuntimeTerminalState }] = await startupTrace.measure("core-imports", () => Promise.all([
-				import("../program-CzZC2HvK.mjs"),
+				import("../program-SxSCzhLL.mjs"),
 				import("../infra/errors.js"),
 				import("../failure-output-Tnld8e4L.mjs"),
 				import("../fatal-error-hooks-CCSjrmQf.mjs"),
@@ -1108,10 +1108,10 @@ async function runCliWithPreparedOutputMode(originalArgv, options) {
 				const { getProgramContext } = await import("../program-context-Dmi_zvNV.mjs");
 				const ctx = getProgramContext(program);
 				if (ctx) {
-					const { registerCoreCliByName } = await import("../command-registry-D-llF-q-.mjs");
+					const { registerCoreCliByName } = await import("../command-registry-CcF-OJkt.mjs");
 					await registerCoreCliByName(program, ctx, primary);
 				}
-				const { registerSubCliByName } = await import("../register.subclis-BMTtqVBC.mjs");
+				const { registerSubCliByName } = await import("../register.subclis-Dy0WH0fK.mjs");
 				await registerSubCliByName(program, primary, parseArgv);
 			});
 			const hasBuiltinPrimary = primary !== null && program.commands.some((command) => command.name() === primary || command.aliases().includes(primary));
@@ -1121,7 +1121,7 @@ async function runCliWithPreparedOutputMode(originalArgv, options) {
 				hasBuiltinPrimary
 			})) {
 				const config = await startupTrace.measure("register-plugin-commands", async () => {
-					const { registerPluginCliCommandsFromValidatedConfig } = await import("../cli-BUx4BZKn.mjs");
+					const { registerPluginCliCommandsFromValidatedConfig } = await import("../cli-Go_PYGIx.mjs");
 					const startupPolicy = resolveCliStartupPolicy({
 						argv: parseArgv,
 						commandPath: invocation.commandPath,

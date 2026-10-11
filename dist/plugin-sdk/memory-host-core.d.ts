@@ -1,9 +1,9 @@
-import { Au as MemoryPromptSectionBuilder, Bu as buildMemoryPromptSection, Du as MemoryPluginCapability, Gu as registerMemoryCorpusSupplement, Hu as getMemoryCapabilityRegistration, Ou as MemoryPluginPublicArtifact, Uu as listActiveMemoryPublicArtifacts, Vu as clearMemoryPluginState, Wu as registerMemoryCapability } from "../agent-harness-runtime-CWL0fcg5.js";
-import { r as OpenClawConfig } from "../types.openclaw-LzSbb55e.js";
+import { Au as MemoryPromptSectionBuilder, Bu as buildMemoryPromptSection, Du as MemoryPluginCapability, Gu as registerMemoryCorpusSupplement, Hu as getMemoryCapabilityRegistration, Ou as MemoryPluginPublicArtifact, Uu as listActiveMemoryPublicArtifacts, Vu as clearMemoryPluginState, Wu as registerMemoryCapability } from "../agent-harness-runtime-wMciqZ6Z.js";
+import { r as OpenClawConfig } from "../types.openclaw-Ccmw-oTa.js";
 import { r as resolveSessionTranscriptsDirForAgent } from "../paths-UINMFCfh.js";
-import "../config-CTir7RIz.js";
-import { f as resolveDefaultAgentId } from "../agent-scope-D4U2tjwQ.js";
-import { t as resolveSessionAgentIdCompatibility } from "../agent-scope-runtime-Ci9bsCjG.js";
+import "../config-Dt1SOlIN.js";
+import { f as resolveDefaultAgentId } from "../agent-scope-BV0uIQk3.js";
+import { t as resolveSessionAgentIdCompatibility } from "../agent-scope-runtime-CR9EEnU3.js";
 //#region src/plugin-sdk/memory-host-core.d.ts
 /** Lists public memory artifacts across all configured memory workspaces. */
 export declare function listMemoryHostPublicArtifacts(params: {

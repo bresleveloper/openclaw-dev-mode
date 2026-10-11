@@ -1,10 +1,10 @@
 import { n as getPluginModuleLoaderStats } from "../plugin-module-loader-cache-Bj8S5W5g.mjs";
 import { n as withPluginRuntimeGenerationScope } from "../generation-scope-DkeaMJw8.mjs";
-import { r as loadOpenClawPlugins } from "../loader-runtime-load-B1VUq2Pr.mjs";
-import { a as clearPluginCommands } from "../command-registration-KV7VaLiX.mjs";
+import { r as loadOpenClawPlugins } from "../loader-runtime-load-DexWjDHZ.mjs";
+import { a as clearPluginCommands } from "../command-registration-BuDk9w2J.mjs";
 import { a as setPluginRuntimeLoadContext, t as buildPluginRuntimeLoadOptions } from "../load-context-D-CZ4KSw.mjs";
-import { r as loadPluginRegistryHandle } from "../loader-DcCC1i4O.mjs";
-import { t as resolvePluginRuntimeLoadContext } from "../load-context.resolve-Dfl_HlRe.mjs";
-import { r as matchPluginCommand, t as executePluginCommand } from "../commands-DJiG--WR.mjs";
-import { r as getPluginCommandSpecs } from "../command-specs-ivcVRUAf.mjs";
+import { r as loadPluginRegistryHandle } from "../loader-BXL0Ae7H.mjs";
+import { t as resolvePluginRuntimeLoadContext } from "../load-context.resolve-CFTONb4v.mjs";
+import { r as matchPluginCommand, t as executePluginCommand } from "../commands-DSfu7S3U.mjs";
+import { r as getPluginCommandSpecs } from "../command-specs-BYGC-7aj.mjs";
 export { buildPluginRuntimeLoadOptions, clearPluginCommands, executePluginCommand, getPluginCommandSpecs, getPluginModuleLoaderStats, loadOpenClawPlugins, loadPluginRegistryHandle, matchPluginCommand, resolvePluginRuntimeLoadContext, setPluginRuntimeLoadContext, withPluginRuntimeGenerationScope };

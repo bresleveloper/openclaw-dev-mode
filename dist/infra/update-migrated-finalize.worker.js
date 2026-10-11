@@ -6,19 +6,19 @@ import "../openclaw-state-db-contract-dESpOAuZ.mjs";
 import { o as closeOpenClawStateDatabaseAsync } from "../openclaw-state-db-cache-Ci98mtX8.mjs";
 import { n as openDoctorStateSchemaReadAdmission } from "../openclaw-state-db-doctor-schema-Cy4xw-oI.mjs";
 import "../openclaw-state-db-BFK9cMiV.mjs";
-import { g as writeUpdatePostInstallDoctorResult, m as recordUpdateDoctorConfigWriteRefusal, n as UPDATE_POST_INSTALL_DOCTOR_RESULT_PATH_ENV } from "../update-doctor-result-C-ceagg5.mjs";
+import { g as writeUpdatePostInstallDoctorResult, m as recordUpdateDoctorConfigWriteRefusal, n as UPDATE_POST_INSTALL_DOCTOR_RESULT_PATH_ENV } from "../update-doctor-result-B1QjmH63.mjs";
 import { o as readGatewayOwnerLease } from "../windows-port-pids-Bid_Huck.mjs";
 import "../gateway-shutdown-budget-E5oPIr_h.mjs";
 import { D as resolveUpdateInstallRoot } from "../restart-sentinel-KM6PPxhT.mjs";
-import { h as recordUpdateRunStep, n as adoptUpdateRun } from "../update-run-ledger-BsP8HD11.mjs";
+import { h as recordUpdateRunStep, n as adoptUpdateRun } from "../update-run-ledger-BMZz-ABT.mjs";
 import { r as getUpdateRun } from "../update-run-reader-B17V1KuC.mjs";
-import { n as createManagedUpdateRequesterAuthority, r as createManagedUpdateRequesterContinuationAuthority, t as UpdateRequesterRevokedError } from "../update-requester-authority-DyrWcayv.mjs";
+import { n as createManagedUpdateRequesterAuthority, r as createManagedUpdateRequesterContinuationAuthority, t as UpdateRequesterRevokedError } from "../update-requester-authority-BkZw2Ali.mjs";
 import "../openclaw-agent-db-contract-DzsRD6Fl.mjs";
-import { o as withDelegatedUpdateCommandExecutor, s as withUpdateCommandExecutor } from "../update-command-executor-uo9AEl1u.mjs";
-import { l as withUpdateCommandTerminalResult } from "../update-command-terminal-V6KeY8Dl.mjs";
-import { s as isOmittedUpdateTimeout, t as finishUpdate } from "../update-command-post-update-pPJNTQER.mjs";
-import { o as createWindowsTaskAutoStartRecovery, r as maybeStopManagedServiceBeforeMutableUpdate, t as createWindowsTaskAutoStartGuard } from "../update-command-service-maintenance-BTQzwCcB.mjs";
-import { c as formatUpdateFinalizationError, n as UpdateCommandFailure } from "../update-command-result-D9lHOCFF.mjs";
+import { o as withDelegatedUpdateCommandExecutor, s as withUpdateCommandExecutor } from "../update-command-executor-CDGe2j__.mjs";
+import { l as withUpdateCommandTerminalResult } from "../update-command-terminal-Zi25AGap.mjs";
+import { s as isOmittedUpdateTimeout, t as finishUpdate } from "../update-command-post-update-D7FcQxUx.mjs";
+import { o as createWindowsTaskAutoStartRecovery, r as maybeStopManagedServiceBeforeMutableUpdate, t as createWindowsTaskAutoStartGuard } from "../update-command-service-maintenance-BXu9hzLr.mjs";
+import { c as formatUpdateFinalizationError, n as UpdateCommandFailure } from "../update-command-result-DCAT8C_Q.mjs";
 import { t as resolveUpdateFinalizationTimeoutMs } from "../update-finalization-budget-DpdskF7X.mjs";
 import path from "node:path";
 import fs from "node:fs/promises";
@@ -309,7 +309,7 @@ async function runDelegatedDoctor(input) {
 			process.exitCode = 1;
 			return;
 		}
-		const { runDoctorHealthFlow } = await import("../doctor-health-DRBi2dVi.mjs");
+		const { runDoctorHealthFlow } = await import("../doctor-health-e54lmL7J.mjs");
 		assertCurrent();
 		await stopSupervisedPredecessorGateway(input, {
 			root: input.root,

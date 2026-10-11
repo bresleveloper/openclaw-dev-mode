@@ -1,1 +1,0 @@
-import{t as e}from"./browser-panel-fi5kkk08.js";e();

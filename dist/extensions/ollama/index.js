@@ -5,27 +5,27 @@ import { n as collectConfiguredModelRefValues } from "../../configured-model-ref
 import { t as resolveConfiguredSecretInputString } from "../../resolve-configured-secret-input-string-SF_iuPva.mjs";
 import { s as isNonSecretApiKeyMarker } from "../../model-auth-markers-BfYDKFYI.mjs";
 import { a as buildOpenAICompatibleReplayPolicy } from "../../provider-replay-helpers-CXnvOz8t.mjs";
-import { n as buildApiKeyCredential } from "../../provider-auth-helpers-D2hZnbFG.mjs";
+import { n as buildApiKeyCredential } from "../../provider-auth-helpers-BC5ODME5.mjs";
 import { t as definePluginEntry } from "../../plugin-entry-BOulgRcx.mjs";
-import "../../provider-model-shared-d94JMRWW.mjs";
+import "../../provider-model-shared-CvgLZp0K.mjs";
 import { r as resolvePluginConfigObject } from "../../plugin-config-runtime-CaI6yWBc.mjs";
-import "../../provider-auth-Da-_mZ0a.mjs";
-import { n as createProviderApiKeyAuthMethod } from "../../provider-api-key-auth-D3uVngXJ.mjs";
-import { h as runLiveProviderCatalog } from "../../provider-catalog-live-runtime-BXqZhQaR.mjs";
-import "../../provider-entry-B0iWpuAs.mjs";
+import "../../provider-auth-DFHjplgz.mjs";
+import { n as createProviderApiKeyAuthMethod } from "../../provider-api-key-auth-LIByB6QG.mjs";
+import { h as runLiveProviderCatalog } from "../../provider-catalog-live-runtime-BprkJHe2.mjs";
+import "../../provider-entry-DP2O-chg.mjs";
 import { r as buildProviderToolCompatFamilyHooks } from "../../provider-tools-BDV45rRZ.mjs";
 import "../../secret-input-runtime-C01-y7l7.mjs";
 import { a as OLLAMA_DEFAULT_API_KEY, d as OLLAMA_GLM52_CLOUD_MODEL_ID, g as resolveOllamaSetupDefaultBaseUrl, i as OLLAMA_CLOUD_PROVIDER_ID, n as OLLAMA_CLOUD_BASE_URL, o as OLLAMA_DEFAULT_BASE_URL, r as OLLAMA_CLOUD_DEFAULT_MODELS, t as DEFAULT_OLLAMA_EMBEDDING_MODEL } from "../../defaults-Dkg1KktH.mjs";
 import { t as readProviderBaseUrl } from "../../provider-base-url-Crmh7W8f.mjs";
 import { i as resolveThinkingProfile, n as normalizeResolvedModel } from "../../provider-policy-api-R68zEW3g.mjs";
-import { _ as queryOllamaModelShowInfo, a as capLocalOllamaModelContext, d as isOllamaCloudModel, i as buildOllamaProvider, l as fetchLoadedOllamaModelNames, o as capLocalOllamaProviderContext, r as buildOllamaModelDefinition, t as buildDefaultOllamaCloudModelDefinition, u as fetchOllamaModels, y as resolveOllamaApiBase } from "../../provider-models-07dYtMFN.mjs";
-import { c as orderPreferredOllamaModelIds, d as isLocalOllamaBaseUrl, f as resolveOllamaDiscoveryResult, i as findAvailableOllamaModelName, m as shouldUseSyntheticOllamaAuth, p as resolveOllamaRuntimeBaseUrl, u as OLLAMA_PROVIDER_ID } from "../../setup-model-selection-DVshng0M.mjs";
+import { _ as queryOllamaModelShowInfo, a as capLocalOllamaModelContext, d as isOllamaCloudModel, i as buildOllamaProvider, l as fetchLoadedOllamaModelNames, o as capLocalOllamaProviderContext, r as buildOllamaModelDefinition, t as buildDefaultOllamaCloudModelDefinition, u as fetchOllamaModels, y as resolveOllamaApiBase } from "../../provider-models-BmHg3h1J.mjs";
+import { c as orderPreferredOllamaModelIds, d as isLocalOllamaBaseUrl, f as resolveOllamaDiscoveryResult, i as findAvailableOllamaModelName, m as shouldUseSyntheticOllamaAuth, p as resolveOllamaRuntimeBaseUrl, u as OLLAMA_PROVIDER_ID } from "../../setup-model-selection-Dr8Ahrsp.mjs";
 import { c as OLLAMA_MODELS_COMMAND, d as OLLAMA_NODE_INFERENCE_DEFAULT_PLATFORMS, f as ollamaNodeInferenceToolDefinition, l as OLLAMA_NODE_INFERENCE_CAPABILITY, s as OLLAMA_CHAT_COMMAND, u as OLLAMA_NODE_INFERENCE_COMMANDS } from "../../node-inference-contract-D1sQshq_.mjs";
-import { r as resolveConfiguredOllamaProviderConfig, t as createConfiguredOllamaCompatStreamWrapper } from "../../stream-compat-CkC4CeWo.mjs";
+import { r as resolveConfiguredOllamaProviderConfig, t as createConfiguredOllamaCompatStreamWrapper } from "../../stream-compat-DB63PX0c.mjs";
 import "../../stream-contract-CaPxW4Jp.mjs";
-import { t as createLazyOllamaWebSearchProvider } from "../../web-search-provider-registration-Bry9ORW6.mjs";
+import { t as createLazyOllamaWebSearchProvider } from "../../web-search-provider-registration-DCFgsdJB.mjs";
 //#region extensions/ollama/src/node-inference-registration.ts
-const loadOllamaNodeInference = createLazyRuntimeModule(() => import("../../node-inference-C2gcrif-.mjs"));
+const loadOllamaNodeInference = createLazyRuntimeModule(() => import("../../node-inference-jXUrtdRd.mjs"));
 function createLazyNodeHostCommand(command) {
 	let runtimeCommandPromise;
 	const loadRuntimeCommand = () => runtimeCommandPromise ??= loadOllamaNodeInference().then((runtime) => {
@@ -64,7 +64,7 @@ function createLazyOllamaNodeInferenceTool(api) {
 }
 //#endregion
 //#region extensions/ollama/src/stream-registration.ts
-const loadOllamaStreamRuntime = createLazyRuntimeModule(() => import("../../stream.runtime-BfsoZuQ9.mjs"));
+const loadOllamaStreamRuntime = createLazyRuntimeModule(() => import("../../stream.runtime-DIXZxWG8.mjs"));
 function createLazyConfiguredOllamaStreamFn(params) {
 	const streamFnPromise = loadOllamaStreamRuntime().then((runtime) => runtime.createConfiguredOllamaStreamFn(params));
 	return async (...args) => {
@@ -73,8 +73,8 @@ function createLazyConfiguredOllamaStreamFn(params) {
 }
 //#endregion
 //#region extensions/ollama/index.ts
-const loadOllamaSetup = createLazyRuntimeModule(() => import("../../setup.runtime-BmyGJ8Rq.mjs"));
-const loadOllamaMemoryEmbeddingProviderAdapter = createLazyRuntimeModule(async () => (await import("../../memory-embedding-adapter-TVF9BUad.mjs")).ollamaMemoryEmbeddingProviderAdapter);
+const loadOllamaSetup = createLazyRuntimeModule(() => import("../../setup.runtime-CiE33QBd.mjs"));
+const loadOllamaMemoryEmbeddingProviderAdapter = createLazyRuntimeModule(async () => (await import("../../memory-embedding-adapter-BmP1DYJj.mjs")).ollamaMemoryEmbeddingProviderAdapter);
 const lazyOllamaMemoryEmbeddingProviderAdapter = {
 	id: OLLAMA_PROVIDER_ID,
 	defaultModel: DEFAULT_OLLAMA_EMBEDDING_MODEL,
@@ -92,7 +92,7 @@ async function checkWsl2CrashLoopRiskLazily(api) {
 	try {
 		const { isWSL2Sync } = await import("../../plugin-sdk/runtime-env.js");
 		if (!isWSL2Sync()) return;
-		const { checkWsl2CrashLoopRisk } = await import("../../wsl2-crash-loop-check-D7u1dHji.mjs");
+		const { checkWsl2CrashLoopRisk } = await import("../../wsl2-crash-loop-check-DLfUeMAy.mjs");
 		await checkWsl2CrashLoopRisk(api.logger);
 	} catch {}
 }

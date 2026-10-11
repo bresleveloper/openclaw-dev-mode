@@ -1,5 +1,5 @@
-import { Jt as OpenClawConfig, Zt as ModelProviderDeclarationConfig } from "../../runtime-api-Bekxb7wO.js";
-import "../../provider-model-shared-D4njaASJ.js";
+import { Jt as OpenClawConfig, Zt as ModelProviderDeclarationConfig } from "../../runtime-api-DpOeiZhR.js";
+import "../../provider-model-shared-Bq2qfQMS.js";
 //#region extensions/nvidia/provider-catalog.d.ts
 export declare const NVIDIA_DEFAULT_MODEL_ID = "nvidia/nemotron-3-ultra-550b-a55b";
 export declare function buildNvidiaProvider(): ModelProviderDeclarationConfig;

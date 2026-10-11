@@ -1,5 +1,5 @@
-import { Cn as ChannelOutboundAdapter, bn as ChannelPlugin, r as OpenClawPluginApi$1 } from "../../runtime-api-QiF8aK_Q.js";
-import { Q as ChannelConfigSchema } from "../../types.openclaw-BsXQib09.js";
+import { Cn as ChannelOutboundAdapter, bn as ChannelPlugin, r as OpenClawPluginApi$1 } from "../../runtime-api-CkahAQr_.js";
+import { Q as ChannelConfigSchema } from "../../types.openclaw-mR7pAsVG.js";
 import { createJiti } from "jiti";
 //#region src/plugins/jiti-factory.d.ts
 /** Keep Babel's lazy require inside Jiti's CJS module, where native resolver hooks retain its parent. */

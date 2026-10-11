@@ -1,8 +1,8 @@
-import { Ds as augmentModelCatalogWithProviderPlugins, au as PluginLoadOptions, lr as isPluginProvidersLoadInFlight, ol as ProviderPlugin, ur as resolvePluginProvidersCore } from "../agent-harness-runtime-CWL0fcg5.js";
-import "../types.openclaw-LzSbb55e.js";
-import { b as PluginMetadataSnapshot, v as PluginRegistrySnapshot } from "../io-VMpaZk90.js";
-import { n as PluginManifestRegistry } from "../manifest-registry-CMnhqUB6.js";
-import "../config-normalization-shared-ClBMaJ87.js";
+import { Ds as augmentModelCatalogWithProviderPlugins, au as PluginLoadOptions, lr as isPluginProvidersLoadInFlight, ol as ProviderPlugin, ur as resolvePluginProvidersCore } from "../agent-harness-runtime-wMciqZ6Z.js";
+import "../types.openclaw-Ccmw-oTa.js";
+import { b as PluginMetadataSnapshot, v as PluginRegistrySnapshot } from "../io-BuIvr25R.js";
+import { n as PluginManifestRegistry } from "../manifest-registry-Dcw0apVk.js";
+import "../config-normalization-shared-CpYK0hom.js";
 //#region src/plugins/providers.d.ts
 type ProviderManifestLoadParams = {
   config?: PluginLoadOptions["config"];

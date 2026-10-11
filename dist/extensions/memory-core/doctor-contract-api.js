@@ -4,7 +4,7 @@ import { w as root } from "../../fs-safe-BAPek8At.mjs";
 import { n as normalizeAgentId } from "../../agent-id-GA8mwdTG.mjs";
 import { a as reclaimDefinitelyStaleFileLock } from "../../file-lock-BmQQ9PQF.mjs";
 import "../../string-coerce-runtime-C_MKhRVt.mjs";
-import "../../routing-JKvWkBDR.mjs";
+import "../../routing-gwrpgNm_.mjs";
 import "../../runtime-doctor-migrations-_pMXigSc.mjs";
 import { n as legacyStateFileExists, t as archiveLegacyStateSource } from "../../doctor-state-migration-fs-CfVap4xL.mjs";
 import "../../memory-core-host-engine-fs-BixOt6Kf.mjs";

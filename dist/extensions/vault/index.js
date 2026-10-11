@@ -6,7 +6,7 @@ var vault_default = definePluginEntry({
 	description: "HashiCorp Vault SecretRef provider integration.",
 	register(api) {
 		api.registerCli(async ({ program, config }) => {
-			const { registerVaultCommands } = await import("../../cli-BImJI54v.mjs");
+			const { registerVaultCommands } = await import("../../cli-CR5VezFF.mjs");
 			registerVaultCommands({
 				program,
 				config

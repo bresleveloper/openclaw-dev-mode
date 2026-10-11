@@ -1,8 +1,8 @@
-import { h as runLiveProviderCatalog } from "../../provider-catalog-live-runtime-BXqZhQaR.mjs";
-import { t as defineSingleProviderPluginEntry } from "../../provider-entry-B0iWpuAs.mjs";
-import { o as openclaw_plugin_default } from "../../models-CaH24-RG.mjs";
-import { r as applyHuggingfaceConnectionConfig, t as HUGGINGFACE_DEFAULT_MODEL_REF } from "../../onboard-D187ra0G.mjs";
-import { t as buildHuggingfaceProvider } from "../../provider-catalog-DY6wVNn9.mjs";
+import { h as runLiveProviderCatalog } from "../../provider-catalog-live-runtime-BprkJHe2.mjs";
+import { t as defineSingleProviderPluginEntry } from "../../provider-entry-DP2O-chg.mjs";
+import { o as openclaw_plugin_default } from "../../models-BCEWBikF.mjs";
+import { r as applyHuggingfaceConnectionConfig, t as HUGGINGFACE_DEFAULT_MODEL_REF } from "../../onboard-BcJ9rlHz.mjs";
+import { t as buildHuggingfaceProvider } from "../../provider-catalog-CDxF_0at.mjs";
 //#region extensions/huggingface/index.ts
 const PROVIDER_ID = "huggingface";
 var huggingface_default = defineSingleProviderPluginEntry({

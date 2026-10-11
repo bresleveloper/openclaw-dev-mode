@@ -1,7 +1,7 @@
-import "../types.openclaw-LzSbb55e.js";
-import { c as OriginatingChannelType, r as FinalizedMsgContext } from "../templating-OpWn1DzT.js";
+import "../types.openclaw-Ccmw-oTa.js";
+import { c as OriginatingChannelType, r as FinalizedMsgContext } from "../templating-0ElMwhje.js";
 import "../index-hVvy_KTe.js";
-import { at as PluginHookMessageContext, c as InternalHookHandler, lt as MessageHookMediaFact, n as initializeGlobalHookRunner, nt as PluginHookInboundMessageMetadata, o as InternalHookEvent, ot as PluginHookMessageReceivedEvent, r as resetGlobalHookRunner, s as InternalHookEventType, st as PluginHookMessageSentEvent } from "../hook-runner-global-D5VgWbSn.js";
+import { at as PluginHookMessageContext, c as InternalHookHandler, lt as MessageHookMediaFact, n as initializeGlobalHookRunner, nt as PluginHookInboundMessageMetadata, o as InternalHookEvent, ot as PluginHookMessageReceivedEvent, r as resetGlobalHookRunner, s as InternalHookEventType, st as PluginHookMessageSentEvent } from "../hook-runner-global-CDmmGFJp.js";
 import { t as DiagnosticTraceContext } from "../diagnostic-trace-context-DIVmGNEt.js";
 //#region src/hooks/fire-and-forget.d.ts
 /** Queue limits for bounded fire-and-forget hook execution. */

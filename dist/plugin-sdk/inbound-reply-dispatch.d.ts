@@ -1,12 +1,12 @@
-import { Ii as ChannelTurnRecordOptions, Pi as ChannelTurnDroppedHistoryOptions, Ui as ChannelBotLoopProtectionFacts, Wi as recordChannelBotPairLoopAndCheckSuppression, _a as DispatchReplyWithBufferedBlockDispatcher, _i as recordDroppedChannelTurnHistory } from "../agent-harness-runtime-CWL0fcg5.js";
-import { r as OpenClawConfig } from "../types.openclaw-LzSbb55e.js";
-import { h as GetReplyOptions, r as FinalizedMsgContext } from "../templating-OpWn1DzT.js";
-import { h as ReplyPayload } from "../reply-payload-Dv0rYqXd.js";
-import { f as runChannelInboundEvent, i as ChannelInboundEventRunnerParams, l as dispatchChannelInboundReply, o as InboundReplyDispatchResult, p as runPreparedInboundReply, s as PreparedInboundReply, t as AssembledInboundReply } from "../channel-inbound-BNnjjnWo.js";
-import { n as hasVisibleChannelTurnDispatch, r as resolveChannelTurnDispatchCounts, t as hasFinalChannelTurnDispatch } from "../dispatch-result-qzcbsHjZ.js";
-import { a as DurableInboundReplyDeliveryParams, i as DurableInboundReplyDeliveryOptions } from "../receipt-DCtO_bEh.js";
-import { n as deliverInboundReplyWithMessageSendContext } from "../channel-outbound-B3ajNl1f.js";
-import { t as recordInboundSession } from "../session-CLUHG8Dl.js";
+import { Ii as ChannelTurnRecordOptions, Pi as ChannelTurnDroppedHistoryOptions, Ui as ChannelBotLoopProtectionFacts, Wi as recordChannelBotPairLoopAndCheckSuppression, _a as DispatchReplyWithBufferedBlockDispatcher, _i as recordDroppedChannelTurnHistory } from "../agent-harness-runtime-wMciqZ6Z.js";
+import { r as OpenClawConfig } from "../types.openclaw-Ccmw-oTa.js";
+import { h as GetReplyOptions, r as FinalizedMsgContext } from "../templating-0ElMwhje.js";
+import { h as ReplyPayload } from "../reply-payload-DSrL-UWv.js";
+import { f as runChannelInboundEvent, i as ChannelInboundEventRunnerParams, l as dispatchChannelInboundReply, o as InboundReplyDispatchResult, p as runPreparedInboundReply, s as PreparedInboundReply, t as AssembledInboundReply } from "../channel-inbound-DcDh12dH.js";
+import { n as hasVisibleChannelTurnDispatch, r as resolveChannelTurnDispatchCounts, t as hasFinalChannelTurnDispatch } from "../dispatch-result-CC62y_Y1.js";
+import { a as DurableInboundReplyDeliveryParams, i as DurableInboundReplyDeliveryOptions } from "../receipt-CIhXFsCC.js";
+import { n as deliverInboundReplyWithMessageSendContext } from "../channel-outbound-B339aBc0.js";
+import { t as recordInboundSession } from "../session-Dzsx6DOO.js";
 //#region src/infra/outbound/reply-payload-normalize.d.ts
 /**
  * Outbound-facing subset of reply payload fields accepted from loose producers.

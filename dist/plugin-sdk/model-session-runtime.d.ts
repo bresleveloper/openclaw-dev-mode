@@ -1,12 +1,12 @@
-import { Gd as StickyModelSelectionDispatchOutcome, od as resolveSessionModelRef } from "../agent-harness-runtime-CWL0fcg5.js";
-import { r as OpenClawConfig } from "../types.openclaw-LzSbb55e.js";
-import { H as InternalSessionEntry, K as SessionEntry } from "../templating-OpWn1DzT.js";
-import { b as PluginMetadataSnapshot } from "../io-VMpaZk90.js";
-import "../types-Bl4TRRJl.js";
-import { n as ThinkLevel } from "../thinking.shared-B8iFVM3s.js";
-import { h as ModelCatalogEntry, o as ModelVisibilityPolicy } from "../model-selection-BjQV-P1s.js";
-import { t as AgentModelPrimaryWriteTarget } from "../agent-scope-D4U2tjwQ.js";
-import { a as resolveAgentMaxConcurrent, i as isModelSelectionLocked, n as ModelSelectionLockedError, o as resolveChannelModelOverride, r as applyModelOverrideToSessionEntry, t as MODEL_SELECTION_LOCKED_MESSAGE } from "../model-overrides-Bzi8Yz4b.js";
+import { Gd as StickyModelSelectionDispatchOutcome, od as resolveSessionModelRef } from "../agent-harness-runtime-wMciqZ6Z.js";
+import { r as OpenClawConfig } from "../types.openclaw-Ccmw-oTa.js";
+import { H as InternalSessionEntry, K as SessionEntry } from "../templating-0ElMwhje.js";
+import { b as PluginMetadataSnapshot } from "../io-BuIvr25R.js";
+import "../types-DtHZVXiQ.js";
+import { n as ThinkLevel } from "../thinking.shared-BLp-s-vI.js";
+import { h as ModelCatalogEntry, o as ModelVisibilityPolicy } from "../model-selection-Bl-O-zgq.js";
+import { t as AgentModelPrimaryWriteTarget } from "../agent-scope-BV0uIQk3.js";
+import { a as resolveAgentMaxConcurrent, i as isModelSelectionLocked, n as ModelSelectionLockedError, o as resolveChannelModelOverride, r as applyModelOverrideToSessionEntry, t as MODEL_SELECTION_LOCKED_MESSAGE } from "../model-overrides-Cx3jfZIT.js";
 //#region src/agents/session-runtime-compat.d.ts
 /** Persisted runtime fields used to recover session runtime compatibility. */
 type SessionRuntimeCompatEntry = Pick<SessionEntry, "agentHarnessId" | "agentRuntimeOverride" | "modelSelectionLocked" | "pluginOwnerId">;

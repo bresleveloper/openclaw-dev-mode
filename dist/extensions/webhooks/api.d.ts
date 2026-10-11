@@ -1,2 +1,2 @@
-import { n as OpenClawPluginApi, q as PluginLogger, r as PluginRuntime, t as definePluginEntry } from "../../runtime-api-B8EDHhvw.js";
+import { n as OpenClawPluginApi, q as PluginLogger, r as PluginRuntime, t as definePluginEntry } from "../../runtime-api-BQqQOWYL.js";
 export { type OpenClawPluginApi, type PluginLogger, type PluginRuntime, definePluginEntry };

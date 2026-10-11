@@ -1,2 +1,2 @@
-import { a as resolveInboundRouteEnvelopeBuilder, o as resolveInboundRouteEnvelopeBuilderWithRuntime, r as createInboundEnvelopeBuilder } from "../envelope-DPCOW9yf.js";
+import { a as resolveInboundRouteEnvelopeBuilder, o as resolveInboundRouteEnvelopeBuilderWithRuntime, r as createInboundEnvelopeBuilder } from "../envelope-DGTJ4Myn.js";
 export { createInboundEnvelopeBuilder, resolveInboundRouteEnvelopeBuilder, resolveInboundRouteEnvelopeBuilderWithRuntime };

@@ -1,4 +1,4 @@
-import { r as OpenClawConfig } from "../types.openclaw-LzSbb55e.js";
+import { r as OpenClawConfig } from "../types.openclaw-Ccmw-oTa.js";
 import { n as SkillCommandSpec } from "../types-CHfKS7Qr.js";
 //#region src/auto-reply/command-status-builders.d.ts
 /** Builds the compact slash-command help text shown by `/help`. */

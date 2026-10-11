@@ -1,2 +1,2 @@
-import { S as OpenClawPluginService, l as definePluginEntry, r as OpenClawPluginApi } from "../../cli-backend.types-kTOThe9I.js";
+import { S as OpenClawPluginService, l as definePluginEntry, r as OpenClawPluginApi } from "../../cli-backend.types-B-oosdMB.js";
 export { type OpenClawPluginApi, type OpenClawPluginService, definePluginEntry };

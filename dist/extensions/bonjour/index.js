@@ -19,7 +19,7 @@ var bonjour_default = definePluginEntry({
 		api.registerGatewayDiscoveryService({
 			id: "bonjour",
 			advertise: async (ctx) => {
-				const [{ startGatewayBonjourAdvertiser }, { registerUncaughtExceptionHandler, registerUnhandledRejectionHandler }] = await Promise.all([import("../../advertiser-DYrXMtrY.mjs"), import("../../plugin-sdk/runtime.js")]);
+				const [{ startGatewayBonjourAdvertiser }, { registerUncaughtExceptionHandler, registerUnhandledRejectionHandler }] = await Promise.all([import("../../advertiser-B-77ZFtR.mjs"), import("../../plugin-sdk/runtime.js")]);
 				return { stop: (await startGatewayBonjourAdvertiser({
 					instanceName: formatBonjourInstanceName(ctx.machineDisplayName),
 					gatewayPort: ctx.gatewayPort,

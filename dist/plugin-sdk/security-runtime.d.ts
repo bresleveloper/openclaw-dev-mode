@@ -1,15 +1,15 @@
-import "../manifest-registry-CMnhqUB6.js";
+import "../manifest-registry-Dcw0apVk.js";
 import "../fs-safe-defaults-ypw0M2Xi.js";
 import { n as assertNoSymlinkParentsSync, r as sanitizeUntrustedFileName, t as assertNoSymlinkParents } from "../fs-safe-advanced-CgWxxJBc.js";
 import { S as resolvePinnedHostnameWithPolicy, a as SsrFBlockedError, g as isPrivateNetworkAllowedByPolicy, o as SsrFPolicy, t as LookupFn, v as matchesHostnameAllowlist } from "../ssrf-CkjpArdF.js";
 import { D as openLocalFileSafely, H as statRegularFile, I as resolveAbsolutePathForRead, K as withTimeout, L as resolveAbsolutePathForWrite, N as readRegularFile, O as pathExists, P as readRegularFileSync, R as resolveLocalPathFromRootsSync, S as canonicalPathFromExistingAncestor, U as statRegularFileSync, V as root, k as pathExistsSync, o as FsSafeError, q as writeExternalFileWithinRoot, w as findExistingAncestor, y as appendRegularFile } from "../fs-safe-DBBalKLY.js";
-import { n as redactSensitiveText } from "../redact-CMkWZvEP.js";
+import { n as redactSensitiveText } from "../redact-DktwsERl.js";
 import { r as extractErrorCode } from "../error-coercion-vrFGEpI-.js";
 import { f as hasProxyEnvConfigured, t as normalizeHostname } from "../hostname-x0B--rdn.js";
 import { t as formatErrorMessage } from "../errors-D-udqO7F.js";
 import { a as parseAccessGroupAllowFromEntry } from "../allow-from-Bdiy2LH6.js";
 import { i as shouldIncludeSupplementalContext, n as evaluateSupplementalContextVisibility, r as filterSupplementalContextItems, t as ContextVisibilityDecision } from "../context-visibility-CNXHuDNv.js";
-import { i as expandAllowFromWithAccessGroups } from "../access-groups-DN0bv1gV.js";
+import { i as expandAllowFromWithAccessGroups } from "../access-groups-BtjJ3wgM.js";
 import { s as resolvePinnedMainDmOwnerFromAllowlist } from "../dm-policy-shared-BXVdVRPm.js";
 import { r as resolvePreferredOpenClawTmpDir } from "../tmp-openclaw-dir-BVXh5Mbm.js";
 import { pathScope, resolveExistingPathsWithinRoot, resolveStrictExistingPathsWithinRoot } from "@openclaw/fs-safe/advanced";

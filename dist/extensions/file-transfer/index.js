@@ -2,13 +2,13 @@ import { a as asOptionalRecord } from "../../record-coerce-DItp3I4t.mjs";
 import { r as declareAgentWorkspaceAccess, s as registerAgentWorkspaceAccess } from "../../workspace-access-BNUXOhfF.mjs";
 import "../../string-coerce-runtime-C_MKhRVt.mjs";
 import { t as definePluginEntry } from "../../plugin-entry-BOulgRcx.mjs";
-import { i as createWorkspaceAttachmentPreparer } from "../../agent-workspace-runtime-Dl0AugNC.mjs";
+import { i as createWorkspaceAttachmentPreparer } from "../../agent-workspace-runtime-CbeDm0nz.mjs";
 import { t as FILE_TRANSFER_NODE_INVOKE_COMMANDS } from "../../node-invoke-policy-commands-BEizdTVP.mjs";
 import { l as FILE_WRITE_TOOL_DESCRIPTOR, o as FILE_FETCH_TOOL_DESCRIPTOR, r as DIR_LIST_TOOL_DESCRIPTOR, t as DIR_FETCH_TOOL_DESCRIPTOR } from "../../descriptors-kcLNZgGx.mjs";
 import path from "node:path";
 //#region extensions/file-transfer/src/shared/lazy-node-invoke-policy.ts
 const loadFileTransferNodeInvokePolicy = async () => {
-	const { createFileTransferNodeInvokePolicy } = await import("../../node-invoke-policy-BlfCNryh.mjs");
+	const { createFileTransferNodeInvokePolicy } = await import("../../node-invoke-policy-CfTdCyvV.mjs");
 	return createFileTransferNodeInvokePolicy();
 };
 function createLazyFileTransferNodeInvokePolicy(loadPolicy = loadFileTransferNodeInvokePolicy) {
@@ -80,7 +80,7 @@ function registerNodeWorkspaces(api) {
 				const invoke = ctx.invokeNode;
 				if (!invoke) throw new Error("Node workspaces require Gateway service node access");
 				const { createNodeWorkspaceBridge } = await import("../../workspace-bridge-7lqq4Jcl.mjs");
-				const { createNodeWorkspaceMemory } = await import("../../workspace-memory-BXQ5gK0P.mjs");
+				const { createNodeWorkspaceMemory } = await import("../../workspace-memory-zhW34_4U.mjs");
 				const { createNodeWorkspaceSkills } = await import("../../workspace-skills-DOpOpmlD.mjs");
 				controller.signal.throwIfAborted();
 				for (const entry of bindings.values()) {
@@ -160,7 +160,7 @@ var file_transfer_default = definePluginEntry({
 			cap: "file",
 			dangerous: true,
 			handle: async (paramsJSON) => {
-				const { handleFileStat } = await import("../../file-stat-wEp_ke_-.mjs");
+				const { handleFileStat } = await import("../../file-stat-CakAQZVx.mjs");
 				const params = asOptionalRecord(readNodeCommandParams(paramsJSON)) ?? {};
 				return JSON.stringify(await handleFileStat(params));
 			}
@@ -172,7 +172,7 @@ var file_transfer_default = definePluginEntry({
 			cap: "file",
 			dangerous: true,
 			handle: async (paramsJSON, io) => {
-				const { handleFileFetch } = await import("../../file-fetch-5xl4dqBq.mjs");
+				const { handleFileFetch } = await import("../../file-fetch-CqlbqKgy.mjs");
 				const result = await handleFileFetch(readNodeCommandParams(paramsJSON), io);
 				return JSON.stringify(result);
 			}
@@ -183,7 +183,7 @@ var file_transfer_default = definePluginEntry({
 			cap: "file",
 			dangerous: true,
 			handle: async (paramsJSON) => {
-				const { handleDirList } = await import("../../dir-list-DEf5xNQG.mjs");
+				const { handleDirList } = await import("../../dir-list-BMt-44Xb.mjs");
 				const result = await handleDirList(readNodeCommandParams(paramsJSON));
 				return JSON.stringify(result);
 			}
@@ -194,7 +194,7 @@ var file_transfer_default = definePluginEntry({
 			cap: "file",
 			dangerous: true,
 			handle: async (paramsJSON) => {
-				const { handleDirFetch } = await import("../../dir-fetch-DWzrTWkB.mjs");
+				const { handleDirFetch } = await import("../../dir-fetch-UVLB6Ep5.mjs");
 				const result = await handleDirFetch(readNodeCommandParams(paramsJSON));
 				return JSON.stringify(result);
 			}
@@ -205,7 +205,7 @@ var file_transfer_default = definePluginEntry({
 			dangerous: true,
 			duplex: true,
 			handle: async (paramsJSON, io) => {
-				const { handleFileCreate } = await import("../../file-create-0N9nZFyV.mjs");
+				const { handleFileCreate } = await import("../../file-create-CqPI4pg_.mjs");
 				const params = asOptionalRecord(readNodeCommandParams(paramsJSON)) ?? {};
 				return JSON.stringify(await handleFileCreate(params, io));
 			}
@@ -216,7 +216,7 @@ var file_transfer_default = definePluginEntry({
 			cap: "file",
 			dangerous: true,
 			handle: async (paramsJSON) => {
-				const { handleFileWrite } = await import("../../file-write-Cbv4rFx3.mjs");
+				const { handleFileWrite } = await import("../../file-write-CiIhV7qh.mjs");
 				const result = await handleFileWrite(readNodeCommandParams(paramsJSON));
 				return JSON.stringify(result);
 			}
@@ -229,7 +229,7 @@ var file_transfer_default = definePluginEntry({
 			dangerous: true,
 			duplex: true,
 			handle: async (...args) => {
-				const { createWorkspaceMemoryCommand } = await import("../../workspace-memory-DyUtUSlS.mjs");
+				const { createWorkspaceMemoryCommand } = await import("../../workspace-memory-BGcusjXr.mjs");
 				return await createWorkspaceMemoryCommand(api).handle(...args);
 			}
 		});
@@ -237,7 +237,7 @@ var file_transfer_default = definePluginEntry({
 			commands: ["workspace.memory"],
 			dangerous: true,
 			async handle(ctx) {
-				const { createWorkspaceMemoryPolicy } = await import("../../workspace-memory-policy-xkTqKuRH.mjs");
+				const { createWorkspaceMemoryPolicy } = await import("../../workspace-memory-policy-Bj4Pppjh.mjs");
 				return await createWorkspaceMemoryPolicy().handle(ctx);
 			}
 		});
@@ -247,7 +247,7 @@ var file_transfer_default = definePluginEntry({
 			dangerous: true,
 			duplex: true,
 			handle: async (...args) => {
-				const { createWorkspaceSkillsCommand } = await import("../../workspace-memory-DyUtUSlS.mjs");
+				const { createWorkspaceSkillsCommand } = await import("../../workspace-memory-BGcusjXr.mjs");
 				return await createWorkspaceSkillsCommand(api).handle(...args);
 			}
 		});
@@ -255,13 +255,13 @@ var file_transfer_default = definePluginEntry({
 			commands: ["workspace.skills"],
 			dangerous: true,
 			async handle(ctx) {
-				const { createWorkspaceSkillsPolicy } = await import("../../workspace-memory-policy-xkTqKuRH.mjs");
+				const { createWorkspaceSkillsPolicy } = await import("../../workspace-memory-policy-Bj4Pppjh.mjs");
 				return await createWorkspaceSkillsPolicy().handle(ctx);
 			}
 		});
 		registerNodeWorkspaces(api);
 		api.registerCli(async ({ program }) => {
-			const { registerFileTransferCli } = await import("../../cli-CJRzLj0H.mjs");
+			const { registerFileTransferCli } = await import("../../cli-BaFbrUTy.mjs");
 			registerFileTransferCli(program);
 		}, { descriptors: [{
 			name: "file-transfer",
@@ -270,19 +270,19 @@ var file_transfer_default = definePluginEntry({
 		}] });
 		api.registerNodeInvokePolicy(createLazyFileTransferNodeInvokePolicy());
 		api.registerTool(createLazyTool(FILE_FETCH_TOOL_DESCRIPTOR, async () => {
-			const { createFileFetchTool } = await import("../../file-fetch-tool-BhLHwfOh.mjs");
+			const { createFileFetchTool } = await import("../../file-fetch-tool-DM3OMUV8.mjs");
 			return createFileFetchTool();
 		}));
 		api.registerTool(createLazyTool(DIR_LIST_TOOL_DESCRIPTOR, async () => {
-			const { createDirListTool } = await import("../../dir-list-tool-C51Mfgpp.mjs");
+			const { createDirListTool } = await import("../../dir-list-tool-B0zkUOdk.mjs");
 			return createDirListTool();
 		}));
 		api.registerTool(createLazyTool(DIR_FETCH_TOOL_DESCRIPTOR, async () => {
-			const { createDirFetchTool } = await import("../../dir-fetch-tool-Czx-fKbQ.mjs");
+			const { createDirFetchTool } = await import("../../dir-fetch-tool-CIXzaYLl.mjs");
 			return createDirFetchTool();
 		}));
 		api.registerTool(createLazyTool(FILE_WRITE_TOOL_DESCRIPTOR, async () => {
-			const { createFileWriteTool } = await import("../../file-write-tool-CadMGnKq.mjs");
+			const { createFileWriteTool } = await import("../../file-write-tool-BIxgMkhd.mjs");
 			return createFileWriteTool();
 		}));
 	}

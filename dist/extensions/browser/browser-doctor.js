@@ -9,10 +9,10 @@ import "../../string-coerce-runtime-C_MKhRVt.mjs";
 import "../../file-access-runtime-CWjkXCju.mjs";
 import { m as DEFAULT_OPENCLAW_BROWSER_PROFILE_NAME } from "../../constants-DKjTvIBP.mjs";
 import { i as resolveBrowserConfig } from "../../config-fMVye_Fl.mjs";
-import "../../utils-CX93zM1u.mjs";
+import "../../utils-BJPagvX2.mjs";
 import { i as readBrowserVersion, n as resolveGoogleChromeExecutableForPlatform, r as parseBrowserMajorVersion, t as resolveBrowserExecutableForPlatform } from "../../chrome.executables-Cv2wahLt.mjs";
 import { t as movePathToTrash } from "../../trash-CAu63IBo.mjs";
-import "../../sdk-setup-tools-BCxSIh0L.mjs";
+import "../../sdk-setup-tools-DA5SKKzo.mjs";
 import fs from "node:fs";
 import path from "node:path";
 //#region extensions/browser/src/doctor-browser.ts

@@ -1,10 +1,10 @@
-import { d as ChannelSetupAdapter, f as ChannelSetupInput, u as defineChannelSetupContract } from "../manifest-registry-CMnhqUB6.js";
-import "../types.adapters-dxHXA2rq.js";
+import { d as ChannelSetupAdapter, f as ChannelSetupInput, u as defineChannelSetupContract } from "../manifest-registry-Dcw0apVk.js";
+import "../types.adapters-IC4-T9eq.js";
 import { t as DEFAULT_ACCOUNT_ID } from "../account-id-Dh6XMgGH.js";
-import { n as ChannelSetupWizard, t as ChannelSetupDmPolicy } from "../setup-wizard-types-B39o8fS3.js";
-import { L as setSetupChannelEnabled, g as createTopLevelChannelDmPolicy, n as defineTokenCredential, t as baseUrlTextInput, z as splitSetupEntries } from "../setup-credential-C1TqvFbP.js";
+import { n as ChannelSetupWizard, t as ChannelSetupDmPolicy } from "../setup-wizard-types-f6I7iVCq.js";
+import { L as setSetupChannelEnabled, g as createTopLevelChannelDmPolicy, n as defineTokenCredential, t as baseUrlTextInput, z as splitSetupEntries } from "../setup-credential-FvaGVWSF.js";
 import { t as formatDocsLink } from "../links-CUrut3Wv.js";
-import "../setup-Cpu8E62N.js";
+import "../setup-BTxRdJep.js";
 //#region src/plugin-sdk/optional-channel-setup.d.ts
 type OptionalChannelSetupParams$1 = {
   /** Channel id used by setup wizard status and routing. */

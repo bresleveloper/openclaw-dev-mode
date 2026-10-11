@@ -8,9 +8,9 @@ import { t as getSqliteWorkerStateContext } from "../../sqlite-worker-state-cont
 import { n as assertCanonicalSessionKeyWrite } from "../../session-canonical-key-BBylVEaq.mjs";
 import { a as runWithSessionTranscriptReadFence } from "../../session-transcript-read-fence-Crjo4FKU.mjs";
 import { t as readSessionTranscriptBoundedActiveContextCore } from "../../session-accessor.sqlite-active-context-C3x2ZjEy.mjs";
-import { t as ensureSessionEntryInTransaction } from "../../session-accessor.sqlite-initial-entry-BuA4n-ui.mjs";
-import { O as readTranscriptMutationAtSync, n as appendTranscriptEventSnapshotSync } from "../../session-accessor.sqlite-transcript-write-C7vu0wzK.mjs";
-import { a as inspectTranscriptEventsSync, f as loadTranscriptReadSnapshotSync } from "../../session-accessor.sqlite-read-C-ODxL4e.mjs";
+import { t as ensureSessionEntryInTransaction } from "../../session-accessor.sqlite-initial-entry-DuNCGvng.mjs";
+import { O as readTranscriptMutationAtSync, n as appendTranscriptEventSnapshotSync } from "../../session-accessor.sqlite-transcript-write-BP0UYXPp.mjs";
+import { a as inspectTranscriptEventsSync, f as loadTranscriptReadSnapshotSync } from "../../session-accessor.sqlite-read-D-7XR7Kn.mjs";
 import { serialize } from "node:v8";
 //#region src/agents/sessions/session-manager-metadata.worker.ts
 function copyTranscriptRefusal(value) {

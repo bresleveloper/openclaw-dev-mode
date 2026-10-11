@@ -1,4 +1,4 @@
-import { n as createRemoteEmbeddingProvider, r as resolveRemoteEmbeddingClient } from "../../memory-core-host-engine-embeddings-BZIhVZAB.mjs";
+import { n as createRemoteEmbeddingProvider, r as resolveRemoteEmbeddingClient } from "../../memory-core-host-engine-embeddings-7e_FHMpT.mjs";
 import { r as OPENAI_DEFAULT_EMBEDDING_MODEL } from "../../default-models-DOFL1mMC.mjs";
 //#region extensions/openai/embedding-provider.ts
 const DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1";

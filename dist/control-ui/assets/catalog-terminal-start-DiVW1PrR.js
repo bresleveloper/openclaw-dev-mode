@@ -1,0 +1,1 @@
+import{n as e,t}from"./catalog-terminal-start-D1zmbj6H.js";t();export{e as prepareCatalogTerminal};

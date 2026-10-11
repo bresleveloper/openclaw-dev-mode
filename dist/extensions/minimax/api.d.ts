@@ -1,6 +1,6 @@
-import { B as ModelDefinitionConfig, V as ModelProviderDeclarationConfig, z as OpenClawConfig } from "../../cli-backend.types-kTOThe9I.js";
-import "../../provider-model-shared-CP6E2ez3.js";
-import "../../provider-onboard-B6IQ5BVZ.js";
+import { B as ModelDefinitionConfig, V as ModelProviderDeclarationConfig, z as OpenClawConfig } from "../../cli-backend.types-B-oosdMB.js";
+import "../../provider-model-shared-1AXTwF07.js";
+import "../../provider-onboard-D6EaEt89.js";
 //#region extensions/minimax/provider-catalog.d.ts
 export declare function buildMinimaxProvider(env?: NodeJS.ProcessEnv): ModelProviderDeclarationConfig;
 export declare function buildMinimaxPortalProvider(env?: NodeJS.ProcessEnv): ModelProviderDeclarationConfig;

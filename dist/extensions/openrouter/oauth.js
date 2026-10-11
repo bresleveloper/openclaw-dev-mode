@@ -1,2 +1,2 @@
-import { t as createOpenRouterOAuthAuthMethod } from "../../oauth-NM_Jib9Y.mjs";
+import { t as createOpenRouterOAuthAuthMethod } from "../../oauth-DLHEbU0n.mjs";
 export { createOpenRouterOAuthAuthMethod };

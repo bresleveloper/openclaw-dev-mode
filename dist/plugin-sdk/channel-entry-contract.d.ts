@@ -1,10 +1,10 @@
-import { Ns as OpenClawPluginApi$1, Tc as PluginCommandContext$1, wc as OpenClawPluginCommandDefinition$1 } from "../agent-harness-runtime-CWL0fcg5.js";
-import { r as OpenClawConfig } from "../types.openclaw-LzSbb55e.js";
+import { Ns as OpenClawPluginApi$1, Tc as PluginCommandContext$1, wc as OpenClawPluginCommandDefinition$1 } from "../agent-harness-runtime-wMciqZ6Z.js";
+import { r as OpenClawConfig } from "../types.openclaw-Ccmw-oTa.js";
 import { l as ChannelConfigSchema } from "../zod-schema.implicit-mentions-Du1YLL_X.js";
-import { R as ChannelLegacyStateMigrationPlan } from "../types.adapters-dxHXA2rq.js";
-import { n as ChannelOutboundAdapter } from "../outbound.types-HYq1MKG1.js";
-import { t as ChannelPlugin } from "../types.plugin-ItlfCSr2.js";
-import { n as AnyAgentTool$1 } from "../common-BCM4z2Iy.js";
+import { R as ChannelLegacyStateMigrationPlan } from "../types.adapters-IC4-T9eq.js";
+import { n as ChannelOutboundAdapter } from "../outbound.types-DZsrSgdc.js";
+import { t as ChannelPlugin } from "../types.plugin-DWwKnMgs.js";
+import { n as AnyAgentTool$1 } from "../common-Y4Bsty3O.js";
 import { createJiti } from "jiti";
 //#region src/plugins/jiti-factory.d.ts
 /** Keep Babel's lazy require inside Jiti's CJS module, where native resolver hooks retain its parent. */

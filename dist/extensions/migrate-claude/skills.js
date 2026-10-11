@@ -1,2 +1,2 @@
-import { n as buildSkillItems, t as applyGeneratedSkillItem } from "../../skills-Bn-8SDDB.mjs";
+import { n as buildSkillItems, t as applyGeneratedSkillItem } from "../../skills-CM8-yxEl.mjs";
 export { applyGeneratedSkillItem, buildSkillItems };

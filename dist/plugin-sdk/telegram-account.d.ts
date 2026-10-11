@@ -1,5 +1,5 @@
-import { r as OpenClawConfig } from "../types.openclaw-LzSbb55e.js";
-import "../config-contracts-DYGYnzuk.js";
+import { r as OpenClawConfig } from "../types.openclaw-Ccmw-oTa.js";
+import "../config-contracts-DBkfUWkX.js";
 //#region src/plugin-sdk/telegram-account.d.ts
 /**
  * @deprecated Compatibility type for the `openclaw/plugin-sdk/telegram-account` facade.

@@ -1,12 +1,12 @@
 import { r as createLazyRuntimeModule } from "../../lazy-runtime-BPNHa36e.mjs";
 import { t as formatErrorMessage } from "../../errors-DnjwnOju.mjs";
 import "../../error-runtime-Bf1fYXFh.mjs";
-import { a as selectDefaultNodeFromList } from "../../nodes-utils-C8eN9BES.mjs";
+import { a as selectDefaultNodeFromList } from "../../nodes-utils-BhcWBHLY.mjs";
 import { t as definePluginEntry } from "../../plugin-entry-BOulgRcx.mjs";
-import "../../agent-harness-runtime-CCWcY1Q0.mjs";
-import { n as isCanvasHostEnabled, t as canvasConfigSchema } from "../../config-Drt7Rfeo.mjs";
+import "../../agent-harness-runtime-DaRNGGF2.mjs";
+import { n as isCanvasHostEnabled, t as canvasConfigSchema } from "../../config-DWkmK5SH.mjs";
 import { t as A2UI_PATH } from "../../a2ui-shared-BVnsAcOM.mjs";
-import { i as CanvasToolSchema, n as isEligibleCanvasNode, t as CANVAS_PRESENT_COMMAND } from "../../node-eligibility-d9j1XV4n.mjs";
+import { i as CanvasToolSchema, n as isEligibleCanvasNode, t as CANVAS_PRESENT_COMMAND } from "../../node-eligibility-DUwXwhRE.mjs";
 import { randomUUID } from "node:crypto";
 //#region node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/helpers/util.js
 var util;
@@ -3781,7 +3781,7 @@ const canvasA2UIBoardWidgetKind = {
 		paths: [A2UI_V08_BUNDLE_PATH, A2UI_V09_BUNDLE_PATH],
 		readPublicResource: async (resourcePath) => {
 			if (resourcePath !== A2UI_V08_BUNDLE_PATH && resourcePath !== A2UI_V09_BUNDLE_PATH) return;
-			const { readPublicA2uiResource } = await import("../../a2ui-DsAdzzdc.mjs");
+			const { readPublicA2uiResource } = await import("../../a2ui-BpDIP82S.mjs");
 			return await readPublicA2uiResource(resourcePath);
 		}
 	},
@@ -3903,7 +3903,7 @@ const CANVAS_NODE_COMMANDS = [
 	"canvas.navigate"
 ];
 function createLazyCanvasTool(agentSessionKey) {
-	const loadTool = createLazyRuntimeModule(() => import("../../tool-COWgEm5u.mjs").then(({ createCanvasTool }) => createCanvasTool({ agentSessionKey })));
+	const loadTool = createLazyRuntimeModule(() => import("../../tool-BRuncfEK.mjs").then(({ createCanvasTool }) => createCanvasTool({ agentSessionKey })));
 	return {
 		label: "Canvas",
 		name: "canvas",
@@ -3921,7 +3921,7 @@ var canvas_default = definePluginEntry({
 	register(api) {
 		if (isCanvasHostEnabled(api.config)) {
 			api.registerBoardWidgetContentKind(canvasA2UIBoardWidgetKind);
-			const loadRenderer = createLazyRuntimeModule(() => import("../../a2ui-DsAdzzdc.mjs"));
+			const loadRenderer = createLazyRuntimeModule(() => import("../../a2ui-BpDIP82S.mjs"));
 			api.registerHttpRoute({
 				path: A2UI_PATH,
 				auth: "plugin",
@@ -3938,7 +3938,7 @@ var canvas_default = definePluginEntry({
 		});
 		api.registerTool((ctx) => createLazyCanvasTool(ctx.sessionKey));
 		api.registerNodeCliFeature(async ({ program }) => {
-			const { createDefaultCanvasCliDependencies, registerNodesCanvasCommands } = await import("../../cli-DwGvYmU0.mjs");
+			const { createDefaultCanvasCliDependencies, registerNodesCanvasCommands } = await import("../../cli-wC0cQFY7.mjs");
 			registerNodesCanvasCommands(program, createDefaultCanvasCliDependencies());
 		}, { descriptors: [{
 			name: "canvas",

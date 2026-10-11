@@ -1,5 +1,5 @@
 import { r as createLazyRuntimeModule } from "../../lazy-runtime-BPNHa36e.mjs";
-import { t as defineSingleProviderPluginEntry } from "../../provider-entry-B0iWpuAs.mjs";
+import { t as defineSingleProviderPluginEntry } from "../../provider-entry-DP2O-chg.mjs";
 import { i as APPLE_FM_PROVIDER_ID, t as APPLE_FM_LOCAL_AUTH_MARKER } from "../../defaults-p5LbrA8q.mjs";
 import path from "node:path";
 //#region extensions/apple-fm/openclaw.plugin.json

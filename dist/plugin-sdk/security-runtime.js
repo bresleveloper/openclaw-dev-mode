@@ -8,7 +8,7 @@ import { n as resolvePreferredOpenClawTmpDir } from "../tmp-openclaw-dir-BSb3Het
 import { n as replaceFileAtomic, t as movePathWithCopyFallback } from "../replace-file-DJtj9VLX.mjs";
 import { t as safeEqualSecret } from "../secret-equal-DRsL8lKD.mjs";
 import { i as hasProxyEnvConfigured } from "../proxy-env-BwCPCI9p.mjs";
-import { r as ensurePortAvailable } from "../ports-CDR43XuJ.mjs";
+import { r as ensurePortAvailable } from "../ports-CNx57uUr.mjs";
 import { t as normalizeHostname } from "../hostname-BEfh3sRX.mjs";
 import { _ as resolvePinnedHostnameWithPolicy, d as isPrivateNetworkAllowedByPolicy, p as matchesHostnameAllowlist, t as SsrFBlockedError } from "../ssrf-BQRtcdBp.mjs";
 import { a as parseAccessGroupAllowFromEntry } from "../allow-from-Dq2DvsNl.mjs";
@@ -18,5 +18,5 @@ import { o as resolvePinnedMainDmOwnerFromAllowlist } from "../dm-policy-shared-
 import { n as filterSupplementalContextItems, r as shouldIncludeSupplementalContext, t as evaluateSupplementalContextVisibility } from "../context-visibility-C5CaKMWO.mjs";
 import { t as expandAllowFromWithAccessGroups } from "../access-groups-C6biHkvZ.mjs";
 import { t as fileExists } from "../file-access-runtime-CWjkXCju.mjs";
-import { a as buildUntrustedChannelMetadata, i as buildChannelMetadata, n as resolveExistingPathsWithinRoot, r as resolveStrictExistingPathsWithinRoot, t as pathScope } from "../security-runtime-HdPo6iAV.mjs";
+import { a as buildUntrustedChannelMetadata, i as buildChannelMetadata, n as resolveExistingPathsWithinRoot, r as resolveStrictExistingPathsWithinRoot, t as pathScope } from "../security-runtime-ByyEMO4I.mjs";
 export { FsSafeError, SsrFBlockedError, appendRegularFile, assertNoSymlinkParents, assertNoSymlinkParentsSync, buildChannelMetadata, buildUntrustedChannelMetadata, canonicalPathFromExistingAncestor, compileSafeRegexDetailed, ensurePortAvailable, evaluateSupplementalContextVisibility, expandAllowFromWithAccessGroups, extractErrorCode, fileExists, filterSupplementalContextItems, findExistingAncestor, formatErrorMessage, hasProxyEnvConfigured, isPathInside, isPrivateNetworkAllowedByPolicy, matchesHostnameAllowlist, movePathWithCopyFallback, normalizeHostname, openLocalFileSafely, parseAccessGroupAllowFromEntry, pathExists, pathExistsSync, pathScope, privateFileStoreSync, readRegularFile, readRegularFileSync, redactSensitiveText, replaceFileAtomic, resolveAbsolutePathForRead, resolveAbsolutePathForWrite, resolveExistingPathsWithinRoot, resolveLocalPathFromRootsSync, resolvePinnedHostnameWithPolicy, resolvePinnedMainDmOwnerFromAllowlist, resolvePreferredOpenClawTmpDir, resolveStrictExistingPathsWithinRoot, root, safeEqualSecret, sanitizeUntrustedFileName, shouldIncludeSupplementalContext, statRegularFile, statRegularFileSync, truncateSanitizedExternalContent, withTimeout, wrapExternalContent, wrapWebContent, writeExternalFileWithinRoot };

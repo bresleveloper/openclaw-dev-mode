@@ -1,8 +1,8 @@
-import { Am as TranscriptsStartResult, Bm as RealtimeVoiceCloseReason, Fm as RealtimeVoiceBargeInOptions, Gm as RealtimeVoiceTool, Hm as RealtimeVoiceProviderConfig, Im as RealtimeVoiceBridge, Km as RealtimeVoiceToolCallEvent, Lm as RealtimeVoiceBridgeCallbacks, Mm as RealtimeVoiceAgentConsultRunner, Nm as RealtimeVoiceAudioClearReason, Ns as OpenClawPluginApi, Om as TranscriptStartRequest, Pa as OpenClawPluginConfigSchema, Pm as RealtimeVoiceAudioFormat, Rm as RealtimeVoiceBridgeEvent, Um as RealtimeVoiceResponseOutcome, Vm as RealtimeVoiceProviderCapabilities, Wm as RealtimeVoiceRole, cc as OpenClawPluginNodeInvokePolicy, jm as TranscriptsStopResult, km as TranscriptStopRequest, mm as RealtimeVoiceProviderPlugin, oc as OpenClawPluginCliRootCommandDescriptor, pm as RealtimeTranscriptionProviderPlugin, qm as RealtimeVoiceToolResultOptions, ui as PluginRuntime, vo as RuntimeLogger, zm as RealtimeVoiceCloseOptions } from "../agent-harness-runtime-CWL0fcg5.js";
-import { r as OpenClawConfig } from "../types.openclaw-LzSbb55e.js";
-import "../config-CTir7RIz.js";
-import { Qt as TalkEventInput, Xt as TalkEvent, Zt as TalkEventContext } from "../diagnostic-events-Bs1JVD6b.js";
-import { n as callGatewayFromCli } from "../gateway-rpc-BAskVQCs.js";
+import { Am as TranscriptsStartResult, Bm as RealtimeVoiceCloseReason, Fm as RealtimeVoiceBargeInOptions, Gm as RealtimeVoiceTool, Hm as RealtimeVoiceProviderConfig, Im as RealtimeVoiceBridge, Km as RealtimeVoiceToolCallEvent, Lm as RealtimeVoiceBridgeCallbacks, Mm as RealtimeVoiceAgentConsultRunner, Nm as RealtimeVoiceAudioClearReason, Ns as OpenClawPluginApi, Om as TranscriptStartRequest, Pa as OpenClawPluginConfigSchema, Pm as RealtimeVoiceAudioFormat, Rm as RealtimeVoiceBridgeEvent, Um as RealtimeVoiceResponseOutcome, Vm as RealtimeVoiceProviderCapabilities, Wm as RealtimeVoiceRole, cc as OpenClawPluginNodeInvokePolicy, jm as TranscriptsStopResult, km as TranscriptStopRequest, mm as RealtimeVoiceProviderPlugin, oc as OpenClawPluginCliRootCommandDescriptor, pm as RealtimeTranscriptionProviderPlugin, qm as RealtimeVoiceToolResultOptions, ui as PluginRuntime, vo as RuntimeLogger, zm as RealtimeVoiceCloseOptions } from "../agent-harness-runtime-wMciqZ6Z.js";
+import { r as OpenClawConfig } from "../types.openclaw-Ccmw-oTa.js";
+import "../config-Dt1SOlIN.js";
+import { Qt as TalkEventInput, Xt as TalkEvent, Zt as TalkEventContext } from "../diagnostic-events-BO3qqTTl.js";
+import { n as callGatewayFromCli } from "../gateway-rpc-JavFiplO.js";
 import { TObject } from "typebox";
 import { Writable } from "node:stream";
 import { Command } from "commander";

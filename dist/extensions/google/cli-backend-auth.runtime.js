@@ -4,7 +4,7 @@ import { n as resolvePreferredOpenClawTmpDir } from "../../tmp-openclaw-dir-BSb3
 import { n as replaceFileAtomic } from "../../replace-file-DJtj9VLX.mjs";
 import { t as tempWorkspace } from "../../private-temp-workspace-DQFTMfun.mjs";
 import "../../string-coerce-runtime-C_MKhRVt.mjs";
-import "../../security-runtime-HdPo6iAV.mjs";
+import "../../security-runtime-ByyEMO4I.mjs";
 import { t as CliBackendAuthProfilePreparationError } from "../../cli-backend-errors-ngojFnXq.mjs";
 import "../../temp-path-PENdksor.mjs";
 import { n as resolveGeminiCliProfileHome$1, t as GOOGLE_GEMINI_CLI_PROVIDER_ID } from "../../gemini-cli-auth-home-CXgkYWW_.mjs";

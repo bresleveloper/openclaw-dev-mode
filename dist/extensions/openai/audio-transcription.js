@@ -1,12 +1,12 @@
 import { n as findNormalizedProviderValue } from "../../provider-id-DCtsDflE.mjs";
 import { o as hasConfiguredSecretInput } from "../../types.secrets-B5xWSzLp.mjs";
-import { B as isProviderAuthError, V as requireApiKey } from "../../loader-runtime-load-B1VUq2Pr.mjs";
+import { B as isProviderAuthError, V as requireApiKey } from "../../loader-runtime-load-DexWjDHZ.mjs";
 import { r as providerOperationRetryConfig } from "../../operation-retry-Dopl7EnK.mjs";
-import { n as executeWithApiKeyRotation, t as collectProviderApiKeysForExecution } from "../../api-key-rotation-BwLku83-.mjs";
-import { t as transcribeOpenAiCompatibleAudio } from "../../media-understanding-CIk1GBQr.mjs";
-import { a as resolveApiKeyForProvider } from "../../provider-auth-runtime-BimWo0Fm.mjs";
+import { n as executeWithApiKeyRotation, t as collectProviderApiKeysForExecution } from "../../api-key-rotation-7uaSZOty.mjs";
+import { t as transcribeOpenAiCompatibleAudio } from "../../media-understanding-DgWYlNMh.mjs";
+import { a as resolveApiKeyForProvider } from "../../provider-auth-runtime-BWjBKWym.mjs";
 import "../../provider-http-Dn9NddwC.mjs";
-import "../../provider-auth-Da-_mZ0a.mjs";
+import "../../provider-auth-DFHjplgz.mjs";
 import { i as classifyOpenAIBaseUrl, t as OPENAI_API_BASE_URL } from "../../base-url-CsNC9nJ8.mjs";
 import { n as OPENAI_DEFAULT_AUDIO_TRANSCRIPTION_MODEL } from "../../default-models-DOFL1mMC.mjs";
 //#region extensions/openai/audio-transcription.ts

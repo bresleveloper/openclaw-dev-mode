@@ -12,7 +12,7 @@ import "../../response-limit-runtime-Wtkm2X7a.mjs";
 import { t as definePluginEntry } from "../../plugin-entry-BOulgRcx.mjs";
 import "../../file-access-runtime-CWjkXCju.mjs";
 import "../../ssrf-runtime-Darh53Ay.mjs";
-import "../../plugin-runtime-5mpp7gj4.mjs";
+import "../../plugin-runtime-BzN5G15j.mjs";
 import "../../state-paths-Bk2vDLZh.mjs";
 import { promisify } from "node:util";
 import path from "node:path";

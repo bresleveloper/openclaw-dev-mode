@@ -1,5 +1,5 @@
-import { i as ModelDefinitionConfig, n as OpenClawConfig, s as ModelProviderConfig } from "../../types.openclaw-BGrO5JfP.js";
-import "../../provider-model-types-Cwmgnlmb.js";
+import { i as ModelDefinitionConfig, n as OpenClawConfig, s as ModelProviderConfig } from "../../types.openclaw-DTrzhGcB.js";
+import "../../provider-model-types-Di9oAVgV.js";
 //#region extensions/huggingface/models.d.ts
 export declare const HUGGINGFACE_BASE_URL: string;
 export declare const HUGGINGFACE_POLICY_SUFFIXES: readonly ["cheapest", "fastest"];

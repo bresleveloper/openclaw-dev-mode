@@ -1,5 +1,5 @@
-import { P as ChannelToolSend } from "../types.core-D1MQo5ra.js";
-import "../types.public-B8oQ1D30.js";
+import { P as ChannelToolSend } from "../types.core-BfkZpaZ6.js";
+import "../types.public-DBD5_XgT.js";
 //#region src/plugin-sdk/tool-send.d.ts
 /** Extract the canonical send target fields from tool arguments when the action matches. */
 export declare function extractToolSend(
