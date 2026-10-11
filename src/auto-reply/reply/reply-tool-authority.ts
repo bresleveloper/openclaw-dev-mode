@@ -21,7 +21,8 @@ import { normalizeChatType } from "../../channels/chat-type.js";
 import { cloneConfigWithResolutionFacts } from "../../config/resolution-facts.js";
 import type { SessionEntry } from "../../config/sessions.js";
 import { resolveGroupSessionKey } from "../../config/sessions/group.js";
-import { isDevMode } from "../../globals.js";
+// SEC-100 disabled 2026-10-11, restore together with isReplyToolAllowed():
+// import { isDevMode } from "../../globals.js";
 import { GATEWAY_OWNER_ONLY_CORE_TOOLS } from "../../security/dangerous-tools.js";
 import { resolveGlobalSingleton } from "../../shared/global-singleton.js";
 import type { RuntimeMsgContext } from "../templating.js";
@@ -274,11 +275,12 @@ function isReplyToolAllowed(
   });
   return isToolAllowedByPolicies(toolName, [
     ...Object.values(policies),
-    // SEC-100: dev-mode is a single-owner box, so owner-only tools stay available on every turn
-    // (update.run keeps its own owner check in gateway-tool.ts).
-    input.run.senderIsOwner === false && !isDevMode()
-      ? { deny: [...GATEWAY_OWNER_ONLY_CORE_TOOLS] }
-      : undefined,
+    // SEC-100 disabled 2026-10-11 (Ariel: owner comes from commands.ownerAllowFrom now).
+    // To restore, swap the active line for the commented block (and the isDevMode import):
+    // input.run.senderIsOwner === false && !isDevMode()
+    //   ? { deny: [...GATEWAY_OWNER_ONLY_CORE_TOOLS] }
+    //   : undefined,
+    input.run.senderIsOwner === false ? { deny: [...GATEWAY_OWNER_ONLY_CORE_TOOLS] } : undefined,
   ]);
 }
 
