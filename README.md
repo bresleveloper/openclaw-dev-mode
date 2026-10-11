@@ -23,6 +23,9 @@ saving full log to enjoy my journey with OC ♥
 
 ## CHANGE LOG
 
+- 2026-10-11
+  - disabled SEC-100 (commented out) => owner now from `commands.ownerAllowFrom`
+  - FIX-09 hardcoded block for OpenClaw update => an update would overwrite the fork
 - 2026-10-06 - - FIX-07 created `openclaw config validate --fix` to fix only the `openclaw.json` 
 - 2026-09-28
   - updated to v2026.9.6 
@@ -112,7 +115,7 @@ Gated by `OPENCLAW_DEV_MODE=1`. Each is a minimal `if (isDevMode()) { … }` che
 | SEC-79  | 50MB prompt cap (instead of 2MB)                                                                                                                     |
 | SEC-98  | Remove restrictive prompt sections (approval, config caution) + add permissive safety line + agent never updates OpenClaw (would overwrite the fork) |
 | SEC-99  | Skip elevated permission gates when dev-mode + Full profile                                                                                          |
-| SEC-100 | All owner-only tools (`gateway`, `openclaw`, `nodes`, `cron`...) available on every turn in dev-mode - i'm the only owner                            |
+| SEC-100 | DISABLED 2026-10-11 (commented out) - owner comes from `commands.ownerAllowFrom` now. Was: all owner-only tools on every turn |
 | SEC-101 | Skip message-provider tool filtering in dev-mode — all tools on all channels (Discord, node, etc.)                                                   |
 | SEC-102 | Local media root checks skipped in dev-mode — file/media tools can read from any path                                                                |
 
@@ -133,6 +136,7 @@ All gated by `OPENCLAW_DEV_MODE=1` alone — no extra flags to remember.
 | FIX-01 | Auto-bootstrap `MEMORY.md` in new workspaces (right after onboarding)                                                                                                     |
 | FIX-04 | revised to new global hook for `/new` and `/reset` and `/compact` and `auto-compact` to enable the greeting                                                                                                                                  |
 | FIX-07 | created `openclaw config validate --fix` to fix only the `openclaw.json`                                                                                                      |
+| FIX-09 | hardcoded block for OpenClaw update (`/update`, `openclaw update`, Control UI, auto-update) - an update would overwrite the fork |
 
 
 ## How to install
