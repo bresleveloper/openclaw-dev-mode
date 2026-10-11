@@ -1,7 +1,7 @@
 # How OpenClaw drives Claude Code (`claude-cli` runtime) — V2026.9.6
 
-Written 2026-10-11 from the 9.6 source and docs. Companion: `dev-mode/claude-compliance.md` (Anthropic's
-rules and how this setup follows them).
+Written 2026-10-11 from the 9.6 source and docs. Companion: `dev-mode/claude-sub/claude-compliance.md`
+(Anthropic's rules and how this setup follows them).
 
 ## TL;DR
 
@@ -128,3 +128,7 @@ they run and keeps the process until they finish (`cli.runtime.ts:20-24,264-330`
 - **Claude Code's own Agent tool** runs inside the parent's process — same limits, invisible to OpenClaw's
   session list.
 - **Children on Ollama models** run in OpenClaw's embedded loop against Ollama Cloud; no Claude involved.
+- **Tested 2026-10-11**: Ariel had main spawn a child on a Claude model, and it worked (Ollama Cloud was out
+  of quota, so Claude was the only option). The 2026-10-10 child crashes (`session writer claim changed
+before transcript persistence`, `session rebound for sessionKey`) were never investigated; if a child
+  dies, grep the gateway log for those strings first.

@@ -1,3 +1,10 @@
+> **Superseded on 2026-10-11. Read `claude-compliance.md` first.** Later on 2026-10-10 (21:37 UTC), main
+> moved to the `claude-cli` runtime: the official Claude Code binary, with the token on fd 3. The
+> `user-agent` header overlay in this recipe was then REMOVED. With the setup-token, that overlay makes
+> OpenClaw's own HTTP client pose as Claude Code, and Anthropic bills that as extra usage or rejects it.
+> Never re-add it. A `400 claude_code_version_too_old` now means some model is on the embedded route, so
+> fix the routing, not the header. This file is kept as the setup and troubleshooting history.
+
 tasks (2026-10-10, Windows PC session):
 
 1. "need help, trying to get my dev openclaw to run with claude according to this https://docs.openclaw.ai/providers/anthropic, with tos change of this […], but i cant manage to succeed. connect to the dev vps and make it so that the main agent (only) is running opus 5.5 (the rest of everything, the "defaults" should stay at ollama kimi 2.7). also change the default of main agent only to thinking high. create a copy in /tmp/whatever of anything you change in case something breaks"

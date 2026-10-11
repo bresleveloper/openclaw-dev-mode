@@ -16,7 +16,9 @@
 
 Written 2026-10-11. Not legal advice. Anthropic changes these rules often and says it may enforce them
 "without prior notice", so re-read the sources below before relying on this page. How the runtime works
-in detail: `dev-mode/claude-cli-flow.md`.
+in detail: `dev-mode/claude-sub/claude-cli-flow.md`. How it was set up and debugged on 2026-10-10:
+`dev-mode/claude-sub/my.2026.10.10.claude-opus-handoff.md` (history: its `user-agent` overlay is gone,
+see "Rules of thumb").
 
 ## How the VPS follows those steps
 
@@ -98,7 +100,7 @@ Claude Code process (`src/agents/isolated-completion.ts`); otherwise they take r
   or `~/.openclaw/.env`.
 - The live Claude Code process of main's WhatsApp session runs the official binary as a child of the
   gateway, with `CLAUDE_CODE_OAUTH_TOKEN_FILE_DESCRIPTOR=3` and no token or API-key variable in its
-  environment. Its full command line is in `dev-mode/claude-cli-flow.md`.
+  environment. Its full command line is in `dev-mode/claude-sub/claude-cli-flow.md`.
 - `main` → `anthropic/claude-opus-5-5`, fallback `ollama/kimi-k2.7-code:cloud`. All 10 `anthropic/*`
   entries in `agents.defaults.models` carry `agentRuntime.id: "claude-cli"`: opus-5-5, haiku-5-5,
   opus-5, sonnet-5, fable-5-1, fable-5, opus-4-8, opus-4-7, sonnet-4-6 and opus-4-6.
@@ -112,6 +114,8 @@ Claude Code process (`src/agents/isolated-completion.ts`); otherwise they take r
   (route B). That produced 34 direct Opus calls with HTTP 200 (20:35–21:35), 14 version-gate `400`s
   (20:22–21:38) and 1 transport error. The first Claude Code run was at 21:37, followed by 13 more until
   23:55. Direct Haiku calls ran all evening: 40 calls with HTTP 200, 20:24–23:31.
+- Later on 2026-10-11, per Ariel: an OpenClaw subagent on a Claude model ran fine, tested while Ollama
+  Cloud was out of quota. Which route it took wasn't checked; use the re-check greps below.
 
 ## Known gaps
 

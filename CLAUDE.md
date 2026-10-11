@@ -60,6 +60,7 @@ Never log VPS connection details in commits or output. Batch commands into few s
 - **Owner (2026-10-11)**: `commands.ownerAllowFrom` = Ariel's WhatsApp number + Discord user id (`whatsapp:+…`, `discord:<id>` — the `discord:user:<id>` form is skipped by the matcher). It is the only source of owner status for chat turns now that SEC-100 is disabled. Config backup from before: `~/.openclaw/openclaw.json.pre-2026-10-11-fix09`.
 - **Node**: v24.21.0 (nodesource apt, 2026-09-28) — satisfies 9.6 engines. OS: Ubuntu 24.04; pnpm 12.4.0 via `npm i -g`
 - **Models (2026-09-28)**: default `ollama/kimi-k2.7-code:cloud`; `ollama/glm-5.3-flash:cloud` configured (reasoning always on, tools, 1M ctx, paid via Ollama Cloud credits) — good for testing 💭. Web search: `tools.web.search.provider = ollama` (works with any model; Z.ai's native search is not an OpenClaw provider).
+- **Main agent on the Claude subscription (since 2026-10-10)**: `main` → `anthropic/claude-opus-5-5` (thinking `high`, fallback `ollama/kimi-k2.7-code:cloud`, `heartbeat.every: "0m"`) through the `claude-cli` runtime. Each session is a warm official `claude` binary (`/root/.local/bin/claude`, native installer; run `claude update` now and then) that gets Ariel's `claude setup-token` token on fd 3 (profile `anthropic:manual`, stored with `openclaw models auth paste-token --provider anthropic --agent main`). All 10 configured `anthropic/*` models carry `agentRuntime.id: "claude-cli"`. A Claude model without that route runs embedded and calls the API directly with the token (extra usage). Never add a `user-agent` or other header overlay on `models.providers.anthropic`. Known gap: the utility model `anthropic/claude-haiku-4-5` still calls the API directly (Ariel is handling it). Docs: `dev-mode/claude-sub/`.
 
 ## Build & Deploy
 
@@ -162,6 +163,7 @@ Upstream files carry small guarded hooks; fork-owned files hold the logic.
 - `.env` loading: CWD `.env`, then `~/.openclaw/.env`.
 - Plugins: `openclaw.plugin.json` manifest + `register(api)`; discovered from `plugins.load.paths` + `extensions/`. Extension code can't import `src/` — use `openclaw/plugin-sdk/*` or read `params.cfg`.
 - Owner ≠ allowlisted: owner comes from `commands.ownerAllowFrom` / channel owner entries / Control UI admin scope (`src/auto-reply/command-auth.ts:455-520`). Senderless turns (cron, hooks, `sessions_send`, heartbeat) never match; the claude-cli MCP grant turns an unknown owner into `false` (`src/agents/cli-runner/mcp-grant-context.ts:235`). Owner status does not raise the operator-scope ceiling (that is FIX-08's problem).
+- Owner test from chat: `/update` is an owner-only gateway control command with `silentUnauthorized` (`src/auto-reply/reply/command-gates.ts`). A non-owner gets no reply at all; the owner gets "⚠️ Update request failed: … (openclaw-dev-mode FIX-09)". `/debug` is a poor test: it also needs `commands.debug` (`configKey: "debug"`, `src/auto-reply/reply/commands-config.ts:167-171`), which is off on the VPS.
 - Sessions (9.6): no automatic reset by default (`src/config/sessions/reset-policy.ts`); any `session.reset` block re-enables daily. Compaction manages size with a pre-compaction memory flush.
 - Bootstrap files (MEMORY.md etc.) are injected into agent context, max 20K chars each.
 
@@ -180,6 +182,7 @@ Upstream files carry small guarded hooks; fork-owned files hold the logic.
 - **WA listener needs ~2 min after an upgrade restart** (`No active WhatsApp Web listener` meanwhile). Check `/tmp/openclaw/openclaw-*.log` only if it persists.
 - **VPS watchdog flags our SSH bursts** (many sub-2-second root logins, key comment `claude-code-dev-vps`) and asks Ariel whether to block the IP. Correlate timestamps with our session; never block the IP or revoke the key over a burst alone.
 - Channels are `["whatsapp", "discord"]` since the kapso teardown; implicit sends work again.
+- **Ollama Cloud quota**: once the plan limit is hit (`429 You reached your Pro weekly limit`), `ollama:default` goes into a long cooldown. Every kimi/glm agent, and main's fallback, then fails until the limit resets (2026-10-10, still out on 10-11). Test on a Claude model meanwhile.
 
 ## WhatsApp Notes
 
@@ -221,10 +224,15 @@ Clean-room from tag `v2026.9.6` (upstream 2026-09-22), ~33.4k commits / 48k file
 
 **Pre-existing test failure**: `src/acp/translator.abort-cause.e2e.test.ts` fails on pristine `v2026.9.6` too (Linux, Node 26.8; A/B verified) — ignore.
 
-**First-deploy checklist for 9.6 (VPS)**: snapshot `~/.openclaw`; upgrade pnpm to 12.4.0; update recipe; confirm no `session.reset` block in `openclaw.json` (any block re-enables daily reset); check `agents.defaults.subagents.maxSpawnDepth` isn't pinned below 5; `openclaw hooks enable session-memory < /dev/null`; `openclaw doctor --fix < /dev/null` and read every warning; restart; WA checks (checklist item 5); `/reasoning on` in self-chat → `💭 Reasoning:` messages, no loop, no `Dropped self-chat reasoning echo` log line; `/status` shows `▶️ Active model`; `commands.ownerAllowFrom` set → `/debug show` works from WhatsApp and the agent can use `gateway` there (SEC-100 disabled 2026-10-11); `/update` and `openclaw update --dry-run < /dev/null` refuse with the FIX-09 message.
+**First-deploy checklist for 9.6 (VPS)**: snapshot `~/.openclaw`; upgrade pnpm to 12.4.0; update recipe; confirm no `session.reset` block in `openclaw.json` (any block re-enables daily reset); check `agents.defaults.subagents.maxSpawnDepth` isn't pinned below 5; `openclaw hooks enable session-memory < /dev/null`; `openclaw doctor --fix < /dev/null` and read every warning; restart; WA checks (checklist item 5); `/reasoning on` in self-chat → `💭 Reasoning:` messages, no loop, no `Dropped self-chat reasoning echo` log line; `/status` shows `▶️ Active model`; `commands.ownerAllowFrom` set → `/update` from WhatsApp answers with the FIX-09 message (no reply at all = not owner) and the agent can use `gateway` `config.get` there (SEC-100 disabled 2026-10-11); `openclaw update --dry-run < /dev/null` refuses with the FIX-09 message.
 
 ## Open Items
 
+- **Claude as main driver + subagents** (Ariel 2026-10-11: "claude as my main agent driver, and spawn subagents"). Driver = `claude-cli` only. Subagents = both OpenClaw `sessions_spawn` and Claude Code's own Agent tool. Children may run any Claude or Ollama model. Done and deployed 2026-10-11: SEC-100 disabled + `commands.ownerAllowFrom`, and FIX-09. Ariel's test of a `sessions_spawn` child on a Claude model passed the same day. Next, in order:
+  1. **FIX-08**: on `claude-cli` runs, the `openclaw` tool fails with `missing scope: operator.admin`, while read/write tools such as `gateway` `config.get` pass. Loopback-MCP tool calls dispatch in-process with least-privilege scopes. `resolveInProcessGatewaySyntheticScopes` (`src/gateway/server-plugin-in-process-scopes.ts`) then projects them onto a non-admin ceiling. Top hypothesis: the lazily started loopback listener (`ensureMcpLoopbackServer`, `src/gateway/mcp-http.ts`) inherits the AsyncLocalStorage request scope of whichever gateway request booted it. Ariel has the VPS agent's brief (`FIX-08-operator-admin-scope.md`, 2026-10-10; not in the repo, since it holds his number). It says to instrument first: log `operatorScopes` in `server-plugin-in-process-dispatch.ts` and `server-plugin-in-process-scopes.ts`, then call `openclaw` from WhatsApp.
+  2. Child crashes seen 2026-10-10 (`session writer claim changed before transcript persistence`, `session rebound for sessionKey`) were never investigated. If a child dies, grep the log for those strings.
+  3. Any Claude model a child may use needs a `claude-cli` route; a wildcard `agents.defaults.models["anthropic/*"]` entry also covers future models. Otherwise the child runs embedded on the token.
+  4. Claude Code's own Agent tool inside main's process: the runtime supports background agents (`extensions/anthropic/cli.runtime.ts`); confirm OpenClaw's tool policy lets it run.
 - Delete `/root/.openclaw.bak-pre-9.6-20260928` (9.6 GB) once 9.6 is trusted.
 - `doctor` advisories: legacy `agents.defaults.models` needs explicit provider/model refs before it can migrate to `agents.defaults.modelPolicy.allow`; bundled `github` plugin not in `plugins.allow` (link previews off); 9 historical transcripts deferred (header mismatch, originals untouched); command owner configured 2026-10-11 (`commands.ownerAllowFrom`, WhatsApp + Discord), `/update` hard-blocked by FIX-09; service policy refresh skipped because `~/.openclaw` is owned by `coder`.
 - Gateway token NOT rotated (was plaintext in the deleted kapso-era `wa-claw-panel.service`) — Ariel's call.
@@ -237,13 +245,15 @@ Clean-room from tag `v2026.9.6` (upstream 2026-09-22), ~33.4k commits / 48k file
 ```
 dev-mode/
   install-guide.md        -- fork install/update guide
-  claude-compliance.md    -- using the Claude subscription with OpenClaw: Anthropic's rules, routes, verified VPS state
-  claude-cli-flow.md      -- how the claude-cli runtime drives Claude Code per turn (observed argv)
+  claude-sub/             -- main agent on the Claude subscription (2026-10-10/11)
+    claude-compliance.md  -- Anthropic's rules, the 3 routes, verified VPS state, re-check commands
+    claude-cli-flow.md    -- how the claude-cli runtime drives Claude Code per turn (observed argv)
+    my.2026.10.10.claude-opus-handoff.md -- setup + troubleshooting history (its user-agent overlay is superseded)
   tmp/                    -- gitignored scratch (VPS log copies); never commit
   link-dist-plugin-deps.sh -- VPS: link bundled plugins to their pnpm deps (update recipe)
   open-ideas/             -- parked ideas (subagent-talk.md)
   list.sec/               -- original per-item security plans (historical, 2026-03)
-  my-archive/             -- session notes/handoffs (latest: my.2026.09.28.md — the 9.6 upgrade)
+  my-archive/             -- session notes/handoffs (latest: my.2026.10.07.greeting-handoff.md; 9.6 upgrade: my.2026.09.28.md)
   trouble-shooting/       -- rescue + WhatsApp troubleshooting notes
   system-prompt/          -- captured system prompt (2026.5.2)
 extensions/whatsapp/src/dev-mode/   -- wa-history, reasoning (SEC-WA1), echo-guard
