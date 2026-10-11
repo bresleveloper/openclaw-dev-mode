@@ -3,6 +3,11 @@ import { classifyUpdateOutcome } from "../shared/update-outcome.js";
 import { VERSION } from "../version.js";
 import { extractErrorCode, formatErrorMessage } from "./errors.js";
 import {
+  FORK_UPDATE_BLOCKED_MESSAGE,
+  FORK_UPDATE_BLOCKED_REASON,
+  isForkUpdateBlocked,
+} from "./fork-update-block.js";
+import {
   EXTERNAL_SUPERVISOR_UPDATE_REQUIRED_REASON,
   isGatewayExternallySupervised,
 } from "./gateway-supervision.js";
@@ -80,6 +85,10 @@ export async function runAutoUpdateCommand(
     },
     message,
   });
+  // FIX-09 (fork): OpenClaw updates are hard-disabled; see fork-update-block.ts.
+  if (isForkUpdateBlocked()) {
+    return failure(FORK_UPDATE_BLOCKED_REASON, FORK_UPDATE_BLOCKED_MESSAGE, "skipped");
+  }
   if (isGatewayExternallySupervised()) {
     return failure(
       EXTERNAL_SUPERVISOR_UPDATE_REQUIRED_REASON,

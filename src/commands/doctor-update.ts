@@ -5,6 +5,7 @@ import { normalizeLowercaseStringOrEmpty } from "@openclaw/normalization-core/st
 import { note } from "../../packages/terminal-core/src/note.js";
 import { formatCliCommand } from "../cli/command-format.js";
 import { isTruthyEnvValue } from "../infra/env.js";
+import { isForkUpdateBlocked } from "../infra/fork-update-block.js";
 import { UPDATE_RUNNER_TIMEOUT_MS } from "../infra/update-run-timeouts.js";
 import { runCommandWithTimeout } from "../process/exec.js";
 import type { DoctorOptions } from "./doctor-prompter.js";
@@ -46,6 +47,11 @@ export async function maybeOfferUpdateBeforeDoctor(params: {
   handled?: boolean;
   reason?: "gateway-readiness-unverified" | "still-starting";
 }> {
+  // FIX-09 (fork): OpenClaw updates are hard-disabled, so doctor never offers one.
+  // See src/infra/fork-update-block.ts.
+  if (isForkUpdateBlocked()) {
+    return { updated: false };
+  }
   const updateInProgress = isTruthyEnvValue(process.env.OPENCLAW_UPDATE_IN_PROGRESS);
   const canOfferUpdate =
     !updateInProgress &&

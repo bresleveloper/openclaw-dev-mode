@@ -1,4 +1,5 @@
 import { theme } from "../../../packages/terminal-core/src/theme.js";
+import { assertForkUpdateAllowed } from "../../infra/fork-update-block.js";
 import { resolveUpdateFinalizationTimeoutMs } from "../../infra/update-finalization-budget.js";
 import type { RetainUpdateRuntime } from "../../infra/update-retained-runtime.js";
 import { finishUpdateRun, recordUpdateRunPhase } from "../../infra/update-run-ledger.js";
@@ -45,6 +46,8 @@ import { withUpdateCommandRecoveryUnwind } from "./update-command-unwind.js";
 type PreparedUpdate = NonNullable<Awaited<ReturnType<typeof prepareUpdateCommand>>>;
 
 export async function updateCommand(inputOpts: UpdateCommandOptions): Promise<void> {
+  // FIX-09 (fork): OpenClaw updates are hard-disabled; see src/infra/fork-update-block.ts.
+  assertForkUpdateAllowed();
   const { withRetainedUpdateRuntime } = await import("../../infra/update-retained-runtime.js");
   return await withRetainedUpdateRuntime(import.meta.url, (retainRuntime) =>
     updateCommandWithRuntime(inputOpts, retainRuntime),

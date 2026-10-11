@@ -1,5 +1,6 @@
 // Shared test setup installs common Vitest mocks and cleanup behavior.
 import { vi } from "vitest";
+import { setForkUpdateBlockForTest } from "../src/infra/fork-update-block.js";
 import { installProcessWarningFilter } from "../src/infra/warning-filter.js";
 import { withIsolatedTestHome } from "./test-env.js";
 
@@ -42,6 +43,10 @@ vi.mock("@mariozechner/clipboard", () => ({
 
 // Ensure Vitest environment is properly set.
 process.env.VITEST = "true";
+// openclaw-dev-mode FIX-09: OpenClaw updates are hard-blocked in production. Lift the block at
+// module top level (it runs for every isolated test file) so upstream's update-flow tests keep
+// exercising the real paths; src/infra/fork-update-block.test.ts turns it back on.
+setForkUpdateBlockForTest(false);
 // Tests frequently point bundled plugin discovery at temp fixture roots. Production still rejects
 // arbitrary OPENCLAW_BUNDLED_PLUGINS_DIR overrides unless this Vitest-only opt-in is present.
 process.env.OPENCLAW_TEST_TRUST_BUNDLED_PLUGINS_DIR ??= "1";
