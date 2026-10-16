@@ -3,7 +3,7 @@ import { clearBootstrapSnapshot } from "../../agents/bootstrap-cache.js";
 import { clearAllCliSessions } from "../../agents/cli-session.js";
 import { resetConfiguredBindingTargetInPlace } from "../../channels/plugins/binding-targets.js";
 import { updateSessionEntry } from "../../config/sessions/session-accessor.js";
-import { logVerbose } from "../../globals.js";
+import { isDevMode, logVerbose } from "../../globals.js";
 import { isAcpSessionKey } from "../../routing/session-key.js";
 import { isInternalMessageChannel } from "../../utils/message-channel.js";
 import { isResetAuthorizedForContext } from "../command-auth.js";
@@ -176,10 +176,12 @@ export async function maybeHandleResetCommand(
     sessionEntry: targetSessionEntry,
     onObservedReplyDelivery: params.opts?.onObservedReplyDelivery,
   });
+  // FIX-04: in dev-mode a bare reset ends without the canned ACK; the dev-mode-greeting hook
+  // (src/hooks/bundled/dev-mode-greeting) wakes the agent to greet the user instead.
   if (!resetTail) {
     return {
       shouldContinue: false,
-      ...(hookResult.routedReply
+      ...(hookResult.routedReply || isDevMode()
         ? {}
         : {
             reply: {

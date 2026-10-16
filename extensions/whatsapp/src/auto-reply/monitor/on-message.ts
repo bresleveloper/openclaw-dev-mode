@@ -13,6 +13,7 @@ import { resolveAgentRoute, buildGroupHistoryKey } from "openclaw/plugin-sdk/rou
 import { logVerbose } from "openclaw/plugin-sdk/runtime-env";
 import { normalizeE164 } from "openclaw/plugin-sdk/text-utility-runtime";
 import { resolveWhatsAppAccount } from "../../accounts.js";
+import { isDevModeSelfChatReasoningEcho } from "../../dev-mode/echo-guard.js";
 import { resolveWhatsAppGroupSessionRoute } from "../../group-session-key.js";
 import { getPrimaryIdentityId, getSenderIdentity } from "../../identity.js";
 import { requireWhatsAppInboundAdmission } from "../../inbound/admission.js";
@@ -129,6 +130,11 @@ export function createWebOnMessageHandler(params: {
 
     if (conversationId === msg.platform.recipientJid) {
       logVerbose(`📱 Same-phone mode detected (from === to: ${conversationId})`);
+    }
+    // [dev-mode] SEC-WA1 safety net against self-chat reasoning loops; upstream's
+    // message-id echo dedupe is the primary defense. See dev-mode/echo-guard.ts.
+    if (isDevModeSelfChatReasoningEcho(msg, conversationId)) {
+      return;
     }
 
     const configuredRoute = resolveConfiguredBindingRoute({

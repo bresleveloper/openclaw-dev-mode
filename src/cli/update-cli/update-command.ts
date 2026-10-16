@@ -1,4 +1,5 @@
 import { theme } from "../../../packages/terminal-core/src/theme.js";
+import { assertForkUpdateAllowed } from "../../infra/fork-update-block.js";
 import type { PackageActivationRuntime } from "../../infra/package-update-activation-runtime.types.js";
 import { tryProcessCwd } from "../../infra/safe-cwd.js";
 import { normalizeUpdateChannel } from "../../infra/update-channels.js";
@@ -58,6 +59,8 @@ export async function updateCommand(
   inputOpts: UpdateCommandOptions,
   executorOptions?: UpdateCommandExecutorOptions,
 ): Promise<void> {
+  // FIX-09 (fork): OpenClaw updates are hard-disabled; see src/infra/fork-update-block.ts.
+  assertForkUpdateAllowed();
   return await withDeferredDebugProxyCapture(async () => {
     const { tryRunImmutableUpdateCommand } = await import("./update-command-immutable.js");
     if (await tryRunImmutableUpdateCommand(inputOpts)) {

@@ -50,6 +50,7 @@ import {
 } from "../config/sessions/model-override-provenance.js";
 import type { OpenClawConfig } from "../config/types.openclaw.js";
 import { readRecentSessionUsageFromTranscript } from "../gateway/session-transcript-usage.js";
+import { isDevMode } from "../globals.js";
 import { formatDurationCompact } from "../infra/format-time/format-duration.ts";
 import { formatTimeAgo } from "../infra/format-time/format-relative.ts";
 import type {
@@ -934,6 +935,12 @@ export function buildStatusMessageParts(args: StatusArgs): StatusMessageParts {
       } (${fallbackState.reason ?? "selected model unavailable"})`
     : null;
   const fallbackLine = fallbackValue ? `↪️ Fallback: ${fallbackValue}` : null;
+  // FIX-03: dev-mode always shows the model/auth that actually ran, not only
+  // during an active fallback, so config-vs-runtime drift is visible.
+  const activeModelValue = isDevMode()
+    ? `${activeModelLabel}${activeAuthLabelValue ? ` · 🔑 ${activeAuthLabelValue}` : ""}`
+    : null;
+  const activeModelLine = activeModelValue ? `▶️ Active model: ${activeModelValue}` : null;
   const commit = resolveRuntimeServiceCommit();
   const versionLine = `🦞 OpenClaw ${VERSION}${commit ? ` (${commit})` : ""}`;
   const tokensValue = formatTokensPairValue(inputTokens, outputTokens);
@@ -963,6 +970,7 @@ export function buildStatusMessageParts(args: StatusArgs): StatusMessageParts {
     [versionLine, timeLine, uptimeLine],
     [
       `🧠 Model: ${modelValue}`,
+      activeModelLine,
       `🌐 Endpoint: ${selectedEndpoint ?? "unknown"}`,
       selectedAuthLabelValue ? `🔑 Auth: ${selectedAuthLabelValue}` : null,
       configuredFallbacksLine,
@@ -1004,6 +1012,7 @@ export function buildStatusMessageParts(args: StatusArgs): StatusMessageParts {
     }
   };
   pushStatusRow("🧠 Model", modelValue);
+  pushStatusRow("▶️ Active model", activeModelValue);
   pushStatusRow("🌐 Endpoint", selectedEndpoint ?? "unknown");
   pushStatusRow("🔑 Auth", selectedAuthLabelValue);
   pushStatusRow("🔄 Fallbacks", configuredFallbacks?.join(", "));

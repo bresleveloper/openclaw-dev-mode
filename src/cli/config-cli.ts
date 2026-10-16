@@ -2,7 +2,7 @@ import type { Command } from "commander";
 import { formatConfigIssueLines, normalizeConfigIssues } from "../config/issue-format.js";
 import { renderConfigValidationIssueLines } from "../config/issue-location.js";
 import { CONFIG_PATH, resolveConfigPath } from "../config/paths.js";
-import { danger, success, warn } from "../globals.js";
+import { danger, isDevMode, success, warn } from "../globals.js";
 import { formatErrorMessage } from "../infra/errors.js";
 import {
   ExitError,
@@ -141,7 +141,9 @@ export async function runConfigGet(opts: { path: string; json?: boolean; runtime
       pluginMetadataSnapshot.manifestRegistry,
       snapshot.sourceConfig,
     );
-    const res = getAtPath(redactConfigObject(snapshot.config, uiHints), parsedPath);
+    // SEC-72: dev-mode shows secrets in `config get`.
+    const visible = isDevMode() ? snapshot.config : redactConfigObject(snapshot.config, uiHints);
+    const res = getAtPath(visible, parsedPath);
     if (!res.found || res.value === undefined) {
       const message = isConfigSchemaPath(schema, parsedPath)
         ? `Config path is valid but unset: ${opts.path}. The runtime default applies until you set an authored value with ${formatCliCommand(`openclaw config set ${quoteCliArg(opts.path)} <value>`)}.`
@@ -243,10 +245,21 @@ async function runConfigSchema(opts: { runtime?: RuntimeEnv } = {}) {
   }
 }
 
-async function runConfigValidate(opts: { json?: boolean; runtime?: RuntimeEnv } = {}) {
+async function runConfigValidate(
+  opts: { json?: boolean; fix?: boolean; dryRun?: boolean; runtime?: RuntimeEnv } = {},
+) {
   const runtime = opts.runtime ?? defaultRuntime;
   let outputPath = CONFIG_PATH ?? "openclaw.json";
   try {
+    // FIX-07: `--fix` runs doctor's config-only repairs first (src/cli/config-validate-fix.ts).
+    const fixJson = opts.fix
+      ? await (
+          await import("./config-validate-fix.js")
+        ).runConfigValidateFix({ runtime, json: opts.json === true, dryRun: opts.dryRun === true })
+      : {};
+    if (!fixJson) {
+      return;
+    }
     const { readConfigFileSnapshotWithPluginMetadata } = await import("../config/config.js");
     const { formatInvalidConfigRepairHint, finishConfigValidationForCli } =
       await import("./config-cli-validation.js");
@@ -280,6 +293,7 @@ async function runConfigValidate(opts: { json?: boolean; runtime?: RuntimeEnv } 
           valid: false,
           path: outputPath,
           issues,
+          ...fixJson,
         });
       } else {
         runtime.error(`Config needs correction: ${shortPath}`);
@@ -298,7 +312,7 @@ async function runConfigValidate(opts: { json?: boolean; runtime?: RuntimeEnv } 
     }
     const warnings = normalizeConfigIssues(snapshot.warnings);
     if (opts.json) {
-      writeRuntimeJson(runtime, { valid: true, path: outputPath, warnings }, 0);
+      writeRuntimeJson(runtime, { valid: true, path: outputPath, warnings, ...fixJson }, 0);
     } else {
       runtime.log(success(`Config valid: ${shortPath}`));
       if (warnings.length > 0) {
@@ -479,7 +493,17 @@ export function registerConfigCli(program: Command) {
     .command("validate")
     .description("Validate the current config against the schema without starting the gateway")
     .option("--json", "Output validation result as JSON", false)
+    .option(
+      "--fix",
+      "Apply doctor's config-only repairs (legacy keys, old value formats, unknown keys) before validating",
+      false,
+    )
+    .option("--dry-run", "With --fix: show the repairs without writing", false)
     .action(async (opts) => {
-      await runConfigValidate({ json: Boolean(opts.json) });
+      await runConfigValidate({
+        json: Boolean(opts.json),
+        fix: Boolean(opts.fix),
+        dryRun: Boolean(opts.dryRun),
+      });
     });
 }

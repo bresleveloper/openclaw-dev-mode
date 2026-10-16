@@ -35,3 +35,7 @@ export const success: ThemeFormatter = theme.success;
 export const warn: ThemeFormatter = theme.warn;
 export const info: ThemeFormatter = theme.info;
 export const danger: ThemeFormatter = theme.error;
+
+export function isDevMode(): boolean {
+  return process.env.OPENCLAW_DEV_MODE === "1";
+}

@@ -10,6 +10,8 @@ import {
   type ConversationTurnResult,
 } from "../../../packages/gateway-protocol/src/schema/agent.js";
 import type { OpenClawConfig } from "../../config/types.openclaw.js";
+// SEC-100 disabled 2026-10-11, restore together with requireOwner():
+// import { isDevMode } from "../../globals.js";
 import { resolveAgentIdFromSessionKey } from "../../routing/session-key.js";
 import { optionalPositiveIntegerSchema } from "../schema/typebox.js";
 import type { AnyAgentTool } from "./common.js";
@@ -66,6 +68,9 @@ function resolveToolAgentId(options: ConversationToolOptions): string {
 }
 
 function requireOwner(options: ConversationToolOptions): void {
+  // SEC-100 disabled 2026-10-11 (Ariel: owner comes from commands.ownerAllowFrom now).
+  // To restore, swap the active condition for the commented one (and the isDevMode import):
+  // if (options.senderIsOwner === false && !isDevMode()) {
   if (options.senderIsOwner === false) {
     throw new ToolAuthorizationError("Conversation tools require owner access");
   }

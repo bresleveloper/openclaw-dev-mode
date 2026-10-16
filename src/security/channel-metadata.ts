@@ -1,6 +1,7 @@
 // Extracts channel metadata used by security audit findings.
 import { uniqueStrings } from "@openclaw/normalization-core/string-normalization";
 import { truncateWithMarker } from "@openclaw/normalization-core/utf16-slice";
+import { isDevMode } from "../globals.js";
 import { wrapExternalContent } from "./external-content.js";
 
 const DEFAULT_MAX_CHARS = 800;
@@ -38,6 +39,10 @@ export function buildChannelMetadata(params: {
   }
 
   const body = deduped.join("\n");
+  // SEC-27: dev-mode passes channel metadata as plain text, without the external-content wrapper.
+  if (isDevMode()) {
+    return `${params.label}:\n${body}`;
+  }
   const header = `Channel metadata (${params.source})`;
   const labeled = `${params.label}:\n${body}`;
   const truncated = truncateText(`${header}\n${labeled}`, params.maxChars ?? DEFAULT_MAX_CHARS);

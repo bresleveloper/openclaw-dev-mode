@@ -58,6 +58,8 @@ import {
 import type { SourceReplyDeliveryMode } from "../auto-reply/get-reply-options.types.js";
 import type { ConversationReadInvocationOrigin } from "../channels/plugins/conversation-read-origin.js";
 import type { OpenClawConfig } from "../config/types.openclaw.js";
+// SEC-100 disabled 2026-10-11, restore together with ownerOnlyGatewayDeny:
+// import { isDevMode } from "../globals.js";
 import { resolveEventSessionRoutingPolicy } from "../infra/event-session-routing.js";
 import { resolveExactExecModeFromPolicy } from "../infra/exec-approvals.js";
 import { logWarn } from "../logger.js";
@@ -290,6 +292,9 @@ export function resolveGatewayScopedTools(
     surface === "loopback" &&
     params.admittedRunContext &&
     getAdmittedRunDelegatedAuthority(params.admittedRunContext);
+  // SEC-100 disabled 2026-10-11 (Ariel: owner comes from commands.ownerAllowFrom now).
+  // To restore, wrap the array below as `isDevMode() ? [] : [...]` (and re-add the
+  // isDevMode import). Upstream reshaped this list at 2026.10.x (sessions/portal cases).
   const ownerOnlyGatewayDeny = [
     ...(params.senderIsOwner === false || (surface === "http" && params.senderIsOwner !== true)
       ? GATEWAY_OWNER_ONLY_CORE_TOOLS.filter(

@@ -15,6 +15,7 @@ import { mergeChatStreamMessage } from "../../packages/gateway-client/src/chat-s
 import { recoverTerminalReply } from "../../packages/gateway-client/src/run-recovery-text.js";
 import type { EventFrame } from "../../packages/gateway-protocol/src/index.js";
 import type { GatewayClient } from "../gateway/client.js";
+import { isDevMode } from "../globals.js";
 import { normalizeTerminalChatSendAckStatus } from "../shared/chat-send-ack-status.js";
 import { createDeferredCore, type Deferred } from "../shared/deferred.js";
 import { shortenHomePath } from "../utils.js";
@@ -32,7 +33,12 @@ import type { AcpTranslatorSessionState } from "./translator.session-state.js";
 import type { AcpTranslatorSessionUpdates } from "./translator.session-updates.js";
 
 // Maximum allowed prompt size (2MB) to prevent DoS via memory exhaustion (CWE-400, GHSA-cxpw-2g23-2vgw)
-const MAX_PROMPT_BYTES = 2 * 1024 * 1024;
+const DEFAULT_MAX_PROMPT_BYTES = 2 * 1024 * 1024;
+// SEC-79: dev-mode raises the cap to 50MB. Resolved per call so ~/.openclaw/.env,
+// loaded after module import, still takes effect.
+function getMaxPromptBytes(): number {
+  return isDevMode() ? 50 * 1024 * 1024 : DEFAULT_MAX_PROMPT_BYTES;
+}
 // Shutdown owns only a brief best-effort abort window so EOF and signals cannot
 // inherit the Gateway client's normal request timeout before process teardown.
 const ACP_SHUTDOWN_ABORT_TIMEOUT_MS = 1_000;
@@ -235,7 +241,7 @@ export class AcpTranslatorPromptStream {
     session: AcpPendingPromptAdmission["session"],
   ): Promise<PromptResponse> {
     const meta = parseSessionMeta(params["_meta"]);
-    const userText = extractTextFromPrompt(params.prompt, MAX_PROMPT_BYTES);
+    const userText = extractTextFromPrompt(params.prompt, getMaxPromptBytes());
     const attachments = extractAttachmentsFromPrompt(params.prompt);
     const prefixCwd = meta.prefixCwd ?? this.opts.prefixCwd ?? true;
     const displayCwd = shortenHomePath(session.cwd);
@@ -253,8 +259,9 @@ export class AcpTranslatorPromptStream {
         : undefined;
 
     // The cwd prefix also counts against the prompt budget.
-    if (Buffer.byteLength(message, "utf-8") > MAX_PROMPT_BYTES) {
-      throw new Error(`Prompt exceeds maximum allowed size of ${MAX_PROMPT_BYTES} bytes`);
+    const maxPromptBytes = getMaxPromptBytes();
+    if (Buffer.byteLength(message, "utf-8") > maxPromptBytes) {
+      throw new Error(`Prompt exceeds maximum allowed size of ${maxPromptBytes} bytes`);
     }
 
     const abortController = new AbortController();

@@ -1,5 +1,6 @@
 import { HEARTBEAT_RESPONSE_TOOL_NAME } from "../auto-reply/heartbeat-tool-response.js";
 import { messageToolOwnsVisibleReply } from "../auto-reply/source-reply-delivery-mode.js";
+import { isDevMode } from "../globals.js";
 import { resolveEventSessionRoutingPolicy } from "../infra/event-session-routing.js";
 import { mergeGatewayAgentCliPath } from "../infra/openclaw-cli-shim.js";
 import type { PluginHookToolRequesterContext } from "../plugins/hook-types.js";
@@ -507,10 +508,12 @@ export function createOpenClawCodingToolsInternal(
     isMemoryFlushRun && memoryFlushWritePath
       ? "memory-triggered compaction runs expose only read and append-only write"
       : undefined;
-  const toolsForMessageProvider = filterToolsByMessageProvider(
-    toolsForMemoryFlush,
-    options?.toolPolicyMessageProvider ?? options?.messageProvider,
-  );
+  const toolsForMessageProvider = isDevMode()
+    ? toolsForMemoryFlush
+    : filterToolsByMessageProvider(
+        toolsForMemoryFlush,
+        options?.toolPolicyMessageProvider ?? options?.messageProvider,
+      );
   options?.recordToolPrepStage?.("message-provider-policy");
   const toolsForModelProvider = applyModelProviderToolPolicy(toolsForMessageProvider, {
     ...options,

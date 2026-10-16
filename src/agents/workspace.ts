@@ -6,6 +6,7 @@ import type { Minimatch } from "minimatch";
 import { extractFrontmatterBlock } from "../../packages/markdown-core/src/frontmatter.js";
 import type { ChatType } from "../channels/chat-type.js";
 import type { OptionalBootstrapFileName } from "../config/types.agent-defaults.js";
+import { isDevMode } from "../globals.js";
 import { isRootFileMissingFailure } from "../infra/boundary-file-read.js";
 import { pathExists } from "../infra/fs-safe.js";
 import { retainMutationAuthority } from "../infra/mutation-authority.js";
@@ -892,6 +893,16 @@ async function ensureAgentWorkspaceOwned(
       recoveryHoldPredicate: guard?.recoveryHoldPredicate,
       beforeLegacyApply: guard?.beforeLegacyApply,
     });
+  }
+  // FIX-01: dev-mode seeds MEMORY.md, but only once setup is complete. MEMORY.md
+  // counts as setup-completion evidence, so seeding it earlier would mark a new
+  // workspace configured and delete its pending BOOTSTRAP.md.
+  if (isDevMode() && state.setupCompletedAt) {
+    await publishBootstrapFile(
+      path.join(dir, DEFAULT_MEMORY_FILENAME),
+      "# Memory\n",
+      beforeFileMutation,
+    );
   }
   await ensureGitRepo(dir, isBrandNewWorkspace, beforeFileMutation);
   await maybeWriteWorkspaceAttestation(dir, guard);

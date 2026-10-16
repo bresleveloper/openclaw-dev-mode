@@ -25,6 +25,9 @@ export function prepareSessionPortalToolAccess(input: {
       : undefined;
   // Sessions owns its assignment/control action gates; portal and automation
   // remain scoped exceptions. Other control-plane tools require owner authority.
+  // SEC-100 disabled 2026-10-11 (Ariel: owner comes from commands.ownerAllowFrom now).
+  // To restore, swap the active condition for `input.senderIsOwner === false && !isDevMode()`
+  // (and import isDevMode from "../../globals.js"). Moved here from agent-tools.ts at 2026.10.x.
   const ownerOnlyCoreToolDenylist =
     input.senderIsOwner === false
       ? GATEWAY_OWNER_ONLY_CORE_TOOLS.filter(

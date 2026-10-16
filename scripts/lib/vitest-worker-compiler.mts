@@ -396,6 +396,11 @@ async function compileVitestWorkerArtifacts(directory: string): Promise<void> {
   ]) {
     const source = path.join(root, asset);
     const destination = path.join(directory, relativeDestination);
+    // openclaw-dev-mode: the fork ships no .github/workflows (CLAUDE.md checklist item 1), but
+    // upstream lists one as a worker asset; a missing asset must not sink every compiled worker.
+    if (!fs.existsSync(source)) {
+      continue;
+    }
     const contents = fs.readFileSync(source);
     const hash = hashVitestWorkerArtifact(contents);
     inputs[source] ??= hash;
