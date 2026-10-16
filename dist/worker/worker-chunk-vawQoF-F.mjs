@@ -1,0 +1,1 @@
+import{a as e,c as t,i as n,n as r,r as i,s as a,t as o}from"./worker-chunk-BYPXqQo1.mjs";e();export{o as STRUCTURED_INPUT_URL_COMPLETED_LABEL,r as compileStructuredInputForm,i as compileStructuredInputQuestions,n as compileStructuredInputUrl,a as isStructuredInputRecord,t as snapshotStructuredInput};

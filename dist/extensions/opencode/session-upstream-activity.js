@@ -1,5 +1,5 @@
 import { OPENCODE_SESSION_ID_PATTERN } from "./session-catalog-shared.js";
-import { exportOpenCodeSession, queryOpenCodeDatabase } from "./session-catalog.js";
+import { exportOpenCodeSession, isOpenCodeV2, queryOpenCodeDatabase, runOpenCodeApi } from "./session-catalog.js";
 import { isRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { isExternalUserText, normalizeUserText } from "openclaw/plugin-sdk/session-catalog";
 import { runTasksWithConcurrency } from "openclaw/plugin-sdk/concurrency-runtime";
@@ -23,6 +23,46 @@ function readMarker(probe) {
 }
 async function readIndicators(threadIds) {
 	if (threadIds.length === 0) return /* @__PURE__ */ new Map();
+	if (await isOpenCodeV2()) {
+		const { results } = await runTasksWithConcurrency({
+			tasks: threadIds.map((threadId) => async () => {
+				let output;
+				try {
+					output = await runOpenCodeApi("session.log", [
+						`sessionID=${threadId}`,
+						"follow=false",
+						`after=${Number.MAX_SAFE_INTEGER}`
+					]);
+				} catch (error) {
+					if (error instanceof Error && typeof error.cause === "string") {
+						let response;
+						try {
+							response = JSON.parse(error.cause);
+						} catch {
+							throw error;
+						}
+						if (isRecord(response) && response["_tag"] === "SessionNotFoundError" && response.sessionID === threadId) return;
+					}
+					throw error;
+				}
+				for (const line of output.split("\n")) {
+					if (!line.startsWith("data: ")) continue;
+					const event = JSON.parse(line.slice(6));
+					if (isRecord(event) && event.type === "log.synced" && event.aggregateID === threadId) {
+						const seq = event.seq === void 0 ? 0 : event.seq;
+						if (Number.isSafeInteger(seq) && Number(seq) >= 0) return {
+							threadId,
+							seq: Number(seq)
+						};
+					}
+				}
+				throw new Error("OpenCode returned invalid upstream indicators");
+			}),
+			limit: OPENCODE_EXPORT_CONCURRENCY,
+			throwOnError: true
+		});
+		return new Map(results.flatMap((indicator) => indicator ? [[indicator.threadId, indicator]] : []));
+	}
 	const query = [
 		"SELECT s.id AS id, es.seq AS seq",
 		"FROM session AS s",

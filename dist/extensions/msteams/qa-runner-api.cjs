@@ -2,7 +2,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
 let openclaw_plugin_sdk_qa_runner_runtime = require("openclaw/plugin-sdk/qa-runner-runtime");
 //#region extensions/msteams/src/qa/cli.ts
 const DEFAULT_MSTEAMS_QA_SCENARIOS = ["channel-canary"];
-const loadMSTeamsQaAdapterRuntime = (0, openclaw_plugin_sdk_qa_runner_runtime.createLazyCliRuntimeLoader)(() => Promise.resolve().then(() => require("./.setup/adapter.runtime-CQWZeqB5.cjs")));
+const loadMSTeamsQaAdapterRuntime = (0, openclaw_plugin_sdk_qa_runner_runtime.createLazyCliRuntimeLoader)(() => Promise.resolve().then(() => require("./.setup/adapter.runtime-D0HYByze.cjs")));
 async function runQaMSTeams(options) {
 	await (0, openclaw_plugin_sdk_qa_runner_runtime.runLiveTransportQaSuiteCommand)({
 		channelId: "msteams",

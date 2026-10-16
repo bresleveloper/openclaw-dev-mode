@@ -1,15 +1,19 @@
-import { DEEPSEEK_DSML_MARKERS } from "./deepseek-dsml-grammar.js";
+import {
+  DEEPSEEK_DSML_MARKERS,
+  DEEPSEEK_DSML_TOOL_OPEN_TOKENS,
+  findEarliestDsmlToken,
+  longestDsmlTokenPrefixSuffixLength,
+} from "./deepseek-dsml-grammar.js";
 
 /**
  * DeepSeek DSML streaming text filter.
  * Removes provider-emitted DSML tool markup while buffering split tag prefixes
  * across streamed chunks.
  */
-const DSML_KINDS = ["tool_use_error", "tool_calls", "tool_call", "function_calls"] as const;
-
-const DSML_OPEN_TOKENS = DEEPSEEK_DSML_MARKERS.flatMap((marker) =>
-  DSML_KINDS.map((kind) => `<${marker}${kind}>`),
-);
+const DSML_OPEN_TOKENS = [
+  ...DEEPSEEK_DSML_TOOL_OPEN_TOKENS,
+  ...DEEPSEEK_DSML_MARKERS.map((marker) => `<${marker}tool_use_error>`),
+];
 const MAX_OPEN_TOKEN_LEN = Math.max(...DSML_OPEN_TOKENS.map((token) => token.length));
 
 interface DeepSeekTextFilter {
@@ -51,7 +55,7 @@ export function createDeepSeekTextFilter(): DeepSeekTextFilter {
         return output;
       }
 
-      const open = findEarliestToken(buffer, DSML_OPEN_TOKENS);
+      const open = findEarliestDsmlToken(buffer, DSML_OPEN_TOKENS);
       if (open) {
         emit(buffer.slice(0, open.index));
         buffer = buffer.slice(open.index + open.token.length);
@@ -65,7 +69,7 @@ export function createDeepSeekTextFilter(): DeepSeekTextFilter {
         return output;
       }
 
-      const keep = longestDsmlOpenPrefixSuffixLength(buffer);
+      const keep = longestDsmlTokenPrefixSuffixLength(buffer, DSML_OPEN_TOKENS, MAX_OPEN_TOKEN_LEN);
       const emitLength = buffer.length - keep;
       if (emitLength <= 0) {
         return output;
@@ -86,28 +90,4 @@ export function createDeepSeekTextFilter(): DeepSeekTextFilter {
       return consume(true);
     },
   };
-}
-
-function findEarliestToken(text: string, tokens: readonly string[]) {
-  let best: { index: number; token: string } | null = null;
-  for (const token of tokens) {
-    const index = text.indexOf(token);
-    if (index !== -1 && (!best || index < best.index)) {
-      best = { index, token };
-    }
-  }
-  return best;
-}
-
-function longestDsmlOpenPrefixSuffixLength(text: string) {
-  // Preserve only the longest suffix that could be the beginning of a future
-  // opening token, so ordinary text streams immediately.
-  const maxLength = Math.min(text.length, MAX_OPEN_TOKEN_LEN - 1);
-  for (let length = maxLength; length > 0; length--) {
-    const suffix = text.slice(text.length - length);
-    if (DSML_OPEN_TOKENS.some((token) => token.startsWith(suffix))) {
-      return length;
-    }
-  }
-  return 0;
 }

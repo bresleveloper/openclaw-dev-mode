@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function isBundleCapabilitySupported(e,t){return t===`skills`||t===`mcpServers`||t===`settings`||(t===`commands`||t===`outputStyles`||t===`lspServers`)&&(e===`claude`||e===`cursor`)?!0:t===`agents`?e===`claude`:t===`hooks`&&(e===`codex`||e===`claude`)}var t=e((()=>{}));export{isBundleCapabilitySupported as n,t};

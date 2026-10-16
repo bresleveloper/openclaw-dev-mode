@@ -1,7 +1,7 @@
 import { defineBundledChannelEntry } from "openclaw/plugin-sdk/channel-entry-contract";
 import { createLazyRuntimeModule } from "openclaw/plugin-sdk/lazy-runtime";
 //#region extensions/line/index.ts
-const loadLineCardCommand = createLazyRuntimeModule(() => import("./.setup/card-command-710u8FBH.mjs"));
+const loadLineCardCommand = createLazyRuntimeModule(() => import("./.setup/card-command-BrU6u6pm.mjs"));
 var line_default = defineBundledChannelEntry({
 	id: "line",
 	name: "LINE",

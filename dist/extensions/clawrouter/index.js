@@ -1,10 +1,10 @@
-import { a as buildProviderReplayFamilyHooks } from "../../provider-model-shared-CvgLZp0K.mjs";
-import { t as defineSingleProviderPluginEntry } from "../../provider-entry-DP2O-chg.mjs";
-import { r as buildProviderToolCompatFamilyHooks } from "../../provider-tools-BDV45rRZ.mjs";
-import { a as normalizeClawRouterResolvedModel, i as normalizeClawRouterReasoningEfforts, n as buildClawRouterProviderConfig, o as normalizeClawRouterRootUrl, r as normalizeClawRouterApiBaseUrl, t as CLAWROUTER_REASONING_EFFORT_LEVELS } from "../../provider-catalog-BgCxNthR.mjs";
-import { t as wrapClawRouterProviderStream } from "../../stream-C1B5od8l.mjs";
-import { n as normalizePerplexityToolSchemas, t as inspectPerplexityToolSchemas } from "../../tool-schemas-CA2xz42p.mjs";
-import { t as fetchClawRouterUsage } from "../../usage-BURBfC4D.mjs";
+import { r as buildProviderReplayFamilyHooks } from "../../provider-model-shared-BZZnLgoM.mjs";
+import { t as defineSingleProviderPluginEntry } from "../../provider-entry-B2Tqqb69.mjs";
+import { r as buildProviderToolCompatFamilyHooks } from "../../provider-tools-DajrfQK1.mjs";
+import { a as normalizeClawRouterResolvedModel, i as normalizeClawRouterReasoningEfforts, n as buildClawRouterProviderConfig, o as normalizeClawRouterRootUrl, r as normalizeClawRouterApiBaseUrl, t as CLAWROUTER_REASONING_EFFORT_LEVELS } from "../../provider-catalog-Cu2pOrnR.mjs";
+import { t as wrapClawRouterProviderStream } from "../../stream-D7VTGLj5.mjs";
+import { n as normalizePerplexityToolSchemas, t as inspectPerplexityToolSchemas } from "../../tool-schemas-DVZtjWkO.mjs";
+import { t as fetchClawRouterUsage } from "../../usage-B7L-OJvN.mjs";
 //#region extensions/clawrouter/openclaw.plugin.json
 var openclaw_plugin_default = {
 	id: "clawrouter",
@@ -192,7 +192,7 @@ var clawrouter_default = defineSingleProviderPluginEntry({
 				if (ctx.modelApi === "google-generative-ai") return googleReplay.buildReplayPolicy?.(ctx);
 				return openAiReplay.buildReplayPolicy?.(ctx);
 			},
-			sanitizeReplayHistory: (ctx) => ctx.modelApi === "google-generative-ai" ? googleReplay.sanitizeReplayHistory?.(ctx) : void 0,
+			sanitizeReplayHistoryAsync: (ctx) => ctx.modelApi === "google-generative-ai" ? googleReplay.sanitizeReplayHistoryAsync?.(ctx) : void 0,
 			resolveReasoningOutputMode: (ctx) => ctx.modelApi === "google-generative-ai" ? googleReplay.resolveReasoningOutputMode?.(ctx) : void 0,
 			resolveThinkingProfile: resolveClawRouterThinkingProfile,
 			normalizeToolSchemas: (ctx) => resolveToolFamily(ctx.modelId ?? "").normalizeToolSchemas(ctx),

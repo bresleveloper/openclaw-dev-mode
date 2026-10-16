@@ -1,12 +1,12 @@
-import { a as writeRuntimeJson, r as defaultRuntime } from "../runtime-BC29JSZp.mjs";
-import { t as _usingCtx } from "../usingCtx-CoYZqMqE.mjs";
-import { a as isPersistentSystemAgentOperation, o as parseSystemAgentOperation } from "../operations-parse-CQ52sADQ.mjs";
-import { t as executeSystemAgentOperation } from "../operations-BC5CrCZX.mjs";
-import { r as withProgress } from "../progress-BQygak_O.mjs";
-import { t as SystemAgentInferenceUnavailableError } from "../inference-error-C-Vf2B5Y.mjs";
-import { i as loadSystemAgentOverview, n as formatSystemAgentOverview } from "../overview-DHERiQXR.mjs";
-import { a as resolveSystemAgentVerifiedInferenceRoute, r as hasCurrentSystemAgentOwnerPluginArtifacts } from "../verified-inference-BtEW_M5G.mjs";
-import { n as resolveSystemAgentOperation } from "../dialogue-BbfsWZbr.mjs";
+import { a as writeRuntimeJson, r as defaultRuntime } from "../runtime-DlO3PTAd.mjs";
+import { t as _usingCtx } from "../usingCtx-DwOBYOJf.mjs";
+import { a as isPersistentSystemAgentOperation, o as parseSystemAgentOperation } from "../operations-parse-DRngeZgT.mjs";
+import { t as executeSystemAgentOperation } from "../operations-CnmxyhD5.mjs";
+import { r as withProgress } from "../progress-UTM8yfZa.mjs";
+import { t as SystemAgentInferenceUnavailableError } from "../inference-error-D_m-vFb8.mjs";
+import { i as loadSystemAgentOverview, n as formatSystemAgentOverview } from "../overview-BZs3uZvH.mjs";
+import { a as resolveSystemAgentVerifiedInferenceRoute, r as hasCurrentSystemAgentOwnerPluginArtifacts } from "../verified-inference-BLAb2uCx.mjs";
+import { n as resolveSystemAgentOperation } from "../dialogue-DZe3oa43.mjs";
 import { stdin, stdout } from "node:process";
 //#region src/system-agent/system-agent.ts
 function systemAgentCommandDepsFromOptions(opts) {
@@ -64,11 +64,11 @@ async function runSystemAgent(opts, runtime = defaultRuntime) {
 		const run = () => runBoundSystemAgent(boundOpts, runtime);
 		const route = binding.execution;
 		if (route.runner !== "embedded" || route.agentHarnessRuntimeOverride === "openclaw") return await run();
-		const { resolveAgentWorkspaceDir } = await import("../agent-scope-C4CYkKyC.mjs");
-		const { loadAgentRuntimePluginRegistryHandle } = await import("../runtime-plugins-BtOM6g9g.mjs");
-		const { withPluginLifecycleLease } = await import("../plugin-lifecycle-lease-DTJKSqdR.mjs");
-		const { createPluginCache, withPluginCache } = await import("../plugin-cache-B8iOCWkW.mjs");
-		const { withPluginRuntimeRegistryScope } = await import("../gateway-request-scope-YnkE23gw.mjs");
+		const { resolveAgentWorkspaceDir } = await import("../agent-scope-BbGZA7Yc.mjs");
+		const { loadAgentRuntimePluginRegistryHandle } = await import("../runtime-plugins-BncOhqa0.mjs");
+		const { withPluginLifecycleLease } = await import("../plugin-lifecycle-lease-D_2q8UjY.mjs");
+		const { createPluginCache, withPluginCache } = await import("../plugin-cache-C7OQTvG6.mjs");
+		const { withPluginRuntimeRegistryScope } = await import("../gateway-request-scope-BNep3pMv.mjs");
 		const cache = _usingCtx$1.a(createPluginCache());
 		const readSnapshot = boundOpts.deps?.readConfigFileSnapshot ?? (await import("../config/config.js")).readConfigFileSnapshot;
 		await withPluginRuntimeRegistryScope(await withPluginLifecycleLease({}, async (lease) => {
@@ -139,7 +139,7 @@ async function runBoundSystemAgent(boundOpts, runtime) {
 		runtime.exit(1);
 		return;
 	}
-	const runInteractiveTui = boundOpts.runInteractiveTui ?? (await import("../tui-backend-DDs7MzwL.mjs")).runSystemAgentTui;
+	const runInteractiveTui = boundOpts.runInteractiveTui ?? (await import("../tui-backend-BHQGF0TS.mjs")).runSystemAgentTui;
 	boundOpts.onReady?.();
 	await runInteractiveTui(boundOpts, runtime);
 }

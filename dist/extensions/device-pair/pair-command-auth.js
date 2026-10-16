@@ -1,5 +1,5 @@
-import { l as normalizeOptionalString } from "../../string-coerce-CIXf7egm.mjs";
-import "../../string-coerce-runtime-C_MKhRVt.mjs";
+import { l as normalizeOptionalString } from "../../string-coerce-1VuiLaaR.mjs";
+import "../../string-coerce-runtime-50qKeWeL.mjs";
 //#region extensions/device-pair/pair-command-auth.ts
 const COMMAND_OWNER_PAIRING_SCOPES = ["operator.pairing"];
 const PAIRING_SCOPE = "operator.pairing";
@@ -7,8 +7,8 @@ const ADMIN_SCOPE = "operator.admin";
 const TALK_SECRETS_SCOPE = "operator.talk.secrets";
 function resolveAuthLabel(cfg) {
 	const mode = cfg.gateway?.auth?.mode;
-	const token = pickFirstDefined([process.env.OPENCLAW_GATEWAY_TOKEN, cfg.gateway?.auth?.token]) ?? void 0;
-	const password = pickFirstDefined([process.env.OPENCLAW_GATEWAY_PASSWORD, cfg.gateway?.auth?.password]) ?? void 0;
+	const token = normalizeOptionalString(process.env.OPENCLAW_GATEWAY_TOKEN) ?? normalizeOptionalString(cfg.gateway?.auth?.token);
+	const password = normalizeOptionalString(process.env.OPENCLAW_GATEWAY_PASSWORD) ?? normalizeOptionalString(cfg.gateway?.auth?.password);
 	if (mode === "token" || mode === "password") return resolveRequiredAuthLabel(mode, {
 		token,
 		password
@@ -18,16 +18,8 @@ function resolveAuthLabel(cfg) {
 	if (mode === "trusted-proxy") return { label: "trusted-proxy" };
 	return { error: "Gateway auth is not configured (no token or password)." };
 }
-function pickFirstDefined(candidates) {
-	for (const value of candidates) {
-		const trimmed = normalizeOptionalString(value);
-		if (trimmed) return trimmed;
-	}
-	return null;
-}
 function resolveRequiredAuthLabel(mode, values) {
-	if (mode === "token") return values.token ? { label: "token" } : { error: "Gateway auth is set to token, but no token is configured." };
-	return values.password ? { label: "password" } : { error: "Gateway auth is set to password, but no password is configured." };
+	return values[mode] ? { label: mode } : { error: `Gateway auth is set to ${mode}, but no ${mode} is configured.` };
 }
 function isInternalGatewayPairingCaller(params) {
 	return params.channel === "webchat" || Array.isArray(params.gatewayClientScopes);
@@ -65,11 +57,5 @@ function resolvePairingCommandAuthState(params) {
 		approvalCallerScopes: void 0
 	};
 }
-function buildMissingPairingScopeReply() {
-	return { text: "⚠️ This command requires operator.pairing." };
-}
-function buildMissingSetupHandoffScopeReply() {
-	return { text: "⚠️ Setup code handoff includes Talk secrets and requires operator.talk.secrets." };
-}
 //#endregion
-export { buildMissingPairingScopeReply, buildMissingSetupHandoffScopeReply, resolveAuthLabel, resolvePairingCommandAuthState };
+export { resolveAuthLabel, resolvePairingCommandAuthState };

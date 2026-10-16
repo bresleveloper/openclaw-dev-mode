@@ -1,5 +1,7 @@
 import { createUpstreamProviderCatalog } from "openclaw/plugin-sdk/provider-catalog-live-runtime";
+import "openclaw/plugin-sdk/provider-http";
 import { normalizeModelCompat } from "openclaw/plugin-sdk/provider-model-shared";
+import "openclaw/plugin-sdk/provider-thinking-runtime";
 //#region extensions/opencode-go/openclaw.plugin.json
 var modelCatalog = {
 	"providers": { "opencode-go": {
@@ -208,7 +210,7 @@ const OPENCODE_GO_SEED_CATALOG = new Map(OPENCODE_GO_MANIFEST_PROVIDER.models.ma
 		..."status" in row && (row.status === "deprecated" || row.status === "preview") ? { status: row.status } : {}
 	}];
 }));
-const opencodeGoCatalog = createUpstreamProviderCatalog({
+const { buildStaticProvider: buildStaticOpencodeGoProviderConfig, buildLiveProvider: buildOpencodeGoLiveProviderConfig, resolveStarterModel: resolveOpencodeGoStarterModel } = createUpstreamProviderCatalog({
 	providerId: PROVIDER_ID,
 	seed: OPENCODE_GO_SEED_CATALOG,
 	providerConfig: {
@@ -221,6 +223,7 @@ const opencodeGoCatalog = createUpstreamProviderCatalog({
 	timeoutMs: OPENCODE_GO_MODELS_TIMEOUT_MS,
 	ttlMs: OPENCODE_GO_MODELS_CACHE_TTL_MS,
 	auditContext: "opencode-go-model-discovery",
+	starterModelAuditContext: "opencode-go-onboarding-model-discovery",
 	isStaticEntryActive: (entry) => !entry?.status,
 	decorateModel: (model) => model.api === "anthropic-messages" && model.id.startsWith("qwen") ? {
 		...model,
@@ -230,9 +233,6 @@ const opencodeGoCatalog = createUpstreamProviderCatalog({
 		}
 	} : model
 });
-function buildStaticOpencodeGoProviderConfig(apiKey) {
-	return opencodeGoCatalog.buildStaticProvider(apiKey);
-}
 //#endregion
 //#region extensions/opencode-go/provider-discovery.ts
 const opencodeGoProviderDiscovery = {

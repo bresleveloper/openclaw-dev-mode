@@ -1,1 +1,0 @@
-import{t as e}from"./browser-panel-DhMGxiNC.js";e();

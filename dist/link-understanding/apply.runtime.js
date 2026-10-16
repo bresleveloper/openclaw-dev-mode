@@ -1,17 +1,18 @@
-import { d as normalizeStringEntries } from "../string-normalization-_gRhJUDw.mjs";
-import { n as isAbortError, t as createAbortError } from "../abort-signal-Z3A36sLL.mjs";
-import { i as runCommandWithTimeout } from "../exec-shcN2-sN.mjs";
-import { i as logVerbose, o as shouldLogVerbose } from "../globals-QODkv80i.mjs";
-import { i as readResponseWithLimit, t as cancelUnreadResponseBody } from "../http-response-body-DXfezLdR.mjs";
-import "../http-body-Bl_jph25.mjs";
-import { c as isBlockedHostnameOrIp } from "../ssrf-BQRtcdBp.mjs";
-import { i as fetchWithSsrFGuard, t as GUARDED_FETCH_MODE } from "../fetch-guard-EFfAF2PS.mjs";
+import { d as normalizeStringEntries } from "../string-normalization-CECOqf64.mjs";
+import { i as createAbortError } from "../src-D1BHGNTj.mjs";
+import { t as isAbortError } from "../abort-signal-QqAmLWTl.mjs";
+import { i as runCommandWithTimeout } from "../exec-DJvyCA0D.mjs";
+import { i as readResponseWithLimit, t as cancelUnreadResponseBody } from "../http-response-body-umfRGZ-E.mjs";
+import "../http-body-CgfQBa7S.mjs";
+import { o as isBlockedHostnameOrIp } from "../ssrf-v45DW-yR.mjs";
+import { i as fetchWithSsrFGuard, t as GUARDED_FETCH_MODE } from "../fetch-guard-DI6biu8d.mjs";
+import { i as logVerbose, o as shouldLogVerbose } from "../globals-BXbZ1A_g.mjs";
 import { t as CLI_OUTPUT_MAX_BUFFER } from "../defaults.constants-Cof2g8lZ.mjs";
-import { c as resolveTimeoutMs, s as resolveScopeDecision } from "../resolve-P9fG0vPg.mjs";
+import { c as resolveTimeoutMs, s as resolveScopeDecision } from "../resolve-EGBbRe3L.mjs";
 import { t as fromMarkdown } from "../lib-WLZTziNZ.mjs";
-import { t as finalizeInboundContext } from "../inbound-context-BLR5MPPS.mjs";
-import { t as applyTemplate } from "../templating-DocmBuN3.mjs";
-import "../defaults-CJPLJeAl.mjs";
+import { t as finalizeInboundContext } from "../inbound-context-jAt0CAb-.mjs";
+import { t as applyTemplate } from "../templating-CdR59CXd.mjs";
+import "../defaults-B4lxmCMh.mjs";
 //#region src/link-understanding/format.ts
 /** Appends normalized link-understanding outputs to the agent-visible body. */
 function formatLinkUnderstandingBody(params) {
@@ -105,20 +106,6 @@ function resolveFetchTimeoutMsFromConfig(params) {
 function isLinkUrlTemplate(value) {
 	return value.includes("LinkUrl") || value.includes("LinkFinalUrl");
 }
-function commandName(command) {
-	return (command.split(/[\\/]/).pop() ?? command).toLowerCase();
-}
-function isUrlFetcherCommand(command) {
-	return commandName(command) === "curl" || commandName(command) === "wget";
-}
-function buildLinkCliArgs(params) {
-	const templCtx = {
-		...params.ctx,
-		LinkFinalUrl: params.finalUrl,
-		LinkUrl: params.url
-	};
-	return params.args.filter((arg) => !isLinkUrlTemplate(arg)).map((arg) => applyTemplate(arg, templCtx));
-}
 async function fetchLinkContent(params) {
 	const { response, finalUrl, release } = await fetchWithSsrFGuard({
 		url: params.url,
@@ -156,13 +143,10 @@ async function runCliEntry(params) {
 		config: params.config,
 		entry: params.entry
 	});
-	if (isUrlFetcherCommand(command) && args.some(isLinkUrlTemplate)) return params.content;
-	const argv = [command, ...buildLinkCliArgs({
-		args,
-		ctx: params.ctx,
-		finalUrl: params.finalUrl,
-		url: params.url
-	})];
+	const name = (command.split(/[\\/]/).pop() ?? command).toLowerCase();
+	if ((name === "curl" || name === "wget") && args.some(isLinkUrlTemplate)) return params.content;
+	const templCtx = { ...params.ctx };
+	const argv = [command, ...args.filter((arg) => !isLinkUrlTemplate(arg)).map((arg) => applyTemplate(arg, templCtx))];
 	if (shouldLogVerbose()) logVerbose(`Link understanding via CLI: ${argv.join(" ")}`);
 	const result = await runCommandWithTimeout(argv, {
 		timeoutMs,
@@ -184,13 +168,8 @@ async function runLinkEntries(params) {
 		if (params.signal?.aborted) break;
 		try {
 			const output = await runCliEntry({
-				content: params.content,
-				entry,
-				finalUrl: params.finalUrl,
-				ctx: params.ctx,
-				url: params.url,
-				config: params.config,
-				signal: params.signal
+				...params,
+				entry
 			});
 			if (output) return output;
 		} catch (err) {

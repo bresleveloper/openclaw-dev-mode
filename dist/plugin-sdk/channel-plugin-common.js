@@ -1,10 +1,10 @@
-import { n as normalizeAccountId, t as DEFAULT_ACCOUNT_ID } from "../account-id-B1bfbA5J.mjs";
-import { n as getChatChannelMeta } from "../chat-meta-CrZhPtTU.mjs";
-import { i as buildChannelConfigSchema } from "../config-schema-BJ55TtqJ.mjs";
-import { a as setAccountEnabledInConfigSection, i as deleteAccountFromConfigSection, t as clearAccountEntryFields } from "../config-helpers--6MdZhMW.mjs";
-import { n as formatPairingApproveHint } from "../helpers-t_ym8v5h.mjs";
-import { r as emptyPluginConfigSchema } from "../config-schema-c9utjSlx.mjs";
-import { o as migrateBaseNameToDefaultAccount, t as applyAccountNameToChannelSection } from "../setup-helpers-gXEiNGC9.mjs";
+import { n as normalizeAccountId, t as DEFAULT_ACCOUNT_ID } from "../account-id-DbRsdayc.mjs";
+import { o as getChatChannelMeta } from "../registry-B3Y-vjit.mjs";
+import { i as buildChannelConfigSchema } from "../config-schema-Be-FohaC.mjs";
+import { a as setAccountEnabledInConfigSection, i as deleteAccountFromConfigSection, t as clearAccountEntryFields } from "../config-helpers-Ch_BBBFF.mjs";
+import { n as formatPairingApproveHint } from "../helpers-Bm4RKejp.mjs";
+import { r as emptyPluginConfigSchema } from "../config-schema-BBtylDlH.mjs";
+import { o as migrateBaseNameToDefaultAccount, t as applyAccountNameToChannelSection } from "../setup-helpers-CDK4xLs4.mjs";
 import { t as PAIRING_APPROVED_MESSAGE } from "../pairing-message-DNhqI-OE.mjs";
-import "../channel-plugin-common-BxGpMLRx.mjs";
+import "../channel-plugin-common-C4xb7Yqq.mjs";
 export { DEFAULT_ACCOUNT_ID, PAIRING_APPROVED_MESSAGE, applyAccountNameToChannelSection, buildChannelConfigSchema, clearAccountEntryFields, deleteAccountFromConfigSection, emptyPluginConfigSchema, formatPairingApproveHint, getChatChannelMeta, migrateBaseNameToDefaultAccount, normalizeAccountId, setAccountEnabledInConfigSection };

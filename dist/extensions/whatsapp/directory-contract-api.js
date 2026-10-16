@@ -1,4 +1,4 @@
-import { n as listWhatsAppDirectoryGroupsFromConfig, r as listWhatsAppDirectoryPeersFromConfig } from "./.setup/directory-config-DOMURvI_.mjs";
+import { n as listWhatsAppDirectoryGroupsFromConfig, r as listWhatsAppDirectoryPeersFromConfig } from "./.setup/directory-config-CvCiwMmt.mjs";
 //#region extensions/whatsapp/directory-contract-api.ts
 const whatsappDirectoryContractPlugin = {
 	id: "whatsapp",

@@ -16,23 +16,28 @@
 // written, and the writer's size-drop guard stays on. Must stay under src/commands/doctor/:
 // only doctor may import the legacy migration modules (shared/legacy-config-write-ownership.test.ts).
 //
-// Agent roster: the reader migrates it in memory (migratePersistedImplicitMainRoster), and for
-// an invalid file the writer saves the candidate as-is. Doctor persists roster migrations with
-// workspace pins first, so a real one (agents.list, default markers) is skipped here and left
-// to doctor; only the reader's implicit `agents.entries.main` placeholder is dropped before writing.
+// Agent roster: the reader materializes an implicit `agents.entries.main` placeholder when the
+// file authors no roster (src/config/implicit-agent-roster.ts; sourceConfig carries it,
+// sourceConfigBeforeMigrations does not), and for an invalid file the writer saves the candidate
+// as-is. Doctor persists roster migrations with workspace pins first, so a real one (agents.list,
+// default markers, a multi-agent roster without an ownership stamp) is skipped here and left to
+// doctor; only the reader's placeholder is dropped before writing.
 //
 // Regression checklist after an upstream upgrade:
 // - doctor-config-flow.ts: same stage functions, same arguments, same order? Same
-//   rosterMigrationNeeded check (migratePersistedImplicitMainRoster on the raw sources)?
+//   rosterMigrationNeeded check (LEGACY_AGENT_ROSTER_RULES + listAgentEntries on
+//   sourceConfigBeforeMigrations, ownership stamp on the loaded config)?
 // - runWriteConfigHealth: still restoreDoctorConfigEnvRefs + transformConfigFile?
+// - io.snapshot.ts: still applies the implicit roster to sourceConfig only?
 // - io.write.ts: still writes an invalid file's candidate as-is (roster tests in the test file)?
 // - Run this file's test and src/cli/config-validate-fix.test.ts.
 import { isDeepStrictEqual } from "node:util";
+import { listAgentEntries } from "../../agents/agent-roster.js";
 import { formatCliCommand } from "../../cli/command-format.js";
 import { readConfigFileSnapshot, transformConfigFile } from "../../config/config.js";
 import { INCLUDE_KEY } from "../../config/includes.js";
 import { formatConfigIssueLines } from "../../config/issue-format.js";
-import { migratePersistedImplicitMainRoster } from "../../config/legacy.roster.js";
+import { findLegacyConfigRuleIssues } from "../../config/legacy.js";
 import type { ConfigValidationIssue, OpenClawConfig } from "../../config/types.js";
 import { validateConfigObjectRawWithPlugins } from "../../config/validation.js";
 import { formatErrorMessage } from "../../infra/errors.js";
@@ -50,6 +55,7 @@ import {
 import { containsAuthoredInclude } from "./shared/include-migration-ownership.js";
 import { normalizeCompatibilityConfigValues } from "./shared/legacy-config-core-migrate.js";
 import { addDoctorLegacyIssues } from "./shared/legacy-config-issues.js";
+import { LEGACY_AGENT_ROSTER_RULES } from "./shared/legacy-config-migrations.runtime.entries.js";
 import { collectBlockedLegacyOpenAICodexProviderPlan } from "./shared/legacy-config-migrations.runtime.models.js";
 
 export type ConfigContentFixStatus =
@@ -120,11 +126,23 @@ export async function fixConfigContent(
       reason: `config file could not be read${detail ? ` (${detail})` : ""}`,
     };
   }
-  // Doctor's rosterMigrationNeeded check; only the implicit-main placeholder has no diagnostics.
-  const rosterMigrations = [read.sourceConfigBeforeMigrations, read.parsed]
-    .map((source) => migratePersistedImplicitMainRoster(source))
-    .filter((migration) => migration.changed);
-  const rosterDiagnostics = [...new Set(rosterMigrations.flatMap((m) => m.diagnostics))];
+  // Doctor's rosterMigrationNeeded check. A legacy roster or a multi-agent roster without an
+  // ownership stamp is doctor's one-time migration; a file with no roster at all only carries
+  // the reader's implicit-main placeholder, which has no diagnostics.
+  const sourceRosterConfig = read.sourceConfigBeforeMigrations ?? read.sourceConfig;
+  const rosterDiagnostics = [
+    ...new Set(
+      findLegacyConfigRuleIssues(sourceRosterConfig, LEGACY_AGENT_ROSTER_RULES).map(
+        (issue) => issue.message,
+      ),
+    ),
+  ];
+  if (
+    read.sourceConfig.agents?.ownership === undefined &&
+    listAgentEntries(read.sourceConfig).length > 1
+  ) {
+    rosterDiagnostics.push("The multi-agent roster needs explicit per-surface ownership.");
+  }
   if (rosterDiagnostics.length > 0) {
     return {
       ...report,
@@ -132,6 +150,7 @@ export async function fixConfigContent(
       reason: `the agent roster needs doctor's one-time migration (${rosterDiagnostics.join(" ")}); run ${doctorFixCommand}`,
     };
   }
+  const implicitMainRoster = listAgentEntries(sourceRosterConfig).length === 0;
 
   const snapshot = addDoctorLegacyIssues(read);
   let state: DoctorConfigMutationState = {
@@ -158,7 +177,6 @@ export async function fixConfigContent(
   const normalized = normalizeCompatibilityConfigValues(state.candidate, {
     blockedModelIdentities: new Set(blockedCodexProviderPlan.blockedModelIdentities),
     sourceRaw: snapshot.parsed,
-    sourceConfigBeforeMigrations: snapshot.sourceConfigBeforeMigrations,
   });
   state = applyDoctorConfigMutation({ state, mutation: normalized, shouldRepair: true });
 
@@ -180,8 +198,9 @@ export async function fixConfigContent(
     return { ...report, status: "unchanged", warnings };
   }
 
-  const candidate =
-    rosterMigrations.length > 0 ? withoutImplicitMainRoster(state.cfg, read.parsed) : state.cfg;
+  const candidate = implicitMainRoster
+    ? withoutImplicitMainRoster(state.cfg, read.parsed)
+    : state.cfg;
   // The writer runs this same check before committing, so a passing preview is a passing write.
   const validated = validateConfigObjectRawWithPlugins(candidate, { semanticValidation: "strict" });
   if (!validated.ok) {

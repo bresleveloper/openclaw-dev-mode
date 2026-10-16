@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function getNodeDesktopService(e){return e[t]}var t,n=e((()=>{t=Symbol(`openclaw.nodeDesktopService`)}));export{getNodeDesktopService as n,n as r,t};

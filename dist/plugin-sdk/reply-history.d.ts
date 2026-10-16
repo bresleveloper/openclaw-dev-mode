@@ -16,6 +16,7 @@ export declare function buildHistoryContext(params: {
   lineBreak?: string;
   historyKind?: "pending" | "recent";
 }): string;
+/** Appends one history entry, enforces per-session limit, and refreshes LRU key order. */
 declare function recordChannelHistoryEntryIfEnabled<T extends HistoryEntry>(params: {
   historyMap: Map<string, T[]>;
   historyKey: string;
@@ -27,7 +28,7 @@ declare function recordChannelHistoryEntryIfEnabled<T extends HistoryEntry>(para
  * This helper remains for core internals and older plugin compatibility.
  */
 export declare const recordPendingHistoryEntryIfEnabled: typeof recordChannelHistoryEntryIfEnabled;
-type MaybePromise$1<T> = T | Promise<T>;
+type MaybePromise<T> = T | Promise<T>;
 /** Filters history media to local image entries safe to re-attach to prompt context. */
 export declare function normalizeHistoryMediaEntries(params: {
   media?: readonly HistoryMediaEntry[] | null;
@@ -39,7 +40,7 @@ declare function recordChannelHistoryEntryWithMedia<T extends HistoryEntry>(para
   historyKey: string;
   entry?: T | null;
   limit: number;
-  media?: readonly HistoryMediaEntry[] | null | (() => MaybePromise$1<readonly HistoryMediaEntry[] | null | undefined>);
+  media?: readonly HistoryMediaEntry[] | null | (() => MaybePromise<readonly HistoryMediaEntry[] | null | undefined>);
   mediaLimit?: number;
   messageId?: string;
   shouldRecord?: () => boolean;
@@ -113,7 +114,6 @@ export declare function buildHistoryContextFromEntries(params: {
 }): string;
 //#endregion
 //#region src/channels/turn/history-window.d.ts
-type MaybePromise<T> = T | Promise<T>;
 /** Windowed channel history facade used by turn adapters to record and render recent context. */
 type ChannelHistoryWindow<T extends HistoryEntry = HistoryEntry> = {
   record: (params: {
@@ -121,15 +121,7 @@ type ChannelHistoryWindow<T extends HistoryEntry = HistoryEntry> = {
     entry?: T | null;
     limit: number;
   }) => T[];
-  recordWithMedia: (params: {
-    historyKey: string;
-    entry?: T | null;
-    limit: number;
-    media?: readonly HistoryMediaEntry[] | null | (() => MaybePromise<readonly HistoryMediaEntry[] | null | undefined>);
-    mediaLimit?: number;
-    messageId?: string;
-    shouldRecord?: () => boolean;
-  }) => Promise<T[]>;
+  recordWithMedia: (params: Omit<Parameters<typeof recordChannelHistoryEntryWithMedia<T>>[0], "historyMap">) => Promise<T[]>;
   buildPendingContext: (params: {
     historyKey: string;
     limit: number;

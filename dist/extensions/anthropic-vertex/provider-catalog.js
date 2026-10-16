@@ -43,77 +43,45 @@ const SONNET_5_COST = {
 };
 function buildAnthropicVertexModel(params) {
 	return {
-		id: params.id,
-		name: params.name,
-		reasoning: params.reasoning,
-		input: params.input,
-		cost: params.cost,
+		...params,
+		reasoning: true,
+		input: ["text", "image"],
 		contextWindow: ANTHROPIC_VERTEX_DEFAULT_CONTEXT_WINDOW,
-		maxTokens: params.maxTokens,
-		...params.mediaInput ? { mediaInput: params.mediaInput } : {},
-		...params.thinkingLevelMap ? { thinkingLevelMap: params.thinkingLevelMap } : {}
+		maxTokens: ANTHROPIC_VERTEX_CLAUDE_5_MAX_TOKENS
 	};
 }
-function resolveOpus5Cost(region) {
+function resolveClaude5Cost(region, costs) {
 	const normalizedRegion = normalizeLowercaseStringOrEmpty(region);
-	if (!CLAUDE_5_SUPPORTED_REGIONS.has(normalizedRegion)) return;
-	return normalizedRegion === "global" ? OPUS_5_COST.global : OPUS_5_COST.multiRegion;
+	return CLAUDE_5_SUPPORTED_REGIONS.has(normalizedRegion) ? costs[normalizedRegion === "global" ? "global" : "multiRegion"] : void 0;
 }
-function resolveSonnet5Cost(region) {
-	const normalizedRegion = normalizeLowercaseStringOrEmpty(region);
-	if (!CLAUDE_5_SUPPORTED_REGIONS.has(normalizedRegion)) return;
-	return normalizedRegion === "global" ? SONNET_5_COST.global : SONNET_5_COST.multiRegion;
+function buildRegionalClaude5Models(region, id, name, costs) {
+	const cost = resolveClaude5Cost(region, costs);
+	return cost ? [buildAnthropicVertexModel({
+		id,
+		name,
+		cost,
+		mediaInput: { image: {
+			maxSidePx: 2576,
+			preferredSidePx: 2576,
+			tokenMode: "provider"
+		} },
+		thinkingLevelMap: {
+			xhigh: "xhigh",
+			max: "max"
+		}
+	})] : [];
 }
 function buildAnthropicVertexCatalog(region) {
-	const opus5Cost = resolveOpus5Cost(region);
-	const opus5 = opus5Cost ? [buildAnthropicVertexModel({
-		id: "claude-opus-5",
-		name: "Claude Opus 5",
-		reasoning: true,
-		input: ["text", "image"],
-		cost: opus5Cost,
-		maxTokens: ANTHROPIC_VERTEX_CLAUDE_5_MAX_TOKENS,
-		mediaInput: { image: {
-			maxSidePx: 2576,
-			preferredSidePx: 2576,
-			tokenMode: "provider"
-		} },
-		thinkingLevelMap: {
-			xhigh: "xhigh",
-			max: "max"
-		}
-	})] : [];
-	const sonnet5Cost = resolveSonnet5Cost(region);
-	const sonnet5 = sonnet5Cost ? [buildAnthropicVertexModel({
-		id: "claude-sonnet-5",
-		name: "Claude Sonnet 5",
-		reasoning: true,
-		input: ["text", "image"],
-		cost: sonnet5Cost,
-		maxTokens: 128e3,
-		mediaInput: { image: {
-			maxSidePx: 2576,
-			preferredSidePx: 2576,
-			tokenMode: "provider"
-		} },
-		thinkingLevelMap: {
-			xhigh: "xhigh",
-			max: "max"
-		}
-	})] : [];
 	return [
 		buildAnthropicVertexModel({
 			id: "claude-fable-5",
 			name: "Claude Fable 5",
-			reasoning: true,
-			input: ["text", "image"],
 			cost: {
 				input: 10,
 				output: 50,
 				cacheRead: 1,
 				cacheWrite: 12.5
 			},
-			maxTokens: ANTHROPIC_VERTEX_CLAUDE_5_MAX_TOKENS,
 			thinkingLevelMap: {
 				off: "low",
 				minimal: "low",
@@ -121,19 +89,16 @@ function buildAnthropicVertexCatalog(region) {
 				max: "max"
 			}
 		}),
-		...opus5,
+		...buildRegionalClaude5Models(region, "claude-opus-5", "Claude Opus 5", OPUS_5_COST),
 		buildAnthropicVertexModel({
 			id: "claude-mythos-5",
 			name: "Claude Mythos 5",
-			reasoning: true,
-			input: ["text", "image"],
 			cost: {
 				input: 10,
 				output: 50,
 				cacheRead: 1,
 				cacheWrite: 12.5
 			},
-			maxTokens: ANTHROPIC_VERTEX_CLAUDE_5_MAX_TOKENS,
 			thinkingLevelMap: {
 				off: "low",
 				minimal: "low",
@@ -141,19 +106,16 @@ function buildAnthropicVertexCatalog(region) {
 				max: "max"
 			}
 		}),
-		...sonnet5,
+		...buildRegionalClaude5Models(region, "claude-sonnet-5", "Claude Sonnet 5", SONNET_5_COST),
 		buildAnthropicVertexModel({
 			id: "claude-opus-4-8",
 			name: "Claude Opus 4.8",
-			reasoning: true,
-			input: ["text", "image"],
 			cost: {
 				input: 5,
 				output: 25,
 				cacheRead: .5,
 				cacheWrite: 6.25
 			},
-			maxTokens: 128e3,
 			thinkingLevelMap: {
 				xhigh: "xhigh",
 				max: "max"
@@ -162,15 +124,12 @@ function buildAnthropicVertexCatalog(region) {
 		buildAnthropicVertexModel({
 			id: "claude-opus-4-6",
 			name: "Claude Opus 4.6",
-			reasoning: true,
-			input: ["text", "image"],
 			cost: {
 				input: 5,
 				output: 25,
 				cacheRead: .5,
 				cacheWrite: 6.25
 			},
-			maxTokens: 128e3,
 			thinkingLevelMap: {
 				xhigh: null,
 				max: "max"
@@ -179,15 +138,12 @@ function buildAnthropicVertexCatalog(region) {
 		buildAnthropicVertexModel({
 			id: ANTHROPIC_VERTEX_DEFAULT_MODEL_ID,
 			name: "Claude Sonnet 4.6",
-			reasoning: true,
-			input: ["text", "image"],
 			cost: {
 				input: 3,
 				output: 15,
 				cacheRead: .3,
 				cacheWrite: 3.75
 			},
-			maxTokens: 128e3,
 			thinkingLevelMap: {
 				xhigh: null,
 				max: "max"
@@ -229,7 +185,7 @@ function normalizeAnthropicVertexResolvedModel(modelId, model) {
 	};
 	const nativeThinkingLevelsMatch = model.thinkingLevelMap?.xhigh === "xhigh" && model.thinkingLevelMap.max === "max" && (!(fable5 || mythos5) || model.thinkingLevelMap.off === "low" && model.thinkingLevelMap.minimal === "low");
 	const region = resolveAnthropicVertexClientRegion({ baseUrl: model.baseUrl });
-	const cost = opus5 ? resolveOpus5Cost(region) : sonnet5 ? resolveSonnet5Cost(region) : void 0;
+	const cost = opus5 ? resolveClaude5Cost(region, OPUS_5_COST) : sonnet5 ? resolveClaude5Cost(region, SONNET_5_COST) : void 0;
 	const costMatches = !cost || modelCostsEqual(model.cost, cost);
 	if (model.reasoning && input === model.input && model.contextWindow === ANTHROPIC_VERTEX_DEFAULT_CONTEXT_WINDOW && model.contextTokens === ANTHROPIC_VERTEX_DEFAULT_CONTEXT_WINDOW && (model.maxTokens ?? 0) >= ANTHROPIC_VERTEX_CLAUDE_5_MAX_TOKENS && nativeThinkingLevelsMatch && costMatches) return;
 	return {

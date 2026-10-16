@@ -1,2 +1,0 @@
-import{n as e}from"./rolldown-runtime-8BhlS34s.js";import{ma as t,va as n}from"./control-ui-foundation-tVZcErG9.js";import{lt as r,ut as i}from"./control-ui-core-C1rTZu37.js";function a(e,t,r=!1){i(n({kind:`desktop`,source:t,control:r},e))}function o(){return(o=e((()=>{t(),r()})))()}export{a as n,o as t};
-//# sourceMappingURL=desktop-focus-window-BkFCdrS4.js.map

@@ -57,30 +57,10 @@ function resolveLegacyVolcengineCredentials(config) {
 	};
 }
 function readProviderConfig(config) {
-	const normalized = normalizeVolcengineProviderConfig({});
-	return {
-		apiKey: normalizeResolvedSecretInputString({
-			value: config.apiKey,
-			path: "tts.providers.volcengine.apiKey"
-		}) ?? normalized.apiKey,
-		appId: normalizeOptionalString(config.appId) ?? normalized.appId,
-		token: normalizeOptionalString(config.token) ?? normalized.token,
-		voice: normalizeOptionalString(config.voice) ?? normalized.voice,
-		cluster: normalizeOptionalString(config.cluster) ?? normalized.cluster,
-		resourceId: normalizeOptionalString(config.resourceId) ?? normalized.resourceId,
-		appKey: normalizeOptionalString(config.appKey) ?? normalized.appKey,
-		baseUrl: normalizeOptionalString(config.baseUrl) ?? normalized.baseUrl,
-		speedRatio: normalizeSpeedRatio(config.speedRatio) ?? normalized.speedRatio,
-		emotion: normalizeOptionalString(config.emotion) ?? normalized.emotion
-	};
-}
-function readVolcengineOverrides(overrides) {
-	if (!overrides) return {};
-	return {
-		voice: normalizeOptionalString(overrides.voice),
-		speedRatio: normalizeSpeedRatio(overrides.speedRatio),
-		emotion: normalizeOptionalString(overrides.emotion)
-	};
+	return normalizeVolcengineProviderConfig({ volcengine: {
+		...config,
+		token: normalizeOptionalString(config.token)
+	} });
 }
 function parseDirectiveToken(ctx) {
 	switch (ctx.key) {
@@ -141,7 +121,7 @@ function buildVolcengineSpeechProvider() {
 		},
 		synthesize: async (req) => {
 			const cfg = readProviderConfig(req.providerConfig);
-			const overrides = readVolcengineOverrides(req.providerOverrides);
+			const overrides = req.providerOverrides;
 			const apiKey = resolveSeedSpeechApiKey(cfg.apiKey);
 			const { appId, token } = resolveLegacyVolcengineCredentials(cfg);
 			if (!apiKey && (!appId || !token)) throw new Error("Volcengine TTS credentials missing. Set VOLCENGINE_TTS_API_KEY, BYTEPLUS_SEED_SPEECH_API_KEY, or legacy VOLCENGINE_TTS_APPID and VOLCENGINE_TTS_TOKEN.");
@@ -153,13 +133,13 @@ function buildVolcengineSpeechProvider() {
 					apiKey,
 					appId,
 					token,
-					voice: overrides.voice ?? cfg.voice,
+					voice: normalizeOptionalString(overrides?.voice) ?? cfg.voice,
 					cluster: cfg.cluster,
 					resourceId: cfg.resourceId,
 					appKey: cfg.appKey,
 					baseUrl: cfg.baseUrl,
-					speedRatio: overrides.speedRatio ?? cfg.speedRatio,
-					emotion: overrides.emotion ?? cfg.emotion,
+					speedRatio: normalizeSpeedRatio(overrides?.speedRatio) ?? cfg.speedRatio,
+					emotion: normalizeOptionalString(overrides?.emotion) ?? cfg.emotion,
 					encoding,
 					timeoutMs: req.timeoutMs
 				}),

@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function isLiveTextAppend(e,t){return e!==void 0&&t.snapshot.length===e.length+t.delta.length&&t.snapshot.startsWith(e)&&t.snapshot.endsWith(t.delta)}var t=e((()=>{}));export{isLiveTextAppend as n,t};

@@ -1,8 +1,8 @@
-import { S as supportsClaudeAdaptiveThinking, T as supportsClaudeNativeXhighEffort, _ as resolveClaudeNativeThinkingLevelMap, b as resolveClaudeSonnet5ModelIdentity, d as bindsClaudeThinkingPrefix, f as requiresClaudeDefaultSampling, g as resolveClaudeMythos5ModelIdentity, h as resolveClaudeModelIdentity, m as resolveClaudeFable5ModelIdentity, p as requiresClaudeMandatoryAdaptiveThinking, v as resolveClaudeOpus55ModelIdentity, w as supportsClaudeNativeMaxEffort, y as resolveClaudeOpus5ModelIdentity } from "../index-C25RT6bP.mjs";
-import { G as SimpleStreamOptions, J as StreamFunction, K as StopReason, O as Model, d as Context, ot as Usage, ut as AssistantMessageDiagnostic } from "../types-qZFbaDbK.mjs";
-import { i as AnthropicThinkingDisplay, n as AnthropicEffort, r as AnthropicOptions, t as AnthropicContextManagementOptions } from "../provider-options-DZYq53lj.mjs";
-import "../types-DTvddOfm.mjs";
-import { p as resolveAnthropicServerCompactionPlan } from "../anthropic-payload-policy-DyfwikYJ.mjs";
+import { A as supportsClaudeNativeMaxEffort, C as resolveClaudeOpus5ModelIdentity, D as supportsClaudeAdaptiveThinking, S as resolveClaudeOpus55ModelIdentity, T as resolveClaudeSonnet5ModelIdentity, _ as resolveClaudeFable5ModelIdentity, b as resolveClaudeMythos5ModelIdentity, g as requiresClaudeMandatoryAdaptiveThinking, h as requiresClaudeDefaultSampling, j as supportsClaudeNativeXhighEffort, m as requiresClaudeBetweenToolsThinking, p as bindsClaudeThinkingPrefix, v as resolveClaudeHaiku55ModelIdentity, w as resolveClaudeSonnet55ModelIdentity, x as resolveClaudeNativeThinkingLevelMap, y as resolveClaudeModelIdentity } from "../index-D27wAoOr.mjs";
+import { $ as StopReason, Et as AssistantMessageDiagnostic, Q as SimpleStreamOptions, d as Context, k as Model, pt as Usage, tt as StreamFunction } from "../types-DvzmWW8J.mjs";
+import { i as AnthropicThinkingDisplay, n as AnthropicEffort, r as AnthropicOptions, t as AnthropicContextManagementOptions } from "../provider-options-CkieKvNJ.mjs";
+import "../types-UlNana-2.mjs";
+import { p as resolveAnthropicServerCompactionPlan, s as isDirectAnthropicModel } from "../anthropic-payload-policy-DD7vzpxE.mjs";
 import { Tool } from "@anthropic-ai/sdk/resources/messages.js";
 //#region packages/ai/src/providers/anthropic.d.ts
 type AnthropicCompactionOptions = AnthropicOptions & {
@@ -12,6 +12,7 @@ export declare const streamAnthropic: StreamFunction<"anthropic-messages", Anthr
 type AnthropicSimpleStreamOptions = SimpleStreamOptions & AnthropicContextManagementOptions & {
   authProfileId?: string;
   toolChoice?: AnthropicCompactionOptions["toolChoice"];
+  thinkingDisplay?: AnthropicOptions["thinkingDisplay"];
 };
 export declare const streamSimpleAnthropic: StreamFunction<"anthropic-messages", AnthropicSimpleStreamOptions>;
 //#endregion
@@ -27,7 +28,7 @@ export declare function usesFoundryBearerAuth(model: AnthropicAuthModel): boolea
 export declare function omitFoundryBearerCredentialHeaders(headers?: Record<string, string>): Record<string, string> | undefined;
 //#endregion
 //#region packages/ai/src/providers/anthropic-model-contract.d.ts
-export declare const ANTHROPIC_CLAUDE_CODE_VERSION = "2.1.278";
+export declare const ANTHROPIC_CLAUDE_CODE_VERSION = "2.1.280";
 /** Build OAuth headers and the matching billing identity from one request snapshot. */
 export declare function buildAnthropicClaudeCodeIdentity(betaHeader: string | undefined, ...headerSources: (Record<string, string> | undefined)[]): {
   headers: Record<string, string>;
@@ -229,4 +230,4 @@ export declare function applyAnthropicMessageStartUsage(target: Usage, payload: 
 /** Keep billing and context distinct; omitted usage preserves the last snapshot. */
 export declare function applyAnthropicMessageDeltaUsage(target: Usage, usage: AnthropicUsagePayload | undefined, messageStartPromptUsage: AnthropicPromptUsageSnapshot | undefined): void;
 //#endregion
-export { type AnthropicEffort, type AnthropicOptions, type AnthropicThinkingDisplay, bindsClaudeThinkingPrefix, requiresClaudeDefaultSampling, requiresClaudeMandatoryAdaptiveThinking, resolveAnthropicServerCompactionPlan, resolveClaudeFable5ModelIdentity, resolveClaudeModelIdentity, resolveClaudeMythos5ModelIdentity, resolveClaudeNativeThinkingLevelMap, resolveClaudeOpus55ModelIdentity, resolveClaudeOpus5ModelIdentity, resolveClaudeSonnet5ModelIdentity, supportsClaudeAdaptiveThinking, supportsClaudeNativeMaxEffort, supportsClaudeNativeXhighEffort };
+export { type AnthropicEffort, type AnthropicOptions, type AnthropicThinkingDisplay, bindsClaudeThinkingPrefix, isDirectAnthropicModel, requiresClaudeBetweenToolsThinking, requiresClaudeDefaultSampling, requiresClaudeMandatoryAdaptiveThinking, resolveAnthropicServerCompactionPlan, resolveClaudeFable5ModelIdentity, resolveClaudeHaiku55ModelIdentity, resolveClaudeModelIdentity, resolveClaudeMythos5ModelIdentity, resolveClaudeNativeThinkingLevelMap, resolveClaudeOpus55ModelIdentity, resolveClaudeOpus5ModelIdentity, resolveClaudeSonnet55ModelIdentity, resolveClaudeSonnet5ModelIdentity, supportsClaudeAdaptiveThinking, supportsClaudeNativeMaxEffort, supportsClaudeNativeXhighEffort };

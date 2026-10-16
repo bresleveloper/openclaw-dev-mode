@@ -30,13 +30,8 @@ function resolveAnthropicVertexHomeDir(env = process.env) {
 function resolveAnthropicVertexDefaultAdcPath(env = process.env) {
 	return platform() === "win32" ? join(normalizeOptionalString(env.APPDATA) ?? join(resolveAnthropicVertexHomeDir(env), "AppData", "Roaming"), "gcloud", "application_default_credentials.json") : join(resolveAnthropicVertexHomeDir(env), ".config", "gcloud", "application_default_credentials.json");
 }
-function resolveAnthropicVertexAdcCredentialsPathCandidate(env = process.env) {
-	const explicit = normalizeOptionalString(env.GOOGLE_APPLICATION_CREDENTIALS);
-	if (explicit) return explicit;
-	return resolveAnthropicVertexDefaultAdcPath(env);
-}
 function resolveAnthropicVertexAdcCredentials(env = process.env) {
-	const credentialsPath = resolveAnthropicVertexAdcCredentialsPathCandidate(env);
+	const credentialsPath = normalizeOptionalString(env.GOOGLE_APPLICATION_CREDENTIALS) ?? resolveAnthropicVertexDefaultAdcPath(env);
 	const text = tryReadSecretFileSync(credentialsPath, "Anthropic Vertex ADC credentials", {
 		maxBytes: ANTHROPIC_VERTEX_ADC_FILE_MAX_BYTES,
 		rejectHardlinks: false

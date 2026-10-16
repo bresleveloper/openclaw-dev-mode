@@ -1,10 +1,19 @@
 #!/usr/bin/env node
+import { t as disableExitUnsafeCompilers } from "./node-exit-safe-compilers-B7V3uapp.mjs";
+import { t as resolveCliArgvInvocation } from "./argv-invocation-CV_-dmd8.mjs";
+import { n as tryRunUpdateAdmissionBeforeStartup } from "./run-main-update-admission-BS1Ry2Ic.mjs";
+import { i as createGatewayDispatchStartupTrace, n as configureGatewayStartupTraceConsoleFormatting } from "./startup-trace-D7hzafKJ.mjs";
+import { t as tryHandleRootVersionFastPath } from "./detached-async-context-B1URpzvl.mjs";
+import { t as isMainModule } from "./is-main-DYSvvM1W.mjs";
 import { existsSync } from "node:fs";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 //#region src/index.ts
+const isMain = isMainModule({ currentFile: fileURLToPath(import.meta.url) });
+if (isMain) disableExitUnsafeCompilers();
+const handledAdmission = isMain && await tryRunUpdateAdmissionBeforeStartup(resolveCliArgvInvocation(process.argv));
 const packageRootUrl = new URL("../", import.meta.url);
-if (!existsSync(new URL("entry.ts", import.meta.url)) && (existsSync(new URL(".openclaw-lifecycle-pending", packageRootUrl)) || existsSync(new URL("dist/openclaw-install-guard", packageRootUrl)))) {
+if (!handledAdmission && !existsSync(new URL("entry.ts", import.meta.url)) && (existsSync(new URL(".openclaw-lifecycle-pending", packageRootUrl)) || existsSync(new URL("dist/openclaw-install-guard", packageRootUrl)))) {
 	const { completePendingPackageLifecycle } = await import("./infra/package-lifecycle.js");
 	try {
 		await completePendingPackageLifecycle({ packageRoot: fileURLToPath(packageRootUrl) });
@@ -12,18 +21,7 @@ if (!existsSync(new URL("entry.ts", import.meta.url)) && (existsSync(new URL(".o
 		throw new Error(`OpenClaw package lifecycle is incomplete. Reinstall with package scripts enabled, then retry. ${error instanceof Error ? error.message : String(error)}`, { cause: error });
 	}
 }
-const [{ formatCliFailureLines, formatCliJsonFailure, isExpectedCliError }, { isJsonOutputModeActive }, { runCliWithExitFinalization }, { withCliProcessScope }, { installDistEsmResolveFastPath }, { tryHandleRootVersionFastPath }, { formatUncaughtError }, { runFatalErrorHooks }, { isMainModule }, { installUnhandledRejectionHandler, isBenignUncaughtExceptionError, isUncaughtExceptionHandled }] = await Promise.all([
-	import("./failure-output-Tnld8e4L.mjs"),
-	import("./json-output-mode-pwhUEVjJ.mjs"),
-	import("./one-shot-exit-CIocqz6a.mjs"),
-	import("./runtime-cleanup-scope-DzOJviEP.mjs"),
-	import("./entry.esm-resolve-fast-path-nYOOyhlm.mjs"),
-	import("./entry.version-fast-path-BilyiJnB.mjs"),
-	import("./infra/errors.js"),
-	import("./fatal-error-hooks-CCSjrmQf.mjs"),
-	import("./is-main-DarT_f5R.mjs"),
-	import("./unhandled-rejections-BrGfFgus.mjs")
-]);
+const handledRootVersion = isMain && !handledAdmission && tryHandleRootVersionFastPath(process.argv);
 let applyTemplate;
 let createDefaultDeps;
 let deriveSessionKey;
@@ -33,8 +31,6 @@ let ensurePortAvailable;
 let getReplyFromConfig;
 let handlePortError;
 let loadConfig;
-/** @deprecated Use SQLite-backed session APIs. Scheduled for removal after 2026-10-12. */
-let loadSessionStore;
 let monitorWebChannel;
 let normalizeE164;
 let PortInUseError;
@@ -43,23 +39,31 @@ let resolveSessionKey;
 let resolveStorePath;
 let runCommandWithTimeout;
 let runExec;
-/** @deprecated Use SQLite-backed session APIs. Scheduled for removal after 2026-10-12. */
-let saveSessionStore;
 let waitForever;
-async function loadLegacyCliDeps() {
-	const { runCli } = await import("./cli/run-main.js");
+async function loadLegacyCliDeps(argv) {
+	const startupTrace = createGatewayDispatchStartupTrace(argv, "entry");
+	await configureGatewayStartupTraceConsoleFormatting(startupTrace);
+	const { runCli } = await startupTrace.measure("run-main-import", () => import("./cli/run-main.js"));
 	return { runCli };
 }
 async function runLegacyCliEntry(argv = process.argv, deps, options) {
-	const { runCli } = deps ?? await loadLegacyCliDeps();
+	const { runCli } = deps ?? await loadLegacyCliDeps(argv);
 	await runCli(argv, options);
 }
-const isMain = isMainModule({ currentFile: fileURLToPath(import.meta.url) });
-if (isMain) installDistEsmResolveFastPath(import.meta.url);
-const handledRootVersion = isMain && tryHandleRootVersionFastPath(process.argv);
-if (!isMain) ({applyTemplate, createDefaultDeps, deriveSessionKey, describePortOwner, ensureBinary, ensurePortAvailable, getReplyFromConfig, handlePortError, loadConfig, loadSessionStore, monitorWebChannel, normalizeE164, PortInUseError, promptYesNo, resolveSessionKey, resolveStorePath, runCommandWithTimeout, runExec, saveSessionStore, waitForever} = await import("./library-PCi_Tv9P.mjs"));
-if (isMain && !handledRootVersion) {
-	const { defaultRuntime, restoreRuntimeTerminalState } = await import("./runtime-pvh-jBbt.mjs");
+if (!isMain) ({applyTemplate, createDefaultDeps, deriveSessionKey, describePortOwner, ensureBinary, ensurePortAvailable, getReplyFromConfig, handlePortError, loadConfig, monitorWebChannel, normalizeE164, PortInUseError, promptYesNo, resolveSessionKey, resolveStorePath, runCommandWithTimeout, runExec, waitForever} = await import("./library-QjBudDa6.mjs"));
+if (isMain && !handledRootVersion && !handledAdmission) {
+	const [{ formatCliFailureLines, formatCliJsonFailure, isExpectedCliError }, { isJsonOutputModeActive }, { runCliWithExitFinalization }, { withCliProcessScope }, { installDistEsmResolveFastPath: installFastPath }, { formatUncaughtError }, { runFatalErrorHooks }, { installUnhandledRejectionHandler, isBenignUncaughtExceptionError, isUncaughtExceptionHandled }] = await Promise.all([
+		import("./failure-output-CKN7Q5cE.mjs"),
+		import("./json-output-mode-BR-Z3WUl.mjs"),
+		import("./one-shot-exit-45nwQ_jz.mjs"),
+		import("./runtime-cleanup-scope-DfAoBUW-.mjs"),
+		import("./entry.esm-resolve-fast-path-nYOOyhlm.mjs"),
+		import("./infra/errors.js"),
+		import("./fatal-error-hooks-Q7ktJSt7.mjs"),
+		import("./unhandled-rejections-B3DEjwQf.mjs")
+	]);
+	installFastPath(import.meta.url);
+	const { defaultRuntime, restoreRuntimeTerminalState } = await import("./runtime-C3rISTtF.mjs");
 	installUnhandledRejectionHandler();
 	process.on("uncaughtException", (error) => {
 		if (isUncaughtExceptionHandled(error)) return;
@@ -99,4 +103,4 @@ if (isMain && !handledRootVersion) {
 	});
 }
 //#endregion
-export { PortInUseError, applyTemplate, createDefaultDeps, deriveSessionKey, describePortOwner, ensureBinary, ensurePortAvailable, getReplyFromConfig, handlePortError, loadConfig, loadSessionStore, monitorWebChannel, normalizeE164, promptYesNo, resolveSessionKey, resolveStorePath, runCommandWithTimeout, runExec, runLegacyCliEntry, saveSessionStore, waitForever };
+export { PortInUseError, applyTemplate, createDefaultDeps, deriveSessionKey, describePortOwner, ensureBinary, ensurePortAvailable, getReplyFromConfig, handlePortError, loadConfig, monitorWebChannel, normalizeE164, promptYesNo, resolveSessionKey, resolveStorePath, runCommandWithTimeout, runExec, runLegacyCliEntry, waitForever };

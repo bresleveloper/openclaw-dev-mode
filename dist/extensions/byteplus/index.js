@@ -1,13 +1,10 @@
-import { a as BYTEPLUS_PROVIDER_CATALOG, o as openclaw_plugin_default } from "./.setup/models-648u0ZzV.mjs";
+import { a as BYTEPLUS_PROVIDER_CATALOG, o as openclaw_plugin_default } from "./.setup/models-B35FIrA-.mjs";
 import { buildBytePlusVideoGenerationProvider } from "./video-generation-provider.js";
 import { buildOpenAICompatibleProviderFamilyCatalog } from "openclaw/plugin-sdk/provider-catalog-live-runtime";
 import { readManifestProviderDefaultModelRef } from "openclaw/plugin-sdk/provider-catalog-shared";
 import { defineSingleProviderPluginEntry } from "openclaw/plugin-sdk/provider-entry";
 import { ensureModelAllowlistEntry } from "openclaw/plugin-sdk/provider-onboard";
 //#region extensions/byteplus/index.ts
-/**
-* BytePlus provider plugin entrypoint for model and video generation providers.
-*/
 const PROVIDER_ID = "byteplus";
 const BYTEPLUS_DEFAULT_MODEL_REF = readManifestProviderDefaultModelRef(openclaw_plugin_default, "byteplus-plan");
 var byteplus_default = defineSingleProviderPluginEntry({

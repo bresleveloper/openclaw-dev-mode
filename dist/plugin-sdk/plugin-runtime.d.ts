@@ -1,9 +1,9 @@
-import { Cc as AgentPromptSurfaceKind, Ec as PluginCommandResult, Ns as OpenClawPluginApi, Pa as OpenClawPluginConfigSchema, Tc as PluginCommandContext, _c as PluginInteractiveRegistration, gc as PluginInteractiveHandlerRegistration, ui as PluginRuntime, vo as RuntimeLogger, wc as OpenClawPluginCommandDefinition, xu as getPluginRuntimeGatewayRequestScope } from "../agent-harness-runtime-wMciqZ6Z.js";
-import { r as OpenClawConfig } from "../types.openclaw-Ccmw-oTa.js";
-import { t as getGlobalHookRunner } from "../hook-runner-global-CDmmGFJp.js";
-import { n as PluginConversationBindingRequestParams, r as PluginConversationBindingRequestResult, t as PluginConversationBinding } from "../conversation-binding.types-CddE2b_6.js";
-import { t as getPluginCommandSpecs } from "../command-specs-daELYaLG.js";
-import { i as requestPluginConversationBinding } from "../conversation-binding-C0gGf2Dr.js";
+import { Ic as PluginCommandResult, Nc as AgentPromptSurfaceKind, Nr as OpenClawPluginConfigSchema, Pc as OpenClawPluginCommandDefinition, Ss as OpenClawPluginApi, la as PluginInteractiveHandlerRegistration, ma as PluginRuntime, mi as RuntimeLogger, ts as getPluginRuntimeGatewayRequestScope, ua as PluginInteractiveRegistration } from "../agent-harness-runtime-DZjstJNb.js";
+import { t as getGlobalHookRunner } from "../hook-runner-global-Jvv9WFUW.js";
+import { n as PluginConversationBindingRequestParams, r as PluginConversationBindingRequestResult, t as PluginConversationBinding } from "../conversation-binding.types-CWsGnzcy.js";
+import { t as getPluginCommandSpecs } from "../command-specs-DfHc1c3k.js";
+import { i as requestPluginConversationBinding } from "../conversation-binding-CzJIUkPu.js";
+import { r as PluginCommandDispatchContext } from "../plugin-command-runtime-ijPjaovc.js";
 //#region src/plugins/command-registry-state.d.ts
 type RegisteredPluginCommand = OpenClawPluginCommandDefinition & {
   pluginId: string;
@@ -18,7 +18,6 @@ export declare function listRegisteredPluginAgentPromptGuidance(params?: {
 }): string[];
 //#endregion
 //#region src/plugins/command-registration.d.ts
-/** Result returned when a plugin command registration succeeds or fails validation. */
 type CommandRegistrationResult = {
   ok: boolean;
   error?: string;
@@ -30,6 +29,12 @@ export declare function registerPluginCommand(pluginId: string, command: OpenCla
   allowOwnerStatusExposure?: boolean;
 }): CommandRegistrationResult;
 //#endregion
+//#region src/plugins/plugin-command-execution.d.ts
+type PluginCommandExecutionParams = PluginCommandDispatchContext & {
+  command: RegisteredPluginCommand;
+  args?: string;
+};
+//#endregion
 //#region src/plugins/commands.d.ts
 /** Match one compatibility command invocation against the current command registry. */
 export declare function matchPluginCommand(commandBody: string, options?: {
@@ -38,36 +43,7 @@ export declare function matchPluginCommand(commandBody: string, options?: {
   command: RegisteredPluginCommand;
   args?: string;
 } | null;
-export declare function executePluginCommand(params: {
-  command: RegisteredPluginCommand;
-  args?: string;
-  senderId?: string;
-  channel: string;
-  channelId?: PluginCommandContext["channelId"];
-  isAuthorizedSender: boolean;
-  senderIsOwner?: boolean;
-  assertOwnerCurrent?: () => void;
-  gatewayClientScopes?: PluginCommandContext["gatewayClientScopes"];
-  /** Host-resolved agent authority for plugin-owned or non-agent-shaped session keys. */
-  agentId?: string;
-  sessionKey?: PluginCommandContext["sessionKey"];
-  sessionId?: PluginCommandContext["sessionId"];
-  sessionTarget?: PluginCommandContext["sessionTarget"];
-  sessionFile?: PluginCommandContext["sessionFile"];
-  authProfileId?: string;
-  commandBody: string;
-  config: OpenClawConfig;
-  from?: PluginCommandContext["from"];
-  to?: PluginCommandContext["to"];
-  originatingTo?: string;
-  accountId?: PluginCommandContext["accountId"];
-  messageThreadId?: PluginCommandContext["messageThreadId"];
-  threadParentId?: PluginCommandContext["threadParentId"];
-  diagnosticsSessions?: PluginCommandContext["diagnosticsSessions"];
-  diagnosticsUploadApproved?: PluginCommandContext["diagnosticsUploadApproved"];
-  diagnosticsPreviewOnly?: PluginCommandContext["diagnosticsPreviewOnly"];
-  diagnosticsPrivateRouted?: PluginCommandContext["diagnosticsPrivateRouted"];
-}): Promise<PluginCommandResult>;
+export declare function executePluginCommand(params: { -readonly [Key in keyof PluginCommandExecutionParams as Exclude<Key, "runtimeContext">]: PluginCommandExecutionParams[Key]; }): Promise<PluginCommandResult>;
 //#endregion
 //#region src/plugins/interactive-binding-helpers.d.ts
 type RegisteredInteractiveMetadata = {

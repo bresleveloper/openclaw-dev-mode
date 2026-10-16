@@ -1,0 +1,1 @@
+import{a as e,i as t,n,o as r,r as i,t as a}from"./worker-chunk-CrNmJxXV.mjs";i();export{a as SQLITE_SIDECAR_SUFFIXES,n as hasOrphanedSqliteSidecars,t as isAppleDoubleMetadataFile,e as quarantineOrphanedSqliteSidecars,r as resolveSqliteDatabaseFilePaths};

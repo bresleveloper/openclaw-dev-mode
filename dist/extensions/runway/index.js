@@ -1,7 +1,7 @@
-import { t as definePluginEntry } from "../../plugin-entry-BOulgRcx.mjs";
-import { n as createProviderApiKeyAuthMethod } from "../../provider-api-key-auth-LIByB6QG.mjs";
-import "../../provider-entry-DP2O-chg.mjs";
-import { t as buildRunwayVideoGenerationProvider } from "../../video-generation-provider-BHgH_LSt.mjs";
+import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
+import { n as createProviderApiKeyAuthMethod } from "../../provider-api-key-auth-Cg1OHhgW.mjs";
+import "../../provider-entry-B2Tqqb69.mjs";
+import { t as buildRunwayVideoGenerationProvider } from "../../video-generation-provider-BsX3-OOL.mjs";
 //#region extensions/runway/index.ts
 var runway_default = definePluginEntry({
 	id: "runway",

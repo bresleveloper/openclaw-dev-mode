@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function resolveGatewayPublicOrigin(e){let t=e?.gateway?.publicOrigin?.trim();if(t)try{let e=new URL(t);return e.pathname===`/`&&!e.search&&!e.hash?e.origin:void 0}catch{return}}var t=e((()=>{}));export{resolveGatewayPublicOrigin as n,t};

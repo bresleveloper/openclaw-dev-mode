@@ -1,9 +1,11 @@
+import { randomUUID } from "node:crypto";
 import type { OpenClawConfig } from "../../config/types.openclaw.js";
 import type { GatewayRecoveryRuntime } from "../../gateway/server-instance-runtime.types.js";
 import { waitForAbortSignal } from "../../infra/abort-signal.js";
 import {
   getAgentEventLifecycleGeneration,
   isAgentEventLifecycleGenerationCurrent,
+  registerAgentEventLifecycleRotationHandler,
 } from "../../infra/agent-events.js";
 import { sleepWithAbort } from "../../infra/backoff.js";
 import { runWithGatewayIndependentRootWorkAdmission } from "../../process/gateway-work-admission.js";
@@ -29,6 +31,17 @@ import {
 
 type RecoveryCounts = { started: number; settled: number; failed: number; skipped: number };
 const STARTUP_RECOVERY_MAX_ACTIVE_RUNS = 1;
+
+function prepareRestartRecovery(gatewayRuntime: GatewayRecoveryRuntime, signal?: AbortSignal) {
+  return gatewayRuntime.prepareRestartRecovery(signal)?.then((pausedUntilMs) => {
+    if (pausedUntilMs !== undefined) {
+      mainSessionRecoveryLog.info(
+        `restart-loop breaker tripped; automatic main-session restart recovery paused until ${new Date(pausedUntilMs).toISOString()}`,
+      );
+    }
+    return pausedUntilMs;
+  });
+}
 
 async function runRecoveryRetries(params: {
   initialDelayMs: number;
@@ -65,6 +78,7 @@ async function runRecoveryRetries(params: {
   }
 }
 
+/** The startup owner admits this store sweep before marking or dispatching sessions. */
 export async function recoverRestartAbortedMainSessions(params: {
   cfg?: OpenClawConfig;
   onExhaustedTarget?: (target: ExhaustedRestartRecoveryTarget) => void;
@@ -79,6 +93,9 @@ export async function recoverRestartAbortedMainSessions(params: {
   recoveryCapacity?: ReturnType<typeof createMainSessionRecoveryCapacity>;
 }): Promise<RecoveryCounts> {
   const result = { started: 0, settled: 0, failed: 0, skipped: 0 };
+  if (params.shouldContinue?.() === false) {
+    return result;
+  }
   const handledSessionKeys = params.handledSessionKeys ?? new Set<string>();
 
   for (const target of await discoverRestartRecoveryStoreTargets({
@@ -146,10 +163,15 @@ async function recoverExpectedRestartRecovery(
     lifecycleGeneration?: string;
     observationOnly?: boolean;
     shouldContinue?: () => boolean;
+    signal?: AbortSignal;
     stateDir?: string;
     gatewayRuntime: GatewayRecoveryRuntime;
   },
 ): Promise<RecoveryCounts> {
+  const preparation = prepareRestartRecovery(params.gatewayRuntime, params.signal);
+  if (preparation && (await preparation) !== undefined) {
+    return { started: 0, settled: 0, failed: 0, skipped: 0 };
+  }
   const expected = params.expectedTarget;
   const loadExpected = () =>
     loadExpectedRestartRecoveryTarget({ expected, storePath: params.storePath });
@@ -246,6 +268,10 @@ export function scheduleRestartAbortedMainSessionRecovery(params: {
   const handledSessionKeys = new Set<string>();
   const lifecycleGeneration = getAgentEventLifecycleGeneration();
   const abortController = new AbortController();
+  const unregisterRotation = registerAgentEventLifecycleRotationHandler(
+    `main-session-restart-recovery:${randomUUID()}`,
+    () => abortController.abort(),
+  );
   const shouldContinue = () =>
     !abortController.signal.aborted &&
     params.shouldContinue?.() !== false &&
@@ -257,9 +283,17 @@ export function scheduleRestartAbortedMainSessionRecovery(params: {
   const startupCheckedStorePaths = params.startupCheckedStorePaths ?? new Set<string>();
   const runRecoveryAttempt = async (
     exhaustedTargets: Map<string, ExhaustedRestartRecoveryTarget>,
-  ): Promise<RecoveryCounts> => {
+  ): Promise<RecoveryCounts | number> => {
     return await runWithGatewayIndependentRootWorkAdmission(
       async () => {
+        const preparation = prepareRestartRecovery(params.gatewayRuntime, abortController.signal);
+        const pausedUntilMs = preparation ? await preparation : undefined;
+        if (pausedUntilMs !== undefined) {
+          return pausedUntilMs;
+        }
+        if (!shouldContinue()) {
+          return { started: 0, settled: 0, failed: 0, skipped: 0 };
+        }
         const cfg = params.getConfig();
         const marking = await markStartupOrphanedMainSessionsForRecovery({
           cfg,
@@ -306,6 +340,7 @@ export function scheduleRestartAbortedMainSessionRecovery(params: {
               lifecycleGeneration,
               observationOnly: true,
               shouldContinue,
+              signal: abortController.signal,
               stateDir: params.stateDir,
               gatewayRuntime: params.gatewayRuntime,
             }),
@@ -342,14 +377,23 @@ export function scheduleRestartAbortedMainSessionRecovery(params: {
       signal: abortController.signal,
       attempt: async (finalAttempt) => {
         exhaustedTargets = new Map();
-        const result = await runRecoveryAttempt(exhaustedTargets);
-        if (result.failed === 0) {
-          return true;
+        while (shouldContinue()) {
+          const result = await runRecoveryAttempt(exhaustedTargets);
+          if (typeof result === "number") {
+            await sleepWithAbort(Math.max(1, result - Date.now()), abortController.signal, {
+              ref: false,
+            });
+            continue;
+          }
+          if (result.failed === 0) {
+            return true;
+          }
+          if (finalAttempt && exhaustedTargets.size > 0) {
+            await reconcileExhaustedTargets(exhaustedTargets.values());
+          }
+          return false;
         }
-        if (finalAttempt && exhaustedTargets.size > 0) {
-          await reconcileExhaustedTargets(exhaustedTargets.values());
-        }
-        return false;
+        return true;
       },
       onError: async (err, finalAttempt) => {
         if (finalAttempt) {
@@ -363,6 +407,7 @@ export function scheduleRestartAbortedMainSessionRecovery(params: {
   });
   return {
     stop: async () => {
+      unregisterRotation();
       // Restart recovery belongs to its startup generation; stale timers must
       // never claim a session after that gateway begins draining.
       abortController.abort();

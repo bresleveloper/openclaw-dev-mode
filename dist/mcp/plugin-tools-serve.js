@@ -1,16 +1,16 @@
-import { t as formatErrorMessage } from "../errors-DnjwnOju.mjs";
-import { a as routeLogsToStderr } from "../console-DwqfhE-H.mjs";
-import { d as resolveToolProfilePolicy } from "../tool-policy-shared-auQCQEhM.mjs";
-import { n as pickSandboxToolPolicy } from "../sandbox-tool-policy-Dp4rlIlG.mjs";
-import { a as collectExplicitDenylist, i as collectExplicitAllowlist, l as mergeAlsoAllowPolicy } from "../tool-policy-YDdaK0oX.mjs";
-import { r as getRuntimeConfig } from "../io.runtime-CXaC-ufL.mjs";
-import "../config-DH29aVhU.mjs";
-import { i as logWarn } from "../logger-BHMMVs5C.mjs";
-import { r as getPluginToolMeta } from "../tool-metadata-DpaqT_qU.mjs";
-import { n as resolveEffectiveToolPolicy } from "../agent-tools.policy-7CdV0ypj.mjs";
-import { n as buildDefaultToolPolicyPipelineSteps, t as applyToolPolicyPipeline } from "../tool-policy-pipeline-BjUxseTY.mjs";
-import { n as acquireStandalonePluginToolRegistry } from "../tools-DwAFDais.mjs";
-import { a as resolveToolsMcpAgentId, n as createToolsMcpServer, r as serveRegisteredToolsMcpServer, s as resolveToolsMcpSessionContext } from "../tools-stdio-server-BnUhWtk7.mjs";
+import { t as formatErrorMessage } from "../errors-O33D01XW.mjs";
+import { i as routeLogsToStderr } from "../console-BnFs8ZzT.mjs";
+import { s as resolveCoreToolProfilePolicy } from "../tool-catalog-DyHnjiiS.mjs";
+import { n as pickSandboxToolPolicy } from "../sandbox-tool-policy-BO1puJQ0.mjs";
+import { a as collectExplicitDenylist, i as collectExplicitAllowlist, l as mergeAlsoAllowPolicy } from "../tool-policy-BKvvmcQR.mjs";
+import { r as getRuntimeConfig } from "../io.runtime-CPntde4x.mjs";
+import "../config-CzeZu5J_.mjs";
+import { i as logWarn } from "../logger-DskmrSVa.mjs";
+import { r as getPluginToolMeta } from "../tool-metadata-DEC0Rqn3.mjs";
+import { n as resolveEffectiveToolPolicy } from "../agent-tools.policy-Ni4Rljqy.mjs";
+import { n as buildDefaultToolPolicyPipelineSteps, t as applyToolPolicyPipeline } from "../tool-policy-pipeline-DFP1wzZs.mjs";
+import { n as acquireStandalonePluginToolRegistry } from "../tools-OR2DVzl1.mjs";
+import { a as resolveToolsMcpAgentId, n as createToolsMcpServer, r as serveRegisteredToolsMcpServer, s as resolveToolsMcpSessionContext } from "../tools-stdio-server-CALZPMM_.mjs";
 import { pathToFileURL } from "node:url";
 import "@modelcontextprotocol/sdk/server/index.js";
 //#region src/mcp/plugin-tools-serve.ts
@@ -28,7 +28,7 @@ function resolvePluginToolPolicy(config, context) {
 		agentId: context.agentId,
 		sessionKey: context.sessionKey
 	}) : void 0;
-	const profilePolicy = mergeAlsoAllowPolicy(resolveToolProfilePolicy(effective?.profile ?? config.tools?.profile), effective?.profileAlsoAllow ?? config.tools?.alsoAllow);
+	const profilePolicy = mergeAlsoAllowPolicy(resolveCoreToolProfilePolicy(effective?.profile ?? config.tools?.profile), effective?.profileAlsoAllow ?? config.tools?.alsoAllow);
 	const globalPolicy = effective?.globalPolicy ?? pickSandboxToolPolicy(config.tools);
 	const steps = effective ? buildDefaultToolPolicyPipelineSteps({
 		profilePolicy,

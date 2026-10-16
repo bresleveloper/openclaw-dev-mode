@@ -10,26 +10,20 @@ import { resolveSessionStorePathCore } from "../../config/sessions/paths.js";
 import { loadSessionEntryReadOnly } from "../../config/sessions/session-accessor.js";
 import { resolvePersistedSessionStoreOwnerForKey } from "../../config/sessions/session-store-owner.js";
 import { normalizeStoreSessionKey } from "../../config/sessions/store-entry.js";
-import type { SessionEntry } from "../../config/sessions/types.js";
+import type { SessionAcpMeta, SessionEntry } from "../../config/sessions/types.js";
 import type { OpenClawConfig } from "../../config/types.openclaw.js";
 import { normalizeAgentId, parseAgentSessionKey } from "../../routing/session-key.js";
 
-/** Join the logical ACP key to its canonical SQLite entry without renaming ACP metadata. */
-export function resolveStoreEntryForSessionKey(params: {
+export type AcpSessionStoreEntry = {
+  cfg: OpenClawConfig;
   agentId?: string;
   storePath: string;
   sessionKey: string;
-  clone?: boolean;
-}): { storeSessionKey: string; entry?: SessionEntry } {
-  const storeSessionKey = normalizeStoreSessionKey(params.sessionKey);
-  if (!storeSessionKey) {
-    return { storeSessionKey };
-  }
-  return {
-    storeSessionKey,
-    entry: loadSessionEntryReadOnly({ ...params, sessionKey: storeSessionKey }),
-  };
-}
+  storeSessionKey: string;
+  entry?: SessionEntry;
+  acp?: SessionAcpMeta;
+  storeReadFailed?: boolean;
+};
 
 /** Resolves the session store path that owns an ACP session key. */
 export function resolveSessionStorePathForAcp(params: {
@@ -122,19 +116,17 @@ export function readSessionEntryFromStore(params: {
     agentId,
     storePath,
     storeSessionKey: canonicalKey,
-  } = resolveSessionStorePathForAcp({
-    sessionKey: params.sessionKey,
-    agentId: params.agentId,
-    cfg: params.cfg,
-    env: params.env,
-  });
+  } = resolveSessionStorePathForAcp(params);
   try {
-    const { storeSessionKey, entry } = resolveStoreEntryForSessionKey({
-      ...(agentId ? { agentId } : {}),
-      storePath,
-      sessionKey: canonicalKey,
-      ...(params.clone === false ? { clone: false } : {}),
-    });
+    const storeSessionKey = normalizeStoreSessionKey(canonicalKey);
+    const entry = storeSessionKey
+      ? loadSessionEntryReadOnly({
+          ...(agentId ? { agentId } : {}),
+          storePath,
+          sessionKey: storeSessionKey,
+          ...(params.clone === false ? { clone: false } : {}),
+        })
+      : undefined;
     return { cfg, agentId, storePath, storeSessionKey, entry };
   } catch {
     return {

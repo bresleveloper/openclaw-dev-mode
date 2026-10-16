@@ -1,5 +1,9 @@
 {
   "id": "logbook",
+  "uiCapabilities": [
+    "page",
+    "navigation"
+  ],
   "categories": [
     "productivity"
   ],

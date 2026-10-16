@@ -1,4 +1,4 @@
-import { i as openclaw_plugin_default, r as isModernCohereModelId } from "./.setup/models-DxsOE4Aq.mjs";
+import { i as openclaw_plugin_default, r as isModernCohereModelId } from "./.setup/models-BLTLa6bn.mjs";
 import { applyCohereConfig } from "./onboard.js";
 import { COHERE_LIVE_MODEL_DISCOVERY } from "./provider-catalog.js";
 import { wrapCohereProviderStream } from "./stream.js";

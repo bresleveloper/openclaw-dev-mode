@@ -1,7 +1,7 @@
-import { t as modelCatalog } from "./.setup/openclaw.plugin-BRaVociw.mjs";
+import { t as openclaw_plugin_default } from "./.setup/openclaw.plugin-D7BLeoIa.mjs";
 import { normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
 //#region extensions/deepinfra/media-models.ts
-const DEEPINFRA_BASE_URL = modelCatalog.providers.deepinfra.baseUrl;
+const DEEPINFRA_BASE_URL = openclaw_plugin_default.modelCatalog.providers.deepinfra.baseUrl;
 const DEFAULT_DEEPINFRA_IMAGE_SIZE = "1024x1024";
 const DEFAULT_DEEPINFRA_TTS_VOICE = "af_bella";
 const DEEPINFRA_VIDEO_ASPECT_RATIOS = [
@@ -12,12 +12,37 @@ const DEEPINFRA_VIDEO_ASPECT_RATIOS = [
 	"9:16"
 ];
 const DEEPINFRA_VIDEO_DURATIONS = [5, 8];
-const DEEPINFRA_IMAGE_FALLBACK_MODELS = [
-	"black-forest-labs/FLUX-1-schnell",
-	"black-forest-labs/FLUX-1-dev",
-	"Qwen/Qwen-Image-Max",
-	"stabilityai/sdxl-turbo"
-];
+const DEEPINFRA_IMAGE_FALLBACK_CATALOG = [
+	{
+		id: "black-forest-labs/FLUX-1-schnell",
+		price: .003,
+		iterations: 4
+	},
+	{
+		id: "black-forest-labs/FLUX-1-dev",
+		price: .025,
+		iterations: 28
+	},
+	{
+		id: "Qwen/Qwen-Image-Max",
+		price: .075,
+		iterations: 28
+	},
+	{
+		id: "stabilityai/sdxl-turbo",
+		price: 2e-4,
+		iterations: 4
+	}
+].map(({ id, price, iterations }) => ({
+	id,
+	name: id,
+	tags: ["image-gen"],
+	pricing: { per_image_unit: price },
+	defaultWidth: 1024,
+	defaultHeight: 1024,
+	defaultIterations: iterations
+}));
+const DEEPINFRA_IMAGE_FALLBACK_MODELS = DEEPINFRA_IMAGE_FALLBACK_CATALOG.map(({ id }) => id);
 const DEEPINFRA_TTS_FALLBACK_CATALOG = [
 	{
 		id: "hexgrad/Kokoro-82M",
@@ -62,4 +87,4 @@ function normalizeDeepInfraBaseUrl(value, fallback = DEEPINFRA_BASE_URL) {
 	return (normalizeOptionalString(value) ?? fallback).replace(/\/+$/u, "");
 }
 //#endregion
-export { DEEPINFRA_BASE_URL, DEEPINFRA_EMBED_FALLBACK_MODELS, DEEPINFRA_IMAGE_FALLBACK_MODELS, DEEPINFRA_STT_FALLBACK_MODELS, DEEPINFRA_TTS_FALLBACK_CATALOG, DEEPINFRA_TTS_FALLBACK_MODELS, DEEPINFRA_VIDEO_ASPECT_RATIOS, DEEPINFRA_VIDEO_DURATIONS, DEEPINFRA_VIDEO_FALLBACK_MODELS, DEEPINFRA_VLM_FALLBACK_MODELS, DEFAULT_DEEPINFRA_IMAGE_SIZE, DEFAULT_DEEPINFRA_TTS_VOICE, normalizeDeepInfraBaseUrl, normalizeDeepInfraModelRef };
+export { DEEPINFRA_BASE_URL, DEEPINFRA_EMBED_FALLBACK_MODELS, DEEPINFRA_IMAGE_FALLBACK_CATALOG, DEEPINFRA_IMAGE_FALLBACK_MODELS, DEEPINFRA_STT_FALLBACK_MODELS, DEEPINFRA_TTS_FALLBACK_CATALOG, DEEPINFRA_TTS_FALLBACK_MODELS, DEEPINFRA_VIDEO_ASPECT_RATIOS, DEEPINFRA_VIDEO_DURATIONS, DEEPINFRA_VIDEO_FALLBACK_MODELS, DEEPINFRA_VLM_FALLBACK_MODELS, DEFAULT_DEEPINFRA_IMAGE_SIZE, DEFAULT_DEEPINFRA_TTS_VOICE, normalizeDeepInfraBaseUrl, normalizeDeepInfraModelRef };

@@ -1,8 +1,8 @@
-import { o as defineSelfHostedOpenAICompatibleProvider } from "../../provider-model-shared-CvgLZp0K.mjs";
+import { i as defineSelfHostedOpenAICompatibleProvider } from "../../provider-model-shared-BZZnLgoM.mjs";
 import { i as VLLM_PROVIDER_LABEL, n as VLLM_DEFAULT_BASE_URL, r as VLLM_MODEL_PLACEHOLDER, t as VLLM_DEFAULT_API_KEY_ENV_VAR } from "../../defaults-Cha6Xv-5.mjs";
-import { n as resolveThinkingProfile } from "../../thinking-policy-Tc_eEEZ3.mjs";
-import { n as wrapVllmProviderStream } from "../../stream-BaiueZdU.mjs";
-import "../../api-DcXuNlbG.mjs";
+import { n as resolveThinkingProfile } from "../../thinking-policy-CGihQkAh.mjs";
+import { n as wrapVllmProviderStream } from "../../stream-Cy50CO5C.mjs";
+import "../../api-thzTFAb9.mjs";
 //#region extensions/vllm/index.ts
 var vllm_default = defineSelfHostedOpenAICompatibleProvider({
 	id: "vllm",

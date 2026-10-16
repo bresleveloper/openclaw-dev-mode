@@ -1,2 +1,2 @@
-import { n as migrateElevenLabsLegacyTalkConfig, r as resolveElevenLabsApiKeyWithProfileFallback, t as ELEVENLABS_TALK_PROVIDER_ID } from "../../config-compat-BtyIpz8R.mjs";
-export { ELEVENLABS_TALK_PROVIDER_ID, migrateElevenLabsLegacyTalkConfig, resolveElevenLabsApiKeyWithProfileFallback };
+import { i as resolveElevenLabsApiKeyWithProfileFallback, n as hasLegacyTalkFields, r as migrateElevenLabsLegacyTalkConfig, t as ELEVENLABS_TALK_PROVIDER_ID } from "../../config-compat-CXt80ClX.mjs";
+export { ELEVENLABS_TALK_PROVIDER_ID, hasLegacyTalkFields, migrateElevenLabsLegacyTalkConfig, resolveElevenLabsApiKeyWithProfileFallback };

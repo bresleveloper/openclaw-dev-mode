@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function isDevicePairingJoinCode(e){return t.test(e)}function parseDevicePairingJoinRequestPath(e){if(e.endsWith(`/j`))return``;let t=e.lastIndexOf(`/j/`);return t>=0?e.slice(t+3):null}var t,n=e((()=>{t=/^[A-Za-z0-9_-]{22}$/u}));export{isDevicePairingJoinCode as n,parseDevicePairingJoinRequestPath as r,n as t};

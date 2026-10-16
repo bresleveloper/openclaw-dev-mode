@@ -1,11 +1,12 @@
 Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
-const require_resolve_allowlist = require("./.setup/resolve-allowlist-CHzaaWiC.cjs");
+const require_resolve_allowlist = require("./.setup/resolve-allowlist-Ct9yxQUw.cjs");
+const require_token_config = require("./.setup/token-config-DOt3XwVa.cjs");
 let openclaw_plugin_sdk_directory_runtime = require("openclaw/plugin-sdk/directory-runtime");
 const msteamsDirectoryContractPlugin = {
 	id: "msteams",
 	directory: {
 		self: async ({ cfg }) => {
-			const creds = require_resolve_allowlist.resolveMSTeamsCredentials(cfg.channels?.msteams);
+			const creds = require_token_config.resolveMSTeamsCredentials(cfg.channels?.msteams);
 			return creds ? {
 				kind: "user",
 				id: creds.appId,

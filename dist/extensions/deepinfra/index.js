@@ -1,4 +1,5 @@
 import { createDeepInfraAnthropicCacheWrapper } from "./cache-wrapper.js";
+import { t as openclaw_plugin_default } from "./.setup/openclaw.plugin-D7BLeoIa.mjs";
 import { buildDeepInfraEmbeddingAdapter } from "./embedding-adapter.js";
 import { buildDeepInfraImageGenerationProvider } from "./image-generation-provider.js";
 import { buildDeepInfraMediaUnderstandingProvider } from "./media-understanding-provider.js";
@@ -18,40 +19,21 @@ var deepinfra_default = defineSingleProviderPluginEntry({
 	id: PROVIDER_ID,
 	name: "DeepInfra Provider",
 	description: "Bundled DeepInfra provider plugin",
+	manifest: openclaw_plugin_default,
 	provider: {
 		label: "DeepInfra",
 		docsPath: "/providers/deepinfra",
-		auth: [{
-			methodId: "api-key",
-			label: "DeepInfra API key",
-			hint: "Unified API for open source models",
-			optionKey: "deepinfraApiKey",
-			flagName: "--deepinfra-api-key",
-			envVar: "DEEPINFRA_API_KEY",
-			promptMessage: "Enter DeepInfra API key",
+		manifestAuth: {
 			noteTitle: "DeepInfra",
 			noteMessage: ["DeepInfra provides an OpenAI-compatible API for open source and frontier models.", "Get your API key at: https://deepinfra.com/dash/api_keys"].join("\n"),
 			defaultModel: DEEPINFRA_DEFAULT_MODEL_REF,
-			applyConfig: (cfg) => applyDeepInfraConfig(cfg),
-			wizard: {
-				choiceId: "deepinfra-api-key",
-				choiceLabel: "DeepInfra API key",
-				choiceHint: "Unified API for open source models",
-				groupId: PROVIDER_ID,
-				groupLabel: "DeepInfra",
-				groupHint: "Unified API for open source models"
-			}
-		}],
+			applyConfig: applyDeepInfraConfig
+		},
 		catalog: {
 			order: "simple",
-			run: (ctx) => buildDeepInfraApiKeyCatalog(ctx),
+			run: buildDeepInfraApiKeyCatalog,
 			staticRun: async () => ({ provider: buildStaticDeepInfraProvider() })
 		},
-		normalizeConfig: ({ providerConfig }) => providerConfig,
-		normalizeTransport: ({ api, baseUrl }) => baseUrl === "https://api.deepinfra.com/v1/openai" ? {
-			api,
-			baseUrl
-		} : void 0,
 		...buildProviderReplayFamilyHooks({ family: "passthrough-gemini" }),
 		wrapStreamFn: (ctx) => {
 			const thinkingLevel = isProxyReasoningUnsupported(ctx.modelId) ? void 0 : ctx.thinkingLevel;

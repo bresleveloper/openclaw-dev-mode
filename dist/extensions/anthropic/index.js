@@ -1,19 +1,11 @@
-import { t as definePluginEntry } from "../../plugin-entry-BOulgRcx.mjs";
-import { n as registerAnthropicPlugin } from "../../register.runtime-2HFwWNeG.mjs";
+import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
+import { n as registerAnthropicPlugin } from "../../register.runtime-u_tygPjH.mjs";
 //#region extensions/anthropic/index.ts
-/**
-* Anthropic provider plugin entry. It registers Claude API auth, Claude CLI
-* backend support, native session catalogs, media understanding, stream
-* wrappers, and usage reporting.
-*/
-/** Provider entry for Anthropic API, Claude CLI, and native session surfaces. */
 var anthropic_default = definePluginEntry({
 	id: "anthropic",
 	name: "Anthropic",
 	description: "Anthropic models, Claude CLI, and native Claude session catalog",
-	register(api) {
-		return registerAnthropicPlugin(api);
-	}
+	register: registerAnthropicPlugin
 });
 //#endregion
 export { anthropic_default as default };

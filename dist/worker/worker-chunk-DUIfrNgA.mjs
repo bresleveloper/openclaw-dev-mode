@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";var SessionCompanionAskError,t=e((()=>{SessionCompanionAskError=class extends Error{constructor(e,t,n){super(t),this.reason=e,this.retryAfterMs=n,this.name=`SessionCompanionAskError`}}}));export{t as n,SessionCompanionAskError as t};

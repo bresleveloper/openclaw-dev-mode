@@ -58,16 +58,16 @@ struct UpdateOrchestrationTests {
             false,
             receipt: incomplete,
             defaults: defaults)
-        let inFlight = PostAppUpdateReceiptStore.setNotificationInFlight(
+        let inFlight = try #require(PostAppUpdateReceiptStore.setNotificationInFlight(
             true,
             receipt: completed,
-            defaults: defaults)
+            defaults: defaults))
         #expect(inFlight.notificationInFlight)
         #expect(!PostUpdateController.isNotificationOnlyRetry(inFlight))
-        let readyToRetry = PostAppUpdateReceiptStore.setNotificationInFlight(
+        let readyToRetry = try #require(PostAppUpdateReceiptStore.setNotificationInFlight(
             false,
             receipt: inFlight,
-            defaults: defaults)
+            defaults: defaults))
         let firstNotificationFailure = PostAppUpdateReceiptStore.recordNotificationFailure(
             receipt: readyToRetry,
             defaults: defaults)
@@ -280,6 +280,13 @@ struct UpdateOrchestrationTests {
             status: .incompatible(location: managed, found: "2026.7.5", required: "2026.7.4"),
             ownsManagedRuntime: true,
             gatewayUpdateIncomplete: false) == .none)
+        #expect(PostUpdateController.gatewayAction(
+            status: CLIInstaller.classifyVersion(
+                location: managed, output: "OpenClaw 2026.10.2-beta.1", expectedVersion: "2026.10.1"),
+            ownsManagedRuntime: true,
+            gatewayUpdateIncomplete: true) == .repair)
+        #expect(CLIInstaller.satisfiesUpdateTarget(
+            installedVersion: "2026.10.2+fixture", targetVersion: "2026.10.2"))
         #expect(PostUpdateController.gatewayAction(
             status: .incompatible(location: managed, found: "2026.7.3", required: "2026.7.4"),
             ownsManagedRuntime: false,

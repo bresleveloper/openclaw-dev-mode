@@ -1,0 +1,1 @@
+import{n as e,r as t,t as n}from"./worker-chunk-C1T4i39d.mjs";e();export{n as detectBrowserOpenSupport,t as openUrl};

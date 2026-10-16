@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{a as t,d as n,s as r}from"./worker-chunk-DqN1MGYd.mjs";function hasPersistedMedia(e){return!e||typeof e!=`object`||Array.isArray(e)?!1:(n(e)??[]).some(r)}var i,a=e((()=>{t(),i=`[User sent media without caption]`}));export{hasPersistedMedia as n,a as r,i as t};

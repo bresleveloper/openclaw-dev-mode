@@ -680,13 +680,30 @@
             "default": "/feishu/events",
             "type": "string"
           },
-          "webhookHost": {
-            "type": "string"
-          },
-          "webhookPort": {
-            "type": "integer",
-            "exclusiveMinimum": 0,
-            "maximum": 9007199254740991
+          "legacyWebhook": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "port": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 65535
+                  },
+                  "host": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "port"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "boolean",
+                "const": false
+              }
+            ]
           },
           "capabilities": {
             "type": "array",
@@ -806,6 +823,10 @@
           "requireMention": {
             "type": "boolean"
           },
+          "requireMentionInBotThreads": {
+            "description": "Require mentions in threads started by this bot. False permits unmentioned messages; true requires a mention. Omit to preserve existing mention behavior.",
+            "type": "boolean"
+          },
           "groups": {
             "type": "object",
             "propertyNames": {
@@ -855,6 +876,10 @@
                 },
                 "systemPrompt": {
                   "type": "string"
+                },
+                "requireMentionInBotThreads": {
+                  "description": "Require mentions in threads started by this bot. False permits unmentioned messages; true requires a mention. Omit to preserve existing mention behavior.",
+                  "type": "boolean"
                 },
                 "groupSessionScope": {
                   "type": "string",
@@ -1532,13 +1557,30 @@
                 "webhookPath": {
                   "type": "string"
                 },
-                "webhookHost": {
-                  "type": "string"
-                },
-                "webhookPort": {
-                  "type": "integer",
-                  "exclusiveMinimum": 0,
-                  "maximum": 9007199254740991
+                "legacyWebhook": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "port": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 65535
+                        },
+                        "host": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "port"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "boolean",
+                      "const": false
+                    }
+                  ]
                 },
                 "capabilities": {
                   "type": "array",
@@ -1657,6 +1699,10 @@
                 "requireMention": {
                   "type": "boolean"
                 },
+                "requireMentionInBotThreads": {
+                  "description": "Require mentions in threads started by this bot. False permits unmentioned messages; true requires a mention. Omit to preserve existing mention behavior.",
+                  "type": "boolean"
+                },
                 "groups": {
                   "type": "object",
                   "propertyNames": {
@@ -1706,6 +1752,10 @@
                       },
                       "systemPrompt": {
                         "type": "string"
+                      },
+                      "requireMentionInBotThreads": {
+                        "description": "Require mentions in threads started by this bot. False permits unmentioned messages; true requires a mention. Omit to preserve existing mention behavior.",
+                        "type": "boolean"
                       },
                       "groupSessionScope": {
                         "type": "string",

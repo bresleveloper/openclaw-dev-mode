@@ -1,11 +1,11 @@
-import { a as asOptionalRecord } from "../../record-coerce-DItp3I4t.mjs";
-import { l as normalizeOptionalString } from "../../string-coerce-CIXf7egm.mjs";
+import { l as normalizeOptionalString } from "../../string-coerce-1VuiLaaR.mjs";
+import { a as asOptionalRecord } from "../../record-coerce-TIsquoVR.mjs";
 import { t as findCrabboxBinary } from "../../crabbox-binary-BMI8aWfR.mjs";
-import "../../string-coerce-runtime-C_MKhRVt.mjs";
-import { i as resolveManagedCrabboxBinaryPath, n as ensureManagedCrabboxBinary, r as probeCrabboxVersion, t as CRABBOX_MIN_VERSION } from "../../crabbox-managed-binary-B98pQW90.mjs";
-import { m as resolveOpenClawRoot, r as CRABBOX_WORKER_PROVIDER_ID } from "../../crabbox-worker-profile-JlLsFEvg.mjs";
-import "../../crabbox-worker-warm-image-records-CKlhPK62.mjs";
-import { f as projectCrabboxWarmImage, o as crabboxWarmImageRecoveryHint, s as isCrabboxWarmImageCaptureUncertain, t as CRABBOX_WARM_IMAGE_WAIT_HINT } from "../../crabbox-worker-warm-image-store-mBNWdk8P.mjs";
+import "../../string-coerce-runtime-50qKeWeL.mjs";
+import { m as resolveOpenClawRoot, r as CRABBOX_WORKER_PROVIDER_ID } from "../../crabbox-worker-profile-BU49dPt3.mjs";
+import { a as resolveManagedCrabboxBinaryPath, i as probeCrabboxVersion, n as ensureManagedCrabboxBinary, r as findManagedCrabboxBinary, t as CRABBOX_MIN_VERSION } from "../../crabbox-managed-binary-DtWM-7fF.mjs";
+import "../../crabbox-worker-warm-image-records-D4Yqzjt9.mjs";
+import { p as projectCrabboxWarmImage, s as crabboxWarmImageRecoveryHint, t as CRABBOX_WARM_IMAGE_WAIT_HINT } from "../../crabbox-worker-warm-image-store-CTZ77FWn.mjs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 //#region extensions/crabbox/src/doctor.ts
@@ -29,6 +29,7 @@ function createCrabboxCloudWorkerProfileCheck(openclawRoot) {
 				}
 				return pending;
 			};
+			let managed;
 			const findings = [];
 			for (const [profileId, profile] of profiles) {
 				const explicitBinary = normalizeOptionalString(asOptionalRecord(profile.settings)?.binary);
@@ -39,9 +40,9 @@ function createCrabboxCloudWorkerProfileCheck(openclawRoot) {
 				});
 				const result = binary ? await probe(binary) : void 0;
 				if (result?.status === "supported") continue;
-				let managedPath;
 				try {
-					managedPath = resolveManagedCrabboxBinaryPath(ctx.env);
+					managed ??= findManagedCrabboxBinary({ env: ctx.env });
+					if (await managed) continue;
 				} catch (error) {
 					findings.push({
 						checkId: CRABBOX_CLOUD_WORKER_PROFILE_CHECK_ID,
@@ -52,11 +53,6 @@ function createCrabboxCloudWorkerProfileCheck(openclawRoot) {
 					});
 					continue;
 				}
-				const installed = findCrabboxBinary({
-					explicit: managedPath,
-					openclawRoot
-				});
-				if (installed && (await probe(installed)).status === "supported") continue;
 				const reason = !result ? "has no executable Crabbox binary" : result.status === "outdated" ? `uses outdated Crabbox ${result.version}` : `could not determine its Crabbox version: ${result.reason}`;
 				findings.push({
 					checkId: CRABBOX_CLOUD_WORKER_PROFILE_CHECK_ID,
@@ -132,8 +128,14 @@ function registerCrabboxWorkerProviderDoctorChecks(host) {
 					source: "crabbox",
 					target: image.profileKey
 				};
+				if (image.captureUnsupported) findings.push({
+					...details,
+					severity: "info",
+					message: `Warm-image native capture${display} is unsupported: ${image.captureUnsupported.message}`,
+					fixHint: "Workers use an existing compatible snapshot when one is available and otherwise provision cold; each eligible worker retries capture, so Crabbox configuration changes apply to the next dispatch. Set `settings.warmImage: false` on the profile to stop capture attempts, or use a Crabbox configuration that supports native checkpoints."
+				});
 				if (image.capture) {
-					const uncertain = isCrabboxWarmImageCaptureUncertain(image.capture);
+					const uncertain = image.capture.phase === "uncertain";
 					findings.push({
 						...details,
 						severity: uncertain || image.capture.stale ? "warning" : "info",

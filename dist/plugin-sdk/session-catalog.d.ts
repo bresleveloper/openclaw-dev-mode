@@ -1,11 +1,8 @@
-import { $s as listAdoptedSessionCatalogSessions, Bs as SessionCatalogEntrySnapshot, Gs as SessionCatalogStartTerminalProviderParams, Hs as SessionCatalogListProviderParams, Js as SessionUpstreamJsonValue, Ks as SessionCatalogTerminalPlan, Ls as SessionCatalogArchiveProviderParams, Qs as isExternalUserText, Rs as SessionCatalogContinueProviderParams, Us as SessionCatalogProvider, Vs as SessionCatalogEntrySummary, Ws as SessionCatalogReadProviderParams, Xs as SessionUpstreamProbe, Ys as SessionUpstreamKind, Zs as createSessionCatalogAdoptionCoordinator, cc as OpenClawPluginNodeInvokePolicy, ec as listSessionCatalogEntries, nc as sessionCatalogAdoptedSessionKey, qs as SessionUpstreamActivity, rc as sessionCatalogAdoptedSourceKey, tc as normalizeUserText, th as OpenClawStateDatabaseOptions, ui as PluginRuntime, zs as SessionCatalogContinueProviderResult } from "../agent-harness-runtime-wMciqZ6Z.js";
-import { r as OpenClawConfig } from "../types.openclaw-Ccmw-oTa.js";
-import "../openclaw-state-db-CMVCVfJm.js";
-import { Ct as SessionsCatalogReadParams, Et as SessionsCatalogStartTerminalResult, St as SessionsCatalogListResult, Tt as SessionsCatalogStartTerminalParams, _t as SessionsCatalogArchiveParams, bt as SessionsCatalogContinueResult, ct as SessionCatalog, dt as SessionCatalogHost, ft as SessionCatalogLocator, gt as SessionCatalogTranscriptItem, lt as SessionCatalogCapabilities, mt as SessionCatalogSession, pt as SessionCatalogPullRequestSummary, ut as SessionCatalogDescriptor, vt as SessionsCatalogArchiveResult, wt as SessionsCatalogReadResult, x as TerminalUploadPathStyle, xt as SessionsCatalogListParams, yt as SessionsCatalogContinueParams } from "../index-hVvy_KTe.js";
-import { v as OpenClawPluginNodeHostCommand, y as OpenClawPluginNodeHostCommandAvailabilityContext } from "../computer-use-contract-Cd4Rm__C.js";
-import "../kysely-sync-j49J-6_6.js";
-import { DatabaseSync } from "node:sqlite";
-import { Selectable } from "kysely";
+import { r as OpenClawConfig } from "../types.openclaw-DWWUw8hA.js";
+import { r as OpenClawStateDatabaseOptions } from "../openclaw-state-db-Yba_0aSZ.js";
+import { $ as SessionCatalogPullRequestSummary, J as SessionCatalog, Q as SessionCatalogLocator, X as SessionCatalogDescriptor, Y as SessionCatalogCapabilities, Z as SessionCatalogHost, at as SessionsCatalogContinueParams, ct as SessionsCatalogListResult, dt as SessionsCatalogStartTerminalParams, et as SessionCatalogSession, ft as SessionsCatalogStartTerminalResult, g as TerminalUploadPathStyle, it as SessionsCatalogArchiveResult, lt as SessionsCatalogReadParams, nt as SessionCatalogTranscriptItem, ot as SessionsCatalogContinueResult, rt as SessionsCatalogArchiveParams, st as SessionsCatalogListParams, ut as SessionsCatalogReadResult } from "../index-B4F-ENEv.js";
+import { $i as OpenClawPluginNodeInvokePolicy, $l as SessionCatalogContinueProviderParams, Ql as SessionCatalogArchiveProviderParams, Zl as SessionUpstreamLink, _u as sessionCatalogAdoptedSessionKey, au as SessionCatalogReadProviderParams, cu as SessionUpstreamActivity, du as SessionUpstreamProbe, eu as SessionCatalogContinueProviderResult, fu as createSessionCatalogAdoptionCoordinator, gu as normalizeUserText, hu as listSessionCatalogEntries, iu as SessionCatalogProvider, lu as SessionUpstreamJsonValue, ma as PluginRuntime, mu as listAdoptedSessionCatalogSessions, nu as SessionCatalogEntrySummary, ou as SessionCatalogStartTerminalProviderParams, pu as isExternalUserText, ru as SessionCatalogListProviderParams, su as SessionCatalogTerminalPlan, tu as SessionCatalogEntrySnapshot, uu as SessionUpstreamKind, vu as sessionCatalogAdoptedSourceKey } from "../agent-harness-runtime-DZjstJNb.js";
+import { n as OpenClawPluginNodeHostCommandAvailabilityContext, t as OpenClawPluginNodeHostCommand } from "../types.node-host-Dhzh5c5Z.js";
 //#region src/plugins/session-catalog-history-import.d.ts
 export declare function importSessionCatalogHistory(params: {
   catalogId: string;
@@ -23,32 +20,8 @@ export declare function importSessionCatalogHistory(params: {
   commitGuard?: () => void;
 }): Promise<void>;
 //#endregion
-//#region src/sessions/session-upstream-links.kernel.d.ts
-type SessionUpstreamLink = {
-  sessionKey: string;
-  agentId: string;
-  catalogId: string;
-  hostId: string;
-  threadId: string;
-  upstreamKind: SessionUpstreamKind;
-  upstreamRef: SessionUpstreamJsonValue;
-  marker: SessionUpstreamJsonValue | null;
-  lastScannedAt?: number;
-  createdAt: number;
-  updatedAt: number;
-};
-//#endregion
 //#region src/sessions/session-upstream-links.d.ts
-export declare function upsertSessionUpstreamLink(input: {
-  sessionKey: string;
-  agentId: string;
-  catalogId: string;
-  hostId: string;
-  threadId: string;
-  upstreamKind: SessionUpstreamKind;
-  upstreamRef: SessionUpstreamJsonValue;
-  marker: SessionUpstreamJsonValue;
-}, options?: OpenClawStateDatabaseOptions & {
+export declare function upsertSessionUpstreamLink(input: Omit<SessionUpstreamLink, "lastScannedAt" | "createdAt" | "updatedAt">, options?: OpenClawStateDatabaseOptions & {
   now?: number;
   ifAbsent?: true;
   assertCommitAllowed?: () => void;

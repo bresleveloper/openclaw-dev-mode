@@ -1,10 +1,9 @@
-import { n as normalizeCompatibilityConfig, t as legacyConfigRules } from "./.setup/doctor-contract-DcONa6Y4.mjs";
+import { n as normalizeCompatibilityConfig, r as runtime_doctor_migrations_exports, t as legacyConfigRules } from "./.setup/doctor-contract-w11JEjcg.mjs";
 import { t as resolveZalouserDmSessionScope } from "./.setup/session-scope-BjOC6bJs.mjs";
-import { f as zalouserCredentialStoreKey, l as resolveLegacyZalouserCredentialsDir, o as normalizeStoredZaloCredentials, r as isZaloCredentialRevocation, s as normalizeZalouserCredentialProfile, t as ZALOUSER_CREDENTIALS_NAMESPACE, u as resolveLegacyZalouserCredentialsPath } from "./.setup/session-state-C2RwsaRK.mjs";
+import { f as zalouserCredentialStoreKey, i as isZaloCredentialRevocation, l as resolveLegacyZalouserCredentialsDir, o as normalizeStoredZaloCredentials, s as normalizeZalouserCredentialProfile, t as ZALOUSER_CREDENTIALS_NAMESPACE, u as resolveLegacyZalouserCredentialsPath } from "./.setup/session-state-B2n6XQX_.mjs";
 import { isRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
 import fsp from "node:fs/promises";
 import path from "node:path";
-import { archiveLegacyStateSource } from "openclaw/plugin-sdk/runtime-doctor-migrations";
 import { buildAgentSessionKey, parseAgentSessionKey } from "openclaw/plugin-sdk/routing";
 //#region extensions/zalouser/doctor-contract-api.ts
 const LEGACY_ZALOUSER_DM_PREFIX = "zalouser:group:";
@@ -32,10 +31,11 @@ async function collectLegacyZalouserCredentialSources(env) {
 	}).toSorted((left, right) => left.profile.localeCompare(right.profile));
 }
 async function collectLegacyZalouserDmEntries(config, env, options = {}) {
+	const { listAgentIds } = await import("openclaw/plugin-sdk/agent-scope-runtime");
 	const { deliveryContextFromSession, listSessionEntries, resolveStorePath } = await import("openclaw/plugin-sdk/session-store-runtime");
 	const entries = /* @__PURE__ */ new Map();
 	const fallbackAccountId = config.channels?.zalouser?.defaultAccount?.trim() || "default";
-	const agentIds = /* @__PURE__ */ new Set(["main", ...(config.agents?.list ?? []).flatMap(({ id }) => id?.trim() ? [id.trim()] : [])]);
+	const agentIds = /* @__PURE__ */ new Set(["main", ...listAgentIds(config)]);
 	for (const agentId of agentIds) {
 		const storePath = resolveStorePath(config.session?.store, {
 			agentId,
@@ -112,7 +112,7 @@ const stateMigrations = [{
 			const stored = await store.lookup(key);
 			if (isZaloCredentialRevocation(stored, source.profile)) {
 				changes.push(`Archived revoked Zalo Personal credential legacy source for profile ${source.profile}`);
-				await archiveLegacyStateSource({
+				await (0, runtime_doctor_migrations_exports.archiveLegacyStateSource)({
 					filePath: source.filePath,
 					label: "Zalo Personal credentials",
 					changes,
@@ -137,7 +137,7 @@ const stateMigrations = [{
 				continue;
 			}
 			changes.push(`Migrated Zalo Personal credentials for profile ${source.profile}`);
-			await archiveLegacyStateSource({
+			await (0, runtime_doctor_migrations_exports.archiveLegacyStateSource)({
 				filePath: source.filePath,
 				label: "Zalo Personal credentials",
 				changes,

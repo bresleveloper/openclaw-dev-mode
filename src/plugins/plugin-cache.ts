@@ -4,7 +4,10 @@ import { extractErrorCode } from "@openclaw/normalization-core/error-coercion";
 import { AsyncWorkScope, trackAsyncWork } from "../shared/async-work-scope.js";
 import { createDeferredCore } from "../shared/deferred.js";
 import { resolveGlobalSingleton } from "../shared/global-singleton.js";
-import { appendPluginInstanceCleanupFailures } from "./host-hook-cleanup-result.js";
+import {
+  appendPluginInstanceCleanupFailures,
+  summarizePluginRetirementResults,
+} from "./host-hook-cleanup-result.js";
 import type { PluginHostCleanupResult } from "./host-hook-cleanup.types.js";
 import {
   createPluginCacheArtifacts,
@@ -14,6 +17,7 @@ import {
 import type { PluginCacheFact } from "./plugin-cache-management.js";
 import { createPluginCacheSdk } from "./plugin-cache-sdk.js";
 import type { PluginCache, PluginRootCacheRecord } from "./plugin-cache.types.js";
+import { PluginInstanceDrainTimeoutError } from "./plugin-instance-error.js";
 import {
   createPluginExecutionFrame,
   getPluginExecutionFrame,
@@ -188,11 +192,13 @@ function createPluginMetadataCache(): PluginCache["metadata"] {
     bundledProviderPolicySurfaces: new Map(),
     staticCatalogStates: new WeakMap(),
     modelSuppressionResolvers: new WeakMap(),
+    mcpAuthDeclarations: new WeakMap(),
   };
 }
 
 /** Invalidate discovery facts without retiring callbacks owned by this operation. */
 export function invalidatePluginCacheMetadata(cache: PluginCache): void {
+  cache.sourceAdmissions?.invalidate();
   cache.metadata = createPluginMetadataCache();
   for (const root of cache.roots.values()) {
     root.files.clear();
@@ -463,6 +469,26 @@ function beginPluginCacheRetirement(
     const outcomes = await Promise.allSettled(
       [...resources].map(async (resource) => ({ resource, result: await resource.dispose() })),
     );
+    const nativeAdmissions = cache.sourceAdmissions;
+    if (nativeAdmissions) {
+      const pending = outcomes.flatMap((outcome) =>
+        outcome.status === "fulfilled"
+          ? outcome.value.result.errors.flatMap((error) =>
+              error instanceof PluginInstanceDrainTimeoutError ? [error.settled] : [],
+            )
+          : [],
+      );
+      if (pending.length > 0) {
+        // A bounded retirement report does not release files still used by timed-out calls.
+        void Promise.allSettled(pending)
+          .then(() => nativeAdmissions.dispose())
+          .catch((error: unknown) =>
+            process.emitWarning(`Plugin native capture cleanup failed: ${String(error)}`),
+          );
+      } else {
+        await nativeAdmissions.dispose();
+      }
+    }
     cache.setupModules.clear();
     for (const instance of cache.instances) {
       releasePluginCacheInstance(instance, cache);
@@ -498,19 +524,7 @@ export async function waitForPluginCacheRetirement(
   );
   state.retirements = state.retirements.filter((retirement) => !ready.includes(retirement));
   const results = await Promise.all(ready.map((retirement) => retirement.completion));
-  const failures = results.flatMap((result) =>
-    result.status === "rejected" ? [result.reason] : [],
-  );
-  if (failures.length) {
-    throw new AggregateError(failures, "Plugin cache retirement failed");
-  }
-  const completed = results.flatMap((result) =>
-    result.status === "fulfilled" ? [result.value] : [],
-  );
-  return {
-    cleanupCount: completed.reduce((count, result) => count + result.cleanupCount, 0),
-    failures: completed.flatMap((result) => result.failures),
-  };
+  return summarizePluginRetirementResults(results, "Plugin cache retirement failed");
 }
 
 export function getPluginCacheRoot(rootDir: string): PluginRootCacheRecord {

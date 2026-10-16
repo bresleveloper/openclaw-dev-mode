@@ -1,18 +1,18 @@
-import { Aa as InternalGetReplyOptions, Da as DispatchReplyFromConfig, Ea as DispatchFromConfigResult, Oa as CommandSessionMetadataChange, Sa as createReplyDispatcherWithTyping, _a as DispatchReplyWithBufferedBlockDispatcher, ba as ReplyDispatcherWithTypingOptions, ga as settleReplyDispatcher, ha as finalizeInboundContextForSdk, ka as InternalGetReplyFromConfig, va as DispatchReplyWithDispatcher, xa as createReplyDispatcher, ya as ReplyDispatcherOptions } from "../agent-harness-runtime-wMciqZ6Z.js";
-import { r as OpenClawConfig } from "../types.openclaw-Ccmw-oTa.js";
-import { C as ReplyToMode } from "../types.base-CA0_JvyZ.js";
-import { ft as CommandTurnContext, h as GetReplyOptions, l as RuntimeMsgContext, m as BlockReplyContext, n as ChannelStructuredContextEntry, p as UntrustedStructuredContextEntry, r as FinalizedMsgContext, s as MsgContext } from "../templating-0ElMwhje.js";
-import "../types-BaRTNmIt.js";
-import "../config-Dt1SOlIN.js";
-import { E as SourceReplyDeliveryMode, h as ReplyPayload$1 } from "../reply-payload-DSrL-UWv.js";
-import "../deliver-types-_mbDrloe.js";
-import { c as ChunkMode, d as chunkMarkdownText, f as chunkMarkdownTextWithMode, g as resolveTextChunkLimit, h as resolveChunkMode, m as chunkTextWithMode, p as chunkText } from "../outbound.types-DZsrSgdc.js";
-import { bt as ReplyFollowupAdmissionBarrierTimeoutPolicy, gt as ReplyDispatchKind, ht as ReplyDispatchBeforeDeliverOptions, vt as ReplyDispatchRuntimeInfo, yt as ReplyDispatcher } from "../hook-runner-global-CDmmGFJp.js";
+import { r as OpenClawConfig } from "../types.openclaw-DWWUw8hA.js";
+import { x as ReplyToMode } from "../types.base-D8MIFbSh.js";
+import { Kt as CommandTurnContext, _t as UntrustedStructuredContextEntry, dt as MsgContext, ot as ChannelStructuredContextEntry, pn as ReplyPayload$1, pt as RuntimeMsgContext, st as FinalizedMsgContext, vt as BlockReplyContext, xn as SourceReplyDeliveryMode, yt as GetReplyOptions } from "../reply-payload-DazZPys5.js";
+import "../types-C-BtfS0H.js";
+import "../deliver-08FDWQV8.js";
+import "../config-Dpca5-xX.js";
+import { Co as CommandSessionMetadataChange, So as InternalGetReplyOptions, bo as DispatchReplyFromConfig, co as finalizeInboundContextForSdk, do as DispatchReplyWithDispatcher, fo as ReplyDispatcherOptions, ho as createReplyDispatcherWithTyping, lo as settleReplyDispatcher, mo as createReplyDispatcher, po as ReplyDispatcherWithTypingOptions, uo as DispatchReplyWithBufferedBlockDispatcher, xo as InternalGetReplyFromConfig, yo as DispatchFromConfigResult } from "../agent-harness-runtime-DZjstJNb.js";
+import "../deliver-types-Qc6HS898.js";
+import { c as ChunkMode, d as chunkMarkdownText, f as chunkMarkdownTextWithMode, g as resolveTextChunkLimit, h as resolveChunkMode, m as chunkTextWithMode, p as chunkText } from "../outbound.types-B8D3jrzb.js";
+import { _t as ReplyDispatchRuntimeInfo, ht as ReplyDispatchKind, mt as ReplyDispatchBeforeDeliverOptions, vt as ReplyDispatcher, yt as ReplyFollowupAdmissionBarrierTimeoutPolicy } from "../hook-runner-global-Jvv9WFUW.js";
 import { i as isSilentReplyText, n as SILENT_REPLY_TOKEN, t as HEARTBEAT_TOKEN } from "../tokens-CLx0Aap_.js";
-import { n as createInboundDebouncer, r as resolveInboundDebounceMs } from "../inbound-debounce-DYA0KWV2.js";
-import { i as ReplyPayload } from "../reply-payload-DPfgBTIu.js";
-import { n as isAbortRequestText, t as isBtwRequestText } from "../btw-command-CGUPaEZq.js";
-import { n as generateConversationLabel, t as ConversationLabelParams } from "../conversation-label-generator-CgHE35t1.js";
+import { n as createInboundDebouncer, r as resolveInboundDebounceMs } from "../inbound-debounce-4PGNaNEe.js";
+import { i as ReplyPayload } from "../reply-payload-OW17IyAQ.js";
+import { n as isAbortRequestText, t as isBtwRequestText } from "../btw-command-CCsA4GVZ.js";
+import { n as generateConversationLabel, t as ConversationLabelParams } from "../conversation-label-generator-DbHk1LJi.js";
 //#region src/auto-reply/heartbeat.d.ts
 /** Default prompt for heartbeat turns when config does not override it. */
 export declare const HEARTBEAT_PROMPT = "Follow the heartbeat monitor scratch context when provided. Recurring tasks are automations; create or change their schedules with the automations tool, not heartbeat scratch. Do not infer or repeat old tasks from prior chats. If nothing needs attention, reply NO_REPLY.";
@@ -51,26 +51,15 @@ export declare function dispatchInboundMessage(params: {
   outboundHooks?: "enabled" | "disabled";
   onSettled?: () => void | Promise<void>;
 }): Promise<DispatchInboundResult>;
-type BufferedInboundDispatcherParams = {
-  ctx: MsgContext | FinalizedMsgContext;
-  cfg: OpenClawConfig;
+type BufferedInboundDispatcherParams = Omit<Parameters<typeof dispatchInboundMessage>[0], "dispatcher" | "replyPayloadRunState" | "outboundHooks" | "onSettled"> & {
   dispatcherOptions: ReplyDispatcherWithTypingOptions;
-  toolsAllow?: string[];
-  replyOptions?: InternalDispatchReplyOptions;
-  replyResolver?: InternalGetReplyFromConfig;
-  dispatchReplyFromConfig?: DispatchReplyFromConfig;
-  onSessionMetadataChanges?: (changes: CommandSessionMetadataChange[]) => void;
 };
 export declare function dispatchInboundMessageWithBufferedDispatcher(params: BufferedInboundDispatcherParams): Promise<DispatchInboundResult>;
-/** Creates a plain dispatcher, installs global send hooks, and dispatches the inbound message. */
-export declare function dispatchInboundMessageWithDispatcher(params: {
-  ctx: MsgContext | FinalizedMsgContext;
-  cfg: OpenClawConfig;
+type PlainInboundDispatcherParams = Omit<BufferedInboundDispatcherParams, "dispatcherOptions" | "dispatchReplyFromConfig"> & {
   dispatcherOptions: ReplyDispatcherOptions;
-  toolsAllow?: string[];
-  replyOptions?: InternalDispatchReplyOptions;
-  replyResolver?: InternalGetReplyFromConfig;
-}): Promise<DispatchInboundResult>;
+};
+/** Creates a plain dispatcher, installs global send hooks, and dispatches the inbound message. */
+export declare function dispatchInboundMessageWithDispatcher(params: Omit<PlainInboundDispatcherParams, "onSessionMetadataChanges">): Promise<DispatchInboundResult>;
 //#endregion
 //#region src/auto-reply/group-activation.d.ts
 /** Supported group activation modes. */
@@ -85,15 +74,8 @@ export declare function parseActivationCommand(raw?: string): {
 //#endregion
 //#region src/auto-reply/heartbeat-reply-payload.d.ts
 /**
- * Pick the last outbound-capable reply payload for heartbeat delivery.
- *
- * Reasoning payloads are skipped using the shared SDK classifier
- * `isReasoningReplyPayload`, which recognizes the `isReasoning` flag plus the
- * common reasoning/thinking text prefixes (including lowercased and Markdown
- * blockquoted forms). Heartbeat delivery keeps separate reasoning payloads
- * internal; without this guard, a trailing reasoning payload (which reasoning
- * models can emit after the final answer) would be selected as the visible
- * heartbeat reply.
+ * Pick the last outbound-capable reply, excluding flagged and text-prefixed reasoning.
+ * Scalar replies intentionally need no outbound-content check.
  */
 export declare function resolveHeartbeatReplyPayload(replyResult: ReplyPayload$1 | ReplyPayload$1[] | undefined): ReplyPayload$1 | undefined;
 //#endregion
@@ -110,7 +92,6 @@ declare const dispatchReplyWithBufferedBlockDispatcherCore: DispatchReplyWithBuf
 declare const dispatchReplyWithDispatcherCore: DispatchReplyWithDispatcher;
 //#endregion
 //#region src/auto-reply/reply/reply-reference.d.ts
-/** Stateful planner for reply-to ids across one delivery flow. */
 type ReplyReferencePlanner = {
   /** Returns the effective reply/thread id for the next send without updating state. */
   peek(): string | undefined;
@@ -121,7 +102,6 @@ type ReplyReferencePlanner = {
   /** Whether a reply has been sent in this flow. */
   hasReplied(): boolean;
 };
-/** Creates a planner that tracks whether a reply reference has already been consumed. */
 export declare function createReplyReferencePlanner(options: {
   replyToMode: ReplyToMode;
   /** Existing thread/reference id (preferred when allowed by replyToMode). */

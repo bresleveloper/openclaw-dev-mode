@@ -1,10 +1,12 @@
-import "../index-C25RT6bP.mjs";
-import { G as SimpleStreamOptions, H as ProviderStreamOptions, O as Model, Y as StreamOptions, a as AssistantMessage, d as Context, j as ModelThinkingLevel, n as Api, ot as Usage, s as AssistantMessageEventStreamContract } from "../types-qZFbaDbK.mjs";
-import { i as getEventStreamCompletion } from "../event-stream-CjnIZZst.mjs";
-import { a as RegisteredApiProvider, t as ApiProvider } from "../api-registry-C2T3lTV7.mjs";
-import "../types-DTvddOfm.mjs";
-import { t as sanitizeSurrogates } from "../sanitize-unicode-BZiVbGwK.mjs";
-import { _ as parseTerminalToolCallArguments } from "../transport-stream-shared-B7Z9oCYg.mjs";
+import "../index-D27wAoOr.mjs";
+import { M as ModelThinkingLevel, Q as SimpleStreamOptions, U as ProviderStreamOptions, a as AssistantMessage, d as Context, k as Model, n as Api, nt as StreamOptions, pt as Usage, s as AssistantMessageEventStreamContract } from "../types-DvzmWW8J.mjs";
+import { i as getEventStreamCompletion } from "../event-stream-DrRM_90c.mjs";
+import { a as RegisteredApiProvider, t as ApiProvider } from "../api-registry-B3rC2qu3.mjs";
+import { m as getDefaultAiTransportHost } from "../host-DiPhRjrc.mjs";
+import "../types-UlNana-2.mjs";
+import { n as getEnvApiKey, t as findEnvKeys } from "../env-api-keys-BR0MUYYD.mjs";
+import { t as sanitizeSurrogates } from "../sanitize-unicode-CjDG6jJx.mjs";
+import { v as parseTerminalToolCallArguments } from "../transport-stream-shared-DW-7-qLR.mjs";
 //#region packages/ai/src/internal/default-runtime.d.ts
 export declare const defaultApiRegistry: {
   registerApiProvider: <TApi extends Api, TOptions extends StreamOptions>(provider: ApiProvider<TApi, TOptions>, sourceId?: string) => void;
@@ -25,26 +27,30 @@ export declare const defaultLlmRuntime: {
   complete: <TApi extends Api>(model: Model<TApi>, context: Context, options?: ProviderStreamOptions) => Promise<AssistantMessage>;
   streamSimple: <TApi extends Api>(model: Model<TApi>, context: Context, options?: SimpleStreamOptions) => AssistantMessageEventStreamContract;
   completeSimple: <TApi extends Api>(model: Model<TApi>, context: Context, options?: SimpleStreamOptions) => Promise<AssistantMessage>;
+  cleanupSessionResources: (sessionId?: string) => void;
 };
-export declare const getApiProvider: (api: Api) => RegisteredApiProvider | undefined, getApiProviders: () => RegisteredApiProvider[];
+declare const { getApiProvider, getApiProviders }: {
+  registerApiProvider: <TApi extends Api, TOptions extends StreamOptions>(provider: ApiProvider<TApi, TOptions>, sourceId?: string) => void;
+  getApiProvider: (api: Api) => RegisteredApiProvider | undefined;
+  getApiProviders: () => RegisteredApiProvider[];
+  unregisterApiProviders: (sourceId: string) => void;
+  clearApiProviders: () => void;
+};
 export declare function clearApiProviders(): void;
-export declare const stream: <TApi extends Api>(model: Model<TApi>, context: Context, options?: ProviderStreamOptions) => AssistantMessageEventStreamContract, complete: <TApi extends Api>(model: Model<TApi>, context: Context, options?: ProviderStreamOptions) => Promise<AssistantMessage>, streamSimple: <TApi extends Api>(model: Model<TApi>, context: Context, options?: SimpleStreamOptions) => AssistantMessageEventStreamContract, completeSimple: <TApi extends Api>(model: Model<TApi>, context: Context, options?: SimpleStreamOptions) => Promise<AssistantMessage>;
-//#endregion
-//#region packages/ai/src/env-api-keys.d.ts
-/**
- * Find configured environment variables that can provide an API key for a provider.
- *
- * This only reports actual API key variables. It intentionally excludes ambient
- * credential sources such as AWS profiles, AWS IAM credentials, and Google
- * Application Default Credentials.
- */
-export declare function findEnvKeys(provider: string): string[] | undefined;
-/**
- * Get API key for provider from known environment variables, e.g. OPENAI_API_KEY.
- *
- * Will not return API keys for providers that require OAuth tokens.
- */
-export declare function getEnvApiKey(provider: string): string | undefined;
+declare const { stream, complete, streamSimple, completeSimple }: {
+  registry: {
+    registerApiProvider: <TApi extends Api, TOptions extends StreamOptions>(provider: ApiProvider<TApi, TOptions>, sourceId?: string) => void;
+    getApiProvider: (api: Api) => RegisteredApiProvider | undefined;
+    getApiProviders: () => RegisteredApiProvider[];
+    unregisterApiProviders: (sourceId: string) => void;
+    clearApiProviders: () => void;
+  };
+  stream: <TApi extends Api>(model: Model<TApi>, context: Context, options?: ProviderStreamOptions) => AssistantMessageEventStreamContract;
+  complete: <TApi extends Api>(model: Model<TApi>, context: Context, options?: ProviderStreamOptions) => Promise<AssistantMessage>;
+  streamSimple: <TApi extends Api>(model: Model<TApi>, context: Context, options?: SimpleStreamOptions) => AssistantMessageEventStreamContract;
+  completeSimple: <TApi extends Api>(model: Model<TApi>, context: Context, options?: SimpleStreamOptions) => Promise<AssistantMessage>;
+  cleanupSessionResources: (sessionId?: string) => void;
+};
 //#endregion
 //#region packages/ai/src/model-utils.d.ts
 /** Calculates and stores model cost fields from token usage and per-million pricing. */
@@ -59,12 +65,18 @@ export declare function clampThinkingLevel<TApi extends Api>(model: Model<TApi>,
 export declare function modelsAreEqual<TApi extends Api>(a: Model<TApi> | null | undefined, b: Model<TApi> | null | undefined): boolean;
 //#endregion
 //#region packages/ai/src/session-resources.d.ts
+/** Runtime transport owner attached to retained provider resources. */
+export type SessionResourceOwner = ReturnType<typeof getDefaultAiTransportHost>;
 /** Cleanup callback for resources tied to an LLM session or all sessions. */
-export type SessionResourceCleanup = (sessionId?: string) => void;
+export type SessionResourceCleanup = (sessionId?: string, owner?: SessionResourceOwner) => void;
+/** Returns a process-local key that keeps retained resources separated by runtime owner. */
+export declare function getSessionResourceOwnerId(owner: SessionResourceOwner): number;
 /** Registers a session-resource cleanup hook and returns an unregister function. */
 export declare function registerSessionResourceCleanup(cleanup: SessionResourceCleanup): () => void;
+/** Registers metadata cleanup that runs only after every resource cleanup succeeds. */
+export declare function registerSessionResourceCleanupObserver(observer: SessionResourceCleanup): () => void;
 /** Runs all registered cleanup hooks, aggregating failures after every hook has run. */
-export declare function cleanupSessionResources(sessionId?: string): void;
+export declare function cleanupSessionResources(sessionId?: string, owner?: SessionResourceOwner): void;
 //#endregion
 //#region packages/ai/src/utils/deferred-event-buffer.d.ts
 type EventSink<T> = {
@@ -147,55 +159,9 @@ export type ContextOverflowMessageScope = keyof typeof CONTEXT_OVERFLOW_PATTERN_
 /** Match one canonical context-overflow wording scope without applying caller policy. */
 export declare function matchesContextOverflowMessage(errorMessage: string, scope: ContextOverflowMessageScope): boolean;
 /**
- * Check if an assistant message represents a context overflow error.
- *
- * This handles two cases:
- * 1. Error-based overflow: Most providers return stopReason "error" with a
- *    specific error message pattern.
- * 2. Silent overflow: Some providers accept overflow requests and return
- *    successfully. For these, we check if usage.input exceeds the context window.
- *
- * ## Reliability by Provider
- *
- * **Reliable detection (returns error with detectable message):**
- * - Anthropic: "prompt is too long: X tokens > Y maximum" or "request_too_large"
- * - OpenAI (Completions & Responses): "exceeds the context window" or "exceeds the model's maximum context length of X tokens"
- * - Google Gemini: "input token count exceeds the maximum"
- * - xAI (Grok): "maximum prompt length is X but request contains Y"
- * - Groq: "reduce the length of the messages"
- * - Cerebras: 413 status code (no body)
- * - Mistral: "Prompt contains X tokens ... too large for model with Y maximum context length"
- * - OpenRouter (all backends): "maximum context length is X tokens"
- * - Together AI: "The input (X tokens) is longer than the model's context length (Y tokens)."
- * - llama.cpp: "exceeds the available context size"
- * - LM Studio: "greater than the context length"
- * - Kimi For Coding: "exceeded model token limit: X (requested: Y)"
- * - z.ai: "tokens in request more than max tokens allowed" or "Prompt exceeds max length"
- *
- * **Unreliable detection:**
- * - z.ai: Sometimes accepts overflow silently (detectable via usage.input > contextWindow),
- *   sometimes returns rate limit errors instead of the explicit overflow error above. Pass
- *   contextWindow param to detect silent overflow.
- * - Xiaomi MiMo: Truncates input to fit contextWindow then returns stopReason "length" with
- *   output=0. Pass contextWindow param to detect via the "filled context + zero output" signal.
- * - Ollama: May truncate input silently for some setups, but may also return explicit
- *   overflow errors that match the patterns above. Silent truncation still cannot be
- *   detected here because we do not know the expected token count.
- *
- * ## Custom Providers
- *
- * If you've added custom models via settings.json, this function may not detect
- * overflow errors from those providers. To add support:
- *
- * 1. Send a request that exceeds the model's context window
- * 2. Check the errorMessage in the response
- * 3. Create a regex pattern that matches the error
- * 4. The pattern should be added to the appropriate canonical scope in this file, or
- *    check the errorMessage yourself before calling this function
- *
- * @param message - The assistant message to check
- * @param contextWindow - Optional context window size for detecting silent overflow (z.ai)
- * @returns true if the message indicates a context overflow
+ * Match provider overflow errors, or infer overflow from reported context usage.
+ * A context window enables silent-overflow detection; silent truncation without
+ * a length stop remains undetectable because the original token count is unknown.
  */
 export declare function isContextOverflow(message: AssistantMessage, contextWindow?: number): boolean;
 //#endregion
@@ -251,18 +217,7 @@ export declare function createFirstStreamEventAbortController(parentSignal?: Abo
 export declare function withFirstStreamEventTimeout<T>(stream: AsyncIterable<T>, context: FirstStreamEventTimeoutContext): AsyncIterable<T>;
 //#endregion
 //#region packages/ai/src/utils/streaming-byte-guard.d.ts
-/**
- * Bounded SSE / NDJSON stream reader guard.
- *
- * Wraps a `ReadableStreamDefaultReader<Uint8Array>` so the caller's existing
- * chunk-by-chunk parsing logic is unchanged, but accumulated bytes are tracked
- * against a hard cap. On overflow the underlying reader is cancelled and a
- * canonical error is thrown. Mirrors the `readResponseWithLimit` / bounded
- * JSON response pattern (see `src/agents/provider-http-errors.ts`).
- *
- * Internal helper for now. If extensions need it, promote to a plugin-SDK
- * subpath in a separate, dedicated PR with full SDK metadata sync.
- */
+/** Bounds cumulative stream bytes without waiting for reader cleanup after overflow. */
 export type SseStreamOverflow = {
   size: number;
   maxBytes: number;
@@ -280,4 +235,4 @@ export type SseByteGuard = {
 };
 export declare function createSseByteGuard(reader: ReadableStreamDefaultReader<Uint8Array>, opts: ReadSseStreamWithLimitOptions): SseByteGuard;
 //#endregion
-export { type ReasoningTagTextDelta, type ReasoningTagTextPartitioner, getEventStreamCompletion, parseTerminalToolCallArguments, sanitizeSurrogates };
+export { type ReasoningTagTextDelta, type ReasoningTagTextPartitioner, complete, completeSimple, findEnvKeys, getApiProvider, getApiProviders, getEnvApiKey, getEventStreamCompletion, parseTerminalToolCallArguments, sanitizeSurrogates, stream, streamSimple };

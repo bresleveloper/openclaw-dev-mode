@@ -1,11 +1,8 @@
-import { c as isRecord, i as normalizeOptionalString, t as normalizeLowercaseStringOrEmpty } from "./string-coerce-Dyy0qgLy.js";
-import { d as resolveAccountKey, f as DEFAULT_ACCOUNT_ID, p as normalizeAccountId, s as defineChannelAliasMigration } from "./runtime-doctor-migrations-8XPPImoy.js";
-import "./string-coerce-runtime-BSQ-eR6f.js";
-import "./session-key-BEdxOeE4.js";
-import "./utils-CROxhhxU.js";
+import { D as normalizeOptionalString, T as normalizeLowercaseStringOrEmpty, a as defineChannelAliasMigration, d as normalizeAccountId, j as isRecord, s as resolveAccountKey, u as DEFAULT_ACCOUNT_ID } from "./runtime-doctor-migrations-BhouWAUC.js";
+import "./account-resolution-1w7yhOTy.js";
+import "./string-coerce-runtime-CM4JCyJk.js";
 import path from "node:path";
 import { isIP } from "node:net";
-import "node:url";
 //#region extensions/signal/src/account-selection.ts
 function resolveSignalAccountKey(accounts, accountId) {
 	return resolveAccountKey(accounts, normalizeAccountId(accountId), void 0, void 0, { channelId: "signal" });
@@ -54,6 +51,22 @@ function repairSignalAccountKeys({ cfg }) {
 		changes: [...moves].map(([from, to]) => `Moved Signal account "${from}" to channels.signal.accounts.${to}.`),
 		warnings
 	};
+}
+//#endregion
+//#region extensions/signal/src/legacy-transport.ts
+const LEGACY_SIGNAL_TRANSPORT_FIELDS = [
+	"configPath",
+	"httpUrl",
+	"httpHost",
+	"httpPort",
+	"cliPath",
+	"autoStart",
+	"startupTimeoutMs",
+	"receiveMode",
+	"ignoreStories"
+];
+function hasLegacySignalTransportFields(value) {
+	return isRecord(value) && LEGACY_SIGNAL_TRANSPORT_FIELDS.some((field) => Object.hasOwn(value, field));
 }
 //#endregion
 //#region extensions/signal/src/transport-url.ts
@@ -160,17 +173,6 @@ function assignSignalManagedNativePort(transport, httpPort) {
 }
 //#endregion
 //#region extensions/signal/src/config-compat.ts
-const LEGACY_TRANSPORT_FIELDS = [
-	"configPath",
-	"httpUrl",
-	"httpHost",
-	"httpPort",
-	"cliPath",
-	"autoStart",
-	"startupTimeoutMs",
-	"receiveMode",
-	"ignoreStories"
-];
 const PENDING_LEGACY_TRANSPORT_WARNING = "- channels.signal: legacy auto transport is ambiguous while its endpoint is unavailable; bring the endpoint online and rerun openclaw doctor --fix, or replace the retired fields with an explicit account-owned transport in openclaw.json.";
 const PENDING_LEGACY_INVALID_URL_WARNING = "- channels.signal: legacy httpUrl is invalid; keep the current config, correct httpUrl, then run openclaw doctor --fix.";
 const PENDING_LEGACY_INVALID_HOST_WARNING = "- channels.signal: legacy httpHost is invalid; keep the current config, correct httpHost, then run openclaw doctor --fix.";
@@ -178,24 +180,13 @@ const PENDING_LEGACY_INVALID_PORT_WARNING = "- channels.signal: legacy httpPort 
 const PENDING_LEGACY_CONTAINER_ACCOUNT_WARNING = "- channels.signal: legacy container transport requires an account number; add channels.signal.account (or the relevant channels.signal.accounts.*.account) and rerun openclaw doctor --fix.";
 function isSignalTransportConfig(value) {
 	if (!isRecord(value)) return false;
-	if (value.kind === "managed-native") {
-		try {
-			assertSignalSocketTransport(value);
-		} catch {
-			return false;
-		}
-		if (value.httpPort !== void 0 && !isValidSignalManagedNativePort(value.httpPort)) return false;
-		if (value.url === void 0) return true;
-		if (typeof value.url !== "string") return false;
-		try {
-			normalizeSignalTransportUrl(value.url);
-			return true;
-		} catch {
-			return false;
-		}
-	}
-	if (value.kind !== "external-native" && value.kind !== "container" || typeof value.url !== "string") return false;
 	try {
+		if (value.kind === "managed-native") {
+			assertSignalSocketTransport(value);
+			if (value.httpPort !== void 0 && !isValidSignalManagedNativePort(value.httpPort)) return false;
+			if (value.url === void 0) return true;
+		} else if (value.kind !== "external-native" && value.kind !== "container") return false;
+		if (typeof value.url !== "string") return false;
 		normalizeSignalTransportUrl(value.url);
 		return true;
 	} catch {
@@ -211,9 +202,6 @@ function legacyBaseUrl(entry, parent) {
 	const host = normalizeOptionalString(inherited(entry, parent, "httpHost")) ?? "127.0.0.1";
 	const rawPort = inherited(entry, parent, "httpPort");
 	return buildSignalTransportHttpUrl(host, typeof rawPort === "number" ? rawPort : 8080);
-}
-function hasLegacyFields(entry) {
-	return LEGACY_TRANSPORT_FIELDS.some((field) => Object.hasOwn(entry, field));
 }
 function wasLegacySignalAccountConfigured(entry, parent) {
 	return Boolean(normalizeOptionalString(inherited(entry, parent, "account")) || normalizeOptionalString(inherited(entry, parent, "configPath")) || normalizeOptionalString(inherited(entry, parent, "httpUrl")) || normalizeOptionalString(inherited(entry, parent, "httpHost")) || normalizeOptionalString(inherited(entry, parent, "cliPath")) || typeof inherited(entry, parent, "httpPort") === "number" || typeof inherited(entry, parent, "autoStart") === "boolean");
@@ -309,7 +297,7 @@ function resolveLegacyTransportWithoutDetection(params) {
 	return buildManagedNativeTransport(params.entry, params.parent);
 }
 function clearLegacyTransportFields(entry) {
-	for (const field of LEGACY_TRANSPORT_FIELDS) delete entry[field];
+	for (const field of LEGACY_SIGNAL_TRANSPORT_FIELDS) delete entry[field];
 }
 function hasRootSignalAccount(entries) {
 	const root = entries[0];
@@ -331,7 +319,7 @@ function nestedDefaultOwnsEffectiveTransport(entries) {
 	const accounts = isRecord(entries[0]?.accounts) ? entries[0].accounts : {};
 	const nestedDefaultKey = resolveSignalAccountKey(accounts, DEFAULT_ACCOUNT_ID);
 	const nestedDefault = nestedDefaultKey ? accounts[nestedDefaultKey] : void 0;
-	return isRecord(nestedDefault) && (isSignalTransportConfig(nestedDefault.transport) || hasLegacyFields(nestedDefault));
+	return isRecord(nestedDefault) && (isSignalTransportConfig(nestedDefault.transport) || hasLegacySignalTransportFields(nestedDefault));
 }
 function isDiscardedTransportEntry(entries, index) {
 	if (index === 0) return !hasRootSignalAccount(entries) || nestedDefaultOwnsEffectiveTransport(entries);
@@ -419,6 +407,13 @@ function hasContainerTransportWithoutEffectiveAccount(cfg) {
 	}
 	return false;
 }
+function pendingSignalTransportMigration(cfg, warning) {
+	return {
+		config: cfg,
+		changes: [],
+		warnings: [warning]
+	};
+}
 function prepareLegacySignalTransportMigration(cfg) {
 	const signal = cfg.channels?.signal;
 	if (!isRecord(signal)) return {
@@ -426,29 +421,17 @@ function prepareLegacySignalTransportMigration(cfg) {
 		changes: []
 	};
 	const accounts = isRecord(signal.accounts) ? signal.accounts : {};
-	if (!(Object.hasOwn(signal, "apiMode") || hasLegacyFields(signal) || Object.values(accounts).some((entry) => isRecord(entry) && hasLegacyFields(entry)))) return {
+	if (!(Object.hasOwn(signal, "apiMode") || hasLegacySignalTransportFields(signal) || Object.values(accounts).some(hasLegacySignalTransportFields))) return {
 		config: cfg,
 		changes: []
 	};
 	const apiMode = signal.apiMode;
 	const entries = [signal, ...Object.values(accounts).filter(isRecord)];
-	if (entries.some((entry) => isRecord(entry.transport) && Object.hasOwn(entry.transport, "socketPath") && (entry.transport.kind !== "managed-native" || !isSignalTransportConfig(entry.transport)))) return {
-		config: cfg,
-		changes: [],
-		warnings: ["- channels.signal: invalid transport.socketPath configuration; correct the socket path and remove conflicting HTTP or receiveMode on-start options, then run openclaw doctor --fix."]
-	};
+	if (entries.some((entry) => isRecord(entry.transport) && Object.hasOwn(entry.transport, "socketPath") && (entry.transport.kind !== "managed-native" || !isSignalTransportConfig(entry.transport)))) return pendingSignalTransportMigration(cfg, "- channels.signal: invalid transport.socketPath configuration; correct the socket path and remove conflicting HTTP or receiveMode on-start options, then run openclaw doctor --fix.");
 	const legacyResolutionEntries = entries.filter((_, index) => shouldMaterializeTransport(entries, index)).filter((entry) => !isSignalTransportConfig(entry.transport));
 	const invalidDerivedEndpoint = findInvalidLegacyDerivedEndpoint(legacyResolutionEntries, signal);
-	if (invalidDerivedEndpoint) return {
-		config: cfg,
-		changes: [],
-		warnings: [invalidDerivedEndpoint === "port" ? PENDING_LEGACY_INVALID_PORT_WARNING : PENDING_LEGACY_INVALID_HOST_WARNING]
-	};
-	if (hasInvalidLegacyHttpUrl(legacyResolutionEntries, signal)) return {
-		config: cfg,
-		changes: [],
-		warnings: [PENDING_LEGACY_INVALID_URL_WARNING]
-	};
+	if (invalidDerivedEndpoint) return pendingSignalTransportMigration(cfg, invalidDerivedEndpoint === "port" ? PENDING_LEGACY_INVALID_PORT_WARNING : PENDING_LEGACY_INVALID_HOST_WARNING);
+	if (hasInvalidLegacyHttpUrl(legacyResolutionEntries, signal)) return pendingSignalTransportMigration(cfg, PENDING_LEGACY_INVALID_URL_WARNING);
 	return {
 		signal,
 		apiMode,
@@ -457,20 +440,12 @@ function prepareLegacySignalTransportMigration(cfg) {
 	};
 }
 function finishLegacySignalTransportMigration(cfg, entries, resolvedTransports) {
-	if (hasInvalidManagedTransportPort(resolvedTransports)) return {
-		config: cfg,
-		changes: [],
-		warnings: [PENDING_LEGACY_INVALID_PORT_WARNING]
-	};
+	if (hasInvalidManagedTransportPort(resolvedTransports)) return pendingSignalTransportMigration(cfg, PENDING_LEGACY_INVALID_PORT_WARNING);
 	const transports = allocateMigratedManagedPorts({
 		entries,
 		transports: resolvedTransports
 	});
-	if (transports.some((transport, index) => shouldMaterializeTransport(entries, index) && !transport)) return {
-		config: cfg,
-		changes: [],
-		warnings: [PENDING_LEGACY_TRANSPORT_WARNING]
-	};
+	if (transports.some((transport, index) => shouldMaterializeTransport(entries, index) && !transport)) return pendingSignalTransportMigration(cfg, PENDING_LEGACY_TRANSPORT_WARNING);
 	const next = applyMigratedSignalTransports({
 		cfg,
 		entries,
@@ -480,11 +455,7 @@ function finishLegacySignalTransportMigration(cfg, entries, resolvedTransports) 
 		config: cfg,
 		changes: []
 	};
-	if (hasContainerTransportWithoutEffectiveAccount(next)) return {
-		config: cfg,
-		changes: [],
-		warnings: [PENDING_LEGACY_CONTAINER_ACCOUNT_WARNING]
-	};
+	if (hasContainerTransportWithoutEffectiveAccount(next)) return pendingSignalTransportMigration(cfg, PENDING_LEGACY_CONTAINER_ACCOUNT_WARNING);
 	return {
 		config: next,
 		changes: ["Migrated channels.signal transport settings to concrete account-owned transport objects."]
@@ -505,23 +476,6 @@ function migrateLegacySignalTransportConfigSync(cfg) {
 }
 //#endregion
 //#region extensions/signal/config-doctor-api.ts
-const RETIRED_SIGNAL_ACCOUNT_TRANSPORT_FIELDS = [
-	"configPath",
-	"httpUrl",
-	"httpHost",
-	"httpPort",
-	"cliPath",
-	"autoStart",
-	"startupTimeoutMs",
-	"receiveMode",
-	"ignoreStories"
-];
-function hasRetiredSignalAccountTransportFields(value) {
-	return isRecord(value) && RETIRED_SIGNAL_ACCOUNT_TRANSPORT_FIELDS.some((field) => Object.hasOwn(value, field));
-}
-function hasRetiredSignalAccountMapTransportFields(value) {
-	return isRecord(value) && Object.values(value).some(hasRetiredSignalAccountTransportFields);
-}
 const streamingAliasMigration = defineChannelAliasMigration({
 	channelId: "signal",
 	streaming: {
@@ -535,7 +489,7 @@ const legacyConfigRules = [
 	{
 		path: ["channels", "signal"],
 		message: "Signal transport config is now account-owned; run \"openclaw doctor --fix\" to migrate retired channels.signal transport fields.",
-		match: (value) => isRecord(value) && (Object.hasOwn(value, "apiMode") || hasRetiredSignalAccountTransportFields(value))
+		match: (value) => isRecord(value) && (Object.hasOwn(value, "apiMode") || hasLegacySignalTransportFields(value))
 	},
 	{
 		path: [
@@ -544,7 +498,7 @@ const legacyConfigRules = [
 			"accounts"
 		],
 		message: "Signal transport config is now account-owned; run \"openclaw doctor --fix\" to migrate retired per-account transport fields.",
-		match: hasRetiredSignalAccountMapTransportFields
+		match: (value) => isRecord(value) && Object.values(value).some(hasLegacySignalTransportFields)
 	}
 ];
 function normalizeCompatibilityConfig({ cfg }) {

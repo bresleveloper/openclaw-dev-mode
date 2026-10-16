@@ -11,32 +11,17 @@ const TENCENT_TWO_RUNG_EFFORT_MAP = Object.freeze({
 	high: "high",
 	xhigh: "high"
 });
-const TENCENT_TWO_RUNG_MODEL_IDS = /* @__PURE__ */ new Set(["hy3"]);
 function resolveRequestedEffort(thinkingLevel, options) {
 	const withEffort = options ?? {};
 	const raw = typeof withEffort.reasoningEffort === "string" && withEffort.reasoningEffort || typeof withEffort.reasoning === "string" && withEffort.reasoning || typeof thinkingLevel === "string" && thinkingLevel || void 0;
 	return raw ? raw.trim().toLowerCase() : void 0;
 }
-function mapEffortForTencent(model, effort) {
-	if (!effort) return;
-	const modelId = model.id;
-	if (typeof modelId === "string" && TENCENT_TWO_RUNG_MODEL_IDS.has(modelId)) return TENCENT_TWO_RUNG_EFFORT_MAP[effort];
-}
-function isTencentCompletionsCall(model) {
-	const provider = model.provider;
-	const api = model.api;
-	return typeof provider === "string" && TENCENT_PROVIDER_IDS.has(provider) && api === "openai-completions";
-}
 function wrapTencentProviderStream(ctx) {
-	return createPayloadPatchStreamWrapper(ctx.streamFn, ({ payload, model, options }) => {
-		const mapped = mapEffortForTencent(model, resolveRequestedEffort(ctx.thinkingLevel, options));
-		if (mapped === void 0) return;
-		if (mapped === "none" || mapped === "off") {
-			payload.reasoning_effort = "none";
-			return;
-		}
-		payload.reasoning_effort = mapped;
-	}, { shouldPatch: ({ model }) => isTencentCompletionsCall(model) });
+	return createPayloadPatchStreamWrapper(ctx.streamFn, ({ payload, options }) => {
+		const requested = resolveRequestedEffort(ctx.thinkingLevel, options);
+		const mapped = requested && Object.hasOwn(TENCENT_TWO_RUNG_EFFORT_MAP, requested) ? TENCENT_TWO_RUNG_EFFORT_MAP[requested] : void 0;
+		if (mapped !== void 0) payload.reasoning_effort = mapped;
+	}, { shouldPatch: ({ model }) => TENCENT_PROVIDER_IDS.has(model.provider) && model.api === "openai-completions" && model.id === "hy3" });
 }
 //#endregion
 export { wrapTencentProviderStream };

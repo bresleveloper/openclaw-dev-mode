@@ -1,10 +1,10 @@
-import { i as runSqliteDeferredTransactionSync, o as runSqliteImmediateTransactionSync, t as assertTransactionUsable } from "../../sqlite-transaction-DKSXLQhb.mjs";
-import { t as encodeOpenClawStateWorkerError } from "../../openclaw-state-worker-error-DLFiBmPG.mjs";
-import { c as inspectAuthProfileJsonCell, d as writeAuthProfileJsonCell } from "../../sqlite-json-DYv-pIUa.mjs";
-import { O as reportCommittedInlineAuthFailure, f as AuthProfileStoreUnreadableError, l as mergePersistedAuthProfileState } from "../../persisted-B486xwB_.mjs";
-import { t as prepareAuthProfileStateMutation } from "../../store-mutation-bCnU80pc.mjs";
-import { d as resolveInlineProviderApiKeyUsageId } from "../../usage-state-Bm5iXGhR.mjs";
-import { t as computeNextProfileUsageStats } from "../../usage-failure-state-CmVjUmco.mjs";
+import { o as runSqliteWorkerTransactionSync, r as runSqliteDeferredTransactionSync, t as assertTransactionUsable } from "../../sqlite-transaction-DsZ3X6nD.mjs";
+import { t as encodeOpenClawStateWorkerError } from "../../openclaw-state-worker-error-Cmtk9G4_.mjs";
+import { i as inspectAuthProfileJsonCell, s as writeAuthProfileJsonCell } from "../../sqlite-json-P6pbG3re.mjs";
+import { f as resolveInlineProviderApiKeyUsageId } from "../../profile-usage-stats-BLwxBqRR.mjs";
+import { s as mergePersistedAuthProfileState, u as AuthProfileStoreUnreadableError, w as reportCommittedInlineAuthFailure } from "../../persisted-BVyWmvfF.mjs";
+import { t as prepareAuthProfileStateMutation } from "../../store-mutation-Cscq8qp1.mjs";
+import { t as computeNextProfileUsageStats } from "../../usage-failure-state-DUw1b0dj.mjs";
 import { isDeepStrictEqual } from "node:util";
 //#region src/agents/auth-profiles/inline-usage-kernel.ts
 /** The admitted agent transaction owns the fresh read, health reduction, and durable cells. */
@@ -74,11 +74,9 @@ function bindSqliteWorkerBackend(_input, context) {
 			let receipt;
 			let committed = false;
 			try {
-				runSqliteImmediateTransactionSync(context.database, () => {
-					context.admit("transaction");
+				runSqliteWorkerTransactionSync(context, () => {
 					receipt = recordInlineAuthFailureInDatabase(context.database, context.databasePath, command.input);
 				}, { withCommit(commit) {
-					context.admit("commit");
 					commit();
 					committed = true;
 				} });

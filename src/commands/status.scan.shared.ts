@@ -14,6 +14,7 @@ import { isLoopbackGatewayUrl } from "../gateway/net.js";
 import { resolveGatewayProbeTarget } from "../gateway/probe-target.js";
 import type { GatewayProbeResult, probeGateway as probeGatewayFn } from "../gateway/probe.js";
 import type { MemoryProviderStatus } from "../memory-host-sdk/engine-storage.js";
+import type { ActiveMemoryProviderResult, MemoryHealth } from "../plugins/memory-provider-types.js";
 import { defaultSlotIdForKey } from "../plugins/slots.js";
 import { normalizeAgentId } from "../routing/session-key.js";
 import { createLazyImportLoader } from "../shared/lazy-promise.js";
@@ -41,18 +42,6 @@ const memoryPresenceModuleLoader = createLazyImportLoader(async () => {
   }>({ dirName: "memory-core", artifactBasename: "status-api.js" });
 });
 
-function loadGatewayProbeModule() {
-  return gatewayProbeModuleLoader.load();
-}
-
-function loadProbeGatewayModule() {
-  return probeGatewayModuleLoader.load();
-}
-
-function loadGatewayCallModule() {
-  return gatewayCallModuleLoader.load();
-}
-
 async function hasBuiltInMemoryState(databasePath: string): Promise<boolean> {
   if (!existsSync(databasePath)) {
     return false;
@@ -61,9 +50,9 @@ async function hasBuiltInMemoryState(databasePath: string): Promise<boolean> {
   return await inspectMemoryIndexPresence(databasePath);
 }
 
-export type MemoryStatusSnapshot = MemoryProviderStatus & {
-  agentId: string;
-};
+export type MemoryStatusSnapshot =
+  | (MemoryProviderStatus & { agentId: string })
+  | { agentId: string; provider: string; health: MemoryHealth };
 
 export type GatewayProbeSnapshot = {
   gatewayConnection: ReturnType<typeof buildGatewayConnectionDetailsWithResolvers>;
@@ -76,6 +65,8 @@ export type GatewayProbeSnapshot = {
   gatewayProbeAuthWarning?: string;
   gatewayProbe: Awaited<ReturnType<typeof probeGatewayFn>> | null;
   gatewayReachable: boolean;
+  /** Fresh local readiness, separate from a successful connection or a remote target. */
+  localGatewayHealthy?: boolean;
   gatewaySelf: ReturnType<typeof pickGatewaySelfPresence>;
   gatewayCallOverrides?: {
     url: string;
@@ -143,7 +134,8 @@ async function applyLocalStatusRpcFallback(params: {
     return params.gatewayProbe;
   }
   // The fallback uses the gateway status RPC because it can succeed after probe handshake ambiguity.
-  const status = await loadGatewayCallModule()
+  const status = await gatewayCallModuleLoader
+    .load()
     .then(({ callGateway }) => {
       const timeoutMs = Math.min(2000, resolveStatusGatewayProbeTimeoutMs(params));
       if (timeoutMs === 0) {
@@ -215,7 +207,9 @@ export async function resolveGatewayProbeSnapshot(params: {
     config: params.cfg,
     configPath: params.configPath,
   });
-  const { gatewayMode, remoteUrlMissing } = resolveGatewayProbeTarget(params.cfg);
+  const { gatewayMode, mode, remoteUrlMissing } = resolveGatewayProbeTarget(params.cfg);
+  const originScopedDeviceAuth =
+    mode === "remote" || Boolean(process.env.OPENCLAW_GATEWAY_URL?.trim());
   const shouldResolveAuth =
     params.opts.skipProbe !== true &&
     (!remoteUrlMissing || params.opts.resolveAuthWhenRemoteUrlMissing === true);
@@ -223,9 +217,11 @@ export async function resolveGatewayProbeSnapshot(params: {
     params.opts.skipProbe !== true &&
     (!remoteUrlMissing || params.opts.probeWhenRemoteUrlMissing === true);
   const gatewayProbeAuthResolution = shouldResolveAuth
-    ? await loadGatewayProbeModule().then(({ resolveGatewayProbeAuthResolution }) =>
-        resolveGatewayProbeAuthResolution(params.cfg, params.env),
-      )
+    ? await gatewayProbeModuleLoader
+        .load()
+        .then(({ resolveGatewayProbeAuthResolution }) =>
+          resolveGatewayProbeAuthResolution(params.cfg, params.env),
+        )
     : { auth: {}, warning: undefined };
   let gatewayProbeAuthWarning = gatewayProbeAuthResolution.warning;
   const remainingTimeoutMs = () => resolveStatusGatewayProbeTimeoutMs(params.opts);
@@ -270,7 +266,8 @@ export async function resolveGatewayProbeSnapshot(params: {
     (readiness && !canDiagnose) || (shouldProbe && remainingTimeoutMs() === 0)
       ? unavailableProbe()
       : shouldProbe
-        ? await loadProbeGatewayModule()
+        ? await probeGatewayModuleLoader
+            .load()
             .then(({ probeGateway }) => {
               const timeoutMs = remainingTimeoutMs();
               return timeoutMs === 0
@@ -278,6 +275,8 @@ export async function resolveGatewayProbeSnapshot(params: {
                 : probeGateway({
                     url: gatewayConnection.url,
                     config: params.cfg,
+                    originScopedDeviceAuth,
+                    configuredRemote: gatewayConnection.urlSource === "config gateway.remote.url",
                     auth: gatewayProbeAuthResolution.auth,
                     env: params.env,
                     timeoutMs,
@@ -296,6 +295,7 @@ export async function resolveGatewayProbeSnapshot(params: {
     timeoutMs: remainingTimeoutMs(),
     gatewayProbeDeadlineMs: params.opts.gatewayProbeDeadlineMs,
     enabled:
+      !originScopedDeviceAuth &&
       params.opts.localStatusRpcFallback !== false &&
       remainingTimeoutMs() > 0 &&
       (!readiness || canDiagnose),
@@ -323,6 +323,11 @@ export async function resolveGatewayProbeSnapshot(params: {
     gatewayProbeAuthWarning,
     gatewayProbe,
     gatewayReachable,
+    localGatewayHealthy:
+      readiness?.healthy === true &&
+      !readiness.activatedPluginErrors?.length &&
+      !readiness.channelProbeErrors?.length &&
+      gatewayProbe?.ok === true,
     gatewaySelf,
     ...(remoteUrlMissing
       ? {
@@ -362,6 +367,17 @@ export async function resolveSharedMemoryStatusSnapshot(params: {
     agentId: string,
   ) => { store: { databasePath: string } } | null;
   getMemorySearchManager: StatusMemorySearchManagerResolver;
+  /** Whether the selected slot owner registers the provider-neutral runtime. */
+  isMemoryProviderNative?: (params: { cfg: OpenClawConfig; agentId: string }) => boolean;
+  getMemoryProvider?: (params: {
+    cfg: OpenClawConfig;
+    agentId: string;
+    purpose: "status";
+    context: {
+      authority: { kind: "host"; operation: "status" };
+      assertCurrent(): void;
+    };
+  }) => Promise<ActiveMemoryProviderResult>;
   requireDefaultDatabasePath?: (agentId: string) => string | null;
 }): Promise<MemoryStatusSnapshot | null> {
   const { cfg, agentStatus, memoryPlugin } = params;
@@ -376,7 +392,11 @@ export async function resolveSharedMemoryStatusSnapshot(params: {
   }
 
   if (memoryPlugin.slot !== defaultSlotIdForKey("memory")) {
-    // Non-default memory slots are plugin-owned; ask the manager directly instead of checking built-in files.
+    // Non-default memory slots are plugin-owned; a native provider reports its health,
+    // and a legacy runtime's manager reports status instead of checking built-in files.
+    if (params.isMemoryProviderNative?.({ cfg, agentId })) {
+      return await resolveProviderStatusSnapshot(params, agentId, memoryPlugin.slot);
+    }
     return await resolveMemoryManagerStatusSnapshot(params, agentId);
   }
 
@@ -400,6 +420,44 @@ export async function resolveSharedMemoryStatusSnapshot(params: {
     return null;
   }
   return await resolveMemoryManagerStatusSnapshot(params, agentId);
+}
+
+async function resolveProviderStatusSnapshot(
+  params: {
+    cfg: OpenClawConfig;
+    getMemoryProvider?: Parameters<
+      typeof resolveSharedMemoryStatusSnapshot
+    >[0]["getMemoryProvider"];
+  },
+  agentId: string,
+  slot: string,
+): Promise<MemoryStatusSnapshot> {
+  let provider: ActiveMemoryProviderResult["provider"] = null;
+  try {
+    const acquired = await params.getMemoryProvider?.({
+      cfg: params.cfg,
+      agentId,
+      purpose: "status",
+      context: {
+        authority: { kind: "host", operation: "status" },
+        assertCurrent() {},
+      },
+    });
+    provider = acquired?.provider ?? null;
+    const providerId = acquired?.providerId ?? slot;
+    const health = provider
+      ? await provider.health()
+      : { status: "unavailable" as const, message: acquired?.error ?? "provider unavailable" };
+    return { agentId, provider: providerId, health };
+  } catch (error) {
+    return {
+      agentId,
+      provider: slot,
+      health: { status: "unavailable", message: String(error) },
+    };
+  } finally {
+    await provider?.close().catch(() => {});
+  }
 }
 
 async function resolveMemoryManagerStatusSnapshot(

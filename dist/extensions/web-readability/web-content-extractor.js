@@ -1,7 +1,7 @@
-import { r as createLazyRuntimeModule } from "../../lazy-runtime-BPNHa36e.mjs";
+import { r as createLazyRuntimeModule } from "../../lazy-runtime-CJrzFzqU.mjs";
 import { t as stripInvisibleUnicode } from "../../unicode-visibility-cJ_24BIl.mjs";
-import { i as normalizeWhitespace, n as htmlToMarkdown, o as sanitizeHtml } from "../../web-fetch-utils-DnxqFjuE.mjs";
-import "../../web-content-extractor-sDQFtCWZ.mjs";
+import { i as normalizeWhitespace, n as htmlToMarkdown, o as sanitizeHtml } from "../../web-fetch-utils-Iv2Zmiom.mjs";
+import "../../web-content-extractor-DBM1nXel.mjs";
 //#region extensions/web-readability/web-content-extractor.ts
 const READABILITY_MAX_HTML_CHARS = 1e6;
 const READABILITY_MAX_ESTIMATED_NESTING_DEPTH = 3e3;

@@ -1,0 +1,1 @@
+import{n as e,t}from"./worker-chunk-Dpfm-ucS.mjs";e();export{t as VERSION};

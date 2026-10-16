@@ -32,10 +32,6 @@ function buildOpenRouterSpeechProvider() {
 			aliases: ["https://openrouter.ai/v1"],
 			allowCustom: true
 		},
-		extraHeaders: {
-			"HTTP-Referer": "https://openclaw.ai",
-			"X-OpenRouter-Title": "OpenClaw"
-		},
 		apiErrorLabel: "OpenRouter TTS API error",
 		missingApiKeyError: "OpenRouter API key missing",
 		readExtraConfig: (raw) => ({ provider: asOptionalRecord(raw?.provider) }),

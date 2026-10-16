@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function withCommandSenderAuthority(e,n){return{...e,[t]:n}}function getCommandSenderAuthority(e){return e?.[t]}var t,n=e((()=>{t=Symbol(`openclaw.commandSenderAuthority`)}));export{n,withCommandSenderAuthority as r,getCommandSenderAuthority as t};

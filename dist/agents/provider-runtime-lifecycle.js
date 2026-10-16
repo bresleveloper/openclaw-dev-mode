@@ -1,0 +1,2 @@
+import { a as stopActiveManagedProviderLocalServices, i as setProviderTransportDispatcherPoolActive, n as hasProviderTransportDispatcherPool, r as setManagedProviderLocalServicesStop, t as hasManagedProviderLocalServices } from "../provider-runtime-lifecycle-fpszViWt.mjs";
+export { hasManagedProviderLocalServices, hasProviderTransportDispatcherPool, setManagedProviderLocalServicesStop, setProviderTransportDispatcherPoolActive, stopActiveManagedProviderLocalServices };

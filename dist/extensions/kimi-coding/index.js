@@ -1,8 +1,8 @@
-import { a as normalizeKimiCodingModelId, i as buildKimiCodingProvider, o as openclaw_plugin_default } from "./.setup/provider-catalog-CTBTXcRa.mjs";
-import { KIMI_CODING_MODEL_REF, applyKimiCodeConfig } from "./onboard.js";
+import { a as normalizeKimiCodingModelId, i as buildKimiCodingProvider, o as openclaw_plugin_default } from "./.setup/provider-catalog-Bc73oFLX.mjs";
+import { applyKimiCodeConfig } from "./onboard.js";
 import { isKimiK3ModelId, resolveThinkingProfile } from "./provider-policy-api.js";
-import { KIMI_REPLAY_POLICY } from "./replay-policy.js";
 import { wrapKimiProviderStream } from "./stream.js";
+import { findNormalizedProviderValue } from "openclaw/plugin-sdk/provider-auth";
 import { defineSingleProviderPluginEntry } from "openclaw/plugin-sdk/provider-entry";
 import { normalizeProviderId } from "openclaw/plugin-sdk/provider-model-shared";
 import { isRecord, normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
@@ -10,12 +10,6 @@ import { isRecord, normalizeOptionalString } from "openclaw/plugin-sdk/string-co
 const PLUGIN_ID = "kimi";
 const PROVIDER_ID = "kimi";
 const PROVIDER_ALIASES = ["kimi-code", "kimi-coding"];
-function findExplicitProviderConfig(providers, providerId) {
-	if (!providers) return;
-	const normalizedProviderId = normalizeProviderId(providerId);
-	const match = Object.entries(providers).find(([configuredProviderId]) => normalizeProviderId(configuredProviderId) === normalizedProviderId);
-	return isRecord(match?.[1]) ? match[1] : void 0;
-}
 var kimi_coding_default = defineSingleProviderPluginEntry({
 	id: PLUGIN_ID,
 	name: "Kimi Provider",
@@ -29,7 +23,6 @@ var kimi_coding_default = defineSingleProviderPluginEntry({
 		envVars: ["KIMI_API_KEY", "KIMICODE_API_KEY"],
 		manifestAuth: {
 			promptMessage: "Enter Kimi API key",
-			defaultModel: KIMI_CODING_MODEL_REF,
 			expectedProviders: [
 				"kimi",
 				"kimi-code",
@@ -44,7 +37,7 @@ var kimi_coding_default = defineSingleProviderPluginEntry({
 			run: async (ctx) => {
 				const apiKey = ctx.resolveProviderApiKey(PROVIDER_ID).apiKey;
 				if (!apiKey) return null;
-				const explicitProvider = findExplicitProviderConfig(ctx.config.models?.providers, PROVIDER_ID);
+				const explicitProvider = findNormalizedProviderValue(ctx.config.models?.providers, PROVIDER_ID);
 				const builtInProvider = buildKimiCodingProvider();
 				const explicitBaseUrl = normalizeOptionalString(explicitProvider?.baseUrl) ?? "";
 				const explicitHeaders = isRecord(explicitProvider?.headers) ? explicitProvider.headers : void 0;
@@ -65,7 +58,7 @@ var kimi_coding_default = defineSingleProviderPluginEntry({
 			if (providerId !== PROVIDER_ID && !PROVIDER_ALIASES.includes(providerId)) return;
 			return /\b(?:weekly(?:\s+\(7-day\))?|(?:7|seven)[ -]day)\s+(?:usage\s+)?limit\b/i.test(errorMessage) || /\bquota\s+will\s+reset\b/i.test(errorMessage) ? "rate_limit" : void 0;
 		},
-		buildReplayPolicy: () => KIMI_REPLAY_POLICY,
+		buildReplayPolicy: () => ({ preserveSignatures: false }),
 		normalizeResolvedModel: ({ model }) => {
 			const normalizedId = normalizeKimiCodingModelId(model.id);
 			return normalizedId === model.id ? void 0 : {

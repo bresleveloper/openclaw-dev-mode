@@ -1,12 +1,13 @@
-import { a as asOptionalRecord } from "../../record-coerce-DItp3I4t.mjs";
+import { a as asOptionalRecord } from "../../record-coerce-TIsquoVR.mjs";
+import "../../string-coerce-runtime-50qKeWeL.mjs";
 import { t as jsonResult } from "../../tool-results-BCM3fdVS.mjs";
-import { h as readToolStringParam } from "../../common-XfKigJno.mjs";
-import "../../string-coerce-runtime-C_MKhRVt.mjs";
-import { t as callGatewayTool } from "../../gateway-DvifCYBR.mjs";
-import "../../agent-harness-runtime-DaRNGGF2.mjs";
-import "../../param-readers-BfezLD6d.mjs";
+import { m as readToolStringParam } from "../../common-Dyxcwsy8.mjs";
+import { t as callGatewayTool } from "../../gateway-w2F8o2pH.mjs";
+import "../../agent-harness-runtime-BxShxpgh.mjs";
+import "../../param-readers-B4Zo5Lzz.mjs";
 //#region extensions/talk-voice/tool.ts
-const executeTalkVoiceTool = async (_id, args, signal) => {
+async function executeTalkVoiceTool(sessionKey, ...toolArgs) {
+	const [, args, signal] = toolArgs;
 	const params = asOptionalRecord(args) ?? {};
 	const action = readToolStringParam(params, "action", { required: true });
 	let method;
@@ -22,10 +23,11 @@ const executeTalkVoiceTool = async (_id, args, signal) => {
 			break;
 		default: throw new Error(`Unknown Talk voice action: ${action}`);
 	}
+	if (sessionKey) request.sessionKey = sessionKey;
 	return jsonResult(await callGatewayTool(method, { timeoutMs: 65e3 }, request, {
 		requireAgentRuntimeIdentity: true,
 		signal
 	}));
-};
+}
 //#endregion
 export { executeTalkVoiceTool };

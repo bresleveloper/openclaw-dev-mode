@@ -1,2 +1,2 @@
-import { t as buildGoogleSpeechProvider } from "../../speech-provider-Bpg8udHZ.mjs";
+import { t as buildGoogleSpeechProvider } from "../../speech-provider-BJCkhEMD.mjs";
 export { buildGoogleSpeechProvider };

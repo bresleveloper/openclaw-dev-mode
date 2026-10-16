@@ -1,4 +1,4 @@
-import { l as usesBasetenChatTemplateThinking } from "./.setup/models-CwKDnNIj.mjs";
+import { l as usesBasetenChatTemplateThinking } from "./.setup/models-BOkRtUeP.mjs";
 import { asNonArrayRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { streamSimple } from "openclaw/plugin-sdk/llm";
 import { normalizeOpenAICompatibleReasoningReplay, streamWithPayloadPatch } from "openclaw/plugin-sdk/provider-stream-shared";
@@ -15,11 +15,15 @@ function createBasetenThinkingWrapper(ctx) {
 			...options,
 			reasoning: thinkingLevel
 		}, (payload) => {
-			if (model.id.trim().toLowerCase() === "deepseek-ai/deepseek-v4-pro") normalizeOpenAICompatibleReasoningReplay(payload, {
-				thinkingEnabled: thinkingLevel !== "off",
-				stripAssistantMessagesOnly: true,
-				replaceNullReasoningContent: true
-			});
+			const normalizedModelId = model.id.trim().toLowerCase();
+			if (normalizedModelId === "deepseek-ai/deepseek-v4-pro" || normalizedModelId === "deepseek-ai/deepseek-v4-pro-0813") {
+				normalizeOpenAICompatibleReasoningReplay(payload, {
+					thinkingEnabled: thinkingLevel !== "off",
+					stripAssistantMessagesOnly: true,
+					replaceNullReasoningContent: true
+				});
+				if (normalizedModelId === "deepseek-ai/deepseek-v4-pro-0813" && payload.reasoning_effort !== void 0) payload.thinking = { type: "enabled" };
+			}
 			if (optIn) payload.chat_template_args = {
 				...asNonArrayRecord(payload.chat_template_args),
 				enable_thinking: thinkingLevel !== "off"

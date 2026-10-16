@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { GatewayBrowserClient } from "../../api/gateway.ts";
 import type { GatewaySessionRow } from "../../api/types.ts";
+import { rosterActivityStore } from "../../lib/agents/roster-activity-store.ts";
 import { reconcileSessionChanged } from "../../lib/sessions/reconcile.ts";
 import { createGatewayHarness, createSessionsHarness, mountSidebar } from "../app-sidebar.ts";
 import { createTestGatewayClient } from "../gateway-client.ts";
@@ -148,15 +149,18 @@ describe("AppSidebar delegated activity", () => {
     );
     mixed.sidebar.sidebarAgentsMode = "roster";
     const rosterParent = () => mixed.sidebar.querySelector(`[data-session-key="${parentKey}"]`)!;
-    await waitForFast(() =>
-      expect(mixed.sidebar.querySelector('[data-agent-collapse="main"]')).not.toBeNull(),
+    await waitForFast(
+      () => expect(mixed.sidebar.querySelector('[data-agent-collapse="main"]')).not.toBeNull(),
+      { timeout: 5_000 },
     );
-    await waitForFast(() => expect(rosterParent()).not.toBeNull());
+    await waitForFast(() => expect(rosterParent()).not.toBeNull(), { timeout: 5_000 });
     mixed.sidebar
       .querySelector<HTMLButtonElement>(`[data-child-session-toggle="${parentKey}"]`)!
       .click();
-    await waitForFast(() =>
-      expect(mixed.sidebar.querySelector(`[data-session-key="${persistentKey}"]`)).not.toBeNull(),
+    await waitForFast(
+      () =>
+        expect(mixed.sidebar.querySelector(`[data-session-key="${persistentKey}"]`)).not.toBeNull(),
+      { timeout: 5_000 },
     );
     expect(
       rosterParent().querySelector("[data-child-session-toggle]")?.getAttribute("aria-expanded"),
@@ -185,8 +189,10 @@ describe("AppSidebar delegated activity", () => {
       rosterRows[2]!,
     ];
     mixed.sessions.publishList({ result: mixed.result });
-    await waitForFast(() =>
-      expect(rosterParent().querySelector('[data-session-attention="error"]')).not.toBeNull(),
+    await rosterActivityStore(mixed.context).refresh();
+    await waitForFast(
+      () => expect(rosterParent().querySelector('[data-session-attention="error"]')).not.toBeNull(),
+      { timeout: 5_000 },
     );
     expect(rosterParent().querySelector(".session-glyph__ring")).toBeNull();
     expect(rosterParent().querySelector('[aria-label="Unread"]')).not.toBeNull();

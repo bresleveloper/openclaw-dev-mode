@@ -1,14 +1,14 @@
-import { w as parseStrictPositiveInteger } from "../../number-coercion-CLj0HTDM.mjs";
-import { c as normalizeOptionalLowercaseString, l as normalizeOptionalString, o as normalizeLowercaseStringOrEmpty } from "../../string-coerce-CIXf7egm.mjs";
-import { r as createLazyRuntimeModule } from "../../lazy-runtime-BPNHa36e.mjs";
-import { t as formatErrorMessage } from "../../errors-DnjwnOju.mjs";
-import { i as resolveActiveTalkProviderConfig } from "../../talk-CaH8Mknv.mjs";
-import "../../error-runtime-Bf1fYXFh.mjs";
-import "../../string-coerce-runtime-C_MKhRVt.mjs";
-import "../../number-runtime-CGwowceO.mjs";
-import { t as definePluginEntry } from "../../plugin-entry-BOulgRcx.mjs";
-import "../../talk-config-runtime-CjZYxmxA.mjs";
-import "../../api-C1QhMyxy.mjs";
+import { c as normalizeOptionalLowercaseString, l as normalizeOptionalString, o as normalizeLowercaseStringOrEmpty } from "../../string-coerce-1VuiLaaR.mjs";
+import { w as parseStrictPositiveInteger } from "../../number-coercion-CuVhdCBs.mjs";
+import { r as createLazyRuntimeModule } from "../../lazy-runtime-CJrzFzqU.mjs";
+import { t as formatErrorMessage } from "../../errors-O33D01XW.mjs";
+import { a as resolveActiveTalkProviderConfig } from "../../talk-tTHQncKV.mjs";
+import "../../error-runtime-BmospGvZ.mjs";
+import "../../string-coerce-runtime-50qKeWeL.mjs";
+import "../../number-runtime-CgyXj1A5.mjs";
+import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
+import "../../talk-config-runtime-8tcrXQyE.mjs";
+import "../../api-BqbNDvaK.mjs";
 //#region extensions/talk-voice/index.ts
 function mask(s, keep = 6) {
 	const trimmed = s.trim();
@@ -61,14 +61,7 @@ function findVoice(voices, query) {
 	const q = query.trim();
 	if (!q) return null;
 	const lower = normalizeLowercaseStringOrEmpty(q);
-	const byId = voices.find((v) => v.id === q);
-	if (byId) return byId;
-	const exactName = voices.find((v) => normalizeOptionalLowercaseString(v.name) === lower);
-	if (exactName) return exactName;
-	return voices.find((v) => normalizeLowercaseStringOrEmpty(v.name).includes(lower)) ?? null;
-}
-function asTrimmedString(value) {
-	return normalizeOptionalString(value) ?? "";
+	return voices.find((v) => v.id === q) ?? voices.find((v) => normalizeOptionalLowercaseString(v.name) === lower) ?? voices.find((v) => normalizeLowercaseStringOrEmpty(v.name).includes(lower)) ?? null;
 }
 function resolveCommandLabel(channel) {
 	return channel === "discord" ? "/talkvoice" : "/voice";
@@ -85,27 +78,30 @@ var talk_voice_default = definePluginEntry({
 	description: "Select the active Talk voice and manage Talk voice configuration",
 	register(api) {
 		const loadTool = createLazyRuntimeModule(() => import("./tool.js"));
-		api.registerTool({
-			name: "talk_voice",
-			label: "Talk Voice",
-			description: "List or change the voice of the active realtime Talk call (browser, iOS, or Android) or Discord voice call in this conversation. Use list to see its provider, model, current voice, available voice IDs, and whether it can change. Use set with an available voice ID to reconnect the active call, preserving conversation and ongoing agent work. Success means the replacement call is ready. Saved voice defaults stay unchanged.",
-			parameters: {
-				type: "object",
-				properties: {
-					action: {
-						type: "string",
-						enum: ["list", "set"]
+		api.registerTool((ctx) => {
+			const sessionKey = ctx.sessionKey;
+			return {
+				name: "talk_voice",
+				label: "Talk Voice",
+				description: "List or change the voice of the active realtime Talk call (browser, iOS, or Android) or Discord voice call in this conversation. Use list to see its provider, model, current voice, available voice IDs, and whether it can change. Use set with an available voice ID to reconnect the active call, preserving conversation and ongoing agent work. Success means the replacement call is ready. Saved voice defaults stay unchanged.",
+				parameters: {
+					type: "object",
+					properties: {
+						action: {
+							type: "string",
+							enum: ["list", "set"]
+						},
+						voice: {
+							type: "string",
+							description: "Voice ID from list; required for set."
+						}
 					},
-					voice: {
-						type: "string",
-						description: "Voice ID from list; required for set."
-					}
+					required: ["action"],
+					additionalProperties: false
 				},
-				required: ["action"],
-				additionalProperties: false
-			},
-			execute: async (...args) => await (await loadTool()).executeTalkVoiceTool(...args)
-		});
+				execute: async (...args) => await (await loadTool()).executeTalkVoiceTool(sessionKey, ...args)
+			};
+		}, { name: "talk_voice" });
 		api.registerCommand({
 			name: "voice",
 			nativeNames: { discord: "talkvoice" },
@@ -122,9 +118,9 @@ var talk_voice_default = definePluginEntry({
 				if (!active) return { text: "Talk voice is not configured.\n\nMissing: talk.provider and talk.providers.<provider>.\nSet it on the gateway, then retry." };
 				const providerId = active.provider;
 				const providerLabel = resolveProviderLabel(providerId);
-				const apiKey = asTrimmedString(active.config.apiKey);
+				const apiKey = normalizeOptionalString(active.config.apiKey);
 				const baseUrl = normalizeOptionalString(active.config.baseUrl);
-				const currentVoiceId = asTrimmedString(active.config.voiceId);
+				const currentVoiceId = normalizeOptionalString(active.config.voiceId);
 				if (action === "status") return { text: `Talk voice status:
 - provider: ${providerId}\n- talk.providers.${providerId}.voiceId: ${currentVoiceId ? currentVoiceId : "(unset)"}\n- ${providerId}.apiKey: ${apiKey ? mask(apiKey) : "(unset)"}` };
 				if (action === "list") {
@@ -164,21 +160,17 @@ var talk_voice_default = definePluginEntry({
 						afterWrite: { mode: "auto" },
 						writeOptions: { assertCurrent: Array.isArray(ctx.gatewayClientScopes) ? void 0 : assertOwnerCurrent },
 						mutate: (draft) => {
-							const nextConfig = {
-								...draft,
-								talk: {
-									...draft.talk,
-									provider: providerId,
-									providers: {
-										...draft.talk?.providers,
-										[providerId]: {
-											...draft.talk?.providers?.[providerId],
-											voiceId: chosen.id
-										}
+							draft.talk = {
+								...draft.talk,
+								provider: providerId,
+								providers: {
+									...draft.talk?.providers,
+									[providerId]: {
+										...draft.talk?.providers?.[providerId],
+										voiceId: chosen.id
 									}
 								}
 							};
-							Object.assign(draft, nextConfig);
 						}
 					});
 					return { text: `✅ ${providerLabel} Talk voice set to ${(chosen.name ?? "").trim() || "(unnamed)"}\n${chosen.id}` };

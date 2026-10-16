@@ -1,72 +1,218 @@
 Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
-const require_rolldown_runtime = require("./.setup/rolldown-runtime-VH7oDXx4.cjs");
-const require_delegated_state = require("./.setup/delegated-state-u-ywZyZT.cjs");
-const require_polls = require("./.setup/polls-BJ4-4uZm.cjs");
-const require_sso_token_store = require("./.setup/sso-token-store-YYLHXgFH.cjs");
+const require_rolldown_runtime = require("./.setup/rolldown-runtime-BloeesfJ.cjs");
+const require_token_config = require("./.setup/token-config-DOt3XwVa.cjs");
+const require_doctor_backup_resources = require("./doctor-backup-resources.cjs");
 let openclaw_plugin_sdk_string_coerce_runtime = require("openclaw/plugin-sdk/string-coerce-runtime");
-let node_crypto = require("node:crypto");
-node_crypto = require_rolldown_runtime.__toESM(node_crypto, 1);
-let node_fs_promises = require("node:fs/promises");
-node_fs_promises = require_rolldown_runtime.__toESM(node_fs_promises, 1);
+let openclaw_plugin_sdk_error_runtime = require("openclaw/plugin-sdk/error-runtime");
 let node_path = require("node:path");
 node_path = require_rolldown_runtime.__toESM(node_path, 1);
-let openclaw_plugin_sdk_runtime_doctor_migrations = require("openclaw/plugin-sdk/runtime-doctor-migrations");
+let node_fs_promises = require("node:fs/promises");
+node_fs_promises = require_rolldown_runtime.__toESM(node_fs_promises, 1);
 let openclaw_plugin_sdk_session_store_paths = require("openclaw/plugin-sdk/session-store-paths");
+//#region packages/normalization-core/src/record-coerce.ts
+/** Type guard for non-array object records at browser-safe boundaries. */
+function isRecord$1(value) {
+	return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+/** Returns a non-array record or null. */
+function asNullableRecord(value) {
+	return isRecord$1(value) ? value : null;
+}
+//#endregion
+//#region src/config/channel-config-normalization.ts
+/** Applies one channel-specific doctor migration to every object-shaped account. */
+function normalizeChannelAccounts(params) {
+	const rawAccounts = asNullableRecord(params.entry.accounts);
+	if (!rawAccounts) return {
+		entry: params.entry,
+		changed: false
+	};
+	let changed = false;
+	const accounts = { ...rawAccounts };
+	for (const [accountId, value] of Object.entries(rawAccounts)) {
+		const account = asNullableRecord(value);
+		if (!account) continue;
+		const normalized = params.normalizeAccount({
+			account,
+			accountId,
+			pathPrefix: `${params.pathPrefix}.accounts.${accountId}`,
+			changes: params.changes
+		});
+		if (normalized.changed) {
+			accounts[accountId] = normalized.entry;
+			changed = true;
+		}
+	}
+	return changed ? {
+		entry: {
+			...params.entry,
+			accounts
+		},
+		changed: true
+	} : {
+		entry: params.entry,
+		changed: false
+	};
+}
+/** Applies the same channel-specific doctor migration at root and account scope. */
+function normalizeChannelConfigEntries(params) {
+	const changes = params.changes ?? [];
+	const channels = params.cfg.channels;
+	const entry = asNullableRecord(channels?.[params.channelId]);
+	if (!entry) return {
+		config: params.cfg,
+		changes
+	};
+	const channelPath = `channels.${params.channelId}`;
+	const root = params.normalizeEntry({
+		entry,
+		pathPrefix: channelPath,
+		changes
+	});
+	const accounts = normalizeChannelAccounts({
+		entry: root.entry,
+		pathPrefix: channelPath,
+		changes,
+		normalizeAccount: (accountParams) => params.normalizeEntry({
+			entry: accountParams.account,
+			accountId: accountParams.accountId,
+			pathPrefix: accountParams.pathPrefix,
+			changes: accountParams.changes
+		})
+	});
+	if (!root.changed && !accounts.changed) return {
+		config: params.cfg,
+		changes
+	};
+	return {
+		config: {
+			...params.cfg,
+			channels: {
+				...channels,
+				[params.channelId]: accounts.entry
+			}
+		},
+		changes
+	};
+}
+//#endregion
+//#region src/plugin-sdk/legacy-webhook-listener-migration.ts
+/** Preserve explicitly configured webhook listeners while moving ingress onto Gateway routes. */
+function createLegacyWebhookListenerDoctorContract(params) {
+	const portKey = params.portKey ?? "webhookPort";
+	const hostKey = params.hostKey === void 0 ? "webhookHost" : params.hostKey;
+	const source = (entry) => params.webhookKey ? asNullableRecord(entry[params.webhookKey]) : entry;
+	const hasLegacy = (value) => {
+		const entry = asNullableRecord(value);
+		const listener = entry && source(entry);
+		return Boolean(listener && (Object.hasOwn(listener, portKey) || hostKey && Object.hasOwn(listener, hostKey)));
+	};
+	const prefix = `channels.${params.channelKey}`;
+	return {
+		historicalWebhookListener: {
+			channelId: params.channelKey,
+			port: params.defaultPort,
+			preserveAuthoredActivation: params.preserveAuthoredActivation,
+			...params.defaultHost === void 0 ? {} : { host: params.defaultHost }
+		},
+		legacyConfigRules: [{
+			path: ["channels", params.channelKey],
+			message: `${prefix} webhook listeners moved to Gateway routes. Run "openclaw doctor --fix" to preserve explicitly configured listener settings as legacyWebhook.`,
+			match: (value) => {
+				const accounts = asNullableRecord(asNullableRecord(value)?.accounts);
+				return hasLegacy(value) || Object.values(accounts ?? {}).some(hasLegacy);
+			}
+		}],
+		normalizeCompatibilityConfig: ({ cfg }) => {
+			const root = asNullableRecord(asNullableRecord(cfg.channels)?.[params.channelKey]);
+			const inherited = root && source(root);
+			const canonicalRoot = asNullableRecord(root?.legacyWebhook);
+			return normalizeChannelConfigEntries({
+				cfg,
+				channelId: params.channelKey,
+				normalizeEntry: ({ entry, accountId, pathPrefix, changes }) => {
+					const listener = source(entry);
+					if (!listener || !hasLegacy(entry)) return {
+						entry,
+						changed: false
+					};
+					const next = { ...entry };
+					const port = Object.hasOwn(listener, portKey) ? listener[portKey] : (accountId ? canonicalRoot?.port ?? inherited?.[portKey] : void 0) ?? params.defaultPort;
+					const inheritedHost = accountId ? canonicalRoot ? canonicalRoot.host : (hostKey ? inherited?.[hostKey] : void 0) ?? params.defaultHost : params.defaultHost;
+					const host = hostKey ? listener[hostKey] ?? inheritedHost : inheritedHost;
+					const legacyPath = [pathPrefix, params.webhookKey].filter(Boolean).join(".");
+					if (Object.hasOwn(entry, "legacyWebhook")) changes.push(`Removed ${legacyPath} legacy listener keys; ${pathPrefix}.legacyWebhook is already configured.`);
+					else if (accountId && root?.legacyWebhook === false) changes.push(`Removed ${legacyPath} legacy listener keys; ${prefix}.legacyWebhook: false keeps this account's inherited listener disabled.`);
+					else {
+						next.legacyWebhook = {
+							port,
+							...host !== void 0 ? { host } : {}
+						};
+						changes.push(`Moved ${legacyPath} listener settings to ${pathPrefix}.legacyWebhook. Point the external callback or reverse proxy at the Gateway port and webhook path, verify delivery, then set legacyWebhook: false to disable legacy forwarding.`);
+					}
+					const updated = params.webhookKey ? { ...listener } : next;
+					delete updated[portKey];
+					if (hostKey) delete updated[hostKey];
+					if (params.webhookKey) {
+						if (Object.keys(updated).length) next[params.webhookKey] = updated;
+						else delete next[params.webhookKey];
+					}
+					return {
+						entry: next,
+						changed: true
+					};
+				}
+			});
+		}
+	};
+}
+//#endregion
+//#region \0openclaw:bundled-sdk:openclaw/plugin-sdk/runtime-doctor-migrations
+var runtime_doctor_migrations_exports = /* @__PURE__ */ require_rolldown_runtime.__exportAll({ createLegacyWebhookListenerDoctorContract: () => createLegacyWebhookListenerDoctorContract });
+require_rolldown_runtime.__reExport(runtime_doctor_migrations_exports, require("openclaw/plugin-sdk/runtime-doctor-migrations"));
+//#endregion
 //#region extensions/msteams/config-doctor-api.ts
-const streamingAliasMigration = (0, openclaw_plugin_sdk_runtime_doctor_migrations.defineChannelAliasMigration)({
+const webhookMigration = createLegacyWebhookListenerDoctorContract({
+	channelKey: "msteams",
+	defaultPort: 3978,
+	webhookKey: "webhook",
+	portKey: "port",
+	hostKey: null,
+	preserveAuthoredActivation: true
+});
+const { historicalWebhookListener } = webhookMigration;
+const streamingAliasMigration = (0, runtime_doctor_migrations_exports.defineChannelAliasMigration)({
 	channelId: "msteams",
 	streaming: { defaultMode: "partial" }
 });
-const legacyConfigRules = streamingAliasMigration.legacyConfigRules;
+const legacyConfigRules = [...webhookMigration.legacyConfigRules, ...streamingAliasMigration.legacyConfigRules];
+function normalizeHistoricalWebhookConfig({ cfg }) {
+	return {
+		...webhookMigration.normalizeCompatibilityConfig({ cfg }),
+		historicalWebhookAccountIds: cfg.channels?.msteams === void 0 && !require_token_config.resolveMSTeamsCredentials() ? null : cfg.channels?.msteams?.enabled === false ? [] : [void 0]
+	};
+}
 function normalizeCompatibilityConfig({ cfg }) {
-	return streamingAliasMigration.normalizeChannelConfig({ cfg });
+	const webhook = normalizeHistoricalWebhookConfig({ cfg });
+	return {
+		...streamingAliasMigration.normalizeChannelConfig({
+			cfg: webhook.config,
+			changes: webhook.changes
+		}),
+		historicalWebhookAccountIds: webhook.historicalWebhookAccountIds
+	};
 }
 //#endregion
 //#region extensions/msteams/doctor-contract-api.ts
-const LEARNINGS_NAMESPACE = "feedback-learnings";
-const MAX_LEARNING_ENTRIES = 1e4;
 const MSTEAMS_PLUGIN_ID = "Microsoft Teams";
-function encodeSessionKey(sessionKey) {
-	return Buffer.from(sessionKey, "utf8").toString("base64url");
-}
-function learningStoreKey(storePath, sessionKey) {
-	return node_crypto.default.createHash("sha256").update(`${storePath}\0${sessionKey}`, "utf8").digest("hex");
-}
-function decodeSessionKey(fileStem) {
-	try {
-		const decoded = Buffer.from(fileStem, "base64url").toString("utf8");
-		return encodeSessionKey(decoded) === fileStem && decoded.trim() ? decoded : null;
-	} catch {
-		return null;
-	}
-}
-function resolveLearningSessionKey(fileStem) {
-	return decodeSessionKey(fileStem);
-}
-function legacySanitizeSessionKey(sessionKey) {
-	return sessionKey.replace(/[^a-zA-Z0-9_-]/g, "_");
-}
-async function listKnownSessionKeys(storePath) {
-	const candidates = [storePath, node_path.default.join(storePath, "sessions.json")];
-	for (const candidate of candidates) try {
-		const parsed = JSON.parse(await node_fs_promises.default.readFile(candidate, "utf8"));
-		if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) continue;
-		const sessions = parsed.sessions && typeof parsed.sessions === "object" && !Array.isArray(parsed.sessions) ? parsed.sessions : parsed;
-		return Object.keys(sessions).filter((key) => key.trim());
-	} catch {}
-	return [];
-}
-function resolveLegacySanitizedSessionKey(fileStem, knownSessionKeys) {
-	const matches = knownSessionKeys.filter((sessionKey) => legacySanitizeSessionKey(sessionKey) === fileStem);
-	const [match] = matches;
-	return matches.length === 1 && match ? match : null;
-}
 function listAgentIds(config) {
 	const ids = /* @__PURE__ */ new Set(["main"]);
-	if ((0, openclaw_plugin_sdk_string_coerce_runtime.isRecord)(config.agents?.entries)) {
-		for (const agentId of Object.keys(config.agents.entries)) if (agentId.trim()) ids.add(agentId.trim());
+	const agents = (0, openclaw_plugin_sdk_string_coerce_runtime.isRecord)(config) && (0, openclaw_plugin_sdk_string_coerce_runtime.isRecord)(config.agents) ? config.agents : void 0;
+	if ((0, openclaw_plugin_sdk_string_coerce_runtime.isRecord)(agents?.entries)) {
+		for (const agentId of Object.keys(agents.entries)) if (agentId.trim()) ids.add(agentId.trim());
 	}
-	for (const agent of config.agents?.list ?? []) if (typeof agent.id === "string" && agent.id.trim()) ids.add(agent.id.trim());
+	const legacyList = Object.prototype.propertyIsEnumerable.call(agents ?? {}, "list") && Array.isArray(agents?.list) ? agents.list : [];
+	for (const agent of legacyList) if ((0, openclaw_plugin_sdk_string_coerce_runtime.isRecord)(agent) && typeof agent.id === "string" && agent.id.trim()) ids.add(agent.id.trim());
 	return [...ids];
 }
 function listCandidateStorePaths(params) {
@@ -77,292 +223,52 @@ function listCandidateStorePaths(params) {
 	}));
 	return [...paths];
 }
-function resolveStateFilePath(stateDir, filename) {
-	return node_path.default.join(stateDir, filename);
-}
-async function readLegacyJsonFile(filePath, parse) {
+async function hasRetiredSource(filePath) {
 	try {
-		return parse(JSON.parse(await node_fs_promises.default.readFile(filePath, "utf8")));
-	} catch {
-		return null;
+		await node_fs_promises.default.lstat(filePath);
+		return true;
+	} catch (error) {
+		if ((0, openclaw_plugin_sdk_error_runtime.extractErrorCode)(error) === "ENOENT") return false;
+		throw error;
 	}
 }
-function isStringArray(value) {
-	return Array.isArray(value) && value.every((entry) => typeof entry === "string");
+async function hasRetiredLearnings(params) {
+	for (const storePath of listCandidateStorePaths(params)) try {
+		if ((await node_fs_promises.default.stat(storePath)).isDirectory() && (await node_fs_promises.default.readdir(storePath)).some((name) => name.endsWith(".learnings.json"))) return true;
+	} catch (error) {
+		if ((0, openclaw_plugin_sdk_error_runtime.extractErrorCode)(error) !== "ENOENT") throw error;
+	}
+	return false;
 }
-function parseLegacyConversationStore(value) {
-	if (!(0, openclaw_plugin_sdk_string_coerce_runtime.isRecord)(value) || value.version !== 1 || !(0, openclaw_plugin_sdk_string_coerce_runtime.isRecord)(value.conversations)) return null;
-	return require_polls.normalizeMSTeamsLegacyConversationStore({
-		version: 1,
-		conversations: value.conversations
-	});
-}
-function parseLegacyPoll(value) {
-	if (!(0, openclaw_plugin_sdk_string_coerce_runtime.isRecord)(value)) return null;
-	const votes = (0, openclaw_plugin_sdk_string_coerce_runtime.isRecord)(value.votes) ? value.votes : null;
-	if (typeof value.id !== "string" || !value.id || typeof value.question !== "string" || !value.question || !isStringArray(value.options) || typeof value.maxSelections !== "number" || !Number.isFinite(value.maxSelections) || typeof value.createdAt !== "string" || !votes) return null;
-	const normalizedVotes = {};
-	for (const [voterId, selections] of Object.entries(votes)) if (typeof voterId === "string" && isStringArray(selections)) normalizedVotes[voterId] = selections;
+function retiredJsonMigration(name, label, hasSource) {
+	const guidance = `Microsoft Teams ${label} JSON state predates June 2026. Install OpenClaw 2026.9.5, run "openclaw doctor --fix", then upgrade to latest. The legacy source was left untouched.`;
 	return {
-		id: value.id,
-		question: value.question,
-		options: value.options,
-		maxSelections: value.maxSelections,
-		createdAt: value.createdAt,
-		...typeof value.updatedAt === "string" ? { updatedAt: value.updatedAt } : {},
-		...typeof value.conversationId === "string" ? { conversationId: value.conversationId } : {},
-		...typeof value.messageId === "string" ? { messageId: value.messageId } : {},
-		votes: normalizedVotes
-	};
-}
-function parseLegacyPollStore(value) {
-	if (!(0, openclaw_plugin_sdk_string_coerce_runtime.isRecord)(value) || value.version !== 1 || !(0, openclaw_plugin_sdk_string_coerce_runtime.isRecord)(value.polls)) return null;
-	const polls = {};
-	for (const [pollId, poll] of Object.entries(value.polls)) {
-		const parsed = parseLegacyPoll(poll);
-		if (parsed) polls[pollId] = parsed;
-	}
-	return {
-		version: 1,
-		polls
-	};
-}
-async function listLegacyLearningFiles(storePath) {
-	let entries;
-	try {
-		entries = await node_fs_promises.default.readdir(storePath, { withFileTypes: true });
-	} catch {
-		return [];
-	}
-	const suffix = ".learnings.json";
-	const knownSessionKeys = await listKnownSessionKeys(storePath);
-	const files = [];
-	for (const entry of entries) {
-		if (!entry.isFile() || !entry.name.endsWith(suffix)) continue;
-		const fileStem = entry.name.slice(0, -15);
-		const sessionKey = resolveLearningSessionKey(fileStem) ?? resolveLegacySanitizedSessionKey(fileStem, knownSessionKeys);
-		const filePath = node_path.default.join(storePath, entry.name);
-		try {
-			const parsed = JSON.parse(await node_fs_promises.default.readFile(filePath, "utf8"));
-			if (Array.isArray(parsed)) {
-				const learnings = parsed.filter((item) => typeof item === "string");
-				if (learnings.length > 0) files.push({
-					storePath,
-					sessionKey,
-					filePath,
-					learnings: learnings.slice(-10)
-				});
-			}
-		} catch {}
-	}
-	return files;
-}
-function mergeLearnings(legacy, existing) {
-	const seen = /* @__PURE__ */ new Set();
-	const merged = [];
-	for (const learning of [...legacy, ...existing?.learnings ?? []]) {
-		if (seen.has(learning)) continue;
-		seen.add(learning);
-		merged.push(learning);
-	}
-	return merged.slice(-10);
-}
-async function completeLegacyKeyedImport(params) {
-	const { filePath, label, imported, warnings } = params;
-	const changes = [];
-	let missing = 0;
-	for (const { store, requiredKeys } of params.stores) {
-		const retainedKeys = new Set((await store.entries()).map((entry) => entry.key));
-		missing += [...requiredKeys].filter((key) => !retainedKeys.has(key)).length;
-	}
-	if (missing > 0) {
-		warnings.push(`Incomplete ${label} migration: plugin state failed to retain every required entry (${missing} missing); left legacy source in place`);
-		return {
-			changes,
-			warnings
-		};
-	}
-	changes.push(`Migrated ${imported} ${label} ${imported === 1 ? "entry" : "entries"} -> plugin state`);
-	await (0, openclaw_plugin_sdk_runtime_doctor_migrations.archiveLegacyStateSource)({
-		filePath,
-		label: params.archiveLabel ?? label,
-		changes,
-		warnings
-	});
-	return {
-		changes,
-		warnings
+		id: `msteams-${name}-json-to-plugin-state`,
+		label: `Microsoft Teams ${label}`,
+		collectBackupResources: () => [],
+		async detectLegacyState(params) {
+			return await hasSource(params) ? { preview: [guidance] } : null;
+		},
+		async migrateLegacyState(params) {
+			return {
+				changes: [],
+				warnings: await hasSource(params) ? [guidance] : []
+			};
+		}
 	};
 }
 const stateMigrations = [
-	{
-		id: "msteams-conversations-json-to-plugin-state",
-		label: "Microsoft Teams conversations",
-		async detectLegacyState(params) {
-			const state = await readLegacyJsonFile(resolveStateFilePath(params.stateDir, require_polls.MSTEAMS_CONVERSATIONS_LEGACY_FILENAME), parseLegacyConversationStore);
-			if (!state || Object.keys(state.conversations).length === 0) return null;
-			return { preview: [`- ${MSTEAMS_PLUGIN_ID} conversations: ${Object.keys(state.conversations).length} entries -> plugin state (${require_polls.MSTEAMS_CONVERSATIONS_NAMESPACE})`] };
-		},
-		async migrateLegacyState(params) {
-			const filePath = resolveStateFilePath(params.stateDir, require_polls.MSTEAMS_CONVERSATIONS_LEGACY_FILENAME);
-			const state = await readLegacyJsonFile(filePath, parseLegacyConversationStore);
-			if (!state) return {
-				changes: [],
-				warnings: []
-			};
-			const store = params.context.openPluginStateKeyedStore({
-				namespace: require_polls.MSTEAMS_CONVERSATIONS_NAMESPACE,
-				maxEntries: require_polls.MSTEAMS_SQLITE_MAX_CONVERSATION_ROWS
-			});
-			const requiredKeys = new Set((await store.entries()).map((entry) => entry.key));
-			let imported = 0;
-			for (const [rawConversationId, reference] of require_polls.selectRetainedMSTeamsConversations(state.conversations)) {
-				const conversationId = require_polls.normalizeStoredConversationId(rawConversationId);
-				if (!conversationId) continue;
-				const key = require_polls.buildMSTeamsConversationStateKey(conversationId);
-				requiredKeys.add(key);
-				const storedReference = require_polls.prepareMSTeamsConversationReferenceForStorage(conversationId, reference);
-				if (await store.registerIfAbsent(key, storedReference)) imported++;
-			}
-			return completeLegacyKeyedImport({
-				filePath,
-				label: `${MSTEAMS_PLUGIN_ID} conversation`,
-				imported,
-				warnings: [],
-				stores: [{
-					store,
-					requiredKeys
-				}]
-			});
-		}
-	},
-	{
-		id: "msteams-polls-json-to-plugin-state",
-		label: "Microsoft Teams polls",
-		async detectLegacyState(params) {
-			const state = await readLegacyJsonFile(resolveStateFilePath(params.stateDir, require_polls.MSTEAMS_POLLS_LEGACY_FILENAME), parseLegacyPollStore);
-			if (!state || Object.keys(state.polls).length === 0) return null;
-			return { preview: [`- ${MSTEAMS_PLUGIN_ID} polls: ${Object.keys(state.polls).length} entries -> plugin state (${require_polls.MSTEAMS_POLLS_NAMESPACE})`] };
-		},
-		async migrateLegacyState(params) {
-			return await require_polls.withMSTeamsSqliteMutationLock({ stateDir: params.stateDir }, require_polls.MSTEAMS_POLLS_NAMESPACE, async () => {
-				const filePath = resolveStateFilePath(params.stateDir, require_polls.MSTEAMS_POLLS_LEGACY_FILENAME);
-				const state = await readLegacyJsonFile(filePath, parseLegacyPollStore);
-				if (!state) return {
-					changes: [],
-					warnings: []
-				};
-				const pollStore = params.context.openPluginStateKeyedStore({
-					namespace: require_polls.MSTEAMS_POLLS_NAMESPACE,
-					maxEntries: require_polls.MSTEAMS_SQLITE_MAX_POLL_ROWS
-				});
-				const voteBucketStore = params.context.openPluginStateKeyedStore({
-					namespace: require_polls.MSTEAMS_POLL_VOTE_BUCKETS_NAMESPACE,
-					maxEntries: require_polls.MSTEAMS_MAX_POLL_VOTE_BUCKET_ROWS
-				});
-				const requiredPollKeys = new Set((await pollStore.entries()).map((entry) => entry.key));
-				const requiredVoteKeys = new Set((await voteBucketStore.entries()).map((entry) => entry.key));
-				let imported = 0;
-				for (const [pollId, poll] of require_polls.selectRetainedMSTeamsPolls(state.polls)) {
-					const { metadata, votes } = require_polls.splitMSTeamsPoll(poll);
-					const pollKey = require_polls.buildMSTeamsPollStateKey(pollId);
-					requiredPollKeys.add(pollKey);
-					const didImportPoll = await pollStore.registerIfAbsent(pollKey, metadata);
-					const buckets = /* @__PURE__ */ new Map();
-					for (const [voterId, selections] of Object.entries(votes)) {
-						const bucket = require_polls.selectMSTeamsPollVoteBucket(pollId, voterId);
-						const bucketVotes = buckets.get(bucket) ?? {};
-						bucketVotes[voterId] = selections;
-						buckets.set(bucket, bucketVotes);
-					}
-					let importedVoteBucket = false;
-					for (const [bucket, bucketVotes] of buckets) {
-						const key = require_polls.buildMSTeamsPollVoteBucketKey(pollId, bucket);
-						requiredVoteKeys.add(key);
-						const existing = await voteBucketStore.lookup(key);
-						await voteBucketStore.register(key, {
-							pollId,
-							bucket,
-							votes: {
-								...bucketVotes,
-								...existing?.votes
-							},
-							updatedAt: poll.updatedAt ?? poll.createdAt
-						});
-						importedVoteBucket = true;
-					}
-					if (didImportPoll || importedVoteBucket) imported++;
-				}
-				return completeLegacyKeyedImport({
-					filePath,
-					label: `${MSTEAMS_PLUGIN_ID} poll`,
-					imported,
-					warnings: [],
-					stores: [{
-						store: pollStore,
-						requiredKeys: requiredPollKeys
-					}, {
-						store: voteBucketStore,
-						requiredKeys: requiredVoteKeys
-					}]
-				});
-			});
-		}
-	},
-	{
-		id: "msteams-sso-tokens-json-to-plugin-state",
-		label: "Microsoft Teams SSO tokens",
-		async detectLegacyState(params) {
-			const state = await readLegacyJsonFile(resolveStateFilePath(params.stateDir, require_sso_token_store.MSTEAMS_SSO_TOKENS_LEGACY_FILENAME), (value) => require_sso_token_store.isMSTeamsSsoStoreData(value) ? value : null);
-			if (!state || Object.keys(state.tokens).length === 0) return null;
-			return { preview: [`- ${MSTEAMS_PLUGIN_ID} SSO tokens: ${Object.keys(state.tokens).length} entries -> plugin state (${require_sso_token_store.MSTEAMS_SSO_TOKENS_NAMESPACE})`] };
-		},
-		async migrateLegacyState(params) {
-			const warnings = [];
-			const filePath = resolveStateFilePath(params.stateDir, require_sso_token_store.MSTEAMS_SSO_TOKENS_LEGACY_FILENAME);
-			const state = await readLegacyJsonFile(filePath, (value) => require_sso_token_store.isMSTeamsSsoStoreData(value) ? value : null);
-			if (!state) return {
-				changes: [],
-				warnings
-			};
-			const store = params.context.openPluginStateKeyedStore({
-				namespace: require_sso_token_store.MSTEAMS_SSO_TOKENS_NAMESPACE,
-				maxEntries: require_sso_token_store.MSTEAMS_MAX_SSO_TOKENS
-			});
-			const requiredKeys = new Set((await store.entries()).map((entry) => entry.key));
-			let imported = 0;
-			let skipped = 0;
-			for (const token of Object.values(state.tokens)) {
-				const normalized = require_sso_token_store.normalizeMSTeamsSsoStoredToken(token);
-				if (!normalized) {
-					skipped++;
-					continue;
-				}
-				const key = require_sso_token_store.makeMSTeamsSsoTokenStoreKey(normalized.connectionName, normalized.userId);
-				requiredKeys.add(key);
-				if (await store.registerIfAbsent(key, normalized)) imported++;
-			}
-			if (skipped > 0) warnings.push(`Skipped ${skipped} malformed ${MSTEAMS_PLUGIN_ID} SSO token ${skipped === 1 ? "entry" : "entries"} during migration`);
-			return completeLegacyKeyedImport({
-				filePath,
-				label: `${MSTEAMS_PLUGIN_ID} SSO token`,
-				archiveLabel: `${MSTEAMS_PLUGIN_ID} SSO-token`,
-				imported,
-				warnings,
-				stores: [{
-					store,
-					requiredKeys
-				}]
-			});
-		}
-	},
+	retiredJsonMigration("conversations", "conversations", (params) => hasRetiredSource(node_path.default.join(params.stateDir, "msteams-conversations.json"))),
+	retiredJsonMigration("polls", "polls", (params) => hasRetiredSource(node_path.default.join(params.stateDir, "msteams-polls.json"))),
+	retiredJsonMigration("sso-tokens", "SSO tokens", (params) => hasRetiredSource(node_path.default.join(params.stateDir, "msteams-sso-tokens.json"))),
 	{
 		id: "msteams-delegated-token-json-to-plugin-state",
 		label: "Microsoft Teams delegated OAuth token",
+		collectBackupResources: ({ stateDir }) => require_doctor_backup_resources.stateFileBackupResources(stateDir, require_token_config.MSTEAMS_DELEGATED_TOKEN_LEGACY_FILENAME),
 		async detectLegacyState(params) {
-			const filePath = resolveStateFilePath(params.stateDir, require_delegated_state.MSTEAMS_DELEGATED_TOKEN_LEGACY_FILENAME);
+			const filePath = node_path.default.join(params.stateDir, require_token_config.MSTEAMS_DELEGATED_TOKEN_LEGACY_FILENAME);
 			try {
-				return (await node_fs_promises.default.stat(filePath)).isFile() ? { preview: [`- ${MSTEAMS_PLUGIN_ID} delegated OAuth token -> plugin state (${require_delegated_state.MSTEAMS_DELEGATED_TOKEN_NAMESPACE})`] } : null;
+				return (await node_fs_promises.default.stat(filePath)).isFile() ? { preview: [`- ${MSTEAMS_PLUGIN_ID} delegated OAuth token -> plugin state (${require_token_config.MSTEAMS_DELEGATED_TOKEN_NAMESPACE})`] } : null;
 			} catch {
 				return null;
 			}
@@ -370,10 +276,10 @@ const stateMigrations = [
 		async migrateLegacyState(params) {
 			const changes = [];
 			const warnings = [];
-			const filePath = resolveStateFilePath(params.stateDir, require_delegated_state.MSTEAMS_DELEGATED_TOKEN_LEGACY_FILENAME);
+			const filePath = node_path.default.join(params.stateDir, require_token_config.MSTEAMS_DELEGATED_TOKEN_LEGACY_FILENAME);
 			let token;
 			try {
-				token = require_delegated_state.normalizeMSTeamsDelegatedTokens(JSON.parse(await node_fs_promises.default.readFile(filePath, "utf8")));
+				token = require_token_config.normalizeMSTeamsDelegatedTokens(JSON.parse(await node_fs_promises.default.readFile(filePath, "utf8")));
 			} catch (error) {
 				if (error.code === "ENOENT") return {
 					changes,
@@ -393,11 +299,11 @@ const stateMigrations = [
 				};
 			}
 			const store = params.context.openPluginStateKeyedStore({
-				namespace: require_delegated_state.MSTEAMS_DELEGATED_TOKEN_NAMESPACE,
+				namespace: require_token_config.MSTEAMS_DELEGATED_TOKEN_NAMESPACE,
 				maxEntries: 1,
 				overflowPolicy: "reject-new"
 			});
-			const existing = await store.lookup(require_delegated_state.MSTEAMS_DELEGATED_TOKEN_KEY);
+			const existing = await store.lookup(require_token_config.MSTEAMS_DELEGATED_TOKEN_KEY);
 			if (existing && JSON.stringify(existing) !== JSON.stringify(token)) {
 				warnings.push(`Kept existing ${MSTEAMS_PLUGIN_ID} delegated OAuth token in plugin state; left differing legacy source in place`);
 				return {
@@ -406,7 +312,7 @@ const stateMigrations = [
 				};
 			}
 			if (!existing) try {
-				await store.registerIfAbsent(require_delegated_state.MSTEAMS_DELEGATED_TOKEN_KEY, token);
+				await store.registerIfAbsent(require_token_config.MSTEAMS_DELEGATED_TOKEN_KEY, token);
 			} catch (error) {
 				warnings.push(`Failed importing ${MSTEAMS_PLUGIN_ID} delegated OAuth token: ${String(error)}; left legacy source in place`);
 				return {
@@ -414,7 +320,7 @@ const stateMigrations = [
 					warnings
 				};
 			}
-			const persisted = require_delegated_state.normalizeMSTeamsDelegatedTokens(await store.lookup(require_delegated_state.MSTEAMS_DELEGATED_TOKEN_KEY));
+			const persisted = require_token_config.normalizeMSTeamsDelegatedTokens(await store.lookup(require_token_config.MSTEAMS_DELEGATED_TOKEN_KEY));
 			if (!persisted || JSON.stringify(persisted) !== JSON.stringify(token)) {
 				warnings.push(`Failed verifying ${MSTEAMS_PLUGIN_ID} delegated OAuth token in plugin state; left legacy source in place`);
 				return {
@@ -423,8 +329,9 @@ const stateMigrations = [
 				};
 			}
 			changes.push(`Migrated ${MSTEAMS_PLUGIN_ID} delegated OAuth token -> plugin state`);
-			await (0, openclaw_plugin_sdk_runtime_doctor_migrations.archiveLegacyStateSource)({
+			await (0, runtime_doctor_migrations_exports.archiveLegacyStateSource)({
 				filePath,
+				archiveDirectory: require_doctor_backup_resources.stateFileArchiveDirectory(filePath),
 				label: `${MSTEAMS_PLUGIN_ID} delegated OAuth token`,
 				changes,
 				warnings
@@ -435,63 +342,11 @@ const stateMigrations = [
 			};
 		}
 	},
-	{
-		id: "msteams-feedback-learnings-json-to-plugin-state",
-		label: "Microsoft Teams feedback learnings",
-		async detectLegacyState(params) {
-			const files = (await Promise.all(listCandidateStorePaths(params).map((storePath) => listLegacyLearningFiles(storePath)))).flat();
-			if (files.length === 0) return null;
-			return { preview: [`- Microsoft Teams feedback learnings: ${files.length} ${files.length === 1 ? "file" : "files"} -> plugin state (${LEARNINGS_NAMESPACE})`] };
-		},
-		async migrateLegacyState(params) {
-			const changes = [];
-			const warnings = [];
-			const files = (await Promise.all(listCandidateStorePaths(params).map((storePath) => listLegacyLearningFiles(storePath)))).flat();
-			const store = params.context.openPluginStateKeyedStore({
-				namespace: LEARNINGS_NAMESPACE,
-				maxEntries: MAX_LEARNING_ENTRIES
-			});
-			const existingEntries = await store.entries();
-			const existingKeys = new Set(existingEntries.map((entry) => entry.key));
-			const importableFiles = files.filter((file) => file.sessionKey);
-			const missingKeys = new Set(importableFiles.map((file) => learningStoreKey(file.storePath, file.sessionKey ?? "")).filter((key) => !existingKeys.has(key)));
-			if (missingKeys.size > MAX_LEARNING_ENTRIES - existingKeys.size) {
-				warnings.push(`Skipped Microsoft Teams feedback-learning migration because plugin state has room for ${MAX_LEARNING_ENTRIES - existingKeys.size} of ${missingKeys.size} missing entries; left legacy sources in place`);
-				return {
-					changes,
-					warnings
-				};
-			}
-			let imported = 0;
-			for (const file of files) {
-				if (!file.sessionKey) {
-					warnings.push(`Left Microsoft Teams feedback-learning source in place because its legacy filename cannot be mapped to a session key: ${file.filePath}`);
-					continue;
-				}
-				const key = learningStoreKey(file.storePath, file.sessionKey);
-				const existing = await store.lookup(key);
-				await store.register(key, {
-					sessionKey: existing?.sessionKey ?? file.sessionKey,
-					learnings: mergeLearnings(file.learnings, existing),
-					updatedAt: Date.now()
-				});
-				imported++;
-				await (0, openclaw_plugin_sdk_runtime_doctor_migrations.archiveLegacyStateSource)({
-					filePath: file.filePath,
-					label: "Microsoft Teams feedback-learning",
-					changes,
-					warnings
-				});
-			}
-			if (imported > 0) changes.unshift(`Migrated ${imported} Microsoft Teams feedback-learning ${imported === 1 ? "entry" : "entries"} -> plugin state`);
-			return {
-				changes,
-				warnings
-			};
-		}
-	}
+	retiredJsonMigration("feedback-learnings", "feedback learnings", hasRetiredLearnings)
 ];
 //#endregion
+exports.historicalWebhookListener = historicalWebhookListener;
 exports.legacyConfigRules = legacyConfigRules;
 exports.normalizeCompatibilityConfig = normalizeCompatibilityConfig;
+exports.normalizeHistoricalWebhookConfig = normalizeHistoricalWebhookConfig;
 exports.stateMigrations = stateMigrations;

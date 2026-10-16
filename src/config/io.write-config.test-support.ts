@@ -1,3 +1,5 @@
+import fs from "node:fs/promises";
+import path from "node:path";
 import type { PluginManifestRegistry } from "../plugins/manifest-registry.js";
 import { createPathResolutionEnv, withEnvAsync } from "../test-utils/env.js";
 
@@ -40,3 +42,19 @@ export const defaultedDemoPluginRegistry = {
     },
   ],
 } satisfies PluginManifestRegistry;
+
+export function configPathForHome(home: string, fileName = "openclaw.json") {
+  return path.join(home, ".openclaw", fileName);
+}
+
+export function formatConfig(config: unknown) {
+  return `${JSON.stringify(config, null, 2)}\n`;
+}
+
+export async function writeConfigFixture(home: string, config: unknown) {
+  const configPath = configPathForHome(home);
+  await fs.mkdir(path.dirname(configPath), { recursive: true });
+  const raw = formatConfig(config);
+  await fs.writeFile(configPath, raw, "utf-8");
+  return { configPath, raw };
+}

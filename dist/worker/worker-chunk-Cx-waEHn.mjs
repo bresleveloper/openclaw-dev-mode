@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";var t,n,r,i,a,getMaxChatHistoryMessagesBytes,o,s,c,l,u=e((()=>{t=26214400,n=52428800,r=65536,i=1e3,a=6291456,getMaxChatHistoryMessagesBytes=()=>a,o=3e4,s=6e4,c=3e5,l=1e3}));export{t as a,i as c,n as i,getMaxChatHistoryMessagesBytes as l,c as n,r as o,s as r,o as s,l as t,u};

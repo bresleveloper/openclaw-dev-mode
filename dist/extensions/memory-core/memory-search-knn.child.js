@@ -1,8 +1,8 @@
-import { t as ensureSqliteLibrarySelected } from "../../bun-sqlite-library-GOquVAYK.mjs";
-import { c as supportsNodeSqliteExtensionLoading, t as openNodeSqliteDatabase } from "../../node-sqlite-BO6jRFcG.mjs";
-import { t as loadSqliteVecExtension } from "../../sqlite-vec-BskpG3v_.mjs";
-import "../../memory-core-host-engine-knn-Dps9fjJT.mjs";
-import { n as runVectorKnnQuery, r as validateVectorKnnRequest } from "../../manager-search-knn-JQGcRJWQ.mjs";
+import { r as ensureSqliteLibrarySelected } from "../../bun-sqlite-library-CBSPJxTD.mjs";
+import { s as supportsNodeSqliteExtensionLoading, t as openNodeSqliteDatabase } from "../../node-sqlite-XIcwmOrl.mjs";
+import { t as loadSqliteVecExtension } from "../../sqlite-vec-BcbJNyja.mjs";
+import "../../memory-core-host-engine-knn-DTjLOT03.mjs";
+import { n as runVectorKnnQuery, r as validateVectorKnnRequest } from "../../manager-search-knn-B-dpovcE.mjs";
 //#region extensions/memory-core/src/memory/manager-search-knn.child.ts
 const MAX_STDIN_BYTES = 1048576;
 const MAX_STDOUT_BYTES = 2097152;

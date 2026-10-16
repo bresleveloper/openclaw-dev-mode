@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function agentHarnessBuildsOpenClawTools(e){return e===`codex`||e===`copilot`}function agentHarnessExposesOpenClawTools(e){return e===`openclaw`||agentHarnessBuildsOpenClawTools(e)}var t=e((()=>{}));export{agentHarnessExposesOpenClawTools as n,t as r,agentHarnessBuildsOpenClawTools as t};

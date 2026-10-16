@@ -1,6 +1,6 @@
 import { requiresClaudeDefaultSampling, resolveClaudeMythos5ModelIdentity, resolveClaudeOpus5ModelIdentity, resolveClaudeSonnet5ModelIdentity } from "openclaw/plugin-sdk/provider-model-shared";
 import Anthropic from "@anthropic-ai/sdk";
-import { stream } from "openclaw/plugin-sdk/llm";
+import { adjustMaxTokensForThinking, stream } from "openclaw/plugin-sdk/llm";
 import { buildGuardedModelFetch, copyProviderAcceptanceObserver } from "openclaw/plugin-sdk/provider-transport-runtime";
 //#region extensions/amazon-bedrock-mantle/mantle-anthropic.runtime.ts
 /**
@@ -15,15 +15,6 @@ function resolveMantleAnthropicBaseUrl(baseUrl) {
 	if (trimmed.endsWith("/v1")) return `${trimmed.slice(0, -3)}/anthropic`;
 	return `${trimmed}/anthropic`;
 }
-function isClaudeOpus5Model(model) {
-	return resolveClaudeOpus5ModelIdentity(model) !== void 0;
-}
-function isClaudeSonnet5Model(model) {
-	return resolveClaudeSonnet5ModelIdentity(model) !== void 0;
-}
-function requiresDefaultSampling(model) {
-	return requiresClaudeDefaultSampling(model);
-}
 function isClaudeMythosPreviewModel(model) {
 	return [
 		model.id,
@@ -31,18 +22,12 @@ function isClaudeMythosPreviewModel(model) {
 		model.params?.canonicalModelId
 	].filter((value) => typeof value === "string").some((value) => /(?:^|-)claude-mythos-preview(?=$|[^a-z0-9])/.test(value.trim().toLowerCase().replace(/[\s_.:]+/g, "-")));
 }
-function isClaudeMythos5Model(model) {
-	return resolveClaudeMythos5ModelIdentity(model) !== void 0;
-}
-function requiresClaudeMythosAdaptiveThinking(model) {
-	return isClaudeMythos5Model(model) || isClaudeMythosPreviewModel(model);
-}
 function resolveMantleReasoning(model, options) {
 	if (model.id.includes("claude-opus-4-7")) return;
-	const opus5 = isClaudeOpus5Model(model);
-	const sonnet5 = isClaudeSonnet5Model(model);
+	const opus5 = resolveClaudeOpus5ModelIdentity(model) !== void 0;
+	const sonnet5 = resolveClaudeSonnet5ModelIdentity(model) !== void 0;
 	const mythosPreview = isClaudeMythosPreviewModel(model);
-	const mandatoryMythos = isClaudeMythos5Model(model) || mythosPreview;
+	const mandatoryMythos = resolveClaudeMythos5ModelIdentity(model) !== void 0 || mythosPreview;
 	const reasoning = options?.reasoning ?? (mandatoryMythos || opus5 || sonnet5 ? "high" : void 0);
 	if (opus5) return reasoning === "minimal" ? "low" : reasoning;
 	if (sonnet5) return reasoning === "off" || reasoning === "minimal" ? "low" : reasoning;
@@ -55,15 +40,10 @@ function mapModernClaudeEffort(reasoning) {
 	if (reasoning === "medium" || reasoning === "xhigh" || reasoning === "max") return reasoning;
 	return "high";
 }
-function mergeHeaders(...headerSources) {
-	const merged = {};
-	for (const headers of headerSources) if (headers) Object.assign(merged, headers);
-	return merged;
-}
 function buildMantleAnthropicBaseOptions(model, options, apiKey) {
 	return copyProviderAcceptanceObserver(options, {
-		...requiresDefaultSampling(model) ? {} : { temperature: options?.temperature },
-		maxTokens: options?.maxTokens || (isClaudeOpus5Model(model) || isClaudeSonnet5Model(model) || isClaudeMythos5Model(model) ? model.maxTokens : Math.min(model.maxTokens, 32e3)),
+		...requiresClaudeDefaultSampling(model) ? {} : { temperature: options?.temperature },
+		maxTokens: options?.maxTokens || (resolveClaudeOpus5ModelIdentity(model) || resolveClaudeSonnet5ModelIdentity(model) || resolveClaudeMythos5ModelIdentity(model) ? model.maxTokens : Math.min(model.maxTokens, 32e3)),
 		signal: options?.signal,
 		apiKey,
 		cacheRetention: options?.cacheRetention,
@@ -73,25 +53,6 @@ function buildMantleAnthropicBaseOptions(model, options, apiKey) {
 		maxRetryDelayMs: options?.maxRetryDelayMs,
 		metadata: options?.metadata
 	});
-}
-function adjustMaxTokensForThinking(baseMaxTokens, modelMaxTokens, reasoningLevel, customBudgets) {
-	const budgets = {
-		minimal: 1024,
-		low: 2048,
-		medium: 8192,
-		high: 16384,
-		xhigh: 16384,
-		max: 16384,
-		...customBudgets
-	};
-	const minOutputTokens = 1024;
-	let thinkingBudget = budgets[reasoningLevel];
-	const maxTokens = Math.min(baseMaxTokens + thinkingBudget, modelMaxTokens);
-	if (maxTokens <= thinkingBudget) thinkingBudget = Math.max(0, maxTokens - minOutputTokens);
-	return {
-		maxTokens,
-		thinkingBudget
-	};
 }
 /** Create the Mantle Anthropic Messages stream function. */
 function createMantleAnthropicStreamFn(deps) {
@@ -104,36 +65,45 @@ function createMantleAnthropicStreamFn(deps) {
 			authToken: apiKey,
 			baseURL: resolveMantleAnthropicBaseUrl(model.baseUrl),
 			dangerouslyAllowBrowser: true,
-			defaultHeaders: mergeHeaders({
+			defaultHeaders: {
 				accept: "application/json",
 				"anthropic-dangerous-direct-browser-access": "true",
-				"anthropic-beta": MANTLE_ANTHROPIC_BETA
-			}, model.headers, options?.headers),
+				"anthropic-beta": MANTLE_ANTHROPIC_BETA,
+				...model.headers,
+				...options?.headers
+			},
 			fetch: buildGuardedModelFetch(model)
 		});
 		const base = buildMantleAnthropicBaseOptions(model, options, apiKey);
-		const streamClient = client;
 		const reasoning = resolveMantleReasoning(model, options);
-		const opus5 = isClaudeOpus5Model(model);
-		const sonnet5 = isClaudeSonnet5Model(model);
-		const mythos5 = isClaudeMythos5Model(model);
+		const opus5 = resolveClaudeOpus5ModelIdentity(model) !== void 0;
+		const sonnet5 = resolveClaudeSonnet5ModelIdentity(model) !== void 0;
+		const mythos5 = resolveClaudeMythos5ModelIdentity(model) !== void 0;
 		if (!reasoning || reasoning === "off") return streamFn(model, context, {
 			...base,
-			client: streamClient,
+			client,
 			thinkingEnabled: false
 		});
 		if (opus5 || sonnet5 || mythos5) return streamFn(model, context, {
 			...base,
-			client: streamClient,
+			client,
 			thinkingEnabled: true,
 			effort: opus5 || sonnet5 ? mapModernClaudeEffort(reasoning) : reasoning
 		});
-		const adjusted = adjustMaxTokensForThinking(base.maxTokens || 0, model.maxTokens, reasoning, options?.thinkingBudgets);
-		const adaptiveThinking = requiresClaudeMythosAdaptiveThinking(model);
+		const thinkingBudgets = {
+			max: 16384,
+			xhigh: 16384,
+			...options?.thinkingBudgets
+		};
+		const adjusted = adjustMaxTokensForThinking(base.maxTokens || 0, model.maxTokens, reasoning, {
+			...thinkingBudgets,
+			...reasoning === "xhigh" ? { high: thinkingBudgets.xhigh } : {}
+		});
+		const adaptiveThinking = isClaudeMythosPreviewModel(model);
 		const thinkingEnabled = adaptiveThinking || adjusted.thinkingBudget >= 1024;
 		return streamFn(model, context, {
 			...base,
-			client: streamClient,
+			client,
 			maxTokens: adjusted.maxTokens,
 			thinkingEnabled,
 			...adaptiveThinking ? { effort: reasoning } : thinkingEnabled ? { thinkingBudgetTokens: adjusted.thinkingBudget } : {}

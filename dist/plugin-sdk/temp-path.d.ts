@@ -1,7 +1,7 @@
-import "../fs-safe-defaults-ypw0M2Xi.js";
-import { r as resolvePreferredOpenClawTmpDir } from "../tmp-openclaw-dir-BVXh5Mbm.js";
+import { a as withTempWorkspace, i as tempWorkspace, n as CompatibleTempWorkspace } from "../fs-safe-compat-CPHV0ZYv.js";
+import { t as resolvePreferredOpenClawTmpDir } from "../tmp-openclaw-dir-CZvFGQqf.js";
 import { sanitizeTempFileName } from "@openclaw/fs-safe/advanced";
-import { TempWorkspace, TempWorkspaceOptions, TempWorkspaceSync, tempWorkspace, tempWorkspaceSync, withTempWorkspace, withTempWorkspaceSync } from "@openclaw/fs-safe/temp";
+import { TempWorkspaceOptions, TempWorkspaceSync, tempWorkspaceSync, withTempWorkspaceSync } from "@openclaw/fs-safe/temp";
 //#region src/infra/temp-download.d.ts
 type TempDownloadTarget = {
   dir: string;
@@ -30,4 +30,4 @@ export declare function withTempDownloadPath<T>(params: {
   tmpDir?: string;
 }, fn: (tmpPath: string) => Promise<T>): Promise<T>;
 //#endregion
-export { type TempWorkspace, type TempWorkspaceOptions, type TempWorkspaceSync, resolvePreferredOpenClawTmpDir, sanitizeTempFileName, tempWorkspace, tempWorkspaceSync, withTempWorkspace, withTempWorkspaceSync };
+export { type CompatibleTempWorkspace as TempWorkspace, type TempWorkspaceOptions, type TempWorkspaceSync, resolvePreferredOpenClawTmpDir, sanitizeTempFileName, tempWorkspace, tempWorkspaceSync, withTempWorkspace, withTempWorkspaceSync };

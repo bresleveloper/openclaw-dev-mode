@@ -1,0 +1,1 @@
+import{t as e}from"./worker-chunk-lTaEq7OX.mjs";var t=/* @__PURE__ */ e((()=>{throw Error(`optional host-native dependency unavailable in portable worker runtime`)}));export{t};

@@ -1,22 +1,24 @@
-import { i as resolveGlobalSingleton } from "../../global-singleton-Dc_stLtU.mjs";
-import { l as normalizeOptionalString } from "../../string-coerce-CIXf7egm.mjs";
-import { a as canonicalPathFromExistingAncestor } from "../../fs-safe-BAPek8At.mjs";
-import { t as formatErrorMessage } from "../../errors-DnjwnOju.mjs";
-import { i as SqliteWorkerError } from "../../sqlite-worker-contract-DgNznZvn.mjs";
-import { c as openSqliteWorkerStore } from "../../sqlite-worker-store-H5HXDD9v.mjs";
+import { l as normalizeOptionalString } from "../../string-coerce-1VuiLaaR.mjs";
+import { t as coerceErrorMessage } from "../../error-coercion-CvJK4lmH.mjs";
+import { a as resolveGlobalSingleton } from "../../global-singleton-0m-JziJW.mjs";
+import { o as asRecord } from "../../record-coerce-TIsquoVR.mjs";
+import { a as canonicalPathFromExistingAncestor } from "../../fs-safe-BUXBSN-4.mjs";
+import { t as formatErrorMessage } from "../../errors-O33D01XW.mjs";
 import { t as KeyedAsyncQueue } from "../../keyed-async-queue-CTreGrmR.mjs";
-import { t as ErrorCodes } from "../../gateway-error-details-D85F07e9.mjs";
-import { f as errorShape } from "../../error-codes-DvB36bCj.mjs";
-import { t as canonicalizeBase64 } from "../../base64-B5EyWEOm.mjs";
-import "../../error-runtime-Bf1fYXFh.mjs";
-import "../../sqlite-runtime-DhVTOiCi.mjs";
-import "../../string-coerce-runtime-C_MKhRVt.mjs";
-import { t as definePluginEntry } from "../../plugin-entry-BOulgRcx.mjs";
-import "../../file-access-runtime-CWjkXCju.mjs";
-import "../../media-runtime-8H9fNtEF.mjs";
-import "../../gateway-runtime-BCC8MoQW.mjs";
-import "../../global-singleton-D_6N_QHn.mjs";
-import { a as revisionWindow, c as OBSERVATION_JSON_SCHEMA, d as buildCardsPrompt, f as buildObservationInstructions, l as buildAskPrompt, m as dayKeyFor, n as parseCardsJson, o as selectBatchFrames, p as buildStandupPrompt, r as parseObservationSegments, s as validateCardCoverage, t as CARD_LOOKBACK_MS, u as buildCardsCorrectionPrompt } from "../../analyze-8ysrnznv.mjs";
+import { c as SqliteWorkerError } from "../../sqlite-worker-contract-C51cJHzg.mjs";
+import { l as openSqliteWorkerStore } from "../../sqlite-worker-store-CsIRv3py.mjs";
+import { t as ErrorCodes } from "../../gateway-error-details-DIefe7Zy.mjs";
+import { f as errorShape } from "../../error-codes-Dh56LniQ.mjs";
+import { t as canonicalizeBase64 } from "../../base64-CU53EX1R.mjs";
+import "../../error-runtime-BmospGvZ.mjs";
+import "../../string-coerce-runtime-50qKeWeL.mjs";
+import "../../sqlite-runtime-Ch9K5Xik.mjs";
+import "../../file-access-runtime-BMp89X4Y.mjs";
+import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
+import "../../media-runtime-BeXWK4uL.mjs";
+import "../../gateway-runtime-DMDKFL1_.mjs";
+import "../../global-singleton-yHEs_vfD.mjs";
+import { a as revisionWindow, c as OBSERVATION_JSON_SCHEMA, d as buildCardsPrompt, f as buildObservationInstructions, l as buildAskPrompt, m as dayKeyFor, n as parseCardsJson, o as selectBatchFrames, p as buildStandupPrompt, r as parseObservationSegments, s as validateCardCoverage, t as CARD_LOOKBACK_MS, u as buildCardsCorrectionPrompt } from "../../analyze-BRtMrrch.mjs";
 import { pathToFileURL } from "node:url";
 import path from "node:path";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
@@ -34,7 +36,7 @@ function clampNumber(value, fallback, min, max) {
 	return Math.min(max, Math.max(min, Math.round(typeof value === "number" && Number.isFinite(value) ? value : fallback)));
 }
 function resolveLogbookConfig(raw) {
-	const value = raw && typeof raw === "object" ? raw : {};
+	const value = asRecord(raw);
 	return {
 		captureEnabled: value.captureEnabled !== false,
 		captureIntervalSeconds: clampNumber(value.captureIntervalSeconds, DEFAULTS.captureIntervalSeconds, 5, 600),
@@ -165,9 +167,6 @@ var LogbookStore = class LogbookStore {
 	}
 	nextPendingBatch() {
 		return this.execute("nextPendingBatch", void 0);
-	}
-	batchFrames(batchId) {
-		return this.execute("batchFrames", { batchId });
 	}
 	replaceObservations(batchId, day, segments) {
 		return this.execute("replaceObservations", {
@@ -319,10 +318,6 @@ var LogbookService = class {
 		this.deps = deps;
 		this.store = null;
 		this.operations = /* @__PURE__ */ new Set();
-		this.captureTimer = null;
-		this.analysisTimer = null;
-		this.pruneTimer = null;
-		this.captureInFlight = false;
 		this.analysisInFlight = false;
 		this.capturePaused = false;
 		this.captureFailures = 0;
@@ -337,23 +332,33 @@ var LogbookService = class {
 			const store = await LogbookStore.open(this.deps.dataDir, this.deps.workerModuleUrl);
 			this.store = store;
 			try {
-				if (this.stopping) return;
+				if (this.deps.scheduler.signal.aborted) return;
 				await store.resetRunningBatches();
-				if (this.stopping) return;
+				if (this.deps.scheduler.signal.aborted) return;
 				await this.pruneStore(store);
-				if (this.stopping) return;
-				this.captureTimer = setInterval(() => {
-					this.captureTick();
-				}, this.config.captureIntervalSeconds * 1e3);
-				this.captureTimer.unref?.();
-				this.analysisTimer = setInterval(() => {
-					this.analysisTick();
-				}, ANALYSIS_TICK_MS);
-				this.analysisTimer.unref?.();
-				this.pruneTimer = setInterval(() => {
-					this.prune();
-				}, PRUNE_TICK_MS);
-				this.pruneTimer.unref?.();
+				if (this.deps.scheduler.signal.aborted) return;
+				for (const [id, everyMs, run] of [
+					[
+						"capture",
+						this.config.captureIntervalSeconds * 1e3,
+						() => this.captureTick()
+					],
+					[
+						"analysis",
+						ANALYSIS_TICK_MS,
+						() => this.analysisTick()
+					],
+					[
+						"prune",
+						PRUNE_TICK_MS,
+						() => this.prune()
+					]
+				]) this.deps.scheduler.schedule({
+					id,
+					delayMs: everyMs,
+					everyMs,
+					run
+				});
 				this.deps.logger.info(`logbook: started (capture every ${this.config.captureIntervalSeconds}s, analysis window ${this.config.analysisIntervalMinutes}m, data ${this.deps.dataDir})`);
 			} catch (error) {
 				this.store = null;
@@ -365,15 +370,8 @@ var LogbookService = class {
 	}
 	stop() {
 		if (this.stopping) return this.stopping;
-		for (const timer of [
-			this.captureTimer,
-			this.analysisTimer,
-			this.pruneTimer
-		]) if (timer) clearInterval(timer);
-		this.captureTimer = null;
-		this.analysisTimer = null;
-		this.pruneTimer = null;
-		this.stopping = Promise.allSettled(this.operations).then(async () => {
+		this.deps.scheduler.beginClose();
+		this.stopping = Promise.allSettled([this.deps.scheduler.stop(), ...this.operations]).then(async () => {
 			const store = this.store;
 			this.store = null;
 			await store?.close();
@@ -388,7 +386,7 @@ var LogbookService = class {
 		return operation;
 	}
 	requireStore() {
-		if (this.stopping || !this.store) throw new Error("Logbook service is not running");
+		if (this.deps.scheduler.signal.aborted || !this.store) throw new Error("Logbook service is not running");
 		return this.store;
 	}
 	setCapturePaused(paused) {
@@ -425,12 +423,11 @@ var LogbookService = class {
 	}
 	async captureTick() {
 		const store = this.store;
-		if (this.stopping || !this.config.captureEnabled || this.capturePaused || this.captureInFlight || !store) return;
+		if (this.deps.scheduler.signal.aborted || !this.config.captureEnabled || this.capturePaused || !store) return;
 		if (this.captureBackoffTicks > 0) {
 			this.captureBackoffTicks -= 1;
 			return;
 		}
-		this.captureInFlight = true;
 		return this.trackOperation(async () => {
 			try {
 				const resolved = await this.resolveNode();
@@ -476,13 +473,11 @@ var LogbookService = class {
 				this.captureFailures += 1;
 				if (this.cachedNode) this.failedNodeIds.add(this.cachedNode.nodeId);
 				this.cachedNode = null;
-				this.lastCaptureError = err instanceof Error ? err.message : String(err);
+				this.lastCaptureError = coerceErrorMessage(err);
 				if (this.captureFailures >= CAPTURE_FAILURE_THRESHOLD) {
 					this.captureBackoffTicks = CAPTURE_FAILURE_PAUSE_TICKS;
 					this.deps.logger.warn(`logbook: capture failing (${this.lastCaptureError}); backing off for ${CAPTURE_FAILURE_PAUSE_TICKS} ticks`);
 				}
-			} finally {
-				this.captureInFlight = false;
 			}
 		});
 	}
@@ -541,7 +536,7 @@ var LogbookService = class {
 	}
 	async analysisTick() {
 		const store = this.store;
-		if (this.stopping || this.analysisInFlight || !store) return;
+		if (this.deps.scheduler.signal.aborted || this.analysisInFlight || !store) return;
 		if (!this.resolveVisionModel().ref) {
 			const now = Date.now();
 			if (now - this.lastModelMissingLogMs > MODEL_MISSING_LOG_INTERVAL_MS) {
@@ -553,11 +548,11 @@ var LogbookService = class {
 		this.analysisInFlight = true;
 		return this.trackOperation(async () => {
 			try {
-				if (this.stopping) return;
+				if (this.deps.scheduler.signal.aborted) return;
 				await this.enqueueElapsedWindow(store);
-				for (let i = 0; i < 4 && !this.stopping; i += 1) {
+				for (let i = 0; i < 4 && !this.deps.scheduler.signal.aborted; i += 1) {
 					const batch = await store.nextPendingBatch();
-					if (!batch || this.stopping) return;
+					if (!batch || this.deps.scheduler.signal.aborted) return;
 					await this.runBatch(store, batch);
 				}
 			} catch (err) {
@@ -584,7 +579,7 @@ var LogbookService = class {
 		return true;
 	}
 	async enqueueElapsedWindow(store) {
-		while (!this.stopping && await this.enqueueNextBatch(store));
+		while (!this.deps.scheduler.signal.aborted && await this.enqueueNextBatch(store));
 	}
 	async runBatch(store, batch) {
 		const vision = this.resolveVisionModel();
@@ -628,7 +623,7 @@ var LogbookService = class {
 			await this.reviseCards(store, batch);
 			await store.setBatchStatus(batch.id, "done");
 		} catch (err) {
-			const message = err instanceof Error ? err.message : String(err);
+			const message = coerceErrorMessage(err);
 			await store.setBatchStatus(batch.id, "error", message);
 			this.deps.logger.warn(`logbook: batch ${batch.id} failed: ${message}`);
 		}
@@ -662,9 +657,7 @@ var LogbookService = class {
 		const evaluate = (raw) => {
 			const parsed = parseCardsJson({
 				raw,
-				day: batch.day,
-				windowStartMs: window.startMs,
-				windowEndMs: window.endMs
+				day: batch.day
 			});
 			if (!parsed.ok) return parsed;
 			const coverage = validateCardCoverage({
@@ -804,7 +797,7 @@ var LogbookService = class {
 	}
 	async prune() {
 		const store = this.store;
-		if (this.stopping || !store) return;
+		if (this.deps.scheduler.signal.aborted || !store) return;
 		return this.trackOperation(async () => {
 			try {
 				await this.pruneStore(store);
@@ -822,9 +815,7 @@ var LogbookService = class {
 //#endregion
 //#region extensions/logbook/index.ts
 const DAY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-const logbookConfigSchema = { parse(value) {
-	return resolveLogbookConfig(value);
-} };
+const logbookConfigSchema = { parse: resolveLogbookConfig };
 function readDayParam(params) {
 	const day = params?.day;
 	if (day === void 0) return dayKeyFor(Date.now());
@@ -847,7 +838,7 @@ var logbook_default = definePluginEntry({
 		cap: "screen",
 		dangerous: false,
 		handle: async (paramsJSON) => {
-			const { handleLogbookSnapshot } = await import("../../node-host--QznlANg.mjs");
+			const { handleLogbookSnapshot } = await import("../../node-host-rQtmvGcv.mjs");
 			let params;
 			try {
 				params = paramsJSON ? JSON.parse(paramsJSON) : void 0;
@@ -875,15 +866,12 @@ var logbook_default = definePluginEntry({
 			if (!service) throw new Error("Logbook service is not running");
 			return service;
 		};
-		const sendError = (respond, err) => {
-			const message = formatErrorMessage(err);
-			respond(false, { error: message }, errorShape(ErrorCodes.UNAVAILABLE, message));
-		};
 		const handle = (run) => async ({ params, respond }) => {
 			try {
 				respond(true, await run(params));
 			} catch (err) {
-				sendError(respond, err);
+				const message = formatErrorMessage(err);
+				respond(false, { error: message }, errorShape(ErrorCodes.UNAVAILABLE, message));
 			}
 		};
 		api.session.controls.registerControlUiDescriptor({
@@ -909,6 +897,7 @@ var logbook_default = definePluginEntry({
 		});
 		api.registerService({
 			id: "logbook",
+			apiVersion: 2,
 			start: async (ctx) => {
 				if (retired) throw new Error("Logbook plugin runtime has been retired");
 				const currentGeneration = ++generation;
@@ -920,6 +909,7 @@ var logbook_default = definePluginEntry({
 					runtime: api.runtime,
 					fullConfig: ctx.config,
 					logger: ctx.logger,
+					scheduler: ctx.scheduler,
 					dataDir: path.join(ctx.stateDir, "logbook"),
 					workerModuleUrl: new URL(`./src/store.worker${path.extname(api.runtimeSource)}`, pathToFileURL(api.runtimeSource))
 				});

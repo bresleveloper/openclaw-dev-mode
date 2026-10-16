@@ -1,32 +1,33 @@
-import { a as iterateSqliteQuerySync, i as getNodeSqliteKysely, n as executeSqliteQuerySync } from "../../kysely-sync-Bn6Qrpbz.mjs";
-import { i as withFreshOpenClawAgentDatabaseReadOnly } from "../../openclaw-agent-db-readonly-open-_lavN1YB.mjs";
-import { s as transcriptEventJsonSql } from "../../transcript-payload-qsg5dB6v.mjs";
-import { n as scheduleWorkerIdleGc, t as cancelWorkerIdleGc } from "../../worker-idle-gc-CYLBZfNA.mjs";
-import { a as resolveSqliteTranscriptArchivePath, n as hashSessionArchiveBytes, r as publishEncodedSessionTranscriptArchive, t as MAX_MATERIALIZED_ARCHIVE_BATCH_BYTES } from "../../session-accessor.sqlite-archive-artifact-UkVgkxpH.mjs";
-import { n as sqliteSessionStateDeleteSnapshotsEqual, t as readSessionStateDeleteSnapshot } from "../../session-accessor.sqlite-delete-snapshot-CZiiDjVP.mjs";
+import { c as isRecord } from "../../record-coerce-TIsquoVR.mjs";
+import { a as getNodeSqliteKysely, o as iterateSqliteQuerySync, r as executeSqliteQuerySync } from "../../kysely-sync-K7ftY-g4.mjs";
+import { i as routeLogsToStderr } from "../../console-BnFs8ZzT.mjs";
+import { r as runSqliteDeferredTransactionSync } from "../../sqlite-transaction-DsZ3X6nD.mjs";
+import { v as readOpenClawAgentDatabaseIdentity } from "../../openclaw-agent-db-validation-cache-_HDeZNQr.mjs";
+import { i as withFreshOpenClawAgentDatabaseReadOnly } from "../../openclaw-agent-db-readonly-open-hQ4ohjUT.mjs";
+import { s as transcriptEventJsonSql } from "../../transcript-payload-Yc_w8Yx5.mjs";
+import { n as scheduleWorkerIdleGc, t as cancelWorkerIdleGc } from "../../worker-idle-gc-DjILq491.mjs";
+import { a as resolveSqliteTranscriptArchivePath, n as hashSessionArchiveBytes, r as publishEncodedSessionTranscriptArchive, t as MAX_MATERIALIZED_ARCHIVE_BATCH_BYTES } from "../../session-accessor.sqlite-archive-artifact-kIblIqSS.mjs";
+import { n as sqliteSessionStateDeleteSnapshotsEqual, t as readSessionStateDeleteSnapshot } from "../../session-accessor.sqlite-delete-snapshot-BD2fHbEP.mjs";
 import fs from "node:fs";
 import path from "node:path";
-import { Transform } from "node:stream";
 import { randomUUID } from "node:crypto";
 import { MessagePort, parentPort, threadId, workerData } from "node:worker_threads";
 import { on } from "node:events";
+import { Transform } from "node:stream";
 import zlib from "node:zlib";
 import { pipeline as pipeline$1 } from "node:stream/promises";
 //#region src/config/sessions/session-accessor.sqlite-archive.worker.ts
 /** Worker entrypoint for SQLite transcript archive materialization off the gateway event loop. */
-function isSqliteTranscriptArchiveWorkerData(value) {
-	return Boolean(value) && typeof value === "object" && !Array.isArray(value) && value.type === "sqlite-transcript-archive-v2";
-}
 function parsePublishWorkerPlans(value) {
-	if (!value || typeof value !== "object" || Array.isArray(value)) return;
+	if (!isRecord(value)) return;
 	const plans = value.plans;
 	if (!Array.isArray(plans)) return;
 	const parsed = [];
-	for (const planValue of plans) {
-		if (!planValue || typeof planValue !== "object" || Array.isArray(planValue)) return;
-		const plan = planValue;
-		if (typeof plan.agentId !== "string" || typeof plan.archiveDirectory !== "string" || typeof plan.databasePath !== "string" || typeof plan.generation !== "string" || typeof plan.sessionId !== "string") return;
+	for (const plan of plans) {
+		if (!isRecord(plan)) return;
+		if (typeof plan.agentId !== "string" || typeof plan.archiveDirectory !== "string" || typeof plan.databasePath !== "string" || typeof plan.generation !== "string" || typeof plan.sessionId !== "string" || plan.databaseIdentity !== void 0 && typeof plan.databaseIdentity !== "string") return;
 		parsed.push({
+			...typeof plan.databaseIdentity === "string" ? { databaseIdentity: plan.databaseIdentity } : {},
 			agentId: plan.agentId,
 			archiveDirectory: plan.archiveDirectory,
 			databasePath: plan.databasePath,
@@ -36,9 +37,8 @@ function parsePublishWorkerPlans(value) {
 	}
 	return parsed;
 }
-function parseSessionStateDeleteSnapshot(value) {
-	if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-	const snapshot = value;
+function parseSessionStateDeleteSnapshot(snapshot) {
+	if (!isRecord(snapshot)) return null;
 	if (typeof snapshot.acpParentStreamEventCount !== "number" || snapshot.generation !== null && typeof snapshot.generation !== "string" || snapshot.lastSeq !== null && typeof snapshot.lastSeq !== "number" || snapshot.sessionKey !== null && typeof snapshot.sessionKey !== "string" || snapshot.sessionUpdatedAt !== null && typeof snapshot.sessionUpdatedAt !== "number" || snapshot.trajectoryLastSeq !== null && typeof snapshot.trajectoryLastSeq !== "number" || snapshot.transcriptUpdatedAt !== null && typeof snapshot.transcriptUpdatedAt !== "number") return null;
 	return {
 		acpParentStreamEventCount: snapshot.acpParentStreamEventCount,
@@ -51,13 +51,12 @@ function parseSessionStateDeleteSnapshot(value) {
 	};
 }
 function parseWorkerPlans(value) {
-	if (!value || typeof value !== "object" || Array.isArray(value)) return;
+	if (!isRecord(value)) return;
 	const plans = value.plans;
 	if (!Array.isArray(plans)) return;
 	const parsed = [];
-	for (const planValue of plans) {
-		if (!planValue || typeof planValue !== "object" || Array.isArray(planValue)) return;
-		const plan = planValue;
+	for (const plan of plans) {
+		if (!isRecord(plan)) return;
 		const snapshot = parseSessionStateDeleteSnapshot(plan.snapshot);
 		if (typeof plan.agentId !== "string" || typeof plan.archiveDirectory !== "string" || typeof plan.databasePath !== "string" || plan.reason !== "deleted" && plan.reason !== "reset" || typeof plan.sessionId !== "string" || !snapshot) return;
 		parsed.push({
@@ -137,14 +136,15 @@ async function encodeStagedTranscriptArchive(params) {
 	})}${compressed ? ".zst" : ""}`;
 	const encodedPath = `${archivePath}.${randomUUID()}.stage`;
 	try {
-		if (compressed) await pipeline$1(fs.createReadStream(params.stagedPath), createZstdCompress.call(zlib), createArchiveByteLimitTransform(), fs.createWriteStream(encodedPath, {
-			flags: "wx",
-			mode: 384
-		}));
-		else await pipeline$1(fs.createReadStream(params.stagedPath), createArchiveByteLimitTransform(), fs.createWriteStream(encodedPath, {
-			flags: "wx",
-			mode: 384
-		}));
+		await pipeline$1([
+			fs.createReadStream(params.stagedPath),
+			...compressed ? [createZstdCompress.call(zlib)] : [],
+			createArchiveByteLimitTransform(),
+			fs.createWriteStream(encodedPath, {
+				flags: "wx",
+				mode: 384
+			})
+		]);
 		const bytes = fs.readFileSync(encodedPath);
 		return {
 			archiveName: path.basename(archivePath),
@@ -183,34 +183,23 @@ async function materializeTranscriptArchiveInWorker(plan, env) {
 		sessionId: plan.sessionId
 	})}.${randomUUID()}.jsonl-stage`;
 	try {
-		const opened = withFreshOpenClawAgentDatabaseReadOnly((database) => {
-			let transactionOpen = false;
-			try {
-				database.db.exec("BEGIN");
-				transactionOpen = true;
-				const snapshot = readSessionStateDeleteSnapshot(database.db, plan.sessionId);
-				if (!sqliteSessionStateDeleteSnapshotsEqual(snapshot, plan.snapshot)) throw new Error(`SQLite session state changed before archive materialization for ${plan.sessionId}`);
-				const rowCount = stageTranscriptArchiveContent(database.db, plan.sessionId, stagedPath);
-				database.db.exec("COMMIT");
-				transactionOpen = false;
-				return {
-					rowCount,
-					snapshot
-				};
-			} catch (error) {
-				if (transactionOpen) database.db.exec("ROLLBACK");
-				throw error;
-			}
+		const opened = withFreshOpenClawAgentDatabaseReadOnly((database) => runSqliteDeferredTransactionSync(database.db, () => {
+			const snapshot = readSessionStateDeleteSnapshot(database.db, plan.sessionId);
+			if (!sqliteSessionStateDeleteSnapshotsEqual(snapshot, plan.snapshot)) throw new Error(`SQLite session state changed before archive materialization for ${plan.sessionId}`);
+			return stageTranscriptArchiveContent(database.db, plan.sessionId, stagedPath);
 		}, {
+			databaseLabel: database.path,
+			operationLabel: "session.archive.materialize"
+		}), {
 			agentId: plan.agentId,
 			path: plan.databasePath,
 			env
 		});
 		if (!opened.found) throw new Error(`Cannot archive SQLite transcript ${plan.sessionId}: ${opened.reason.replaceAll("-", " ")}`);
 		const generation = plan.snapshot.generation;
-		if (opened.value.rowCount > 0 && !generation) throw new Error(`Cannot archive SQLite transcript without a generation for ${plan.sessionId}`);
+		if (opened.value > 0 && !generation) throw new Error(`Cannot archive SQLite transcript without a generation for ${plan.sessionId}`);
 		return {
-			archive: opened.value.rowCount > 0 && generation ? await encodeStagedTranscriptArchive({
+			archive: opened.value > 0 && generation ? await encodeStagedTranscriptArchive({
 				archiveDirectory: plan.archiveDirectory,
 				generation,
 				reason: plan.reason,
@@ -226,6 +215,7 @@ async function materializeTranscriptArchiveInWorker(plan, env) {
 function publishTranscriptArchiveInWorker(plan, env) {
 	try {
 		const opened = withFreshOpenClawAgentDatabaseReadOnly((database) => {
+			if (plan.databaseIdentity !== void 0 && readOpenClawAgentDatabaseIdentity(database).identity !== plan.databaseIdentity) throw new Error("SQLite archive publication database was replaced");
 			const db = getNodeSqliteKysely(database.db);
 			return executeSqliteQuerySync(database.db, db.selectFrom("session_transcript_archives").select([
 				"archive_blob",
@@ -312,8 +302,18 @@ async function runArchiveSession(port, env) {
 				settled: true,
 				results: plans.map((plan) => publishTranscriptArchiveInWorker(plan, env))
 			};
+		} else if (request.operation === "read-page") {
+			const { readTranscriptArchivePageInWorker } = await import("../../session-accessor.sqlite-archive-read-BnAhW65A.mjs");
+			const results = [];
+			for (const plan of request.plans) results.push(await readTranscriptArchivePageInWorker(plan, env));
+			response = {
+				type: "page-read",
+				operationId,
+				settled: true,
+				results
+			};
 		} else if (request.operation === "read-final") {
-			const { readTranscriptArchiveFinalInWorker } = await import("../../session-accessor.sqlite-archive-read-B8IyQmD2.mjs");
+			const { readTranscriptArchiveFinalInWorker } = await import("../../session-accessor.sqlite-archive-read-BnAhW65A.mjs");
 			const results = [];
 			for (const plan of request.plans) results.push(await readTranscriptArchiveFinalInWorker(plan, env));
 			response = {
@@ -332,12 +332,13 @@ async function runArchiveSession(port, env) {
 	}
 	port.close();
 }
-if (isSqliteTranscriptArchiveWorkerData(workerData)) {
+if (isRecord(workerData) && workerData.type === "sqlite-transcript-archive-v2") {
 	if (!parentPort) throw new Error("SQLite transcript archive worker requires a parent port");
+	routeLogsToStderr();
 	const operation = workerData.operation;
 	if (operation === "canonical-validation-pool") {
-		const { serveWorkerTasks } = await import("../../worker-task-server-BDPOy8uz.mjs");
-		const { runReclamationWorkerPort } = await import("../../session-accessor.sqlite-mutation-worker.runtime-Bl7agBJf.mjs");
+		const { serveWorkerTasks } = await import("../../worker-task-server-DCO6XUS8.mjs");
+		const { runReclamationWorkerPort } = await import("../../session-accessor.sqlite-mutation-worker.runtime-dNC5GvKw.mjs");
 		const taskSequence = { operationId: 0 };
 		serveWorkerTasks(async (value, channel) => {
 			const task = value;
@@ -370,7 +371,7 @@ if (isSqliteTranscriptArchiveWorkerData(workerData)) {
 		if (!plans) throw new Error("SQLite transcript archive worker requires valid publication data");
 		runPublishWorkerPort(parentPort, plans);
 	} else if (operation === "cold-prepare") {
-		const { prepareSessionColdBatchInWorker } = await import("../../session-cold-storage-worker-DwK0l5mn.mjs");
+		const { prepareSessionColdBatchInWorker } = await import("../../session-cold-storage-worker-5xlnjkpA.mjs");
 		const result = await prepareSessionColdBatchInWorker(workerData.input);
 		parentPort.postMessage({
 			type: "done",
@@ -378,7 +379,7 @@ if (isSqliteTranscriptArchiveWorkerData(workerData)) {
 		}, []);
 		parentPort.close();
 	} else if (operation === "maintenance-size") {
-		const { readSessionTranscriptJsonlBytesInDatabase } = await import("../../session-accessor.sqlite-maintenance-store-ixRHMFCE.mjs");
+		const { readSessionTranscriptJsonlBytesInDatabase } = await import("../../session-accessor.sqlite-maintenance-store-DnlfplbG.mjs");
 		const { input } = workerData;
 		const opened = withFreshOpenClawAgentDatabaseReadOnly((database) => readSessionTranscriptJsonlBytesInDatabase(database, input.sessionIds), input);
 		if (!opened.found) throw new Error(`Cannot size SQLite session transcripts: ${opened.reason.replaceAll("-", " ")}`);
@@ -388,7 +389,7 @@ if (isSqliteTranscriptArchiveWorkerData(workerData)) {
 		}, []);
 		parentPort.close();
 	} else if (operation === "cold-mutate" || operation === "reclaim") {
-		const { runColdMutationWorkerPort, runReclamationWorkerPort } = await import("../../session-accessor.sqlite-mutation-worker.runtime-Bl7agBJf.mjs");
+		const { runColdMutationWorkerPort, runReclamationWorkerPort } = await import("../../session-accessor.sqlite-mutation-worker.runtime-dNC5GvKw.mjs");
 		if (operation === "cold-mutate") await runColdMutationWorkerPort(parentPort, workerData);
 		else await runReclamationWorkerPort(parentPort, workerData.databaseOptions);
 	} else throw new Error("SQLite transcript archive worker requires a supported operation");

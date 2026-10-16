@@ -1,2 +1,2 @@
-import { t as parseOpenAIQuicksilverEvent } from "../../realtime-quicksilver-events-DmOkRrC8.mjs";
+import { t as parseOpenAIQuicksilverEvent } from "../../realtime-quicksilver-events-BOWZiUvn.mjs";
 export { parseOpenAIQuicksilverEvent };

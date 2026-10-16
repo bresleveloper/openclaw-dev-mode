@@ -4,6 +4,7 @@ import { requiresClaudeMandatoryAdaptiveThinking, resolveClaudeOpus5ModelIdentit
 import { AnthropicVertex } from "@anthropic-ai/vertex-sdk";
 import { GoogleAuth } from "google-auth-library";
 import { adjustMaxTokensForThinking, stream } from "openclaw/plugin-sdk/llm";
+import { asPositiveFiniteNumber } from "openclaw/plugin-sdk/number-runtime";
 import { resolveAnthropicThinkingEffort } from "openclaw/plugin-sdk/provider-stream-shared";
 import { copyProviderAcceptanceObserver } from "openclaw/plugin-sdk/provider-transport-runtime";
 import { EnvHttpProxyAgent, fetch } from "undici";
@@ -27,8 +28,10 @@ const defaultAnthropicVertexStreamDeps = {
 	streamAnthropic: stream
 };
 function resolveAnthropicVertexMaxTokens(params) {
-	const modelMax = typeof params.modelMaxTokens === "number" && Number.isFinite(params.modelMaxTokens) && params.modelMaxTokens > 0 ? Math.floor(params.modelMaxTokens) : void 0;
-	const requested = typeof params.requestedMaxTokens === "number" && Number.isFinite(params.requestedMaxTokens) && params.requestedMaxTokens > 0 ? Math.floor(params.requestedMaxTokens) : void 0;
+	const modelLimit = asPositiveFiniteNumber(params.modelMaxTokens);
+	const requestedLimit = asPositiveFiniteNumber(params.requestedMaxTokens);
+	const modelMax = modelLimit === void 0 ? void 0 : Math.floor(modelLimit);
+	const requested = requestedLimit === void 0 ? void 0 : Math.floor(requestedLimit);
 	if (modelMax !== void 0 && requested !== void 0) return Math.min(requested, modelMax);
 	return requested ?? modelMax;
 }
@@ -100,21 +103,14 @@ function createAnthropicVertexStreamFn(projectId, region, baseURL, deps = defaul
 function resolveAnthropicVertexSdkBaseUrl(baseUrl) {
 	const trimmed = baseUrl?.trim();
 	if (!trimmed) return;
-	try {
-		const url = new URL(trimmed);
-		const normalizedPath = url.pathname.replace(/\/+$/, "");
-		if (!normalizedPath || normalizedPath === "") {
-			url.pathname = "/v1";
-			return url.toString().replace(/\/$/, "");
-		}
-		if (!normalizedPath.endsWith("/v1")) {
-			url.pathname = `${normalizedPath}/v1`;
-			return url.toString().replace(/\/$/, "");
-		}
-		return trimmed;
-	} catch {
-		return trimmed;
+	const url = URL.parse(trimmed);
+	if (!url) return trimmed;
+	const normalizedPath = url.pathname.replace(/\/+$/, "");
+	if (!normalizedPath.endsWith("/v1")) {
+		url.pathname = `${normalizedPath}/v1`;
+		return url.toString().replace(/\/$/, "");
 	}
+	return trimmed;
 }
 /** Create an Anthropic Vertex stream function from model metadata and env. */
 function createAnthropicVertexStreamFnForModel(model, env = process.env, deps) {

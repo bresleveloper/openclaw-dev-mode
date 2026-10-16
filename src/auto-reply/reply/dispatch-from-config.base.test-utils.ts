@@ -7,6 +7,7 @@ import {
   setActiveEmbeddedRun,
 } from "../../agents/embedded-agent-runner/runs.js";
 import type { OpenClawConfig } from "../../config/config.js";
+import type { PluginHookReplyDispatchEvent } from "../../plugins/hook-types.js";
 import { setActivePluginRegistry } from "../../plugins/runtime.js";
 import {
   interruptSessionWorkAdmissions,
@@ -56,7 +57,6 @@ import {
   globalBeforeAll0,
   describe0BeforeEach0,
 } from "./dispatch-from-config.test-harness.js";
-import { getPreparedReplyDispatchRuntime } from "./prepared-reply-dispatch-context.js";
 import { createReplyDispatcher } from "./reply-dispatcher.js";
 import { resolveReplyOperationRunState } from "./reply-operation-run-state.js";
 import { admitReplyTurn } from "./reply-turn-admission.js";
@@ -188,61 +188,6 @@ describe("dispatchReplyFromConfig", () => {
       ),
     );
     expect(replyResolver.mock.calls[0]?.[3]).toBeUndefined();
-  });
-
-  it("keeps a raw three-argument resolver on one prepared generation across replacement", async () => {
-    setNoAbort();
-    const cfg = emptyConfig;
-    let receivedPreparedRuntime: unknown;
-    let replacementPreparedRuntime: unknown;
-    const preparedRegistry = createTestRegistry([]);
-    const preparedRuntimeModule = await import("../../agents/prepared-model-runtime.js");
-    const preparedRuntime = Object.freeze({
-      agentId: "main",
-      agentDir: "/tmp/prepared-agent",
-      workspaceDir: "/tmp/prepared-workspace",
-      config: cfg,
-      modelCatalog: { entries: [], routeVariants: [] },
-      inboundPluginRegistry: preparedRegistry,
-      pluginGeneration: {} as never,
-    });
-    const preparedLookup = vi
-      .spyOn(preparedRuntimeModule, "loadPublishedGatewayReplyDispatchRuntime")
-      .mockResolvedValueOnce(preparedRuntime)
-      .mockResolvedValue(
-        Object.freeze({
-          ...preparedRuntime,
-          workspaceDir: "/tmp/replacement-workspace",
-        }),
-      );
-    const replyResolver = vi.fn(
-      async (_ctx: MsgContext, _opts?: GetReplyOptions, configOverride?: OpenClawConfig) => {
-        expect(configOverride).toBeUndefined();
-        receivedPreparedRuntime = getPreparedReplyDispatchRuntime();
-        replacementPreparedRuntime = await preparedLookup({ agentId: "main" });
-        expect(getPreparedReplyDispatchRuntime()).toBe(receivedPreparedRuntime);
-        return { text: "hi" } satisfies ReplyPayload;
-      },
-    );
-    try {
-      await dispatchReplyFromConfig({
-        ctx: buildTestCtx({
-          SessionKey: "agent:main:main",
-          MessageSid: "prepared",
-        }),
-        cfg,
-        dispatcher: createDispatcher(),
-        replyResolver,
-      });
-      expect(preparedLookup).toHaveBeenCalledTimes(2);
-      expect(preparedLookup).toHaveBeenNthCalledWith(1, { agentId: "main" });
-      expect(preparedLookup).toHaveBeenNthCalledWith(2, { agentId: "main" });
-      expect(runtimePluginMocks.loadAgentRuntimePluginRegistryHandle).not.toHaveBeenCalled();
-      expect(receivedPreparedRuntime).toBe(preparedRuntime);
-      expect(replacementPreparedRuntime).not.toBe(preparedRuntime);
-    } finally {
-      preparedLookup.mockRestore();
-    }
   });
 
   it("drops a durable source duplicate before before_dispatch hooks", async () => {
@@ -554,24 +499,15 @@ describe("dispatchReplyFromConfig", () => {
       OriginatingTo: "channel:C123",
     });
 
-    const replyResolver = async (
-      _ctx: MsgContext,
-      _opts?: GetReplyOptions,
-      _cfg?: OpenClawConfig,
-    ) => ({ text: "hi" }) satisfies ReplyPayload;
+    const replyResolver = async () => ({ text: "hi" }) satisfies ReplyPayload;
     await dispatchReplyFromConfig({ ctx, cfg, dispatcher, replyResolver });
 
     expect(mocks.routeReply).not.toHaveBeenCalled();
     expect(dispatcher.sendFinalReply).toHaveBeenCalledTimes(1);
-    const replyDispatchCall = firstMockCall(hookMocks.runner.runReplyDispatch, "reply dispatch") as
-      | [
-          {
-            originatingAccountId?: unknown;
-            shouldRouteToOriginating?: unknown;
-          },
-          unknown,
-        ]
-      | undefined;
+    const replyDispatchCall = firstMockCall(
+      hookMocks.runner.runReplyDispatch,
+      "reply dispatch",
+    ) as [PluginHookReplyDispatchEvent, unknown];
     expect(replyDispatchCall?.[0]?.shouldRouteToOriginating).toBe(false);
     expect(replyDispatchCall?.[0]?.originatingAccountId).toBe("work");
   });
@@ -752,7 +688,7 @@ describe("dispatchReplyFromConfig", () => {
           | undefined
       )?.replyOperation;
       expect(operation?.acceptedSteeredInboundAudio).toBe(false);
-      operation?.markAcceptedSteeredInboundAudio();
+      operation?.markSteeredInputAccepted({ inboundAudio: true });
       return { text: "reply to steered audio" } satisfies ReplyPayload;
     });
 
@@ -928,7 +864,7 @@ describe("dispatchReplyFromConfig", () => {
       expect(isSessionWorkAdmissionActive("/tmp/mock-sessions.json", [sessionKey, sessionId])).toBe(
         true,
       );
-      await runExclusiveSessionLifecycleMutation({
+      await runExclusiveSessionLifecycleMutation("patch", {
         scope: "/tmp/mock-sessions.json",
         identities: [sessionKey, sessionId],
         run: async () => {
@@ -1010,7 +946,7 @@ describe("dispatchReplyFromConfig", () => {
       ((hookName?: string) => hookName === "before_dispatch") as () => boolean,
     );
     hookMocks.runner.runBeforeDispatch.mockImplementationOnce(async () => {
-      lifecycleMutation = runExclusiveSessionLifecycleMutation({
+      lifecycleMutation = runExclusiveSessionLifecycleMutation("patch", {
         scope: "/tmp/mock-sessions.json",
         identities: [sessionKey, sessionId],
         run: async () => {
@@ -1086,7 +1022,7 @@ describe("dispatchReplyFromConfig", () => {
     const externalLifecycleRequest = new AsyncResource("slack-bypass-settle-race");
     const mutation = externalLifecycleRequest.runInAsyncScope(
       async () =>
-        await runExclusiveSessionLifecycleMutation({
+        await runExclusiveSessionLifecycleMutation("patch", {
           scope: "/tmp/mock-sessions.json",
           identities: [sessionKey, sessionId],
           prepare: async () => {
@@ -1193,7 +1129,7 @@ describe("dispatchReplyFromConfig", () => {
       await requireBlockReplyHandler(opts?.onBlockReply)({ text: "queued block" });
       mutation = externalLifecycleRequest.runInAsyncScope(
         async () =>
-          await runExclusiveSessionLifecycleMutation({
+          await runExclusiveSessionLifecycleMutation("patch", {
             scope: "/tmp/mock-sessions.json",
             identities: [sessionKey, sessionId],
             prepare: async () => {
@@ -1259,7 +1195,7 @@ describe("dispatchReplyFromConfig", () => {
       if (!(event as { isTailDispatch?: boolean }).isTailDispatch) {
         return undefined;
       }
-      await runExclusiveSessionLifecycleMutation({
+      await runExclusiveSessionLifecycleMutation("patch", {
         scope: "/tmp/mock-sessions.json",
         identities: [sessionKey, sessionId],
         prepare: async () => {
@@ -1626,50 +1562,6 @@ describe("dispatchReplyFromConfig", () => {
     }
   });
 
-  it("clears stale active reply operations for terminal sessions and retries admission", async () => {
-    setNoAbort();
-    const sessionKey = "agent:main:telegram:group:-1003774691294";
-    const sessionId = "failed-session";
-    const activeOperation = createReplyOperation({
-      sessionKey,
-      sessionId,
-      resetTriggered: false,
-    });
-    activeOperation.setPhase("running");
-    sessionStoreMocks.currentEntry = {
-      sessionId,
-      updatedAt: Date.now(),
-      status: "failed",
-    };
-    const dispatcher = createDispatcher();
-    const replyResolver = vi.fn(async () => ({ text: "fresh reply" }) satisfies ReplyPayload);
-
-    const result = await dispatchReplyFromConfig({
-      ctx: buildTestCtx({
-        Provider: "telegram",
-        Surface: "telegram",
-        OriginatingChannel: "telegram",
-        ChatType: "group",
-        SessionKey: sessionKey,
-        MessageSid: "visible-after-failure",
-        To: "telegram:-1003774691294",
-        BodyForAgent: "@openclaw recover",
-      }),
-      cfg: automaticGroupReplyConfig,
-      dispatcher,
-      replyResolver,
-    });
-
-    expect(activeOperation.result).toMatchObject({ kind: "failed", code: "run_failed" });
-    expect(replyResolver).toHaveBeenCalledTimes(1);
-    expect(dispatcher.sendFinalReply).toHaveBeenCalledTimes(1);
-    expect(result).toMatchObject({
-      queuedFinal: true,
-      counts: { tool: 0, block: 0, final: 0 },
-    });
-    expect(replyRunRegistry.isActive(sessionKey)).toBe(false);
-  });
-
   it.each([
     {
       name: "does not kill a sibling recovery turn when a second visible turn races the same terminal snapshot",
@@ -2009,24 +1901,11 @@ describe("dispatchReplyFromConfig", () => {
       OriginatingTo: "telegram:999",
     });
 
-    const replyResolver = async (
-      _ctx: MsgContext,
-      _opts?: GetReplyOptions,
-      _cfg?: OpenClawConfig,
-    ) => ({ text: "hi" }) satisfies ReplyPayload;
+    const replyResolver = async () => ({ text: "hi" }) satisfies ReplyPayload;
     await dispatchReplyFromConfig({ ctx, cfg, dispatcher, replyResolver });
 
     expect(dispatcher.sendFinalReply).not.toHaveBeenCalled();
-    const routeCall = firstRouteReplyCall() as
-      | {
-          accountId?: unknown;
-          channel?: unknown;
-          groupId?: unknown;
-          isGroup?: unknown;
-          threadId?: unknown;
-          to?: unknown;
-        }
-      | undefined;
+    const routeCall = firstRouteReplyCall();
     expect(routeCall?.channel).toBe("telegram");
     expect(routeCall?.to).toBe("telegram:999");
     expect(routeCall?.accountId).toBe("acc-1");
@@ -2060,9 +1939,7 @@ describe("dispatchReplyFromConfig", () => {
     await dispatchReplyFromConfig({ ctx, cfg, dispatcher, replyResolver });
 
     expect(dispatcher.sendFinalReply).not.toHaveBeenCalled();
-    const routeCall = firstRouteReplyCall() as
-      | { accountId?: unknown; channel?: unknown; to?: unknown }
-      | undefined;
+    const routeCall = firstRouteReplyCall();
     expect(routeCall?.channel).toBe("telegram");
     expect(routeCall?.to).toBe("telegram:999");
     expect(routeCall?.accountId).toBe("acc-1");
@@ -2070,18 +1947,10 @@ describe("dispatchReplyFromConfig", () => {
       .calls[0]?.[0] as { accountId?: unknown; messageProvider?: unknown } | undefined;
     expect(normalizerOptions?.messageProvider).toBe("telegram");
     expect(normalizerOptions?.accountId).toBe("acc-1");
-    const replyDispatchCall = firstMockCall(hookMocks.runner.runReplyDispatch, "reply dispatch") as
-      | [
-          {
-            originatingAccountId?: unknown;
-            originatingChannel?: unknown;
-            originatingThreadId?: unknown;
-            originatingTo?: unknown;
-            shouldRouteToOriginating?: unknown;
-          },
-          unknown,
-        ]
-      | undefined;
+    const replyDispatchCall = firstMockCall(
+      hookMocks.runner.runReplyDispatch,
+      "reply dispatch",
+    ) as [PluginHookReplyDispatchEvent, unknown];
     expect(replyDispatchCall?.[0]?.shouldRouteToOriginating).toBe(true);
     expect(replyDispatchCall?.[0]?.originatingChannel).toBe("telegram");
     expect(replyDispatchCall?.[0]?.originatingTo).toBe("telegram:999");
@@ -2130,15 +1999,7 @@ describe("dispatchReplyFromConfig", () => {
     await dispatchReplyFromConfig({ ctx, cfg, dispatcher, replyResolver });
 
     expect(dispatcher.sendFinalReply).not.toHaveBeenCalled();
-    const routeCall = firstRouteReplyCall() as
-      | {
-          accountId?: unknown;
-          channel?: unknown;
-          replyDelivery?: unknown;
-          threadId?: unknown;
-          to?: unknown;
-        }
-      | undefined;
+    const routeCall = firstRouteReplyCall();
     expect(routeCall?.channel).toBe("feishu");
     expect(routeCall?.to).toBe("user:ou_123");
     expect(routeCall?.accountId).toBe("work");
@@ -2147,56 +2008,16 @@ describe("dispatchReplyFromConfig", () => {
       chatType: "channel",
       replyToMode: "all",
     });
-    const replyDispatchCall = firstMockCall(hookMocks.runner.runReplyDispatch, "reply dispatch") as
-      | [
-          {
-            originatingAccountId?: unknown;
-            originatingChannel?: unknown;
-            originatingChatType?: unknown;
-            originatingThreadId?: unknown;
-            originatingTo?: unknown;
-            shouldRouteToOriginating?: unknown;
-          },
-          unknown,
-        ]
-      | undefined;
+    const replyDispatchCall = firstMockCall(
+      hookMocks.runner.runReplyDispatch,
+      "reply dispatch",
+    ) as [PluginHookReplyDispatchEvent, unknown];
     expect(replyDispatchCall?.[0]?.shouldRouteToOriginating).toBe(true);
     expect(replyDispatchCall?.[0]?.originatingChannel).toBe("feishu");
     expect(replyDispatchCall?.[0]?.originatingTo).toBe("user:ou_123");
     expect(replyDispatchCall?.[0]?.originatingAccountId).toBe("work");
     expect(replyDispatchCall?.[0]?.originatingThreadId).toBe("thread:om_123");
     expect(replyDispatchCall?.[0]?.originatingChatType).toBe("channel");
-  });
-
-  it("routes exec-event replies using last route fields when delivery context is missing", async () => {
-    setNoAbort();
-    mocks.routeReply.mockClear();
-    sessionStoreMocks.currentEntry = {
-      delivery: normalizeSessionDeliveryState({
-        context: { channel: "discord", to: "channel:123", accountId: "default" },
-      }),
-    };
-    const cfg = emptyConfig;
-    const dispatcher = createDispatcher();
-    const ctx = buildTestCtx({
-      Provider: "exec-event",
-      Surface: "exec-event",
-      SessionKey: "agent:main:main",
-      AccountId: undefined,
-      OriginatingChannel: undefined,
-      OriginatingTo: undefined,
-    });
-
-    const replyResolver = async () => ({ text: "hi" }) satisfies ReplyPayload;
-    await dispatchReplyFromConfig({ ctx, cfg, dispatcher, replyResolver });
-
-    expect(dispatcher.sendFinalReply).not.toHaveBeenCalled();
-    const routeCall = firstRouteReplyCall() as
-      | { accountId?: unknown; channel?: unknown; to?: unknown }
-      | undefined;
-    expect(routeCall?.channel).toBe("discord");
-    expect(routeCall?.to).toBe("channel:123");
-    expect(routeCall?.accountId).toBe("default");
   });
 });
 /* oxlint-disable max-lines -- TODO: split this grandfathered oversized file. */

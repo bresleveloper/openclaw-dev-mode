@@ -3,6 +3,8 @@ import path from "node:path";
 import { describeRootFileOpenFailure } from "../infra/boundary-file-read.js";
 import { resolveRealpathOrAbsolute } from "../infra/boundary-path.js";
 import { formatErrorMessage } from "../infra/errors.js";
+import { compareOpenClawReleaseVersions } from "../infra/npm-registry-spec.js";
+import { resolveCompatibilityHostVersion } from "../version.js";
 import { inspectBundleMcpRuntimeSupport } from "./bundle-mcp.js";
 import { capabilityCatalogFamilies, resolvePluginCapabilityCatalog } from "./capability-catalog.js";
 import { resolveMemorySlotDecision } from "./config-state.js";
@@ -41,6 +43,7 @@ import {
 import type { PluginManifestRecord } from "./manifest-registry.js";
 import { resolvePluginModuleExport } from "./module-export.js";
 import { resolveExternalPluginRuntimeDependencyRepairHint } from "./official-external-plugin-repair-hints.js";
+import { resolveConfiguredRuntimePluginInstallCandidate } from "./official-runtime-plugins.js";
 import { openPluginRootFileSync } from "./path-safety.js";
 import { getPluginInstance } from "./plugin-instance-scope.js";
 import { PluginInstance } from "./plugin-instance.js";
@@ -232,6 +235,30 @@ export function loadRuntimePluginCandidate(params: {
     markPluginActivationDisabled(record, enableState.reason);
   }
 
+  const runtimePackage = resolveConfiguredRuntimePluginInstallCandidate(pluginId);
+  const hostVersion = resolveCompatibilityHostVersion(context.env);
+  const minimumCompatibleVersion = runtimePackage?.minimumCompatibleVersion;
+  const packageVersion = manifestRecord.packageVersion;
+  if (
+    enableState.enabled &&
+    candidate.origin !== "bundled" &&
+    runtimePackage?.versionBoundToOpenClaw &&
+    minimumCompatibleVersion &&
+    manifestRecord.packageName === runtimePackage.npmSpec &&
+    packageVersion &&
+    (compareOpenClawReleaseVersions(packageVersion, minimumCompatibleVersion) ?? 0) < 0
+  ) {
+    // A broad pluginApi range cannot prove lazy SDK imports from an older runtime still work.
+    record.activated = false;
+    pushPluginLoadError(
+      `Official runtime plugin ${pluginId} ${packageVersion} is incompatible with OpenClaw ${hostVersion} ` +
+        `(minimum compatible plugin version is ${minimumCompatibleVersion}); it is unavailable until repaired. ` +
+        `Run \`openclaw update repair\` or \`openclaw plugins update ${pluginId}\`, then restart the Gateway. ` +
+        "For a linked plugin, update the linked source or remove its load-path override before retrying.",
+    );
+    return;
+  }
+
   if (record.format === "bundle") {
     if (cliMetadata) {
       registry.plugins.push(record);
@@ -351,15 +378,22 @@ export function loadRuntimePluginCandidate(params: {
       }
       const catalog = source.capabilityCatalog.value;
       if (Object.hasOwn(catalog, catalogRequest.family)) {
+        // Index the managed collections: native iterators would yield unbound provider objects.
         // Catalog callables belong to their shared inventory, not a per-family runtime instance.
-        for (const provider of catalog.speechProviders ?? []) {
-          params.registryBuilder.registerSpeechProvider(record, provider);
+        const speechProviders = catalog.speechProviders ?? [];
+        for (const index of speechProviders.keys()) {
+          params.registryBuilder.registerSpeechProvider(record, speechProviders[index]!);
         }
-        for (const provider of catalog.realtimeTranscriptionProviders ?? []) {
-          params.registryBuilder.registerRealtimeTranscriptionProvider(record, provider);
+        const transcriptionProviders = catalog.realtimeTranscriptionProviders ?? [];
+        for (const index of transcriptionProviders.keys()) {
+          params.registryBuilder.registerRealtimeTranscriptionProvider(
+            record,
+            transcriptionProviders[index]!,
+          );
         }
-        for (const provider of catalog.realtimeVoiceProviders ?? []) {
-          params.registryBuilder.registerRealtimeVoiceProvider(record, provider);
+        const voiceProviders = catalog.realtimeVoiceProviders ?? [];
+        for (const index of voiceProviders.keys()) {
+          params.registryBuilder.registerRealtimeVoiceProvider(record, voiceProviders[index]!);
         }
         // Descriptor coverage must never satisfy full-runtime containment checks.
         record.imported = false;

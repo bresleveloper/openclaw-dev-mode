@@ -1,3 +1,11 @@
+import { createDeferredCore } from "./deferred.js";
+
+// The voice transcript queue also runs in the browser, which has no Node async context.
+const asyncLocalStorage =
+  typeof process === "undefined"
+    ? undefined
+    : process.getBuiltinModule("node:async_hooks").AsyncLocalStorage;
+
 type BoundedSerialQueueAdmission<T> =
   | { accepted: true; completion: Promise<T> }
   | { accepted: false; reason: "capacity" | "overflow" | "sealed" };
@@ -72,16 +80,13 @@ export class BoundedSerialQueue {
       return { accepted: false, reason: "overflow" };
     }
 
-    let resolve!: (value: T | PromiseLike<T>) => void;
-    let reject!: (reason: unknown) => void;
-    const completion = new Promise<T>((accept, fail) => {
-      resolve = accept;
-      reject = fail;
-    });
+    const { promise: completion, resolve, reject } = createDeferredCore<T>();
     const task: BoundedSerialQueueTask = {
       sequence: ++this.acceptedSequence,
       weight,
-      run,
+      // Waiting work retains its caller's context, including an absent scope,
+      // rather than inheriting the preceding task's drain microtask.
+      run: asyncLocalStorage ? asyncLocalStorage.bind(run) : run,
       resolve: (value) => resolve(value as T),
       reject,
     };
@@ -94,7 +99,7 @@ export class BoundedSerialQueue {
       this.pendingWeight += weight;
     } else {
       this.active = true;
-      this.startTask(task);
+      void this.runTask(task);
     }
     return { accepted: true, completion };
   }
@@ -123,10 +128,6 @@ export class BoundedSerialQueue {
     });
   }
 
-  private startTask(task: BoundedSerialQueueTask): void {
-    void this.runTask(task);
-  }
-
   private async runTask(task: BoundedSerialQueueTask): Promise<void> {
     try {
       task.resolve(await task.run());
@@ -137,7 +138,7 @@ export class BoundedSerialQueue {
       const next = this.pending.shift();
       if (next) {
         this.pendingWeight -= next.weight;
-        queueMicrotask(() => this.startTask(next));
+        queueMicrotask(() => void this.runTask(next));
       } else {
         this.active = false;
       }

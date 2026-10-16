@@ -1,10 +1,11 @@
-import { t as createAcpxRuntimeService } from "./.setup/register.runtime-Bm4HrMCp.mjs";
-import { a as ACPX_NATIVE_AGENT_IDS, o as AcpxNativeAgentsSchema, t as resolveAcpxPluginConfig } from "./.setup/config-CdPsIued.mjs";
+import { t as createAcpxRuntimeService } from "./.setup/register.runtime-C0nVOTzT.mjs";
+import { g as AcpxNativeAgentsSchema, h as ACPX_NATIVE_AGENT_IDS, t as resolveAcpxPluginConfig } from "./.setup/config-76krYh6C.mjs";
 import { a as PI_SESSIONS_CAPABILITY, c as PI_SESSION_READ_COMMAND, l as PI_TERMINAL_RESUME_COMMAND, o as PI_SESSIONS_LIST_COMMAND, r as piSessionStoreAvailable, s as PI_SESSION_ID_PATTERN } from "./.setup/pi-session-paths-CIvyk6KB.mjs";
 import { createAgentRegistry } from "acpx/agent-registry";
 import { tryDispatchAcpReplyHook } from "openclaw/plugin-sdk/acp-runtime-backend";
 import { createLazyRuntimeModule, createLazyRuntimeSurface } from "openclaw/plugin-sdk/lazy-runtime";
 import { inspectAgentModels } from "acpx/runtime";
+import { createNativeSessionCommitFinalizer } from "openclaw/plugin-sdk/agent-harness-session-runtime";
 import { finiteSecondsToTimerSafeMilliseconds } from "openclaw/plugin-sdk/number-runtime";
 import { isRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { resolveNodeHostExecutable } from "openclaw/plugin-sdk/node-host";
@@ -157,26 +158,47 @@ function createAcpAgentHarness(params) {
 		},
 		async loadModelCatalog(input) {
 			generation.signal.throwIfAborted();
-			if (!params.isEnabled()) return [];
+			if (!params.isEnabled()) return { entries: [] };
 			const inspection = inspectAgent();
-			if (inspection?.launch.kind !== "installed") return [];
+			if (inspection?.launch.kind !== "installed") return { entries: [] };
 			const config = resolveAcpxPluginConfig({
 				rawConfig: params.api.pluginConfig,
 				workspaceDir: input.workspaceDir
 			});
-			const models = await inspectAgentModels({
-				agentCommand: inspection.launch.argv,
-				cwd: input.workspaceDir ?? config.cwd,
-				signal: generation.signal,
-				timeoutMs: config.timeoutSeconds === void 0 ? void 0 : finiteSecondsToTimerSafeMilliseconds(config.timeoutSeconds) ?? 1
-			});
-			generation.signal.throwIfAborted();
-			return (params.isEnabled() ? models?.availableModels ?? [] : []).map((model) => ({
-				provider: id,
-				id: model.modelId,
-				name: model.name,
-				nativeRuntime: id
-			}));
+			try {
+				const models = await inspectAgentModels({
+					agentCommand: inspection.launch.argv,
+					cwd: input.workspaceDir ?? config.cwd,
+					signal: generation.signal,
+					timeoutMs: config.timeoutSeconds === void 0 ? void 0 : finiteSecondsToTimerSafeMilliseconds(config.timeoutSeconds) ?? 1
+				});
+				generation.signal.throwIfAborted();
+				if (!params.isEnabled()) return { entries: [] };
+				return {
+					entries: (models?.availableModels ?? []).map((model) => ({
+						provider: id,
+						id: model.modelId,
+						name: model.name,
+						nativeRuntime: id
+					})),
+					outcomes: [{
+						provider: id,
+						status: "ready"
+					}]
+				};
+			} catch (error) {
+				generation.signal.throwIfAborted();
+				if (!params.isEnabled()) return { entries: [] };
+				const authRequired = error instanceof Error && error.name === "RequestError" && "code" in error && error.code === -32e3 && (error.message === "Authentication required" || error.message.startsWith("Authentication required: "));
+				return {
+					entries: [],
+					outcomes: [{
+						provider: id,
+						status: authRequired ? "auth-rejected" : "unavailable",
+						rejectionScope: "catalog"
+					}]
+				};
+			}
 		},
 		async runAttempt(input) {
 			generation.signal.throwIfAborted();
@@ -206,14 +228,14 @@ function createAcpAgentHarness(params) {
 		async withSessionDeletion(input, run) {
 			let committed = false;
 			try {
-				return await run({
+				return await run(createNativeSessionCommitFinalizer({
 					commit: () => {
 						committed = true;
 					},
 					rollback: () => {
 						committed = false;
 					}
-				});
+				}));
 			} finally {
 				if (committed) await retire(input, input.assertCurrent);
 			}
@@ -226,12 +248,11 @@ function createAcpAgentHarness(params) {
 }
 //#endregion
 //#region extensions/acpx/src/pi-session-catalog-plugin.ts
-const loadPiSessionCatalogModule = createLazyRuntimeModule(() => import("./.setup/pi-session-catalog-runtime-UhiQSaDw.mjs"));
+const loadPiSessionCatalogModule = createLazyRuntimeModule(() => import("./.setup/pi-session-catalog-runtime-7jc50ZJ4.mjs"));
 function fullConfigCatalogEnabled(config) {
 	if (!isRecord(config) || !isRecord(config.plugins) || !isRecord(config.plugins.entries)) return true;
 	const entry = config.plugins.entries.acpx;
-	if (!isRecord(entry) || !isRecord(entry.config) || !isRecord(entry.config.piSessionCatalog)) return true;
-	return entry.config.piSessionCatalog.enabled !== false;
+	return isPiSessionCatalogEnabled(isRecord(entry) ? entry.config : void 0);
 }
 function isPiSessionCatalogEnabled(pluginConfig) {
 	return !isRecord(pluginConfig) || !isRecord(pluginConfig.piSessionCatalog) || pluginConfig.piSessionCatalog.enabled !== false;

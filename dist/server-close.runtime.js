@@ -1,38 +1,45 @@
-import { t as drainGlobalSingletonLifecycleState } from "./global-singleton-Dc_stLtU.mjs";
-import { t as AsyncWorkScope } from "./async-work-scope-CWk2dk1h.mjs";
-import { n as hasRetainedPluginRuntimeCloseError } from "./runtime-close-error-CYO2S35x.mjs";
+import { t as drainGlobalSingletonLifecycleState } from "./global-singleton-0m-JziJW.mjs";
+import { t as AsyncWorkScope } from "./async-work-scope-BYeX3gh6.mjs";
+import { t as hasErrnoCode } from "./errno-FR4CRyya.mjs";
+import { s as raceWithTimeout } from "./src-D1BHGNTj.mjs";
+import { t as formatErrorMessage } from "./errors-O33D01XW.mjs";
+import { t as finalizeActiveDebugProxyCaptures } from "./runtime-cleanup-CDxMLsqE.mjs";
+import { t as createSubsystemLogger } from "./subsystem-I-uqdx4f.mjs";
+import { i as hasRetainedPluginRuntimeCloseError } from "./runtime-close-error-DPmgR5gM.mjs";
 import { r as getCanonicalGatewayContextResolver } from "./gateway-context-binding-VqB7gkMe.mjs";
-import "./gateway-request-scope-BLBH-Gpf.mjs";
-import { t as formatErrorMessage } from "./errors-DnjwnOju.mjs";
-import { t as createSubsystemLogger } from "./subsystem-DleLyu58.mjs";
-import { i as logVerbose } from "./globals-QODkv80i.mjs";
-import { i as disposeAllSessionMcpRuntimes } from "./agent-bundle-mcp-manager-api-BY4ZJmiZ.mjs";
-import { c as closeOpenClawAgentDatabasesAsync } from "./openclaw-agent-db-lifecycle-D7S9DdJC.mjs";
-import { u as closePluginStateDatabaseAsync } from "./plugin-state-store-CgyXRuSI.mjs";
-import { t as getGlobalHookRunner } from "./hook-runner-global-DEfWMRsG.mjs";
-import { t as disposeRegisteredAgentHarnesses } from "./registry-D5JTD91z.mjs";
-import { r as closePreparedModelRuntimeSnapshots } from "./prepared-model-runtime.lifecycle-348wygR7.mjs";
-import { n as closeSessionTranscriptReconcileWorkerPool } from "./session-transcript-reconcile-pool-BPd_ppEE.mjs";
-import { r as listChannelPlugins } from "./registry-D3wOWFDo.mjs";
-import "./plugins-BEpDh--e.mjs";
-import { c as WEBSOCKET_CLOSE_GRACE_MS } from "./server-constants-Dx_kHnY5.mjs";
-import { o as disposeAcpSessionManagerInstance, t as getAcpSessionManager } from "./manager-CtLsNYvd.mjs";
-import { o as createAgentRunRestartAbortError } from "./run-termination-Cd1iJzC7.mjs";
-import { _ as closeSwarmScheduler } from "./subagent-run-liveness-9vTRtoqd.mjs";
-import { r as captureGatewayReplyRunRestartAbort } from "./reply-run-registry.registry-BzUwWch2.mjs";
-import "./reply-run-registry-Bsh1YccG.mjs";
-import { n as createInternalHookEvent, u as triggerInternalHook } from "./internal-hooks-D7ICCTeO.mjs";
-import { n as fenceSessionSuspensionWritesForGatewayShutdown } from "./session-suspension-Dph9L8EH.mjs";
-import "./agent-bundle-mcp-tools-jSQGsK5W.mjs";
-import { a as markGatewayRestartTrace, n as collectGatewayProcessMemoryUsageMb, o as measureGatewayRestartTrace, s as recordGatewayRestartTrace } from "./restart-trace-CoBpLImx.mjs";
-import { i as waitForMediaCleanupDrainsToSettle } from "./server-media-cleanup-lifecycle-FrwOsNwk.mjs";
-import { r as clearSessionTypingState } from "./session-typing-state-duh0Qlrq.mjs";
-import { c as removeChatAbortControllerEntry, i as isChatAbortControllerEntryAbortable, t as abortChatRunById } from "./chat-abort-D7PkkSq8.mjs";
-import { n as createChatAbortMarker } from "./server-chat-state-DfVYc1CX.mjs";
-import { n as abortQueuedChatTurns } from "./chat-queued-turns-D5_b93Ci.mjs";
-import { i as resolveGatewayShutdownNotice, n as createGatewayShutdownTimeout, r as recordGatewayShutdownWarning } from "./server-shutdown-D6UXm04-.mjs";
-import { i as buildSessionEndHookPayload, n as listActiveSessionsForShutdown, t as forgetActiveSessionForShutdown } from "./active-sessions-shutdown-tracker-BFQRb1PT.mjs";
-import { s as resolveStableSessionEndTranscript } from "./session-transcript-files.fs-_FnqN2Le.mjs";
+import "./gateway-request-scope-BSmCVVpP.mjs";
+import { t as settlesWithin } from "./settle-within-CTpJLoBG.mjs";
+import { r as disposeAllSessionMcpRuntimes } from "./agent-bundle-mcp-manager-api-CsCOZa1-.mjs";
+import { s as closeOpenClawAgentDatabasesAsync } from "./openclaw-agent-db-lifecycle-BJiYtXuW.mjs";
+import { i as logVerbose } from "./globals-BXbZ1A_g.mjs";
+import { l as closePluginStateDatabaseAsync } from "./plugin-state-store-yKq-W0-T.mjs";
+import { t as getGlobalHookRunner } from "./hook-runner-global-eJIIEpha.mjs";
+import { i as createSessionEndTranscriptSourceLease } from "./hooks-ADSXph0M.mjs";
+import { t as disposeRegisteredAgentHarnesses } from "./registry-BUEqtPpd.mjs";
+import { r as closePreparedModelRuntimeSnapshots } from "./prepared-model-runtime.lifecycle-ADHVLWEn.mjs";
+import { n as closeSessionTranscriptReconcileWorkerPool } from "./session-transcript-reconcile-pool-8tPpYHPN.mjs";
+import { r as listChannelPlugins } from "./registry-DOE8N7Jo.mjs";
+import "./plugins-Z9_SzFi0.mjs";
+import { c as WEBSOCKET_CLOSE_GRACE_MS } from "./server-constants-BH_EolwD.mjs";
+import { t as disposeAcpSessionManager } from "./manager-Cmu0euXz.mjs";
+import { r as captureGatewayReplyRunRestartAbort } from "./reply-run-registry.registry-CVpYrkbm.mjs";
+import { o as createAgentRunRestartAbortError } from "./run-termination-DGv2EKii.mjs";
+import "./reply-run-registry-CHTPEb3-.mjs";
+import { n as fenceSessionSuspensionWritesForGatewayShutdown } from "./session-suspension-DVRz0I9V.mjs";
+import { n as createInternalHookEvent, u as triggerInternalHook } from "./internal-hooks-CcXmGbgu.mjs";
+import "./agent-bundle-mcp-tools-CmVTlZqR.mjs";
+import { r as closeSwarmScheduler } from "./swarm-scheduler-BnTRUM_W.mjs";
+import { a as markGatewayRestartTrace, n as collectGatewayProcessMemoryUsageMb, o as measureGatewayRestartTrace, s as recordGatewayRestartTrace } from "./restart-trace-Kdafqv6h.mjs";
+import { i as waitForMediaCleanupDrainsToSettle } from "./server-media-cleanup-lifecycle-KlRv-aNy.mjs";
+import { r as clearSessionTypingState } from "./session-typing-state-bCPje0x2.mjs";
+import { o as removeChatAbortControllerEntry } from "./chat-abort-lifecycle-internal-t_mR3jTJ.mjs";
+import { n as createChatAbortMarker } from "./server-chat-state-BP63MB41.mjs";
+import { r as isChatAbortControllerEntryAbortable, t as abortChatRunById } from "./chat-abort-DsJ_Zmkt.mjs";
+import { n as abortQueuedChatTurns } from "./chat-queued-turns-Dn_FgmH5.mjs";
+import { n as recordGatewayShutdownWarning, r as resolveGatewayShutdownNotice } from "./server-shutdown-DqBhRLh6.mjs";
+import { o as resolveStableSessionEndTranscript } from "./session-transcript-files.fs-CdF7y2ZY.mjs";
+import { d as createClosedSessionTranscriptSource, i as buildSessionEndHookPayload, n as listActiveSessionsForShutdown, t as forgetActiveSessionForShutdown } from "./active-sessions-shutdown-tracker--g_C6Pbu.mjs";
+import { setTimeout } from "node:timers/promises";
 import { cleanupSessionResources } from "@openclaw/ai/internal/runtime";
 //#region src/gateway/server-run-shutdown.ts
 const shutdownLog$1 = createSubsystemLogger("gateway/shutdown");
@@ -65,11 +72,6 @@ function formatRestartReplyDrainDetails(counts) {
 	if (counts.queuedTurns > 0) details.push(`${counts.queuedTurns} queued turn(s)`);
 	return details.length > 0 ? details.join(", ") : "no pending reply work";
 }
-async function sleepForRestartReplyDrain(delayMs) {
-	await new Promise((resolve) => {
-		setTimeout(resolve, delayMs).unref?.();
-	});
-}
 async function waitForRestartReplyDrain(params) {
 	const timeoutMs = Math.max(0, Math.floor(params.timeoutMs));
 	let counts = getRestartReplyDrainCounts(params);
@@ -91,7 +93,7 @@ async function waitForRestartReplyDrain(params) {
 			elapsedMs,
 			counts
 		};
-		await sleepForRestartReplyDrain(Math.min(RESTART_REPLY_DRAIN_POLL_MS, timeoutMs - elapsedMs));
+		await setTimeout(Math.min(RESTART_REPLY_DRAIN_POLL_MS, timeoutMs - elapsedMs), void 0, { ref: false });
 		counts = getRestartReplyDrainCounts(params);
 		if (counts.pendingReplies <= 0 && counts.activeRuns <= 0 && counts.queuedTurns <= 0) return {
 			drained: true,
@@ -139,9 +141,7 @@ async function settleTerminalSessionPersistenceForRestart(chatAbortControllers) 
 		}];
 	});
 	if (pending.length === 0) return;
-	const timeout = createGatewayShutdownTimeout(RESTART_TERMINAL_PERSISTENCE_WAIT_TIMEOUT_MS, () => null);
-	const results = await Promise.race([Promise.allSettled(pending.map(({ persistence }) => persistence)), timeout.promise]);
-	timeout.clear();
+	const results = await raceWithTimeout(() => Promise.allSettled(pending.map(({ persistence }) => persistence)), RESTART_TERMINAL_PERSISTENCE_WAIT_TIMEOUT_MS, () => null, { ref: false });
 	if (!results) {
 		shutdownLog$1.warn(`terminal session persistence did not settle within ${RESTART_TERMINAL_PERSISTENCE_WAIT_TIMEOUT_MS}ms; preserving restart recovery`);
 		return;
@@ -162,28 +162,24 @@ async function markActiveRunsForRestartRecovery(params) {
 	const recoveryCandidates = new Map(params.restartRecoveryCandidates);
 	const abortReplyRuns = captureGatewayReplyRunRestartAbort(params.resolveGatewayContext);
 	try {
-		const markerTimeout = createGatewayShutdownTimeout(RESTART_MARKER_SLOW_WARNING_MS, () => "timeout");
-		const markerOutcome = Promise.resolve(params.markMainSessionsAbortedForRestart({
-			resolveGatewayContext: params.resolveGatewayContext,
-			activeRuns,
-			reason: params.reason,
-			isActiveRun: (run) => {
-				const entry = params.chatAbortControllers.get(run.runId);
-				const candidate = params.restartRecoveryCandidates?.get(run.runId);
-				return entry && entry === activeEntries.get(run.runId) && !entry.controller.signal.aborted && (entry.registrationCleanupRequested !== true || entry.projectSessionTerminalPersisted !== true) && entry.lifecycleGeneration === run.lifecycleGeneration || candidate !== void 0 && candidate === recoveryCandidates.get(run.runId) && candidate.lifecycleGeneration === run.lifecycleGeneration;
-			}
-		})).then(() => ({ status: "completed" }), (error) => ({
-			status: "failed",
-			error
-		}));
-		const firstOutcome = await Promise.race([markerOutcome, markerTimeout.promise]);
-		markerTimeout.clear();
-		if (firstOutcome === "timeout") {
+		let markerOutcome;
+		if (await raceWithTimeout(() => {
+			markerOutcome = Promise.resolve(params.markMainSessionsAbortedForRestart({
+				resolveGatewayContext: params.resolveGatewayContext,
+				activeRuns,
+				reason: params.reason,
+				isActiveRun: (run) => {
+					const entry = params.chatAbortControllers.get(run.runId);
+					const candidate = params.restartRecoveryCandidates?.get(run.runId);
+					return entry && entry === activeEntries.get(run.runId) && !entry.controller.signal.aborted && (entry.registrationCleanupRequested !== true || entry.projectSessionTerminalPersisted !== true) && entry.lifecycleGeneration === run.lifecycleGeneration || candidate !== void 0 && candidate === recoveryCandidates.get(run.runId) && candidate.lifecycleGeneration === run.lifecycleGeneration;
+				}
+			}));
+			return markerOutcome.then(() => false);
+		}, RESTART_MARKER_SLOW_WARNING_MS, () => true, { ref: false })) {
 			shutdownLog$1.warn(`restart session marker did not settle within ${RESTART_MARKER_SLOW_WARNING_MS}ms; waiting before shutdown`);
 			recordGatewayShutdownWarning(params.warnings, "restart-main-session-marker");
-			const delayedOutcome = await markerOutcome;
-			if (delayedOutcome.status === "failed") throw delayedOutcome.error;
-		} else if (firstOutcome.status === "failed") throw firstOutcome.error;
+			await markerOutcome;
+		}
 		for (const run of activeRuns) if (params.restartRecoveryCandidates?.get(run.runId) === recoveryCandidates.get(run.runId)) params.restartRecoveryCandidates?.delete(run.runId);
 	} catch (err) {
 		shutdownLog$1.warn(`failed to mark active main session(s) for restart recovery: ${String(err)}`);
@@ -283,42 +279,32 @@ function createCloseStepTimer(reason) {
 async function shutdownStep(name, fn, warnings) {
 	try {
 		await fn();
-		return true;
 	} catch (err) {
 		if (hasRetainedPluginRuntimeCloseError(err)) throw err;
 		const detail = err instanceof Error ? err.message : String(err);
 		shutdownLog.warn(`${name}: ${detail}`);
 		recordGatewayShutdownWarning(warnings, name);
-		return false;
 	}
 }
 async function triggerGatewayLifecycleHookWithTimeout(params) {
 	const hookPromise = params.cleanupWork.track(() => triggerInternalHook(params.event));
 	hookPromise.catch(() => void 0);
-	const timeout = createGatewayShutdownTimeout(params.timeoutMs, () => "timeout");
-	try {
-		const result = await Promise.race([hookPromise.then(() => "completed"), timeout.promise]);
-		if (result === "timeout") shutdownLog.warn(`${params.hookName} hook timed out after ${params.timeoutMs}ms; continuing shutdown`);
-		return result;
-	} finally {
-		timeout.clear();
-	}
+	if (await settlesWithin(hookPromise, params.timeoutMs)) return "completed";
+	shutdownLog.warn(`${params.hookName} hook timed out after ${params.timeoutMs}ms; continuing shutdown`);
+	return "timeout";
 }
 async function disposeRuntimeWithShutdownGrace(params) {
 	const disposePromise = params.cleanupWork.track(() => Promise.resolve().then(params.dispose)).catch((err) => {
 		shutdownLog.warn(`${params.label} runtime disposal failed during shutdown: ${String(err)}`);
 		recordGatewayShutdownWarning(params.warnings, params.label);
 	});
-	const disposeTimeout = createGatewayShutdownTimeout(params.graceMs, () => {
+	if (!await settlesWithin(disposePromise, params.graceMs)) {
 		shutdownLog.warn(`${params.label} runtime disposal exceeded ${params.graceMs}ms; continuing shutdown`);
 		recordGatewayShutdownWarning(params.warnings, params.label);
-	});
-	await Promise.race([disposePromise, disposeTimeout.promise]);
-	disposeTimeout.clear();
+	}
 }
 async function runGatewayClosePrelude(params) {
 	params.stopDiagnostics?.();
-	params.clearSkillsRefreshTimer?.();
 	await params.skillsChangeUnsub?.();
 	params.disposeAuthRateLimiter?.();
 	params.disposeBrowserAuthRateLimiter();
@@ -326,28 +312,20 @@ async function runGatewayClosePrelude(params) {
 	params.stopReadinessEventLoopHealth?.();
 	await params.closeMcpServer?.().catch(() => {});
 }
-function isServerNotRunningError(err) {
-	return Boolean(err && typeof err === "object" && "code" in err && err.code === "ERR_SERVER_NOT_RUNNING");
-}
 async function waitForHttpClose(params) {
-	const timeout = createGatewayShutdownTimeout(params.timeoutMs, () => false);
-	try {
-		return await Promise.race([params.closePromise.then(() => true), timeout.promise]).catch((err) => {
-			const detail = err instanceof Error ? err.message : String(err);
-			shutdownLog.warn(`${params.label}: ${detail}`);
-			recordGatewayShutdownWarning(params.warnings, params.label);
-			return true;
-		});
-	} finally {
-		timeout.clear();
-	}
+	return await settlesWithin(params.closePromise, params.timeoutMs).catch((err) => {
+		const detail = err instanceof Error ? err.message : String(err);
+		shutdownLog.warn(`${params.label}: ${detail}`);
+		recordGatewayShutdownWarning(params.warnings, params.label);
+		return true;
+	});
 }
 async function closeHttpListener(params) {
 	const { server, label, warnings } = params;
 	server.closeIdleConnections?.();
 	const closePromise = new Promise((resolve, reject) => {
 		server.close((err) => {
-			if (!err || isServerNotRunningError(err)) {
+			if (!err || hasErrnoCode(err, "ERR_SERVER_NOT_RUNNING")) {
 				resolve();
 				return;
 			}
@@ -428,7 +406,7 @@ function completeGatewayClose(params, preparation) {
 	});
 }
 async function closeGatewayResources(params, preparation) {
-	params.pluginMetadata.beginClose();
+	await params.pluginMetadata.beginClose();
 	const { start, notice, warnings, cleanupWork } = preparation;
 	const { reason } = notice;
 	const restartExpectedMs = notice.restartExpectedMs ?? null;
@@ -454,7 +432,7 @@ async function closeGatewayResources(params, preparation) {
 			}
 		}, warnings));
 		if (params.bonjourStop) await shutdownStep("bonjour", () => params.bonjourStop(), warnings);
-		await measureCloseStep("acp-session-manager", () => shutdownStep("acp-session-manager", () => disposeAcpSessionManagerInstance(getAcpSessionManager(), "gateway-shutdown"), warnings));
+		await measureCloseStep("acp-session-manager", () => shutdownStep("acp-session-manager", () => disposeAcpSessionManager("gateway-shutdown"), warnings));
 		if (params.pluginServices) {
 			const cleanup = cleanupWork.track(() => Promise.resolve().then(async () => {
 				if ((await params.pluginServices.stop())?.errors.length) recordGatewayShutdownWarning(warnings, "plugin-services");
@@ -486,13 +464,13 @@ async function closeGatewayResources(params, preparation) {
 			await Promise.all([disposeRuntimeWithShutdownGrace({
 				cleanupWork,
 				label: "bundle-mcp",
-				dispose: params.disposeSessionMcpRuntimes ?? disposeAllSessionMcpRuntimes,
+				dispose: disposeAllSessionMcpRuntimes,
 				graceMs: MCP_RUNTIME_CLOSE_GRACE_MS,
 				warnings
 			}), disposeRuntimeWithShutdownGrace({
 				cleanupWork,
 				label: "bundle-lsp",
-				dispose: params.disposeBundleLspRuntimes ?? params.disposeAllBundleLspRuntimes,
+				dispose: params.disposeAllBundleLspRuntimes,
 				graceMs: LSP_RUNTIME_CLOSE_GRACE_MS,
 				warnings
 			})]);
@@ -507,16 +485,13 @@ async function closeGatewayResources(params, preparation) {
 		}
 		if (mediaCleanupStopResult !== "drained") recordGatewayShutdownWarning(warnings, "media-cleanup");
 		await measureCloseStep("gmail-watcher", () => shutdownStep("gmail-watcher", () => params.stopGmailWatcher(), warnings));
-		await shutdownStep("cron", () => params.cron.stopAndDrain ? params.cron.stopAndDrain() : params.cron.stop(), warnings);
 		await shutdownStep("heartbeat-runner", () => params.heartbeatRunner.stop(), warnings);
-		await shutdownStep("task-registry-maintenance", () => params.stopTaskRegistryMaintenance?.(), warnings);
-		for (const timer of params.nodePresenceTimers.values()) clearInterval(timer);
-		params.nodePresenceTimers.clear();
+		await shutdownStep("cron", () => params.cron.stopAndDrain ? params.cron.stopAndDrain() : params.cron.stop(), warnings);
+		await shutdownStep("cron-maintenance", () => params.stopCronMaintenance?.(), warnings);
 		if (params.agentUnsub) await shutdownStep("agent-unsub", () => params.agentUnsub(), warnings);
 		if (params.heartbeatUnsub) await shutdownStep("heartbeat-unsub", () => params.heartbeatUnsub(), warnings);
 		if (params.transcriptUnsub) await shutdownStep("transcript-unsub", () => params.transcriptUnsub(), warnings);
 		if (params.lifecycleUnsub) await shutdownStep("lifecycle-unsub", () => params.lifecycleUnsub(), warnings);
-		if (params.taskUnsub) await shutdownStep("task-unsub", () => params.taskUnsub(), warnings);
 		params.chatRunState.clear();
 		let clientCloseFailures = 0;
 		for (const c of params.clients) try {
@@ -534,20 +509,13 @@ async function closeGatewayResources(params, preparation) {
 			const closePromise = new Promise((resolve) => {
 				params.wss?.close(() => resolve());
 			});
-			const websocketGraceTimeout = createGatewayShutdownTimeout(WEBSOCKET_CLOSE_GRACE_MS, () => false);
-			const closedWithinGrace = await Promise.race([closePromise.then(() => true), websocketGraceTimeout.promise]);
-			websocketGraceTimeout.clear();
-			if (!closedWithinGrace) {
+			if (!await settlesWithin(closePromise, 1e3)) {
 				shutdownLog.warn(`websocket server close exceeded ${WEBSOCKET_CLOSE_GRACE_MS}ms; forcing shutdown continuation with ${wsClients.size} tracked client(s)`);
 				recordGatewayShutdownWarning(warnings, "websocket-server");
 				for (const client of wsClients) try {
 					client.terminate();
 				} catch {}
-				const websocketForceTimeout = createGatewayShutdownTimeout(WEBSOCKET_CLOSE_FORCE_CONTINUE_MS, () => {
-					shutdownLog.warn(`websocket server close still pending after ${WEBSOCKET_CLOSE_FORCE_CONTINUE_MS}ms force window; continuing shutdown`);
-				});
-				await Promise.race([closePromise, websocketForceTimeout.promise]);
-				websocketForceTimeout.clear();
+				if (!await settlesWithin(closePromise, WEBSOCKET_CLOSE_FORCE_CONTINUE_MS)) shutdownLog.warn(`websocket server close still pending after ${WEBSOCKET_CLOSE_FORCE_CONTINUE_MS}ms force window; continuing shutdown`);
 			}
 		});
 		await params.finishRequestEntries?.();
@@ -582,6 +550,7 @@ async function closeGatewayResources(params, preparation) {
 		await params.drainSdkWork?.();
 		const swarmOwner = getCanonicalGatewayContextResolver(params.resolveGatewayContext);
 		if (swarmOwner) await closeSwarmScheduler(swarmOwner).catch(recordResourceCleanupFailure);
+		await params.stopScheduler();
 		try {
 			const registryClose = await params.closePluginRegistry(async (retireRegistry) => {
 				await params.closeSdkResources?.().catch(recordResourceCleanupFailure);
@@ -592,6 +561,7 @@ async function closeGatewayResources(params, preparation) {
 					await retire();
 					await cleanupWork.runWhenIdle(() => {});
 					await closeOpenClawAgentDatabasesAsync();
+					await finalizeActiveDebugProxyCaptures().catch(recordResourceCleanupFailure);
 					if (mediaCleanupStopResult !== void 0) await closePluginStateDatabaseAsync();
 					try {
 						await drainGlobalSingletonLifecycleState(restartExpectedMs === null ? "close" : "restart");
@@ -608,7 +578,9 @@ async function closeGatewayResources(params, preparation) {
 			}
 			for (const { pluginId, hookId, error } of registryClose.pluginFailures) {
 				recordGatewayShutdownWarning(warnings, `plugin/${pluginId}`);
-				resourceCleanupErrors.push(new Error(`Plugin ${pluginId} cleanup failed (${hookId}): ${formatErrorMessage(error)}`, { cause: error }));
+				const message = `Plugin ${pluginId} cleanup failed (${hookId}): ${formatErrorMessage(error)}`;
+				shutdownLog.warn(message);
+				if (hookId === "session-store") resourceCleanupErrors.push(new Error(message, { cause: error }));
 			}
 		} catch (error) {
 			resourceCleanupErrors.push(error);
@@ -641,6 +613,7 @@ async function drainActiveSessionsForShutdown(params) {
 	};
 	const totalTimeoutMs = Math.max(100, Math.floor(params.totalTimeoutMs ?? 2e3));
 	const emittedSessionIds = [];
+	const transcriptLeases = [];
 	const hookRunner = getGlobalHookRunner();
 	let settledEmissions = 0;
 	const drain = Promise.allSettled(tracked.map(async (entry) => {
@@ -654,13 +627,21 @@ async function drainActiveSessionsForShutdown(params) {
 				sessionFile: entry.sessionFile,
 				agentId: entry.agentId
 			});
+			const transcriptLease = createSessionEndTranscriptSourceLease(createClosedSessionTranscriptSource({
+				agentId: entry.agentId,
+				sessionId: entry.sessionId,
+				sessionKey: entry.sessionKey,
+				storePath: entry.storePath
+			}));
+			transcriptLeases.push(transcriptLease);
 			const payload = buildSessionEndHookPayload({
 				sessionId: entry.sessionId,
 				sessionKey: entry.sessionKey,
 				agentId: entry.agentId,
 				reason: params.reason,
 				sessionFile: transcript.sessionFile,
-				transcriptArchived: transcript.transcriptArchived
+				transcriptArchived: transcript.transcriptArchived,
+				endedTranscript: transcriptLease.source
 			});
 			await hookRunner.runSessionEnd(payload.event, payload.context);
 		} catch (err) {
@@ -669,26 +650,13 @@ async function drainActiveSessionsForShutdown(params) {
 			settledEmissions++;
 		}
 	}));
-	let timer;
-	const timeout = new Promise((resolve) => {
-		timer = setTimeout(() => resolve("timeout"), totalTimeoutMs);
-		timer.unref?.();
-	});
-	try {
-		if (await Promise.race([drain.then(() => "ok"), timeout]) === "timeout") {
-			logVerbose(`shutdown session-end drain timed out after ${totalTimeoutMs}ms with ${tracked.length - settledEmissions} session_end handler(s) still pending`);
-			return {
-				emittedSessionIds,
-				timedOut: true
-			};
-		}
-		return {
-			emittedSessionIds,
-			timedOut: false
-		};
-	} finally {
-		if (timer) clearTimeout(timer);
-	}
+	const timedOut = !await settlesWithin(drain, totalTimeoutMs);
+	for (const lease of transcriptLeases) lease.revoke();
+	if (timedOut) logVerbose(`shutdown session-end drain timed out after ${totalTimeoutMs}ms with ${tracked.length - settledEmissions} session_end handler(s) still pending`);
+	return {
+		emittedSessionIds,
+		timedOut
+	};
 }
 //#endregion
 export { completeGatewayClose, drainActiveSessionsForShutdown, prepareGatewayClose, runGatewayClosePrelude };

@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{i as t,n}from"./worker-chunk-to6B_YaV.mjs";async function readWorkspaceBootstrapFile(e){return(await t(e,r)).toString(`utf-8`)}var r,i=e((()=>{n(),r=2097152}));export{i as n,readWorkspaceBootstrapFile as r,r as t};

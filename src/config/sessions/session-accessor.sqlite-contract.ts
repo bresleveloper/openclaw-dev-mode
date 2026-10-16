@@ -1,5 +1,5 @@
 import type { SqliteWalHealth } from "../../infra/sqlite-wal-checkpoint.js";
-import type { SessionEntrySummary } from "./session-accessor.types.js";
+import type { SessionEntrySummary, TranscriptEvent } from "./session-accessor.types.js";
 import type { InternalSessionEntry as SessionEntry } from "./types.js";
 export type {
   DeletedAgentSessionEntryPurgeParams,
@@ -17,10 +17,30 @@ export type {
 
 export type SessionEntryStatus = NonNullable<SessionEntry["status"]>;
 
+export type SessionEntryStatusSelection = {
+  statuses: readonly SessionEntryStatus[];
+  presenceOnly?: boolean;
+};
+
 export type SessionTranscriptContextVersion = {
   generation: string | null;
   rawSeq: number | null;
   updatedAt: number | null;
+};
+
+export type SessionTranscriptBoundedActiveContext = {
+  activeLeafEntryId: string | null;
+  version: SessionTranscriptContextVersion;
+  opaqueParents: Map<string, string | null>;
+  parents: Map<string, string | null>;
+  firstKeptRanges: Map<string, { startIndex: number; endIndex: number }>;
+  persistedSuffixStartSeq: number;
+  boundaryCount: number;
+  events: TranscriptEvent[];
+  serializedBytes: number;
+  totalEvents: number;
+  transcriptMutationAt: number | null;
+  truncated: boolean;
 };
 
 export type CanonicalSessionValidationResult = {
@@ -33,13 +53,20 @@ export type CanonicalSessionValidationResult = {
 /** Worker operation facts; no Worker object or plan payload is retained. */
 export type SqliteSessionReclamationDiagnostics = {
   kind?:
+    | "archive-publish-prepare"
+    | "archive-publish-record"
+    | "deletion-plan"
     | "entry"
     | "lifecycle-artifacts"
+    | "lifecycle-projection-plan"
+    | "lifecycle-projection-commit"
+    | "lifecycle-projection-count"
     | "history-eviction"
     | "historical-generation"
     | "maintenance-plan"
     | "maintenance-finalize"
     | "maintenance-statistics"
+    | "maintenance-age"
     | "maintenance-pages"
     | "cold-batch"
     | "cold-maintain"
@@ -78,9 +105,6 @@ export type SqliteSessionArtifactPreparationDiagnostics =
 /** One pruning attempt retains only aggregate stage observations. */
 export type SqliteSessionArchivePruningDiagnostics = {
   trigger: "initial" | "after-eviction" | "final";
-  admissionMs?: number;
-  cachedAdmissions?: number;
-  asyncAdmissions?: number;
   checkpointCalls?: number;
   checkpointIncomplete?: number;
   checkpoint?: SqliteWalHealth;
@@ -107,7 +131,6 @@ export type SqliteSessionArchivePruningDiagnostics = {
 
 export type SqliteSessionWriteDiagnostics = SqliteSessionReclamationDiagnostics & {
   artifactPreparation?: SqliteSessionArtifactPreparationDiagnostics;
-  archivePruning?: SqliteSessionArchivePruningDiagnostics;
   reclamationAdmission?: SqliteSessionReclamationAdmissionDiagnostics;
 };
 
@@ -176,17 +199,6 @@ export type {
 export type LatestTranscriptAssistantMessage = {
   id?: string;
   message: unknown;
-};
-
-type SessionEntryBatchProjectionMutation = {
-  entry: SessionEntry;
-  previousSessionKeys?: readonly string[];
-  sessionKey: string;
-};
-
-export type SessionEntryBatchProjectionUpdate<T> = {
-  mutations?: Iterable<SessionEntryBatchProjectionMutation>;
-  result: T;
 };
 
 export type {

@@ -1,2 +1,0 @@
-import { a as resolveWideAreaDiscoveryDomain, i as replaceWideAreaZoneFile, n as normalizeWideAreaDomain, o as writeWideAreaGatewayZone, r as renderWideAreaGatewayZoneText, t as getWideAreaZonePath } from "./widearea-dns-BFMogE6t.mjs";
-export { getWideAreaZonePath, normalizeWideAreaDomain, renderWideAreaGatewayZoneText, replaceWideAreaZoneFile, resolveWideAreaDiscoveryDomain, writeWideAreaGatewayZone };

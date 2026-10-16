@@ -31,6 +31,10 @@ function formatPrometheusNumber(value) {
 	if (!Number.isFinite(value)) return "0";
 	return Number.isInteger(value) ? String(value) : String(Number(value.toPrecision(12)));
 }
+function seconds(ms) {
+	const value = asNonNegativeFiniteNumber(ms);
+	return value === void 0 ? void 0 : value / 1e3;
+}
 //#endregion
 //#region extensions/diagnostics-prometheus/src/prometheus-metric-store.ts
 const DURATION_BUCKETS_SECONDS = [
@@ -89,11 +93,20 @@ function createPrometheusMetricStore() {
 			value
 		});
 	};
+	const counterValue = (name, help, labels, value) => {
+		if (!Number.isFinite(value) || value < 0) return;
+		const key = metricKey(name, labels);
+		if (canCreateSeries(counters, key)) counters.set(key, {
+			help,
+			labels,
+			value: Math.max(counters.get(key)?.value ?? 0, value)
+		});
+	};
 	const clearGauges = (name) => {
 		for (const key of gauges.keys()) if (key.startsWith(`${name}|`)) gauges.delete(key);
 	};
 	const histogram = (name, help, labels, value, buckets = DURATION_BUCKETS_SECONDS) => {
-		if (value === void 0 || !Number.isFinite(value) || value < 0) return;
+		if (value === void 0 || !Number.isFinite(value)) return;
 		const key = metricKey(name, labels);
 		if (!canCreateSeries(histograms, key)) return;
 		let sample = histograms.get(key);
@@ -136,12 +149,119 @@ function createPrometheusMetricStore() {
 	};
 	return {
 		counter,
+		counterValue,
 		gauge,
 		clearGauges,
 		histogram,
 		reset,
 		snapshot
 	};
+}
+//#endregion
+//#region extensions/diagnostics-prometheus/src/service-child-process.ts
+/** Git launches carry a bounded owner label; every other executable family reports `none`. */
+function recordChildProcessSpawn(store, evt) {
+	store.counter("openclaw_child_process_spawn_total", "Successful child launches through the shared spawn and exec owners.", {
+		family: normalizeDiagnosticValue(evt.family),
+		operation: normalizeDiagnosticValue(evt.operation ?? (evt.family === "git" ? "unknown" : "none"))
+	}, asNonNegativeFiniteNumber(evt.count) ?? 0);
+}
+//#endregion
+//#region extensions/diagnostics-prometheus/src/service-gateway-rpc.ts
+const RESPONSE_BYTE_BUCKETS = Array.from({ length: 17 }, (_, index) => 1024 * 2 ** index);
+const HEAP_DELTA_BYTE_BUCKETS = [
+	...RESPONSE_BYTE_BUCKETS.toReversed().map((bytes) => -bytes),
+	0,
+	...RESPONSE_BYTE_BUCKETS
+];
+const CATALOG_LIST_METHOD = "sessions.catalog.list";
+const CATALOG_LIST_PHASE_PREFIX = `${CATALOG_LIST_METHOD}.`;
+const CATALOG_LIST_PHASES = /* @__PURE__ */ new Set([
+	"projection_initial",
+	"planning",
+	"provider",
+	"coalesced",
+	"projection_final",
+	"delivery"
+]);
+function recordGatewayRpcEvent(store, evt, metadata) {
+	switch (evt.type) {
+		case "diagnostic.phase.completed": {
+			if (!metadata.trusted || !evt.name.startsWith(CATALOG_LIST_PHASE_PREFIX)) return;
+			const phase = evt.name.slice(CATALOG_LIST_PHASE_PREFIX.length);
+			const duration = seconds(evt.durationMs);
+			if (!CATALOG_LIST_PHASES.has(phase) || duration === void 0) return;
+			const labels = {
+				method: CATALOG_LIST_METHOD,
+				phase
+			};
+			store.histogram("openclaw_gateway_rpc_stage_seconds", "Elapsed time for completed Gateway RPC owner stages.", labels, duration);
+			const cpu = evt.details?.threadCpuMs;
+			if ((phase === "planning" || phase === "delivery") && typeof cpu === "number") store.histogram("openclaw_gateway_rpc_stage_thread_cpu_seconds", "Current-thread CPU for synchronous Gateway RPC owner stages.", labels, seconds(cpu));
+			return;
+		}
+		case "gateway.rpc": {
+			const labels = { method: evt.method };
+			if (evt.phase === "received") {
+				store.counter("openclaw_gateway_rpc_requests_total", "Authenticated Gateway WebSocket requests received.", labels);
+				return;
+			}
+			if (evt.phase === "response" && (evt.outcome === "ok" || evt.outcome === "error")) {
+				store.histogram("openclaw_gateway_rpc_response_bytes", "Encoded Gateway RPC response frame size in bytes, including later frames.", labels, evt.responseBytes, RESPONSE_BYTE_BUCKETS);
+				if (evt.firstResponse === false) return;
+			}
+			store.counter("openclaw_gateway_rpc_outcomes_total", "Gateway RPC observations by phase and outcome.", {
+				phase: evt.phase,
+				outcome: evt.outcome
+			});
+			if (evt.phase === "response" && (evt.outcome === "ok" || evt.outcome === "error")) store.histogram("openclaw_gateway_rpc_first_response_seconds", "Elapsed time until the first Gateway RPC response is sent.", labels, seconds(evt.durationMs));
+			else if (evt.phase === "handler") {
+				if (evt.heapDeltaBytes !== void 0) store.counter("openclaw_gateway_rpc_handler_heap_delta_exclusive_total", "Gateway RPC handlers with an exclusive main-thread heap-change sample.", labels);
+				store.histogram("openclaw_gateway_rpc_handler_heap_delta_bytes", "Exclusive RPC handler heap change; background work and GC can affect signed samples.", labels, evt.heapDeltaBytes, HEAP_DELTA_BYTE_BUCKETS);
+				store.histogram("openclaw_gateway_rpc_handler_seconds", "Gateway RPC handler duration until return or throw.", labels, seconds(evt.durationMs));
+				store.histogram("openclaw_gateway_rpc_admission_seconds", "Elapsed time from Gateway RPC receipt until handler invocation.", labels, seconds(evt.admissionMs));
+			} else if (evt.phase === "dispatch") store.histogram("openclaw_gateway_rpc_queue_wait_seconds", "Gateway operator request start queue wait.", labels, seconds(evt.queueWaitMs));
+		}
+	}
+}
+//#endregion
+//#region extensions/diagnostics-prometheus/src/service-memory.ts
+function recordMemorySample(store, memory, byteBuckets) {
+	for (const worker of memory.workerLifecycle ?? []) {
+		store.counterValue("openclaw_worker_started_total", "Worker isolates created by bounded script basename.", { script: worker.script }, worker.started);
+		for (const { reason, count } of worker.retired) store.counterValue("openclaw_worker_retired_total", "Worker isolates confirmed exited by owner retirement reason.", {
+			script: worker.script,
+			reason
+		}, count);
+	}
+	for (const [kind, field] of [
+		["rss", "rssBytes"],
+		["heap_total", "heapTotalBytes"],
+		["heap_used", "heapUsedBytes"],
+		["external", "externalBytes"],
+		["array_buffers", "arrayBuffersBytes"],
+		["worker_heap_total", "workerHeapTotalBytes"],
+		["worker_heap_used", "workerHeapUsedBytes"]
+	]) store.gauge("openclaw_memory_bytes", "Latest process memory usage by memory kind.", { kind }, asNonNegativeFiniteNumber(memory[field]));
+	for (const [name, field] of [["openclaw_worker_count", "workerCount"], ["openclaw_worker_heap_sampled_count", "workerHeapSampledCount"]]) store.gauge(name, "Worker isolate counts.", {}, asNonNegativeFiniteNumber(memory[field]));
+	store.clearGauges("openclaw_heap_space_bytes");
+	for (const space of memory.heapSpaces ?? []) for (const [stat, field] of [
+		["used", "space_used_size"],
+		["size", "space_size"],
+		["available", "space_available_size"],
+		["physical", "physical_space_size"]
+	]) store.gauge("openclaw_heap_space_bytes", "Latest main-isolate V8 heap space usage in bytes.", {
+		space: space.space_name,
+		stat
+	}, space[field]);
+	const workerHeaps = /* @__PURE__ */ new Map();
+	for (const worker of memory.workerHeaps ?? []) {
+		const heapUsed = asNonNegativeFiniteNumber(worker.heapUsed);
+		if (heapUsed !== void 0) workerHeaps.set(worker.script, (workerHeaps.get(worker.script) ?? 0) + heapUsed);
+	}
+	store.clearGauges("openclaw_worker_heap_used_bytes");
+	for (const [script, heapUsed] of workerHeaps) store.gauge("openclaw_worker_heap_used_bytes", "Latest live Worker heap usage by bounded script basename.", { script }, heapUsed);
+	store.histogram("openclaw_memory_rss_bytes", "RSS memory sample distribution in bytes.", {}, asNonNegativeFiniteNumber(memory.rssBytes), byteBuckets);
 }
 //#endregion
 //#region extensions/diagnostics-prometheus/src/service.ts
@@ -186,16 +306,9 @@ const RATIO_BUCKETS = [
 	8,
 	16
 ];
-function seconds(ms) {
-	const value = asNonNegativeFiniteNumber(ms);
-	return value === void 0 ? void 0 : value / 1e3;
-}
 function safeErrorMessage(err) {
 	const message = err instanceof Error ? err.message ?? err.name : String(err);
 	return truncateUtf16Safe(redactSensitiveText(message).replaceAll("\0", " ").replace(/[\r\n\t\u2028\u2029]/gu, " "), 500);
-}
-function shouldRecordDiagnosticEvent(metadata) {
-	return metadata.trusted || isInternalDiagnosticEventMetadata(metadata);
 }
 function renderPrometheusMetrics(store) {
 	const snapshot = store.snapshot();
@@ -240,116 +353,10 @@ function renderPrometheusMetrics(store) {
 	lines.push("");
 	return lines.join("\n");
 }
-function runLabels(evt) {
-	return {
-		...evt.blockedBy ? { blocked_by: normalizeDiagnosticValue(evt.blockedBy) } : {},
-		channel: normalizeDiagnosticValue(evt.channel),
-		model: normalizeDiagnosticValue(evt.model),
-		outcome: normalizeDiagnosticValue(evt.outcome, "unknown"),
-		provider: normalizeDiagnosticValue(evt.provider),
-		trigger: normalizeDiagnosticValue(evt.trigger)
-	};
-}
-function modelCallLabels(evt) {
-	return {
-		api: normalizeDiagnosticValue(evt.api),
-		error_category: evt.type === "model.call.error" ? normalizeDiagnosticValue(evt.errorCategory, "other") : "none",
-		model: normalizeDiagnosticValue(evt.model),
-		observation_unit: evt.observationUnit === "turn" ? "turn" : "request",
-		outcome: evt.type === "model.call.error" ? "error" : "completed",
-		provider: normalizeDiagnosticValue(evt.provider),
-		transport: normalizeDiagnosticValue(evt.transport)
-	};
-}
-function modelFailoverLabels(evt) {
-	return {
-		from_model: normalizeDiagnosticValue(evt.fromModel),
-		from_provider: normalizeDiagnosticValue(evt.fromProvider),
-		lane: normalizeDiagnosticLane(evt.lane),
-		reason: normalizeDiagnosticValue(evt.reason, "other"),
-		suspended: evt.suspended === void 0 ? "unknown" : String(evt.suspended),
-		to_model: normalizeDiagnosticValue(evt.toModel),
-		to_provider: normalizeDiagnosticValue(evt.toProvider)
-	};
-}
-function toolExecutionLabels(evt) {
-	return {
-		error_category: evt.type === "tool.execution.error" ? normalizeDiagnosticValue(evt.errorCategory, "other") : "none",
-		outcome: evt.type === "tool.execution.error" ? "error" : "completed",
-		params_kind: normalizeDiagnosticValue(evt.paramsSummary?.kind),
-		tool: normalizeDiagnosticValue(evt.toolName, "tool"),
-		tool_owner: normalizeDiagnosticValue(evt.toolOwner, "none"),
-		tool_source: normalizeDiagnosticValue(evt.toolSource, "core")
-	};
-}
-function toolExecutionBlockedLabels(evt) {
-	return {
-		denied_reason: normalizeDiagnosticValue(evt.deniedReason, "other"),
-		params_kind: normalizeDiagnosticValue(evt.paramsSummary?.kind),
-		tool: normalizeDiagnosticValue(evt.toolName, "tool"),
-		tool_owner: normalizeDiagnosticValue(evt.toolOwner, "none"),
-		tool_source: normalizeDiagnosticValue(evt.toolSource, "core")
-	};
-}
-function skillLabels(evt) {
-	return {
-		activation: normalizeDiagnosticValue(evt.activation, "unknown"),
-		agent: normalizeDiagnosticValue(evt.agentId),
-		skill: normalizeDiagnosticValue(evt.skillName, "skill"),
-		source: normalizeDiagnosticValue(evt.skillSource)
-	};
-}
-function harnessLabels(evt) {
-	return {
-		channel: normalizeDiagnosticValue(evt.channel),
-		error_category: evt.type === "harness.run.error" ? normalizeDiagnosticValue(evt.errorCategory, "other") : "none",
-		harness: normalizeDiagnosticValue(evt.harnessId),
-		model: normalizeDiagnosticValue(evt.model),
-		outcome: evt.type === "harness.run.error" ? "error" : normalizeDiagnosticValue(evt.outcome),
-		phase: evt.type === "harness.run.error" ? normalizeDiagnosticValue(evt.phase) : "none",
-		plugin: normalizeDiagnosticValue(evt.pluginId),
-		provider: normalizeDiagnosticValue(evt.provider)
-	};
-}
 function webhookLabels(evt) {
 	return {
 		channel: normalizeDiagnosticValue(evt.channel),
 		webhook: normalizeDiagnosticValue(evt.updateType)
-	};
-}
-function sessionStuckLabels(evt) {
-	return {
-		reason: normalizeDiagnosticValue(evt.reason, "none"),
-		state: evt.state
-	};
-}
-function sessionRecoveryLabels(evt) {
-	return {
-		action: evt.type === "session.recovery.completed" ? normalizeDiagnosticValue(evt.action, "unknown") : evt.allowActiveAbort ? "abort" : "recover",
-		active_work_kind: normalizeDiagnosticValue(evt.activeWorkKind, "none"),
-		state: evt.state,
-		status: evt.type === "session.recovery.completed" ? evt.status : "requested"
-	};
-}
-function livenessLabels(evt) {
-	return { reason: normalizeDiagnosticValue(evt.reasons.join(":"), "unknown") };
-}
-function payloadLargeLabels(evt) {
-	return {
-		action: evt.action,
-		channel: normalizeDiagnosticValue(evt.channel, "none"),
-		plugin: normalizeDiagnosticValue(evt.pluginId, "none"),
-		reason: normalizeDiagnosticValue(evt.reason, "none"),
-		surface: normalizeDiagnosticValue(evt.surface, "unknown")
-	};
-}
-function talkLabels(evt) {
-	return {
-		brain: normalizeDiagnosticValue(evt.brain),
-		event_type: normalizeDiagnosticValue(evt.talkEventType),
-		mode: normalizeDiagnosticValue(evt.mode),
-		provider: normalizeDiagnosticValue(evt.provider),
-		transport: normalizeDiagnosticValue(evt.transport)
 	};
 }
 function recordModelUsage(store, evt) {
@@ -383,8 +390,12 @@ function recordModelUsage(store, evt) {
 	store.histogram("openclaw_model_usage_duration_seconds", "Model usage event duration in seconds.", labels, seconds(evt.durationMs));
 }
 function recordDiagnosticEvent(store, evt, metadata) {
-	if (!shouldRecordDiagnosticEvent(metadata)) return;
+	if (!metadata.trusted && !isInternalDiagnosticEventMetadata(metadata)) return;
 	switch (evt.type) {
+		case "diagnostic.phase.completed":
+		case "gateway.rpc":
+			recordGatewayRpcEvent(store, evt, metadata);
+			return;
 		case "diagnostic.gc":
 			store.histogram("openclaw_gc_duration_seconds", "Elapsed garbage collection duration in seconds for the hosting JavaScript isolate.", {}, seconds(evt.durationMs));
 			return;
@@ -392,54 +403,101 @@ function recordDiagnosticEvent(store, evt, metadata) {
 			store.histogram("openclaw_gateway_event_loop_delay_max_seconds", "Maximum event-loop delay per completed Gateway observation window in seconds.", {}, seconds(evt.delayMaxMs));
 			store.counter("openclaw_gateway_event_loop_observed_seconds_total", "Elapsed seconds covered by completed Gateway event-loop observation windows.", {}, evt.intervalMs / 1e3);
 			return;
-		case "gateway.rpc": {
-			const labels = { method: evt.method };
-			if (evt.phase === "received") {
-				store.counter("openclaw_gateway_rpc_requests_total", "Authenticated Gateway WebSocket requests received.", labels);
-				return;
-			}
-			store.counter("openclaw_gateway_rpc_outcomes_total", "Gateway RPC observations by phase and outcome.", {
-				phase: evt.phase,
-				outcome: evt.outcome
-			});
-			if (evt.phase === "response" && (evt.outcome === "ok" || evt.outcome === "error")) store.histogram("openclaw_gateway_rpc_first_response_seconds", "Elapsed time until the first Gateway RPC response is sent.", labels, seconds(evt.durationMs));
-			else if (evt.phase === "handler") {
-				store.histogram("openclaw_gateway_rpc_handler_seconds", "Gateway RPC handler duration until return or throw.", labels, seconds(evt.durationMs));
-				store.histogram("openclaw_gateway_rpc_admission_seconds", "Elapsed time from Gateway RPC receipt until handler invocation.", labels, seconds(evt.admissionMs));
-			} else if (evt.phase === "dispatch") store.histogram("openclaw_gateway_rpc_queue_wait_seconds", "Gateway operator request start queue wait.", labels, seconds(evt.queueWaitMs));
-			return;
-		}
 		case "model.usage":
 			recordModelUsage(store, evt);
 			return;
-		case "run.completed":
-			store.histogram("openclaw_run_duration_seconds", "Agent run duration in seconds.", runLabels(evt), seconds(evt.durationMs));
-			store.counter("openclaw_run_completed_total", "Agent runs completed by outcome.", runLabels(evt));
+		case "run.completed": {
+			const labels = {
+				...evt.blockedBy ? { blocked_by: normalizeDiagnosticValue(evt.blockedBy) } : {},
+				channel: normalizeDiagnosticValue(evt.channel),
+				model: normalizeDiagnosticValue(evt.model),
+				outcome: normalizeDiagnosticValue(evt.outcome, "unknown"),
+				provider: normalizeDiagnosticValue(evt.provider),
+				trigger: normalizeDiagnosticValue(evt.trigger)
+			};
+			store.histogram("openclaw_run_duration_seconds", "Agent run duration in seconds.", labels, seconds(evt.durationMs));
+			store.counter("openclaw_run_completed_total", "Agent runs completed by outcome.", labels);
 			return;
+		}
 		case "model.call.completed":
-		case "model.call.error":
-			store.histogram("openclaw_model_call_duration_seconds", "Model request or synthetic agent-turn duration in seconds.", modelCallLabels(evt), seconds(evt.durationMs));
-			store.counter("openclaw_model_call_total", "Model requests or synthetic agent turns completed by outcome.", modelCallLabels(evt));
+		case "model.call.error": {
+			const labels = {
+				api: normalizeDiagnosticValue(evt.api),
+				error_category: evt.type === "model.call.error" ? normalizeDiagnosticValue(evt.errorCategory, "other") : "none",
+				model: normalizeDiagnosticValue(evt.model),
+				observation_unit: evt.observationUnit === "turn" ? "turn" : "request",
+				outcome: evt.type === "model.call.error" ? "error" : "completed",
+				provider: normalizeDiagnosticValue(evt.provider),
+				transport: normalizeDiagnosticValue(evt.transport)
+			};
+			store.histogram("openclaw_model_call_duration_seconds", "Model request or synthetic agent-turn duration in seconds.", labels, seconds(evt.durationMs));
+			store.counter("openclaw_model_call_total", "Model requests or synthetic agent turns completed by outcome.", labels);
 			return;
-		case "model.failover":
-			store.counter("openclaw_model_failover_total", "Model failovers by source, destination, lane, and reason.", modelFailoverLabels(evt));
+		}
+		case "model.failover": {
+			const labels = {
+				from_model: normalizeDiagnosticValue(evt.fromModel),
+				from_provider: normalizeDiagnosticValue(evt.fromProvider),
+				lane: normalizeDiagnosticLane(evt.lane),
+				reason: normalizeDiagnosticValue(evt.reason, "other"),
+				suspended: evt.suspended === void 0 ? "unknown" : String(evt.suspended),
+				to_model: normalizeDiagnosticValue(evt.toModel),
+				to_provider: normalizeDiagnosticValue(evt.toProvider)
+			};
+			store.counter("openclaw_model_failover_total", "Model failovers by source, destination, lane, and reason.", labels);
 			return;
+		}
 		case "tool.execution.completed":
-		case "tool.execution.error":
-			store.histogram("openclaw_tool_execution_duration_seconds", "Tool execution duration in seconds.", toolExecutionLabels(evt), seconds(evt.durationMs));
-			store.counter("openclaw_tool_execution_total", "Tool executions completed by outcome.", toolExecutionLabels(evt));
+		case "tool.execution.error": {
+			const labels = {
+				error_category: evt.type === "tool.execution.error" ? normalizeDiagnosticValue(evt.errorCategory, "other") : "none",
+				outcome: evt.type === "tool.execution.error" ? "error" : "completed",
+				params_kind: normalizeDiagnosticValue(evt.paramsSummary?.kind),
+				tool: normalizeDiagnosticValue(evt.toolName, "tool"),
+				tool_owner: normalizeDiagnosticValue(evt.toolOwner, "none"),
+				tool_source: normalizeDiagnosticValue(evt.toolSource, "core")
+			};
+			store.histogram("openclaw_tool_execution_duration_seconds", "Tool execution duration in seconds.", labels, seconds(evt.durationMs));
+			store.counter("openclaw_tool_execution_total", "Tool executions completed by outcome.", labels);
 			return;
-		case "tool.execution.blocked":
-			store.counter("openclaw_tool_execution_blocked_total", "Tool executions blocked by policy or sandbox diagnostics.", toolExecutionBlockedLabels(evt));
+		}
+		case "tool.execution.blocked": {
+			const labels = {
+				denied_reason: normalizeDiagnosticValue(evt.deniedReason, "other"),
+				params_kind: normalizeDiagnosticValue(evt.paramsSummary?.kind),
+				tool: normalizeDiagnosticValue(evt.toolName, "tool"),
+				tool_owner: normalizeDiagnosticValue(evt.toolOwner, "none"),
+				tool_source: normalizeDiagnosticValue(evt.toolSource, "core")
+			};
+			store.counter("openclaw_tool_execution_blocked_total", "Tool executions blocked by policy or sandbox diagnostics.", labels);
 			return;
-		case "skill.used":
-			store.counter("openclaw_skill_used_total", "Skills used by agent runs.", skillLabels(evt));
+		}
+		case "skill.used": {
+			const labels = {
+				activation: normalizeDiagnosticValue(evt.activation, "unknown"),
+				agent: normalizeDiagnosticValue(evt.agentId),
+				skill: normalizeDiagnosticValue(evt.skillName, "skill"),
+				source: normalizeDiagnosticValue(evt.skillSource)
+			};
+			store.counter("openclaw_skill_used_total", "Skills used by agent runs.", labels);
 			return;
+		}
 		case "harness.run.completed":
-		case "harness.run.error":
-			store.histogram("openclaw_harness_run_duration_seconds", "Agent harness run duration in seconds.", harnessLabels(evt), seconds(evt.durationMs));
-			store.counter("openclaw_harness_run_total", "Agent harness runs completed by outcome.", harnessLabels(evt));
+		case "harness.run.error": {
+			const labels = {
+				channel: normalizeDiagnosticValue(evt.channel),
+				error_category: evt.type === "harness.run.error" ? normalizeDiagnosticValue(evt.errorCategory, "other") : "none",
+				harness: normalizeDiagnosticValue(evt.harnessId),
+				model: normalizeDiagnosticValue(evt.model),
+				outcome: evt.type === "harness.run.error" ? "error" : normalizeDiagnosticValue(evt.outcome),
+				phase: evt.type === "harness.run.error" ? normalizeDiagnosticValue(evt.phase) : "none",
+				plugin: normalizeDiagnosticValue(evt.pluginId),
+				provider: normalizeDiagnosticValue(evt.provider)
+			};
+			store.histogram("openclaw_harness_run_duration_seconds", "Agent harness run duration in seconds.", labels, seconds(evt.durationMs));
+			store.counter("openclaw_harness_run_total", "Agent harness runs completed by outcome.", labels);
 			return;
+		}
 		case "message.processed": {
 			const labels = {
 				channel: normalizeDiagnosticValue(evt.channel),
@@ -500,16 +558,31 @@ function recordDiagnosticEvent(store, evt, metadata) {
 			store.histogram("openclaw_message_delivery_duration_seconds", "Outbound message delivery duration in seconds.", labels, seconds(evt.durationMs));
 			return;
 		}
-		case "talk.event":
-			store.counter("openclaw_talk_event_total", "Talk events emitted by type.", talkLabels(evt));
-			store.histogram("openclaw_talk_event_duration_seconds", "Talk event duration in seconds when reported.", talkLabels(evt), seconds(evt.durationMs));
-			store.histogram("openclaw_talk_audio_bytes", "Talk audio frame byte lengths.", talkLabels(evt), asNonNegativeFiniteNumber(evt.byteLength), BYTE_BUCKETS);
+		case "talk.event": {
+			const labels = {
+				brain: normalizeDiagnosticValue(evt.brain),
+				event_type: normalizeDiagnosticValue(evt.talkEventType),
+				mode: normalizeDiagnosticValue(evt.mode),
+				provider: normalizeDiagnosticValue(evt.provider),
+				transport: normalizeDiagnosticValue(evt.transport)
+			};
+			store.counter("openclaw_talk_event_total", "Talk events emitted by type.", labels);
+			store.histogram("openclaw_talk_event_duration_seconds", "Talk event duration in seconds when reported.", labels, seconds(evt.durationMs));
+			store.histogram("openclaw_talk_audio_bytes", "Talk audio frame byte lengths.", labels, asNonNegativeFiniteNumber(evt.byteLength), BYTE_BUCKETS);
 			return;
+		}
 		case "session.recovery.requested":
-		case "session.recovery.completed":
-			store.counter("openclaw_session_recovery_total", "Session recovery observations by status and action.", sessionRecoveryLabels(evt));
-			store.histogram("openclaw_session_recovery_age_seconds", "Age of sessions selected for recovery in seconds.", sessionRecoveryLabels(evt), seconds(evt.ageMs));
+		case "session.recovery.completed": {
+			const labels = {
+				action: evt.type === "session.recovery.completed" ? normalizeDiagnosticValue(evt.action, "unknown") : evt.allowActiveAbort ? "abort" : "recover",
+				active_work_kind: normalizeDiagnosticValue(evt.activeWorkKind, "none"),
+				state: evt.state,
+				status: evt.type === "session.recovery.completed" ? evt.status : "requested"
+			};
+			store.counter("openclaw_session_recovery_total", "Session recovery observations by status and action.", labels);
+			store.histogram("openclaw_session_recovery_age_seconds", "Age of sessions selected for recovery in seconds.", labels, seconds(evt.ageMs));
 			return;
+		}
 		case "queue.lane.enqueue":
 		case "queue.lane.dequeue":
 			store.gauge("openclaw_queue_lane_size", "Current diagnostic queue lane size.", { lane: normalizeDiagnosticLane(evt.lane) }, asNonNegativeFiniteNumber(evt.queueSize));
@@ -522,10 +595,15 @@ function recordDiagnosticEvent(store, evt, metadata) {
 			});
 			if (evt.queueDepth !== void 0) store.gauge("openclaw_session_queue_depth", "Latest observed session queue depth.", { state: evt.state }, asNonNegativeFiniteNumber(evt.queueDepth));
 			return;
-		case "session.stuck":
-			store.counter("openclaw_session_stuck_total", "Stale session bookkeeping observations with no active work.", sessionStuckLabels(evt));
-			store.histogram("openclaw_session_stuck_age_seconds", "Age of stale session bookkeeping observations in seconds.", sessionStuckLabels(evt), seconds(evt.ageMs));
+		case "session.stuck": {
+			const labels = {
+				reason: normalizeDiagnosticValue(evt.reason, "none"),
+				state: evt.state
+			};
+			store.counter("openclaw_session_stuck_total", "Stale session bookkeeping observations with no active work.", labels);
+			store.histogram("openclaw_session_stuck_age_seconds", "Age of stale session bookkeeping observations in seconds.", labels, seconds(evt.ageMs));
 			return;
+		}
 		case "session.turn.created":
 			store.counter("openclaw_session_turn_created_total", "Agent session turns created.", {
 				agent: normalizeDiagnosticValue(evt.agentId),
@@ -534,47 +612,31 @@ function recordDiagnosticEvent(store, evt, metadata) {
 			});
 			return;
 		case "diagnostic.child_process.spawn":
-			store.counter("openclaw_child_process_spawn_total", "Successful child launches through the shared spawn and exec owners.", { family: normalizeDiagnosticValue(evt.family) }, asNonNegativeFiniteNumber(evt.count) ?? 0);
+			recordChildProcessSpawn(store, evt);
 			return;
-		case "diagnostic.memory.sample": {
-			for (const [kind, field] of [
-				["rss", "rssBytes"],
-				["heap_total", "heapTotalBytes"],
-				["heap_used", "heapUsedBytes"],
-				["external", "externalBytes"],
-				["array_buffers", "arrayBuffersBytes"],
-				["worker_heap_total", "workerHeapTotalBytes"],
-				["worker_heap_used", "workerHeapUsedBytes"]
-			]) store.gauge("openclaw_memory_bytes", "Latest process memory usage by memory kind.", { kind }, asNonNegativeFiniteNumber(evt.memory[field]));
-			for (const [name, field] of [["openclaw_worker_count", "workerCount"], ["openclaw_worker_heap_sampled_count", "workerHeapSampledCount"]]) store.gauge(name, "Worker isolate counts.", {}, asNonNegativeFiniteNumber(evt.memory[field]));
-			const workerHeaps = /* @__PURE__ */ new Map();
-			for (const worker of evt.memory.workerHeaps ?? []) {
-				const heapUsed = asNonNegativeFiniteNumber(worker.heapUsed);
-				if (heapUsed !== void 0) workerHeaps.set(worker.script, (workerHeaps.get(worker.script) ?? 0) + heapUsed);
-			}
-			store.clearGauges("openclaw_worker_heap_used_bytes");
-			for (const [script, heapUsed] of workerHeaps) store.gauge("openclaw_worker_heap_used_bytes", "Latest live Worker heap usage by bounded script basename.", { script }, heapUsed);
-			store.histogram("openclaw_memory_rss_bytes", "RSS memory sample distribution in bytes.", {}, asNonNegativeFiniteNumber(evt.memory.rssBytes), BYTE_BUCKETS);
+		case "diagnostic.memory.sample":
+			recordMemorySample(store, evt.memory, BYTE_BUCKETS);
 			return;
-		}
 		case "diagnostic.memory.pressure":
 			store.counter("openclaw_memory_pressure_total", "Memory pressure events by level and reason.", {
 				level: evt.level,
 				reason: evt.reason
 			});
 			return;
-		case "diagnostic.liveness.warning":
-			store.counter("openclaw_liveness_warning_total", "Diagnostic liveness warning events.", livenessLabels(evt));
+		case "diagnostic.liveness.warning": {
+			const labels = { reason: normalizeDiagnosticValue(evt.reasons.join(":"), "unknown") };
+			store.counter("openclaw_liveness_warning_total", "Diagnostic liveness warning events.", labels);
 			for (const state of [
 				"active",
 				"waiting",
 				"queued"
 			]) store.gauge("openclaw_liveness_sessions", "Latest session counts reported with diagnostic liveness warnings.", { state }, asNonNegativeFiniteNumber(evt[state]));
-			store.histogram("openclaw_liveness_event_loop_delay_p99_seconds", "P99 event-loop delay reported by diagnostic liveness warnings in seconds.", livenessLabels(evt), seconds(evt.eventLoopDelayP99Ms));
-			store.histogram("openclaw_liveness_event_loop_delay_max_seconds", "Maximum event-loop delay reported by diagnostic liveness warnings in seconds.", livenessLabels(evt), seconds(evt.eventLoopDelayMaxMs));
-			store.histogram("openclaw_liveness_event_loop_utilization_ratio", "Event-loop utilization reported by diagnostic liveness warnings.", livenessLabels(evt), asNonNegativeFiniteNumber(evt.eventLoopUtilization), RATIO_BUCKETS);
-			store.histogram("openclaw_liveness_cpu_core_ratio", "Whole-process CPU usage in core equivalents, including worker and native threads; can exceed 1.", livenessLabels(evt), asNonNegativeFiniteNumber(evt.cpuCoreRatio), RATIO_BUCKETS);
+			store.histogram("openclaw_liveness_event_loop_delay_p99_seconds", "P99 event-loop delay reported by diagnostic liveness warnings in seconds.", labels, seconds(evt.eventLoopDelayP99Ms));
+			store.histogram("openclaw_liveness_event_loop_delay_max_seconds", "Maximum event-loop delay reported by diagnostic liveness warnings in seconds.", labels, seconds(evt.eventLoopDelayMaxMs));
+			store.histogram("openclaw_liveness_event_loop_utilization_ratio", "Event-loop utilization reported by diagnostic liveness warnings.", labels, asNonNegativeFiniteNumber(evt.eventLoopUtilization), RATIO_BUCKETS);
+			store.histogram("openclaw_liveness_cpu_core_ratio", "Whole-process CPU usage in core equivalents, including worker and native threads; can exceed 1.", labels, asNonNegativeFiniteNumber(evt.cpuCoreRatio), RATIO_BUCKETS);
 			return;
+		}
 		case "diagnostic.async_queue.dropped":
 			for (const [dropClass, field] of [
 				["total", "droppedEvents"],
@@ -596,9 +658,17 @@ function recordDiagnosticEvent(store, evt, metadata) {
 				status: evt.status
 			});
 			return;
-		case "payload.large":
-			store.counter("openclaw_payload_large_total", "Oversized payload diagnostics by surface and action.", payloadLargeLabels(evt));
-			store.histogram("openclaw_payload_large_bytes", "Oversized payload byte sizes by surface and action.", payloadLargeLabels(evt), asNonNegativeFiniteNumber(evt.bytes), BYTE_BUCKETS);
+		case "payload.large": {
+			const labels = {
+				action: evt.action,
+				channel: normalizeDiagnosticValue(evt.channel, "none"),
+				plugin: normalizeDiagnosticValue(evt.pluginId, "none"),
+				reason: normalizeDiagnosticValue(evt.reason, "none"),
+				surface: normalizeDiagnosticValue(evt.surface, "unknown")
+			};
+			store.counter("openclaw_payload_large_total", "Oversized payload diagnostics by surface and action.", labels);
+			store.histogram("openclaw_payload_large_bytes", "Oversized payload byte sizes by surface and action.", labels, asNonNegativeFiniteNumber(evt.bytes), BYTE_BUCKETS);
+		}
 	}
 }
 const METRICS_READ_SCOPE = "operator.read";
@@ -644,10 +714,16 @@ function createDiagnosticsPrometheusExporter() {
 	const store = createPrometheusMetricStore();
 	let unsubscribe;
 	let internalDiagnostics;
-	const reportExporterHealth = (update) => {
+	const reportExporterStatus = (update) => {
 		try {
 			internalDiagnostics?.reportExporterHealth?.(update);
 		} catch {}
+		const { transport: _transport, ...event } = update;
+		internalDiagnostics?.emit({
+			type: "telemetry.exporter",
+			exporter: "diagnostics-prometheus",
+			...event
+		});
 	};
 	return {
 		handler: createMetricsHandler(store),
@@ -673,16 +749,9 @@ function createDiagnosticsPrometheusExporter() {
 					}
 				}, { exclude: ["log.record"] }, { includePrivateData: false });
 				internalDiagnostics = ctx.internalDiagnostics;
-				reportExporterHealth({
+				reportExporterStatus({
 					signal: "metrics",
 					transport: "prometheus-scrape",
-					status: "started",
-					reason: "configured"
-				});
-				internalDiagnostics.emit({
-					type: "telemetry.exporter",
-					exporter: "diagnostics-prometheus",
-					signal: "metrics",
 					status: "started",
 					reason: "configured"
 				});
@@ -690,15 +759,9 @@ function createDiagnosticsPrometheusExporter() {
 			stop() {
 				unsubscribe?.();
 				unsubscribe = void 0;
-				reportExporterHealth({
+				reportExporterStatus({
 					signal: "metrics",
 					transport: "prometheus-scrape",
-					status: "dropped"
-				});
-				internalDiagnostics?.emit({
-					type: "telemetry.exporter",
-					exporter: "diagnostics-prometheus",
-					signal: "metrics",
 					status: "dropped"
 				});
 				internalDiagnostics = void 0;

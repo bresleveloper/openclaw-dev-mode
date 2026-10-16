@@ -4,11 +4,11 @@ import { fileURLToPath } from "node:url";
 var setup_entry_default = defineBundledChannelSetupEntry({
 	importMetaUrl: import.meta.url,
 	plugin: {
-		specifier: fileURLToPath(new URL(".setup/setup-api-VAUkwtTi.mjs", import.meta.url).href),
+		specifier: fileURLToPath(new URL(".setup/setup-api-C3dRUgUi.mjs", import.meta.url).href),
 		exportName: "feishuPlugin"
 	},
 	secrets: {
-		specifier: fileURLToPath(new URL(".setup/secret-contract-api-jmCkqVLc.mjs", import.meta.url).href),
+		specifier: fileURLToPath(new URL(".setup/secret-contract-api-o4CeT4nP.mjs", import.meta.url).href),
 		exportName: "channelSecrets"
 	},
 	runtime: {

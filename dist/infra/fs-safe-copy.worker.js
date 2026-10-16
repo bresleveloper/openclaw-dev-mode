@@ -1,8 +1,9 @@
-import { n as getFsSafeNativeConfig, t as configureFsSafeNative } from "../fs-safe-defaults-D3xd3zKO.mjs";
+import { r as normalizeFsSafeNativeEnv } from "../fs-safe-env-CCe2lU-3.mjs";
 import { readFileSync } from "node:fs";
+import { serialize } from "node:v8";
 import { parentPort } from "node:worker_threads";
 import { copyTree, createCloneSource, probeTreeClone, readCloneFileMetadata } from "@openclaw/fs-safe/copy";
-import { serialize } from "node:v8";
+import { configureFsSafeNative, getFsSafeNativeConfig } from "@openclaw/fs-safe/config";
 //#region src/infra/fs-safe-copy.worker.ts
 function failure(error) {
 	return {
@@ -11,9 +12,10 @@ function failure(error) {
 		...error instanceof Error && "code" in error && typeof error.code === "string" ? { code: error.code } : {}
 	};
 }
+normalizeFsSafeNativeEnv();
 if (parentPort) {
 	const nativeConfig = getFsSafeNativeConfig();
-	const { serveWorkerTasks } = await import("../worker-task-server-BDPOy8uz.mjs");
+	const { serveWorkerTasks } = await import("../worker-task-server-DCO6XUS8.mjs");
 	configureFsSafeNative(nativeConfig);
 	serveWorkerTasks(async (input) => {
 		const command = input;

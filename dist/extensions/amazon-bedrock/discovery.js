@@ -1,10 +1,9 @@
-import { refreshAwsSharedConfigCacheForBedrock } from "./aws-credential-refresh.js";
 import { loadBedrockControlPlaneSdk, runBedrockControlPlaneRequest } from "./control-plane.js";
-import { resolveBedrockConfigApiKey } from "./discovery-shared.js";
-import { resolveBedrockNativeThinkingLevelMap } from "./thinking-policy.js";
+import { isClaude5BedrockModel, resolveBedrockNativeThinkingLevelMap } from "./thinking-policy.js";
+import { resolveAwsSdkEnvVarName } from "openclaw/plugin-sdk/provider-auth-runtime";
 import { LiveModelCatalogHttpError } from "openclaw/plugin-sdk/provider-catalog-live-runtime";
-import { resolveClaudeFable5ModelIdentity, resolveClaudeModelIdentity, resolveClaudeMythos5ModelIdentity, resolveClaudeOpus5ModelIdentity, resolveClaudeSonnet5ModelIdentity, supportsClaudeAdaptiveThinking } from "openclaw/plugin-sdk/provider-model-shared";
-import { asOptionalRecord, normalizeLowercaseStringOrEmpty, normalizeOptionalLowercaseString, normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
+import { resolveClaudeModelIdentity, supportsClaudeAdaptiveThinking } from "openclaw/plugin-sdk/provider-model-shared";
+import { asOptionalRecord, normalizeLowercaseStringOrEmpty, normalizeOptionalLowercaseString, normalizeOptionalString, normalizeSortedUniqueTrimmedStringList } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { isFutureDateTimestampMs, resolveExpiresAtMsFromDurationSeconds } from "openclaw/plugin-sdk/number-runtime";
 //#region extensions/amazon-bedrock/discovery.ts
 const DEFAULT_REFRESH_INTERVAL_SECONDS = 3600;
@@ -27,12 +26,7 @@ const DEFAULT_MAX_TOKENS = 4096;
 *          https://platform.claude.com/docs/en/about-claude/models
 */
 const KNOWN_CONTEXT_WINDOWS = {
-	"anthropic.claude-fable-5": 1e6,
-	"anthropic.claude-mythos-5": 1e6,
-	"anthropic.claude-sonnet-5": 1e6,
-	"anthropic.claude-opus-5": 1e6,
 	"anthropic.claude-3-7-sonnet-20250219-v1:0": 2e5,
-	"anthropic.claude-opus-4-8": 1e6,
 	"anthropic.claude-opus-4-7": 1e6,
 	"anthropic.claude-opus-4-6-v1": 1e6,
 	"anthropic.claude-sonnet-4-6": 1e6,
@@ -92,7 +86,7 @@ const KNOWN_CONTEXT_WINDOWS = {
 function resolveKnownContextWindow(modelId) {
 	const candidates = [modelId, modelId.replace(/^(?:us|eu|ap|apac|au|jp|global)\./, "")];
 	for (const candidate of candidates) {
-		if (resolveClaudeFable5ModelIdentity({ id: candidate }) || resolveClaudeMythos5ModelIdentity({ id: candidate }) || resolveClaudeSonnet5ModelIdentity({ id: candidate }) || resolveClaudeOpus5ModelIdentity({ id: candidate })) return 1e6;
+		if (isClaude5BedrockModel({ id: candidate })) return 1e6;
 		if (/(?:^|[/.:])anthropic\.claude-opus-4[.-]8(?:$|[-.:/])/i.test(candidate)) return 1e6;
 		if (KNOWN_CONTEXT_WINDOWS[candidate] !== void 0) return KNOWN_CONTEXT_WINDOWS[candidate];
 		const withoutVersionSuffix = candidate.replace(/:0$/, "");
@@ -102,15 +96,6 @@ function resolveKnownContextWindow(modelId) {
 function isKnownClaudeMythosPreviewModelId(modelId) {
 	return [modelId, modelId.replace(/^(?:us|eu|ap|apac|au|jp|global)\./, "")].some((candidate) => /(?:^|[/.:])anthropic\.claude-mythos-preview(?:$|[-.:/])/i.test(candidate));
 }
-function resolveKnownThinkingLevelMap(modelId) {
-	return resolveBedrockNativeThinkingLevelMap(modelId);
-}
-function resolveKnownMaxTokens(modelId) {
-	return resolveClaudeFable5ModelIdentity({ id: modelId }) || resolveClaudeMythos5ModelIdentity({ id: modelId }) || resolveClaudeSonnet5ModelIdentity({ id: modelId }) || resolveClaudeOpus5ModelIdentity({ id: modelId }) ? 128e3 : void 0;
-}
-function resolveKnownInput(modelId) {
-	return resolveClaudeFable5ModelIdentity({ id: modelId }) || resolveClaudeMythos5ModelIdentity({ id: modelId }) || resolveClaudeSonnet5ModelIdentity({ id: modelId }) || resolveClaudeOpus5ModelIdentity({ id: modelId }) ? ["text", "image"] : void 0;
-}
 const DEFAULT_COST = {
 	input: 0,
 	output: 0,
@@ -118,28 +103,12 @@ const DEFAULT_COST = {
 	cacheWrite: 0
 };
 const discoveryCache = /* @__PURE__ */ new Map();
-function normalizeProviderFilter(filter) {
-	if (!filter || filter.length === 0) return [];
-	const normalized = new Set(filter.map((entry) => normalizeOptionalLowercaseString(entry)).filter((entry) => Boolean(entry)));
-	return Array.from(normalized).toSorted();
-}
 function includesTextModalities(modalities) {
 	return (modalities ?? []).some((entry) => normalizeOptionalLowercaseString(entry) === "text");
 }
-function isActive(summary) {
-	const status = summary.modelLifecycle?.status;
-	return typeof status === "string" ? status.toUpperCase() === "ACTIVE" : false;
-}
 function mapInputModalities(summary) {
-	const inputs = summary.inputModalities ?? [];
-	const mapped = /* @__PURE__ */ new Set();
-	for (const modality of inputs) {
-		const lower = normalizeOptionalLowercaseString(modality);
-		if (lower === "text") mapped.add("text");
-		if (lower === "image") mapped.add("image");
-	}
-	if (mapped.size === 0) mapped.add("text");
-	return Array.from(mapped);
+	const inputs = (summary.inputModalities ?? []).map(normalizeOptionalLowercaseString).filter((modality) => modality === "text" || modality === "image");
+	return inputs.length > 0 ? [...new Set(inputs)] : ["text"];
 }
 function inferReasoningSupport(summary) {
 	if (supportsClaudeAdaptiveThinking({ id: summary.modelId })) return true;
@@ -162,17 +131,11 @@ function matchesProviderFilter(summary, filter) {
 	return filter.includes(normalized);
 }
 function shouldIncludeSummary(summary, filter) {
-	if (!summary.modelId?.trim()) return false;
-	if (!matchesProviderFilter(summary, filter)) return false;
-	if (summary.responseStreamingSupported !== true) return false;
-	if (isKnownClaudeMythosPreviewModelId(summary.modelId)) return false;
-	if (!includesTextModalities(summary.outputModalities)) return false;
-	if (!isActive(summary)) return false;
-	return true;
+	return Boolean(summary.modelId?.trim() && matchesProviderFilter(summary, filter) && summary.responseStreamingSupported === true && !isKnownClaudeMythosPreviewModelId(summary.modelId) && includesTextModalities(summary.outputModalities) && typeof summary.modelLifecycle?.status === "string" && summary.modelLifecycle.status.toUpperCase() === "ACTIVE");
 }
 function toModelDefinition(summary, defaults) {
 	const id = summary.modelId?.trim() ?? "";
-	const thinkingLevelMap = resolveKnownThinkingLevelMap(id);
+	const thinkingLevelMap = resolveBedrockNativeThinkingLevelMap(id);
 	return {
 		id,
 		name: summary.modelName?.trim() || id,
@@ -180,7 +143,7 @@ function toModelDefinition(summary, defaults) {
 		input: mapInputModalities(summary),
 		cost: DEFAULT_COST,
 		contextWindow: resolveKnownContextWindow(id) ?? defaults.contextWindow,
-		maxTokens: resolveKnownMaxTokens(id) ?? defaults.maxTokens,
+		maxTokens: isClaude5BedrockModel({ id }) ? 128e3 : defaults.maxTokens,
 		...thinkingLevelMap ? { thinkingLevelMap } : {}
 	};
 }
@@ -250,17 +213,18 @@ function resolveInferenceProfiles(profiles, defaults, providerFilter, foundation
 		const baseModelId = resolveBaseModelId(profile);
 		if (isKnownClaudeMythosPreviewModelId(baseModelId ?? profile.inferenceProfileId)) continue;
 		const baseModel = baseModelId ? foundationModels.get(normalizeLowercaseStringOrEmpty(baseModelId)) : void 0;
-		const knownThinkingLevelMap = resolveKnownThinkingLevelMap(baseModelId ?? profile.inferenceProfileId);
+		const knownThinkingLevelMap = resolveBedrockNativeThinkingLevelMap(baseModelId ?? profile.inferenceProfileId);
 		const contractModelId = baseModelId ?? profile.inferenceProfileId;
+		const claude5 = isClaude5BedrockModel({ id: contractModelId });
 		const canonicalClaudeId = resolveClaudeModelIdentity({ id: baseModelId });
 		discovered.push({
 			id: profile.inferenceProfileId,
 			name: profile.inferenceProfileName?.trim() || profile.inferenceProfileId,
 			reasoning: baseModel?.reasoning ?? supportsClaudeAdaptiveThinking({ id: baseModelId ?? profile.inferenceProfileId }),
-			input: baseModel?.input ?? resolveKnownInput(contractModelId) ?? ["text"],
+			input: baseModel?.input ?? (claude5 ? ["text", "image"] : ["text"]),
 			cost: baseModel?.cost ?? DEFAULT_COST,
-			contextWindow: baseModel?.contextWindow ?? resolveKnownContextWindow(baseModelId ?? profile.inferenceProfileId ?? "") ?? defaults.contextWindow,
-			maxTokens: baseModel?.maxTokens ?? resolveKnownMaxTokens(baseModelId ?? profile.inferenceProfileId) ?? defaults.maxTokens,
+			contextWindow: baseModel?.contextWindow ?? resolveKnownContextWindow(contractModelId) ?? defaults.contextWindow,
+			maxTokens: baseModel?.maxTokens ?? (claude5 ? 128e3 : defaults.maxTokens),
 			...baseModel?.thinkingLevelMap || knownThinkingLevelMap ? { thinkingLevelMap: baseModel?.thinkingLevelMap ?? knownThinkingLevelMap } : {},
 			...canonicalClaudeId.startsWith("claude-") ? { params: { canonicalModelId: canonicalClaudeId } } : {}
 		});
@@ -270,7 +234,7 @@ function resolveInferenceProfiles(profiles, defaults, providerFilter, foundation
 /** Public discovery is advisory by default; catalog owners opt into strict acquisition. */
 async function discoverBedrockModels(params) {
 	const refreshIntervalSeconds = Math.max(0, Math.floor(params.config?.refreshInterval ?? DEFAULT_REFRESH_INTERVAL_SECONDS));
-	const providerFilter = normalizeProviderFilter(params.config?.providerFilter);
+	const providerFilter = normalizeSortedUniqueTrimmedStringList(params.config?.providerFilter?.map(normalizeOptionalLowercaseString));
 	const defaultContextWindow = resolveDefaultContextWindow(params.config);
 	const defaultMaxTokens = resolveDefaultMaxTokens(params.config);
 	const cacheKey = JSON.stringify({
@@ -288,9 +252,7 @@ async function discoverBedrockModels(params) {
 		discoveryCache.delete(cacheKey);
 	}
 	const sdk = await loadBedrockControlPlaneSdk();
-	const clientFactory = params.clientFactory ?? ((region) => sdk.createClient(region));
-	if (!params.clientFactory) await refreshAwsSharedConfigCacheForBedrock();
-	const client = clientFactory(params.region);
+	const client = (params.clientFactory ?? ((region) => sdk.createClient(region)))(params.region);
 	const discoveryPromise = (async () => {
 		try {
 			const foundationCommand = sdk.createListFoundationModelsCommand();
@@ -359,7 +321,7 @@ async function resolveImplicitBedrockProvider(params) {
 	const env = params.env ?? process.env;
 	const discoveryConfig = params.pluginConfig?.discovery;
 	const enabled = discoveryConfig?.enabled;
-	const hasAwsCreds = resolveBedrockConfigApiKey(env) !== void 0;
+	const hasAwsCreds = resolveAwsSdkEnvVarName(env) !== void 0;
 	if (enabled === false) return null;
 	if (enabled !== true && !hasAwsCreds) return null;
 	const region = discoveryConfig?.region ?? normalizeOptionalString(env.AWS_REGION) ?? normalizeOptionalString(env.AWS_DEFAULT_REGION) ?? "us-east-1";

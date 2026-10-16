@@ -1,5 +1,7 @@
 {
-  "syncedAt": 1791704260682,
-  "head": "f7771aeb815eb58f92716304f34ddbaa601b58c1",
-  "inputsClean": true
+  "syncedAt": 1792149325955,
+  "head": "383c124cc32ffee3f8e56f549b88da94d269a4af",
+  "inputsClean": true,
+  "staticAssets": true,
+  "inputSignature": "993c4abae894b4dc969a4f42e337f9a895c549c941a12ac655e3fac7314d8cd7"
 }

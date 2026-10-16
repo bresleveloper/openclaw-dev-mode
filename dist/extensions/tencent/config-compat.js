@@ -13,21 +13,6 @@ const TENCENT_TOKENHUB_MODEL_ALIASES = {
 	[TENCENT_TOKENHUB_HY3_MODEL_REF]: "Hy3 (TokenHub)",
 	[TENCENT_TOKENHUB_HY3_PREVIEW_MODEL_REF]: "Hy3 preview (TokenHub)"
 };
-function isTokenHubModelMapConfigured(models) {
-	return TENCENT_TOKENHUB_MANAGED_MODEL_REFS.some((ref) => Object.hasOwn(models, ref));
-}
-function withDefaultAlias(entry, alias) {
-	return {
-		...entry,
-		alias: entry?.alias ?? alias
-	};
-}
-function needsDefaultAlias(entry) {
-	return entry?.alias === void 0;
-}
-function needsModelRepair(models, ref) {
-	return !Object.hasOwn(models, ref) || needsDefaultAlias(models[ref]);
-}
 function migrateDefaultModel(model) {
 	if (model === TENCENT_TOKENHUB_HY3_PREVIEW_MODEL_REF) return {
 		model: { primary: TENCENT_TOKENHUB_MIGRATION_TARGET_MODEL_REF },
@@ -47,18 +32,21 @@ function migrateDefaultModel(model) {
 }
 function migrateTencentTokenHubModelDefaults(cfg) {
 	const existingModels = cfg.agents?.defaults?.models;
-	if (!existingModels || !isTokenHubModelMapConfigured(existingModels)) return {
+	if (!existingModels || !TENCENT_TOKENHUB_MANAGED_MODEL_REFS.some((ref) => Object.hasOwn(existingModels, ref))) return {
 		config: cfg,
 		changes: []
 	};
-	const needsModelMapRepair = TENCENT_TOKENHUB_MANAGED_MODEL_REFS.some((ref) => needsModelRepair(existingModels, ref));
+	const needsModelMapRepair = TENCENT_TOKENHUB_MANAGED_MODEL_REFS.some((ref) => !Object.hasOwn(existingModels, ref) || existingModels[ref]?.alias === void 0);
 	const migratedModel = migrateDefaultModel(cfg.agents?.defaults?.model);
 	if (!needsModelMapRepair && !migratedModel.changed) return {
 		config: cfg,
 		changes: []
 	};
 	const nextModels = { ...existingModels };
-	for (const ref of TENCENT_TOKENHUB_MANAGED_MODEL_REFS) nextModels[ref] = withDefaultAlias(existingModels[ref], TENCENT_TOKENHUB_MODEL_ALIASES[ref]);
+	for (const ref of TENCENT_TOKENHUB_MANAGED_MODEL_REFS) nextModels[ref] = {
+		...existingModels[ref],
+		alias: existingModels[ref]?.alias ?? TENCENT_TOKENHUB_MODEL_ALIASES[ref]
+	};
 	const nextConfig = {
 		...cfg,
 		agents: {

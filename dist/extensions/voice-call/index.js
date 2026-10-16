@@ -1,12 +1,12 @@
-import { definePluginEntry } from "./runtime-api.js";
-import "./api.js";
+import { definePluginEntry } from "./api.js";
 import { VOICE_CALL_CLI_DESCRIPTOR } from "./cli-output-mode.js";
-import { i as resolveVoiceCallConfig, t as VoiceCallConfigSchema, u as validateProviderConfig } from "./.setup/config-72FnMWHb.mjs";
-import { t as createVoiceCallRuntime } from "./.setup/runtime-entry-dDRm6RgA.mjs";
+import { i as resolveVoiceCallConfig, t as VoiceCallConfigSchema, u as validateProviderConfig } from "./.setup/config-CX9J-053.mjs";
+import { t as createVoiceCallRuntime } from "./.setup/runtime-entry-CbSKxSKk.mjs";
 import { formatErrorMessage } from "openclaw/plugin-sdk/error-runtime";
 import { ErrorCodes, errorShape } from "openclaw/plugin-sdk/gateway-runtime";
 import { resolveGlobalSingleton } from "openclaw/plugin-sdk/global-singleton";
 import { normalizeAgentId, parseAgentSessionKey } from "openclaw/plugin-sdk/routing";
+import { resolvePluginServiceScheduler } from "openclaw/plugin-sdk/runtime";
 import { asNonArrayRecord, asOptionalRecord, normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { jsonResult } from "openclaw/plugin-sdk/tool-results";
 import { Type } from "typebox";
@@ -61,7 +61,6 @@ function createVoiceCallCommandService(ensureRuntime) {
 		const request = await resolveCallMessage(callId, message);
 		return {
 			rt: request.rt,
-			callId: request.callId,
 			run: async () => {
 				const result = await request.rt.manager.continueCall(request.callId, request.message);
 				requireSuccess(result, "continue failed");
@@ -142,51 +141,33 @@ function createVoiceCallContinueOperationStore(params) {
 		const ttsTimeoutMs = rt.config.tts?.timeoutMs ?? params.config.tts?.timeoutMs ?? params.coreConfig.tts?.timeoutMs ?? 8e3;
 		return resolveTimerTimeoutMs((rt.config.transcriptTimeoutMs ?? params.config.transcriptTimeoutMs) + ttsTimeoutMs + VOICE_CALL_CONTINUE_OPERATION_BUFFER_MS, VOICE_CALL_CONTINUE_OPERATION_BUFFER_MS);
 	};
-	const scheduleCleanup = (operationId) => {
-		setTimeout(() => {
-			operations.delete(operationId);
-		}, VOICE_CALL_CONTINUE_OPERATION_CLEANUP_MS).unref?.();
-	};
 	const start = (request) => {
 		const operationId = randomUUID();
-		const startedAtMs = Date.now();
 		const pollTimeoutMs = resolvePollTimeoutMs(request.rt);
 		operations.set(operationId, {
 			operationId,
 			status: "pending",
-			callId: request.callId,
-			startedAtMs,
 			pollTimeoutMs
 		});
 		request.run().then((result) => {
-			const current = operations.get(operationId);
-			if (!current || current.status !== "pending") return;
 			operations.set(operationId, {
 				operationId,
 				status: "completed",
-				callId: request.callId,
-				startedAtMs,
-				completedAtMs: Date.now(),
-				pollTimeoutMs,
 				result: {
 					success: true,
 					transcript: result.transcript
 				}
 			});
 		}).catch((err) => {
-			const current = operations.get(operationId);
-			if (!current || current.status !== "pending") return;
 			operations.set(operationId, {
 				operationId,
 				status: "failed",
-				callId: request.callId,
-				startedAtMs,
-				completedAtMs: Date.now(),
-				pollTimeoutMs,
 				error: formatErrorMessage(err)
 			});
 		}).finally(() => {
-			scheduleCleanup(operationId);
+			setTimeout(() => {
+				operations.delete(operationId);
+			}, VOICE_CALL_CONTINUE_OPERATION_CLEANUP_MS).unref?.();
 		});
 		return {
 			operationId,
@@ -200,33 +181,10 @@ function createVoiceCallContinueOperationStore(params) {
 			ok: false,
 			error: "operation not found"
 		};
-		if (operation.status === "pending") return {
-			ok: true,
-			payload: {
-				operationId,
-				status: "pending",
-				pollTimeoutMs: operation.pollTimeoutMs
-			}
-		};
-		if (operation.status === "failed") {
-			operations.delete(operationId);
-			return {
-				ok: true,
-				payload: {
-					operationId,
-					status: "failed",
-					error: operation.error
-				}
-			};
-		}
-		operations.delete(operationId);
+		if (operation.status !== "pending") operations.delete(operationId);
 		return {
 			ok: true,
-			payload: {
-				operationId,
-				status: "completed",
-				result: operation.result
-			}
+			payload: { ...operation }
 		};
 	};
 	return {
@@ -374,10 +332,13 @@ var voice_call_default = definePluginEntry({
 					};
 					return createdRuntime;
 				}
+				const scheduler = runtimeGeneration.scheduler;
+				if (!scheduler || scheduler.signal.aborted) throw new VoiceCallRuntimeLifecycleError("Voice call service is not running; start the Gateway and retry");
 				const startingSlot = {
 					state: "starting",
 					owner: runtimeGeneration,
 					promise: createVoiceCallRuntime({
+						scheduler,
 						config,
 						coreConfig: api.config,
 						fullConfig: api.config,
@@ -514,14 +475,16 @@ var voice_call_default = definePluginEntry({
 			}
 		}));
 		api.registerCli(async ({ program }) => {
-			const { registerVoiceCallCli } = await import("./.setup/cli-D6j7ppuN.mjs");
+			const { registerVoiceCallCli } = await import("./.setup/cli-Cn1leykM.mjs");
 			registerVoiceCallCli({
 				program,
 				config,
 				coreConfig: api.config,
-				ensureRuntime,
-				stateRuntime: api.runtime.state,
-				logger: api.logger
+				ensureRuntime: () => {
+					runtimeRegistration.generation.scheduler = resolvePluginServiceScheduler();
+					return ensureRuntime();
+				},
+				stateRuntime: api.runtime.state
 			});
 		}, {
 			commands: ["voicecall"],
@@ -529,6 +492,7 @@ var voice_call_default = definePluginEntry({
 		});
 		api.registerService({
 			id: "voicecall",
+			apiVersion: 2,
 			start: (ctx) => {
 				if (isCliOnlyProcess()) return;
 				try {
@@ -536,6 +500,7 @@ var voice_call_default = definePluginEntry({
 						if (runtimeCoordinator.current !== runtimeRegistration) throw new VoiceCallRuntimeLifecycleError("Voice call runtime generation was superseded; use the current plugin registration");
 						runtimeRegistration.generation = { retired: false };
 					}
+					runtimeRegistration.generation.scheduler = ctx.scheduler;
 					runtimeRegistration.generation.serviceHealth = ctx.serviceHealth;
 					activateRuntimeGeneration(runtimeRegistration.generation);
 				} catch (err) {
@@ -563,6 +528,7 @@ var voice_call_default = definePluginEntry({
 				try {
 					await stopVoiceCallRuntimeGeneration(runtimeCoordinator, runtimeGeneration);
 				} finally {
+					runtimeGeneration.scheduler = void 0;
 					runtimeGeneration.serviceHealth = void 0;
 				}
 			}

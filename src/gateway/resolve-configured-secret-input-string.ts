@@ -82,17 +82,6 @@ async function resolveConfiguredSecretInput(params: ConfiguredSecretInputParams)
       ...(params.manifestRegistry ? { manifestRegistry: params.manifestRegistry } : {}),
     });
     const resolvedValue = resolved.get(secretRefKey(ref));
-    if (typeof resolvedValue !== "string") {
-      return {
-        refConfigured: true,
-        unresolvedRefReason: buildUnresolvedReason({
-          path: params.path,
-          style,
-          kind: "non-string",
-          refLabel,
-        }),
-      };
-    }
     const trimmed = normalizeOptionalString(resolvedValue);
     if (!trimmed) {
       return {
@@ -100,7 +89,7 @@ async function resolveConfiguredSecretInput(params: ConfiguredSecretInputParams)
         unresolvedRefReason: buildUnresolvedReason({
           path: params.path,
           style,
-          kind: "empty",
+          kind: typeof resolvedValue === "string" ? "empty" : "non-string",
           refLabel,
         }),
       };
@@ -134,7 +123,7 @@ async function resolveConfiguredSecretInput(params: ConfiguredSecretInputParams)
   }
 }
 
-export async function resolveConfiguredSecretInputString(
+export async function resolveCanonicalConfiguredSecretInputString(
   params: ConfiguredSecretInputParams,
 ): Promise<{
   value?: string;
@@ -145,7 +134,7 @@ export async function resolveConfiguredSecretInputString(
   return resolved;
 }
 
-export async function resolveConfiguredSecretInputWithFallback(
+export async function resolveCanonicalConfiguredSecretInputWithFallback(
   params: ConfiguredSecretInputParams & {
     readFallback?: () => string | undefined;
   },
@@ -194,7 +183,7 @@ export async function resolveConfiguredSecretInputWithFallback(
   };
 }
 
-export async function resolveRequiredConfiguredSecretRefInputString(
+export async function resolveCanonicalRequiredConfiguredSecretRefInputString(
   params: ConfiguredSecretInputParams,
 ): Promise<string | undefined> {
   const resolved = await resolveConfiguredSecretInput(params);

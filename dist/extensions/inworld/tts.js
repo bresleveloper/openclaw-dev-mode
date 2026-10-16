@@ -9,17 +9,6 @@ const INWORLD_ERROR_BODY_MAX_BYTES = 8192;
 const INWORLD_ERROR_BODY_MAX_CHARS = 400;
 const INWORLD_ERROR_BODY_READ_IDLE_TIMEOUT_MS = 1e4;
 var InworldErrorBodyOverflow = class extends Error {};
-/**
-* Reads a bounded, whitespace-collapsed diagnostic snippet from a non-OK
-* response body. A misbehaving or hostile endpoint can stream an arbitrarily
-* large error body, so this never buffers it whole: it reuses the shared
-* `readResponseWithLimit` reader (which cancels the underlying stream on
-* overflow and enforces an idle timeout) with a small cap. On overflow it
-* returns a fixed marker instead of echoing attacker-controlled bytes into the
-* thrown error. Kept local to this extension so it depends only on the
-* already-exported `response-limit-runtime` entry and adds no shared plugin-SDK
-* surface.
-*/
 async function readInworldErrorBodySnippet(response) {
 	let buffer;
 	try {

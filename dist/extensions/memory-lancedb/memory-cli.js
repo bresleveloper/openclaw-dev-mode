@@ -1,4 +1,4 @@
-import { normalizeRecallQuery } from "./memory-policy.js";
+import { normalizeRecallQuery, projectMemorySearchResult } from "./memory-policy.js";
 import { MEMORY_QUERY_COLUMNS } from "./lancedb-store.js";
 import { isMemoryMachineOutput } from "./cli-output-mode.js";
 import { parseStrictPositiveInteger } from "openclaw/plugin-sdk/number-runtime";
@@ -51,7 +51,7 @@ function parseMemoryCliFilter(rawValue) {
 		value
 	};
 }
-function registerMemoryCli(api, db, embeddings, resolveCliAgentId, resolveConfig) {
+function registerMemoryCli(api, db, embeddings, resolveCliAgentId, resolveConfig, statsSource) {
 	api.registerCli(({ program }) => {
 		const memory = program.command("ltm").description("LanceDB memory plugin commands");
 		memory.command("list").description("List memories").option("--agent <id>", "Agent id (default: configured default agent)").option("--limit <n>", "Max results").option("--order-by-created-at", "Order memories by createdAt descending", false).action(async (opts) => {
@@ -61,35 +61,23 @@ function registerMemoryCli(api, db, embeddings, resolveCliAgentId, resolveConfig
 			defaultRuntime.writeJson(entries);
 		});
 		memory.command("search").description("Search memories").argument("<query>", "Search query").option("--agent <id>", "Agent id (default: configured default agent)").option("--limit <n>", "Max results", "5").action(async (query, opts) => {
-			let operationError;
-			let operationFailed = false;
+			let failure;
 			try {
 				const agentId = resolveCliAgentId(opts.agent);
 				const limit = parsePositiveIntegerOption(opts.limit, "--limit");
 				const config = resolveConfig();
 				const vector = await embeddings.embed(agentId, normalizeRecallQuery(query, config.recallMaxChars), config.embedding);
-				const output = (await db.search(agentId, vector, limit, .3)).map((r) => ({
-					id: r.entry.id,
-					text: r.entry.text,
-					category: r.entry.category,
-					importance: r.entry.importance,
-					score: r.score
-				}));
-				defaultRuntime.writeJson(output);
-			} catch (err) {
-				operationError = err;
-				operationFailed = true;
+				const results = await db.search(agentId, vector, limit, .3);
+				defaultRuntime.writeJson(results.map(projectMemorySearchResult));
+			} catch (error) {
+				failure = { error };
 			}
-			let closeError;
-			let closeFailed = false;
 			try {
 				await embeddings.close?.();
-			} catch (err) {
-				closeError = err;
-				closeFailed = true;
+			} catch (error) {
+				failure ??= { error };
 			}
-			if (operationFailed) throw operationError;
-			if (closeFailed) throw closeError;
+			if (failure) throw failure.error;
 		});
 		memory.command("query").description("Query memories (non-vector search)").option("--agent <id>", "Agent id (default: configured default agent)").option("--cols <columns>", "Columns to select, comma-separated").option("--filter <condition>", "Filter condition").option("--limit <n>", "Limit number of results", "10").option("--order-by <order>", "Order by column and direction (e.g., createdAt:desc)").action(async (opts) => {
 			const agentId = resolveCliAgentId(opts.agent);
@@ -116,8 +104,8 @@ function registerMemoryCli(api, db, embeddings, resolveCliAgentId, resolveConfig
 			defaultRuntime.writeJson(rows.map((row) => Object.fromEntries(outputColumns.map((column) => [column, row[column]]))));
 		});
 		memory.command("stats").description("Show memory statistics").option("--agent <id>", "Agent id (default: configured default agent)").action(async (opts) => {
-			const agentId = resolveCliAgentId(opts.agent);
-			const count = await db.count(agentId);
+			const { readMemoryStats } = await import("./memory-stats.js");
+			const count = await readMemoryStats(statsSource, resolveCliAgentId(opts.agent));
 			console.log(`Total memories: ${count}`);
 		});
 	}, {
@@ -131,4 +119,4 @@ function registerMemoryCli(api, db, embeddings, resolveCliAgentId, resolveConfig
 	});
 }
 //#endregion
-export { parseMemoryCliFilter, registerMemoryCli };
+export { registerMemoryCli };

@@ -1,5 +1,6 @@
-import { a as eventIdFor, i as errorText, o as laneKeyFor, r as LineWebhookPayloadError, s as legacyEventIdFor, t as LINE_WEBHOOK_SPOOL_INVALID_EVENT_REASON } from "./.setup/webhook-spool-contract-1rY8OJw8.mjs";
+import { a as laneKeyFor, i as eventIdFor, o as legacyEventIdFor, r as LineWebhookPayloadError, t as LINE_WEBHOOK_SPOOL_INVALID_EVENT_REASON } from "./.setup/webhook-spool-contract-msjTl60Q.mjs";
 import { isRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
+import { coerceErrorMessage } from "openclaw/plugin-sdk/error-runtime";
 //#region extensions/line/src/webhook-spool-migration.ts
 /** Pre-drain (#109655) rows stored the event object under `event` instead of the
 *  canonical serialized `rawEvent`; anything else is not a migratable row. */
@@ -49,7 +50,7 @@ async function migrateLineLegacySpoolRows(queue) {
 		try {
 			if ((await queue.resubmit?.(row.id, { resubmittedAt: row.receivedAt }))?.kind === "resubmitted") result.recovered += 1;
 		} catch (error) {
-			result.failures.push(`row ${row.id}: ${errorText(error)}`);
+			result.failures.push(`row ${row.id}: ${coerceErrorMessage(error)}`);
 		}
 	}
 	const pending = await queue.listPending({
@@ -66,7 +67,7 @@ async function migrateLineLegacySpoolRows(queue) {
 		} catch (error) {
 			await queue.fail(record.id, {
 				reason: LINE_WEBHOOK_SPOOL_INVALID_EVENT_REASON,
-				message: errorText(error)
+				message: coerceErrorMessage(error)
 			});
 			result.deadLettered += 1;
 			continue;
@@ -84,7 +85,7 @@ async function migrateLineLegacySpoolRows(queue) {
 			if (admitted.kind === "completed" || admitted.kind === "failed") result.reconciled += 1;
 			else result.migrated += 1;
 		} catch (error) {
-			result.failures.push(`row ${record.id}: ${errorText(error)}`);
+			result.failures.push(`row ${record.id}: ${coerceErrorMessage(error)}`);
 		}
 	}
 	return result;

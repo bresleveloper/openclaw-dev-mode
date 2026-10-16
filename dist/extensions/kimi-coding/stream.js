@@ -1,7 +1,7 @@
 import { isKimiK3ModelId } from "./provider-policy-api.js";
-import { isRecord, normalizeOptionalLowercaseString } from "openclaw/plugin-sdk/string-coerce-runtime";
+import { asFiniteNumberInRange, asOptionalObjectRecord, isRecord, parseBooleanValue } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { streamSimple } from "openclaw/plugin-sdk/llm";
-import { normalizeOpenAICompatibleReasoningReplay, streamWithPayloadPatch } from "openclaw/plugin-sdk/provider-stream-shared";
+import { normalizeOpenAICompatibleReasoningReplay, streamWithPayloadPatch, transformProviderStreamMessages } from "openclaw/plugin-sdk/provider-stream-shared";
 //#region extensions/kimi-coding/stream.ts
 const TOOL_CALLS_SECTION_BEGIN = "<|tool_calls_section_begin|>";
 const TOOL_CALLS_SECTION_END = "<|tool_calls_section_end|>";
@@ -28,52 +28,38 @@ const KIMI_K3_THINKING_EFFORTS = {
 	xhigh: "max",
 	max: "max"
 };
-function normalizeKimiThinkingBudgetTokens(value) {
-	if (typeof value !== "number" || !Number.isFinite(value)) return;
-	const normalized = Math.floor(value);
-	return normalized >= 1024 ? normalized : void 0;
-}
-function normalizeKimiAnthropicMaxTokens(value) {
-	if (typeof value !== "number" || !Number.isFinite(value)) return;
-	const normalized = Math.floor(value);
-	return normalized > 0 ? normalized : void 0;
-}
 function ensureKimiAnthropicMaxTokens(payloadObj, thinkingConfig) {
 	if (thinkingConfig.type !== "enabled" || thinkingConfig.budget_tokens === void 0) return;
 	const required = Math.max(KIMI_ANTHROPIC_MIN_OUTPUT_TOKENS, thinkingConfig.budget_tokens + KIMI_ANTHROPIC_VISIBLE_OUTPUT_RESERVE_TOKENS);
-	const current = normalizeKimiAnthropicMaxTokens(payloadObj.max_tokens);
-	payloadObj.max_tokens = current === void 0 ? required : Math.max(current, required);
+	const current = asFiniteNumberInRange(payloadObj.max_tokens, { min: 1 });
+	payloadObj.max_tokens = current === void 0 ? required : Math.max(Math.floor(current), required);
 }
 function normalizeKimiThinkingType(value) {
-	if (typeof value === "boolean") return value ? "enabled" : "disabled";
-	if (typeof value === "string") {
-		const normalized = normalizeOptionalLowercaseString(value);
-		if (!normalized) return;
-		if ([
+	if (isRecord(value)) return normalizeKimiThinkingType(value.type);
+	const enabled = parseBooleanValue(value, {
+		truthy: [
 			"enabled",
 			"enable",
 			"on",
 			"true"
-		].includes(normalized)) return "enabled";
-		if ([
+		],
+		falsy: [
 			"disabled",
 			"disable",
 			"off",
 			"false"
-		].includes(normalized)) return "disabled";
-		return;
-	}
-	if (isRecord(value)) return normalizeKimiThinkingType(value.type);
+		]
+	});
+	return enabled === void 0 ? void 0 : enabled ? "enabled" : "disabled";
 }
 function normalizeKimiThinkingConfig(value) {
 	const type = normalizeKimiThinkingType(value);
 	if (!type) return;
-	if (type === "disabled") return { type: "disabled" };
-	if (!isRecord(value)) return { type: "enabled" };
-	const budgetTokens = normalizeKimiThinkingBudgetTokens(value.budget_tokens ?? value.budgetTokens);
+	if (type === "disabled" || !isRecord(value)) return { type };
+	const budgetTokens = asFiniteNumberInRange(value.budget_tokens ?? value.budgetTokens, { min: 1024 });
 	return budgetTokens === void 0 ? { type: "enabled" } : {
 		type: "enabled",
-		budget_tokens: budgetTokens
+		budget_tokens: Math.floor(budgetTokens)
 	};
 }
 function resolveKimiThinkingConfig(configured, thinkingLevel) {
@@ -87,9 +73,6 @@ function resolveKimiThinkingConfig(configured, thinkingLevel) {
 		type: "enabled",
 		budget_tokens: levelBudgetTokens
 	};
-}
-function stripTaggedToolCallCounter(value) {
-	return value.trim().replace(/:\d+$/, "");
 }
 function parseKimiTaggedToolCalls(text) {
 	const trimmed = text.trim();
@@ -117,7 +100,7 @@ function parseKimiTaggedToolCalls(text) {
 			return null;
 		}
 		if (!isRecord(parsedArgs)) return null;
-		const name = stripTaggedToolCallCounter(rawId);
+		const name = rawId.replace(/:\d+$/, "");
 		if (!name) return null;
 		toolCalls.push({
 			type: "toolCall",
@@ -130,22 +113,13 @@ function parseKimiTaggedToolCalls(text) {
 	return toolCalls.length > 0 ? toolCalls : null;
 }
 function rewriteKimiTaggedToolCallsInMessage(message) {
-	if (!message || typeof message !== "object") return;
-	const content = message.content;
-	if (!Array.isArray(content)) return;
+	const record = asOptionalObjectRecord(message);
+	if (!record || !Array.isArray(record.content)) return;
 	let changed = false;
 	const nextContent = [];
-	for (const block of content) {
-		if (!block || typeof block !== "object") {
-			nextContent.push(block);
-			continue;
-		}
-		const typedBlock = block;
-		if (typedBlock.type !== "text" || typeof typedBlock.text !== "string") {
-			nextContent.push(block);
-			continue;
-		}
-		const parsed = parseKimiTaggedToolCalls(typedBlock.text);
+	for (const block of record.content) {
+		const typedBlock = asOptionalObjectRecord(block);
+		const parsed = typedBlock?.type === "text" && typeof typedBlock.text === "string" ? parseKimiTaggedToolCalls(typedBlock.text) : null;
 		if (!parsed) {
 			nextContent.push(block);
 			continue;
@@ -154,53 +128,15 @@ function rewriteKimiTaggedToolCallsInMessage(message) {
 		changed = true;
 	}
 	if (!changed) return;
-	message.content = nextContent;
-	const typedMessage = message;
-	if (typedMessage.stopReason === "stop") typedMessage.stopReason = "toolUse";
-}
-function transformKimiStreamEvent(value, transformMessage) {
-	const event = value && typeof value === "object" ? value : void 0;
-	if (!event) return;
-	for (const message of [event.partial, event.message]) transformMessage(message);
-}
-function wrapStreamMessageObjects(stream, transformMessage) {
-	const readFinalMessage = stream.result.bind(stream);
-	Object.assign(stream, { async result() {
-		const message = await readFinalMessage();
-		transformMessage(message);
-		return message;
-	} });
-	const createIterator = stream[Symbol.asyncIterator].bind(stream);
-	stream[Symbol.asyncIterator] = () => {
-		const iterator = createIterator();
-		return {
-			async next() {
-				const step = await iterator.next();
-				if (!step.done) transformKimiStreamEvent(step.value, transformMessage);
-				return step;
-			},
-			async return(value) {
-				return iterator.return?.(value) ?? {
-					done: true,
-					value: void 0
-				};
-			},
-			async throw(error) {
-				return iterator.throw?.(error) ?? {
-					done: true,
-					value: void 0
-				};
-			}
-		};
-	};
-	return stream;
+	record.content = nextContent;
+	if (record.stopReason === "stop") record.stopReason = "toolUse";
 }
 function createKimiToolCallMarkupWrapper(baseStreamFn) {
 	const underlying = baseStreamFn ?? streamSimple;
 	return (model, context, options) => {
 		const maybeStream = underlying(model, context, options);
-		if (maybeStream && typeof maybeStream === "object" && "then" in maybeStream) return Promise.resolve(maybeStream).then((stream) => wrapStreamMessageObjects(stream, rewriteKimiTaggedToolCallsInMessage));
-		return wrapStreamMessageObjects(maybeStream, rewriteKimiTaggedToolCallsInMessage);
+		if (maybeStream && typeof maybeStream === "object" && "then" in maybeStream) return Promise.resolve(maybeStream).then((stream) => transformProviderStreamMessages(stream, rewriteKimiTaggedToolCallsInMessage));
+		return transformProviderStreamMessages(maybeStream, rewriteKimiTaggedToolCallsInMessage);
 	};
 }
 function wrapKimiProviderStream(ctx) {
@@ -254,23 +190,19 @@ function wrapKimiProviderStream(ctx) {
 		});
 	});
 }
-function stripContentBlockCacheControl(block) {
-	if (!block || typeof block !== "object") return;
-	const record = block;
-	delete record.cache_control;
-	if (record.type === "tool_result" && Array.isArray(record.content)) for (const nestedBlock of record.content) stripContentBlockCacheControl(nestedBlock);
-}
 function stripContentArrayCacheControl(value) {
 	if (!Array.isArray(value)) return;
-	for (const block of value) stripContentBlockCacheControl(block);
+	for (const block of value) {
+		const record = asOptionalObjectRecord(block);
+		if (!record) continue;
+		delete record.cache_control;
+		if (record.type === "tool_result") stripContentArrayCacheControl(record.content);
+	}
 }
 function stripAnthropicCacheControlMarkers(payloadObj) {
 	stripContentArrayCacheControl(payloadObj.system);
 	if (!Array.isArray(payloadObj.messages)) return;
-	for (const message of payloadObj.messages) {
-		if (!message || typeof message !== "object") continue;
-		stripContentArrayCacheControl(message.content);
-	}
+	for (const message of payloadObj.messages) stripContentArrayCacheControl(asOptionalObjectRecord(message)?.content);
 }
 //#endregion
 export { wrapKimiProviderStream };

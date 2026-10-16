@@ -1,9 +1,9 @@
-import { r as OpenClawConfig } from "../types.openclaw-Ccmw-oTa.js";
-import { s as MsgContext } from "../templating-0ElMwhje.js";
-import "../types-BaRTNmIt.js";
-import { _ as StructuredExtractionResult, i as ImageDescriptionResult } from "../types-DtHZVXiQ.js";
-import { c as TranscribeAudioFileParams, i as ExtractStructuredWithModelParams, n as DescribeImageFileWithModelParams, o as RunMediaUnderstandingFileParams, r as DescribeVideoFileParams, s as RunMediaUnderstandingFileResult, t as DescribeImageFileParams } from "../runtime-types-NGfGL3yx.js";
-import { t as transcribeFirstAudio } from "../audio-preflight-B0MiFHMT.js";
+import { r as OpenClawConfig } from "../types.openclaw-DWWUw8hA.js";
+import { dt as MsgContext } from "../reply-payload-DazZPys5.js";
+import "../types-C-BtfS0H.js";
+import { _ as StructuredExtractionResult } from "../types-BooLarQr.js";
+import { c as TranscribeAudioFileParams, i as ExtractStructuredWithModelParams, n as DescribeImageFileWithModelParams, o as RunMediaUnderstandingFileParams, r as DescribeVideoFileParams, s as RunMediaUnderstandingFileResult, t as DescribeImageFileParams } from "../runtime-types-97vu4lmB.js";
+import { t as transcribeFirstAudio } from "../audio-preflight-CMdQ_PoF.js";
 //#region src/media-understanding/echo-transcript.d.ts
 /** Sends a best-effort transcript echo back to the originating deliverable chat. */
 declare function sendTranscriptEcho(params: {
@@ -21,7 +21,10 @@ export declare function runMediaUnderstandingFile(params: RunMediaUnderstandingF
 /** Describes one image file or URL through the configured image-understanding pipeline. */
 export declare function describeImageFile(params: DescribeImageFileParams): Promise<RunMediaUnderstandingFileResult>;
 /** Describes one image with an explicit provider/model, bypassing configured media model selection. */
-export declare function describeImageFileWithModel(params: DescribeImageFileWithModelParams): Promise<ImageDescriptionResult>;
+export declare function describeImageFileWithModel(params: DescribeImageFileWithModelParams): Promise<{
+  text: string;
+  model?: string;
+}>;
 /** Runs provider-backed structured extraction for multimodal text/image input. */
 export declare function extractStructuredWithModel(params: ExtractStructuredWithModelParams): Promise<StructuredExtractionResult>;
 /** Describes one video file or URL through the configured video-understanding pipeline. */

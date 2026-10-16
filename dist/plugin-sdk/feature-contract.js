@@ -1,4 +1,4 @@
-import { c as isRecord } from "../record-coerce-DItp3I4t.mjs";
+import { c as isRecord } from "../record-coerce-TIsquoVR.mjs";
 //#region src/plugin-sdk/feature-contract.ts
 /** Browser-safe typed operations over the existing plugin session-action transport. */
 function defineFeatureContract(contract) {

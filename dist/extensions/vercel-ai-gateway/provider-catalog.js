@@ -16,7 +16,7 @@ const VERCEL_AI_GATEWAY_IMAGE_MODEL_IDS = /* @__PURE__ */ new Set([
 ]);
 function resolveVercelAiGatewayModel(modelId) {
 	const model = resolveVercelAiGatewayDynamicModel(modelId);
-	const input = model.input.includes("image") ? ["text", "image"] : VERCEL_AI_GATEWAY_IMAGE_MODEL_IDS.has(modelId) || /^anthropic\/claude-(?:opus|sonnet|haiku)-/.test(modelId) ? ["text", "image"] : ["text"];
+	const input = model.input.includes("image") || VERCEL_AI_GATEWAY_IMAGE_MODEL_IDS.has(modelId) || /^anthropic\/claude-(?:opus|sonnet|haiku)-/.test(modelId) ? ["text", "image"] : ["text"];
 	return {
 		...model,
 		reasoning: model.reasoning || Boolean(resolveVercelAiGatewayThinkingProfile(modelId)),

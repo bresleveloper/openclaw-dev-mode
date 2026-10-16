@@ -6,9 +6,6 @@ import { parseOAuthCallbackInput, waitForLocalOAuthCallback } from "openclaw/plu
 import { assertOkOrThrowProviderError, readProviderJsonResponse } from "openclaw/plugin-sdk/provider-http";
 import { buildOAuthRequestSignal } from "openclaw/plugin-sdk/provider-oauth-runtime";
 //#region extensions/chutes/oauth.ts
-/**
-* Chutes OAuth PKCE login flow.
-*/
 const CHUTES_AUTHORIZE_ENDPOINT = "https://api.chutes.ai/idp/authorize";
 const CHUTES_TOKEN_ENDPOINT = "https://api.chutes.ai/idp/token";
 const CHUTES_USERINFO_ENDPOINT = "https://api.chutes.ai/idp/userinfo";
@@ -16,7 +13,7 @@ const CHUTES_OAUTH_REQUEST_TIMEOUT_MS = 3e4;
 function parseRedirectUri(redirectUri) {
 	const url = new URL(redirectUri);
 	if (url.protocol !== "http:") throw new Error(`Chutes OAuth redirect URI must be http:// (got ${redirectUri})`);
-	const hostname = url.hostname || "127.0.0.1";
+	const hostname = url.hostname === "[::1]" ? "::1" : url.hostname || "127.0.0.1";
 	if (hostname !== "localhost" && hostname !== "127.0.0.1" && hostname !== "::1") throw new Error(`Chutes OAuth redirect hostname must be loopback (got ${hostname}). Use http://127.0.0.1:<port>/...`);
 	return {
 		hostname,
@@ -32,18 +29,6 @@ function parseManualOAuthInput(input, expectedState) {
 	if ("error" in parsed) throw new Error(parsed.error);
 	if (parsed.state !== expectedState) throw new Error("OAuth state mismatch - possible CSRF attack. Please retry login.");
 	return parsed;
-}
-function buildAuthorizeUrl(params) {
-	const qs = new URLSearchParams({
-		client_id: params.clientId,
-		redirect_uri: params.redirectUri,
-		response_type: "code",
-		scope: params.scopes.join(" "),
-		state: params.state,
-		code_challenge: params.challenge,
-		code_challenge_method: "S256"
-	});
-	return `${CHUTES_AUTHORIZE_ENDPOINT}?${qs.toString()}`;
 }
 function resolveChutesExpiresAt(value, now) {
 	return resolveExpiresAtMsFromDurationSeconds(value, {
@@ -159,21 +144,25 @@ async function loginChutes(params) {
 	const { verifier, challenge } = generatePkceVerifierChallenge();
 	const state = params.createState?.() ?? randomBytes(16).toString("hex");
 	const timeoutMs = params.timeoutMs ?? 18e4;
-	const url = buildAuthorizeUrl({
-		clientId: params.app.clientId,
-		redirectUri: params.app.redirectUri,
-		scopes: params.app.scopes,
+	const query = new URLSearchParams({
+		client_id: params.app.clientId,
+		redirect_uri: params.app.redirectUri,
+		response_type: "code",
+		scope: params.app.scopes.join(" "),
 		state,
-		challenge
+		code_challenge: challenge,
+		code_challenge_method: "S256"
 	});
+	const url = `${CHUTES_AUTHORIZE_ENDPOINT}?${query}`;
+	const promptForCode = async () => parseManualOAuthInput(await params.onPrompt({
+		message: "Paste the redirect URL",
+		placeholder: `${params.app.redirectUri}?code=...&state=...`
+	}), state);
 	let codeAndState;
 	if (params.manual) {
 		await params.onAuth({ url });
 		params.onProgress?.("Waiting for redirect URL...");
-		codeAndState = parseManualOAuthInput(await params.onPrompt({
-			message: "Paste the redirect URL",
-			placeholder: `${params.app.redirectUri}?code=...&state=...`
-		}), state);
+		codeAndState = await promptForCode();
 	} else {
 		const redirect = parseRedirectUri(params.app.redirectUri);
 		const callback = waitForLocalOAuthCallback({
@@ -189,10 +178,7 @@ async function loginChutes(params) {
 		}).catch(async (error) => {
 			if (params.signal?.aborted) throw error;
 			params.onProgress?.("OAuth callback not detected; paste redirect URL...");
-			return parseManualOAuthInput(await params.onPrompt({
-				message: "Paste the redirect URL",
-				placeholder: `${params.app.redirectUri}?code=...&state=...`
-			}), state);
+			return await promptForCode();
 		});
 		await params.onAuth({ url });
 		codeAndState = await callback;

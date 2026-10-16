@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";var t,n,r,i=e((()=>{t=`desktop.stream`,n=`/node-desktop/attach`,r=`/node-portal/attach`}));export{i,t as n,r,n as t};

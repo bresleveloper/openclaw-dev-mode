@@ -1,4 +1,4 @@
-import { t as registerSlackPluginHttpRoutes } from "./.setup/plugin-routes-C3X0eVaK.mjs";
+import { t as registerSlackPluginHttpRoutes } from "./.setup/plugin-routes-B8tooDLj.mjs";
 import "./http-routes-api.js";
 import { defineBundledChannelEntry } from "openclaw/plugin-sdk/channel-entry-contract";
 //#region extensions/slack/index.ts

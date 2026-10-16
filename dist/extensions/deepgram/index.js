@@ -1,6 +1,6 @@
-import { t as definePluginEntry } from "../../plugin-entry-BOulgRcx.mjs";
-import { t as deepgramMediaUnderstandingProvider } from "../../media-understanding-provider-CSL7nSPA.mjs";
-import { t as buildDeepgramRealtimeTranscriptionProvider } from "../../realtime-transcription-provider-factory-D4w-Q06-.mjs";
+import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
+import { t as deepgramMediaUnderstandingProvider } from "../../media-understanding-provider-CbD5YQQW.mjs";
+import { t as buildDeepgramRealtimeTranscriptionProvider } from "../../realtime-transcription-provider-factory-CavQJn3T.mjs";
 //#region extensions/deepgram/index.ts
 var deepgram_default = definePluginEntry({
 	id: "deepgram",

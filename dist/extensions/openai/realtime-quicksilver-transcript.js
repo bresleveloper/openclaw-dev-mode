@@ -1,2 +1,2 @@
-import { t as OpenAIQuicksilverTranscript } from "../../realtime-quicksilver-transcript-C3GUFLNm.mjs";
+import { t as OpenAIQuicksilverTranscript } from "../../realtime-quicksilver-transcript-v08XZjPO.mjs";
 export { OpenAIQuicksilverTranscript };

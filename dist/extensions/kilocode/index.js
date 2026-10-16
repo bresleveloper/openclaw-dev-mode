@@ -1,5 +1,5 @@
-import { n as buildKilocodeProviderWithDiscovery, r as openclaw_plugin_default, t as buildKilocodeProvider } from "./.setup/provider-catalog-DVP2RSKr.mjs";
-import { KILOCODE_DEFAULT_MODEL_REF } from "./provider-models.js";
+import { f as openclaw_plugin_default, s as KILOCODE_DEFAULT_MODEL_REF } from "./.setup/provider-models-CplaZ4OM.mjs";
+import { buildKilocodeProvider, buildKilocodeProviderWithDiscovery } from "./provider-catalog.js";
 import { applyKilocodeConfig } from "./onboard.js";
 import { wrapKilocodeProviderStream } from "./stream.js";
 import { readConfiguredProviderCatalogEntries } from "openclaw/plugin-sdk/provider-catalog-shared";

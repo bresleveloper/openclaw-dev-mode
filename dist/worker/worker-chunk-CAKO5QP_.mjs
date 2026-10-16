@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";var t,n,r,i,a,o,s,c,l=e((()=>{t=1048576,n={image:500,audio:void 0,video:500},r={image:10*t,audio:20*t,video:50*t},i={image:60,audio:60,video:120},a={image:`Describe the image.`,audio:`Transcribe the audio.`,video:`Describe the video.`},o=70*t,s=5*t,c=1024})),u=e((()=>{l()}));export{a,c,n as i,l,s as n,i as o,r,o as s,u as t};

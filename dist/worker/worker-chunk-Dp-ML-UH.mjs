@@ -1,0 +1,1 @@
+import{n as e,r as t,t as n}from"./worker-chunk-CAIFk38y.mjs";n();export{e as loadBundledPluginPublicArtifactModuleFromCandidatesSync,t as loadBundledPluginPublicArtifactModuleSync};

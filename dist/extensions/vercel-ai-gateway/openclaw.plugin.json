@@ -10,6 +10,14 @@
   "providers": [
     "vercel-ai-gateway"
   ],
+  "providerEndpoints": [
+    {
+      "endpointClass": "vercel-ai-gateway",
+      "hosts": [
+        "ai-gateway.vercel.sh"
+      ]
+    }
+  ],
   "modelCatalog": {
     "discovery": {
       "vercel-ai-gateway": "refreshable"
@@ -34,6 +42,10 @@
   "modelPricing": {
     "providers": {
       "vercel-ai-gateway": {
+        "modelsDev": {
+          "provider": "vercel",
+          "passthroughProviderModel": true
+        },
         "openRouter": {
           "passthroughProviderModel": true
         },

@@ -1,14 +1,14 @@
-import { i as extractErrorCode } from "../../error-coercion-C787aVxk.mjs";
-import { a as asOptionalRecord } from "../../record-coerce-DItp3I4t.mjs";
-import { g as readStringValue } from "../../string-coerce-CIXf7egm.mjs";
-import { o as resolveUserPath } from "../../home-dir-BKwhAL2c.mjs";
-import { t as asBoolean } from "../../boolean-C30ltbL7.mjs";
-import { E as resolveStateDir } from "../../paths-DehQwyE0.mjs";
-import "../../error-runtime-Bf1fYXFh.mjs";
-import "../../string-coerce-runtime-C_MKhRVt.mjs";
-import "../../text-utility-runtime-D7I29NA0.mjs";
-import { r as resolvePluginConfigObject } from "../../plugin-config-runtime-CaI6yWBc.mjs";
-import "../../state-paths-Bk2vDLZh.mjs";
+import { g as readStringValue } from "../../string-coerce-1VuiLaaR.mjs";
+import { i as extractErrorCode } from "../../error-coercion-CvJK4lmH.mjs";
+import { o as resolveUserPath } from "../../home-dir-Dc6nN6HB.mjs";
+import { t as asBoolean } from "../../boolean-BEb0Fdt8.mjs";
+import { a as asOptionalRecord } from "../../record-coerce-TIsquoVR.mjs";
+import { r as resolveStateDir } from "../../state-dir-BHJORNly.mjs";
+import "../../error-runtime-BmospGvZ.mjs";
+import "../../string-coerce-runtime-50qKeWeL.mjs";
+import "../../text-utility-runtime-BDs7x8Fk.mjs";
+import { r as resolvePluginConfigObject } from "../../plugin-config-runtime-DKh00pJ1.mjs";
+import "../../state-paths-Dd9pLEOI.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import fs$1 from "node:fs/promises";
@@ -122,6 +122,17 @@ function normalizeCompatibilityConfig({ cfg }) {
 const stateMigrations = [{
 	id: "canvas-custom-root-documents-to-core",
 	label: "Canvas documents in a custom host root",
+	collectBackupResources(params) {
+		const legacyDir = resolveLegacyCanvasDocumentsDir(params);
+		if (!legacyDir || listLegacyCanvasDocumentIds(legacyDir).length === 0) return [];
+		return [{
+			path: legacyDir,
+			kind: "directory"
+		}, {
+			path: path.resolve(params.stateDir, "canvas", "documents"),
+			kind: "directory"
+		}];
+	},
 	async detectLegacyState(params) {
 		const legacyDir = resolveLegacyCanvasDocumentsDir(params);
 		if (!legacyDir) return null;

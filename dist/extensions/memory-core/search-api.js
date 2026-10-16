@@ -1,2 +1,2 @@
-import { t as captureMemoryRebuildNotice } from "../../memory-rebuild-notice-1g-sm2bb.mjs";
+import { t as captureMemoryRebuildNotice } from "../../memory-rebuild-notice-BMElFNn0.mjs";
 export { captureMemoryRebuildNotice };

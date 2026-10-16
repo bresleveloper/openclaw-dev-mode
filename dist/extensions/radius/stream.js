@@ -1,7 +1,7 @@
 import { asOptionalRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { createProviderHttpError } from "openclaw/plugin-sdk/provider-http";
 import { createAssistantMessageEventStream, createToolArgumentPreviewSchedule, parseStreamingJson } from "openclaw/plugin-sdk/llm";
-import { buildGuardedModelFetch, createEmptyTransportUsage, failTransportStream, notifyProviderHttpResponse, parseTerminalToolCallArguments } from "openclaw/plugin-sdk/provider-transport-runtime";
+import { buildAssistantMessage, buildGuardedModelFetch, createEmptyTransportUsage, failTransportStream, notifyProviderHttpResponse, parseTerminalToolCallArguments } from "openclaw/plugin-sdk/provider-transport-runtime";
 //#region extensions/radius/stream.ts
 const MAX_SSE_EVENT_BYTES = 16777216;
 function record(value) {
@@ -214,16 +214,12 @@ async function* readEvents(body, signal) {
 function createRadiusStreamFn() {
 	return (model, context, options) => {
 		const stream = createAssistantMessageEventStream();
-		const partial = {
-			role: "assistant",
+		const partial = buildAssistantMessage({
+			model,
 			content: [],
-			api: model.api,
-			provider: model.provider,
-			model: model.id,
 			usage: createEmptyTransportUsage(),
-			stopReason: "stop",
-			timestamp: Date.now()
-		};
+			stopReason: "stop"
+		});
 		const convert = createEventConverter(partial);
 		(async () => {
 			let response;

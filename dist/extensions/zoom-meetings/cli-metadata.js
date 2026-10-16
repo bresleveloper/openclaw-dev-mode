@@ -1,2 +1,19 @@
-import { t as ZOOM_MEETINGS_CLI_METADATA } from "./.setup/cli-output-mode-DPg56N1-.mjs";
-export { ZOOM_MEETINGS_CLI_METADATA as default };
+import { getRootOptionAwareCommandPath } from "openclaw/plugin-sdk/cli-argv";
+//#region extensions/zoom-meetings/cli-metadata.ts
+const descriptor = {
+	name: "zoommeetings",
+	description: "Join and manage Zoom meeting guests",
+	hasSubcommands: true,
+	machineOutput: ({ argv }) => getRootOptionAwareCommandPath(argv, 2).length === 2
+};
+const ZOOM_MEETINGS_CLI_METADATA = {
+	id: "zoom-meetings",
+	name: "Zoom meetings",
+	description: "Zoom meetings CLI metadata",
+	descriptor,
+	register(api) {
+		api.registerCli(() => {}, { descriptors: [descriptor] });
+	}
+};
+//#endregion
+export { ZOOM_MEETINGS_CLI_METADATA, ZOOM_MEETINGS_CLI_METADATA as default };

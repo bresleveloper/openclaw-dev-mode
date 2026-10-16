@@ -1,0 +1,2 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{i as t,t as n}from"./worker-chunk-Emd7YdxS.mjs";function hasTerminalControl(e){return e.search(/\p{Cc}/u)!==-1}function sanitizeTerminalText(e){return t(e).replace(/\p{Cc}/gu,e=>e===`\r`?`\\r`:e===`
+`?`\\n`:e===`	`?`\\t`:``)}var r=e((()=>{n()}));export{r as n,sanitizeTerminalText as r,hasTerminalControl as t};

@@ -1,9 +1,9 @@
-import { c as isRecord } from "../record-coerce-DItp3I4t.mjs";
-import { v as readSecureFile } from "../fs-safe-BAPek8At.mjs";
-import { a as inspectPathPermissions } from "../permissions-DOmAO-Zd.mjs";
+import { c as isRecord } from "../record-coerce-TIsquoVR.mjs";
+import { v as readSecureFile } from "../fs-safe-BUXBSN-4.mjs";
 import path from "node:path";
 import fs from "node:fs/promises";
 import { parseDocument } from "yaml";
+import { inspectPathPermissions } from "@openclaw/fs-safe/permissions";
 //#region src/agents/github-exec-credential.ts
 const GITHUB_EXEC_CREDENTIAL_UNAVAILABLE = "GitHub Identity credential is unavailable or insecure. Reconnect or change GitHub Identity, then retry.";
 async function privateProfileStat(profileDir) {

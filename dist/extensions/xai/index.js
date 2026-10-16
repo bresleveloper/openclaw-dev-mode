@@ -1,29 +1,30 @@
-import { r as createLazyRuntimeModule } from "../../lazy-runtime-BPNHa36e.mjs";
+import { r as createLazyRuntimeModule } from "../../lazy-runtime-CJrzFzqU.mjs";
 import { t as jsonResult } from "../../tool-results-BCM3fdVS.mjs";
-import { m as defaultToolStreamExtraParams } from "../../provider-stream-shared-CZk4xL-L.mjs";
-import { a as buildProviderReplayFamilyHooks } from "../../provider-model-shared-CvgLZp0K.mjs";
-import { h as runLiveProviderCatalog } from "../../provider-catalog-live-runtime-BprkJHe2.mjs";
-import { t as defineSingleProviderPluginEntry } from "../../provider-entry-DP2O-chg.mjs";
-import "../../provider-web-search-CRDOBhl4.mjs";
+import { h as defaultToolStreamExtraParams } from "../../provider-stream-shared-D8q3R1a-.mjs";
+import { r as buildProviderReplayFamilyHooks } from "../../provider-model-shared-BZZnLgoM.mjs";
+import { h as runLiveProviderCatalog } from "../../provider-catalog-live-runtime-NaavztHY.mjs";
+import { t as defineSingleProviderPluginEntry } from "../../provider-entry-B2Tqqb69.mjs";
+import "../../provider-web-search-DUaDxxRi.mjs";
 import { n as createCodeExecutionToolDefinition, t as buildMissingCodeExecutionApiKeyPayload } from "../../code-execution-tool-shared-CeAkKo1Y.mjs";
-import { r as normalizeXaiModelId } from "../../model-id-BpefGMul.mjs";
-import { a as createLazyXaiSpeechProvider, i as createLazyXaiRealtimeVoiceProvider, n as createLazyXaiMediaUnderstandingProvider, r as createLazyXaiRealtimeTranscriptionProvider, t as createLazyXaiImageGenerationProvider } from "../../lazy-capability-provider-factories-BOlzDTwL.mjs";
-import { t as createLazyXaiVideoGenerationProvider } from "../../lazy-capability-providers-NzLbF3fr.mjs";
-import "../../model-compat-CnboexMv.mjs";
-import { n as applyXaiConfig, t as XAI_DEFAULT_MODEL_REF } from "../../onboard-LZsrk0v7.mjs";
-import { i as isXaiGrokProxyBaseUrl, n as buildLiveXaiProvider, r as buildXaiProvider, t as buildLiveXaiOAuthProvider } from "../../provider-catalog-DpLST9Lo.mjs";
-import { t as isXaiProviderId } from "../../provider-id-dn9RuxC0.mjs";
-import { t as resolveXaiTransport } from "../../provider-routing-CM5xf7if.mjs";
-import { n as normalizeXaiResolvedModel, r as resolveXaiForwardCompatModel, t as isModernXaiModel } from "../../provider-models-BHg2IWwS.mjs";
-import { n as resolveThinkingProfile } from "../../provider-policy-api-DG5NULYX.mjs";
-import { n as resolveFallbackXaiAuth, t as isXaiToolEnabled } from "../../tool-auth-shared-BKm-JLrq.mjs";
-import { n as readPluginCodeExecutionConfig, r as resolveCodeExecutionEnabled } from "../../code-execution-config-B0N75YRG.mjs";
-import { t as resolveEffectiveXSearchConfig } from "../../x-search-config-Dj2uABTe.mjs";
-import { t as wrapXaiProviderStream } from "../../stream-B5NJMhUX.mjs";
-import { t as fetchXaiUsage } from "../../usage-BMx8vVMa.mjs";
-import { t as createXaiWebSearchProvider } from "../../web-search--wcTXvf7.mjs";
+import { i as normalizeXaiModelId } from "../../model-id-BCpLVsfx.mjs";
+import { a as createLazyXaiSpeechProvider, i as createLazyXaiRealtimeVoiceProvider, n as createLazyXaiMediaUnderstandingProvider, r as createLazyXaiRealtimeTranscriptionProvider, t as createLazyXaiImageGenerationProvider } from "../../lazy-capability-provider-factories-DRo4AbZV.mjs";
+import { t as createLazyXaiVideoGenerationProvider } from "../../lazy-capability-providers-sWXLo4Nl.mjs";
+import "../../model-compat-BSGTIihA.mjs";
+import { n as applyXaiConfig, t as XAI_DEFAULT_MODEL_REF } from "../../onboard-CnuA5-ZT.mjs";
+import { i as isXaiGrokProxyBaseUrl, n as buildLiveXaiProvider, r as buildXaiProvider, t as buildLiveXaiOAuthProvider } from "../../provider-catalog-CAX97roz.mjs";
+import { t as isXaiProviderId } from "../../provider-id-BvdhW5fW.mjs";
+import { t as resolveXaiTransport } from "../../provider-routing-DQwJJlDW.mjs";
+import { t as applyXaiRuntimeModelCompat } from "../../runtime-model-compat-DAKPoZ8t.mjs";
+import { n as resolveXaiForwardCompatModel, t as isModernXaiModel } from "../../provider-models-fl9IQjAZ.mjs";
+import { n as resolveThinkingProfile } from "../../provider-policy-api-CGWCzq3O.mjs";
+import { n as resolveFallbackXaiAuth, t as isXaiToolEnabled } from "../../tool-auth-shared-DfHEiTF0.mjs";
+import { n as readPluginCodeExecutionConfig, r as resolveCodeExecutionEnabled } from "../../code-execution-config-LHbglujB.mjs";
+import { t as resolveEffectiveXSearchConfig } from "../../x-search-config-wCiEf8cg.mjs";
+import { t as wrapXaiProviderStream } from "../../stream-Df8Nq_5n.mjs";
+import { t as fetchXaiUsage } from "../../usage-PpgCR5_O.mjs";
+import { t as createXaiWebSearchProvider } from "../../web-search-z2Ycgs2T.mjs";
 import { n as buildMissingXSearchApiKeyPayload, r as createXSearchToolDefinition } from "../../x-search-tool-shared-nlZ40kdg.mjs";
-import { n as createXaiOAuthAuthMethod, r as refreshXaiOAuthCredential, t as createXaiDeviceCodeAuthMethod } from "../../xai-oauth-entry-DzSNT1tn.mjs";
+import { n as createXaiOAuthAuthMethod, r as refreshXaiOAuthCredential, t as createXaiDeviceCodeAuthMethod } from "../../xai-oauth-entry-Cf0zvn9x.mjs";
 //#region extensions/xai/index.ts
 const PROVIDER_ID = "xai";
 const XAI_CREDIT_OR_SPENDING_LIMIT_RE = /\b(?:used all available credits|run out of credits|monthly spending limit|purchase more credits|raise your spending limit|need a Grok subscription)\b/i;
@@ -36,12 +37,6 @@ function classifyXaiFailoverReason({ errorMessage, status, code, errorType }) {
 	if (XAI_RATE_LIMIT_RE.test(errorMessage)) return "rate_limit";
 	if (status === void 0 && code === void 0 && errorType === void 0 && XAI_PROVIDER_INTERNAL_ERROR_RE.test(errorMessage)) return "server_error";
 }
-function hasResolvableXaiApiKey(config, auth) {
-	return isXaiToolEnabled({
-		sourceConfig: config,
-		auth
-	});
-}
 function isCodeExecutionEnabled(config, auth) {
 	return resolveCodeExecutionEnabled({
 		sourceConfig: config,
@@ -52,7 +47,10 @@ function isCodeExecutionEnabled(config, auth) {
 }
 function isXSearchEnabled(config, auth) {
 	if ((config && typeof config === "object" ? resolveEffectiveXSearchConfig(config) : void 0)?.enabled === false) return false;
-	return hasResolvableXaiApiKey(config, auth);
+	return isXaiToolEnabled({
+		sourceConfig: config,
+		auth
+	});
 }
 function shouldExposeXaiBilledTool(params) {
 	const activeProvider = params.activeProvider?.trim();
@@ -187,7 +185,7 @@ var xai_default = defineSingleProviderPluginEntry({
 				mode: "api-key"
 			};
 		},
-		normalizeResolvedModel: ({ model }) => normalizeXaiResolvedModel(model),
+		normalizeResolvedModel: ({ model }) => applyXaiRuntimeModelCompat(model),
 		normalizeTransport: ({ provider, api, baseUrl }) => resolveXaiTransport({
 			provider,
 			api,

@@ -1,23 +1,18 @@
-import { s as asFiniteNumber } from "../../number-coercion-CLj0HTDM.mjs";
+import { s as asFiniteNumber } from "../../number-coercion-CuVhdCBs.mjs";
 //#region src/hooks/bundled/compaction-notifier/handler.ts
-/** Read optional numeric compaction metadata without trusting hook context shape. */
-function readOptionalNumber(context, key) {
-	const value = context[key];
-	return asFiniteNumber(value);
-}
 /** Session compaction hook that emits short user-visible progress messages. */
 const handler = async (event) => {
 	try {
 		const context = event.context;
 		if (event.type === "session" && event.action === "compact:before") {
-			const messageCount = readOptionalNumber(context, "messageCount");
+			const messageCount = asFiniteNumber(context.messageCount);
 			const messageSuffix = messageCount !== void 0 && messageCount >= 0 ? ` (${messageCount} messages)` : "";
 			event.messages.push(`🧹 Compacting context${messageSuffix} so I can continue without losing history…`);
 			return;
 		}
 		if (event.type === "session" && event.action === "compact:after") {
-			const tokensBefore = readOptionalNumber(context, "tokensBefore");
-			const tokensAfter = readOptionalNumber(context, "tokensAfter");
+			const tokensBefore = asFiniteNumber(context.tokensBefore);
+			const tokensAfter = asFiniteNumber(context.tokensAfter);
 			const tokenDelta = tokensBefore !== void 0 && tokensAfter !== void 0 ? ` (${tokensBefore.toLocaleString()} → ${tokensAfter.toLocaleString()} tokens)` : "";
 			event.messages.push(`✅ Context compacted${tokenDelta}. Continuing from where I left off.`);
 		}

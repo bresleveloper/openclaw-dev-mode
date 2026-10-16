@@ -26,15 +26,12 @@ function normalizeMinimaxTtsBaseUrl(baseUrl) {
 	if (!trimmed) return DEFAULT_MINIMAX_TTS_BASE_URL;
 	return trimmed.replace(/\/+$/, "").replace(/\/(?:anthropic|v1)$/i, "");
 }
-function normalizeMinimaxTtsPitch(pitch) {
-	return Math.trunc(pitch);
-}
 async function minimaxTTS(params) {
 	const { text, apiKey, baseUrl, model, voiceId, speed = 1, vol = 1, pitch = 0, format = "mp3", sampleRate = 32e3, timeoutMs } = params;
 	const safeTimeoutMs = resolveTimerTimeoutMs(timeoutMs, 1);
 	const { assertOkOrThrowProviderError, readProviderJsonObjectResponse } = await import("openclaw/plugin-sdk/provider-http");
 	const { fetchWithSsrFGuard, ssrfPolicyFromHttpBaseUrlAllowedHostname } = await import("openclaw/plugin-sdk/ssrf-runtime");
-	const { assertMinimaxBaseResp, normalizeMinimaxHexAudio } = await import("./.setup/media-provider-runtime-CV_JkIDY.mjs");
+	const { assertMinimaxBaseResp, normalizeMinimaxHexAudio } = await import("./.setup/media-provider-runtime-CCBfUQgR.mjs");
 	const controller = new AbortController();
 	const timeout = setTimeout(() => controller.abort(), safeTimeoutMs);
 	try {
@@ -55,7 +52,7 @@ async function minimaxTTS(params) {
 						voice_id: voiceId,
 						speed,
 						vol,
-						pitch: normalizeMinimaxTtsPitch(pitch)
+						pitch: Math.trunc(pitch)
 					},
 					audio_setting: {
 						format,
@@ -96,21 +93,15 @@ function resolveConfiguredPortalTtsBaseUrl(cfg) {
 	const portalBaseUrl = normalizeOptionalString(portalProvider?.baseUrl);
 	return portalBaseUrl ? normalizeMinimaxTtsBaseUrl(portalBaseUrl) : void 0;
 }
-function resolveMinimaxTokenPlanEnvKey() {
-	return resolveSpeechProviderApiKey(...MINIMAX_TOKEN_PLAN_ENV_VARS.map((envVar) => process.env[envVar]));
-}
-async function resolveMinimaxPortalProfileToken(cfg) {
-	const { resolveProviderAuthProfileApiKey } = await import("openclaw/plugin-sdk/provider-auth");
-	return await resolveProviderAuthProfileApiKey({
-		cfg,
-		provider: MINIMAX_PORTAL_PROVIDER_ID
-	});
-}
 async function resolveMinimaxTtsApiKey(params) {
-	return resolveSpeechProviderApiKey(params.configApiKey, await resolveMinimaxPortalProfileToken(params.cfg), resolveMinimaxDirectTtsApiKey());
+	const { resolveProviderAuthProfileApiKey } = await import("openclaw/plugin-sdk/provider-auth");
+	return resolveSpeechProviderApiKey(params.configApiKey, await resolveProviderAuthProfileApiKey({
+		cfg: params.cfg,
+		provider: MINIMAX_PORTAL_PROVIDER_ID
+	}), resolveMinimaxDirectTtsApiKey());
 }
 function resolveMinimaxDirectTtsApiKey(configApiKey) {
-	return resolveSpeechProviderApiKey(configApiKey, resolveMinimaxTokenPlanEnvKey(), process.env.MINIMAX_API_KEY);
+	return resolveSpeechProviderApiKey(configApiKey, ...MINIMAX_TOKEN_PLAN_ENV_VARS.map((envVar) => process.env[envVar]), process.env.MINIMAX_API_KEY);
 }
 function normalizeMinimaxProviderConfig(rawConfig, cfg) {
 	const providers = asOptionalRecord(rawConfig.providers);
@@ -149,26 +140,28 @@ function normalizeMinimaxPitch(value) {
 	return pitch !== void 0 ? Math.trunc(pitch) : void 0;
 }
 function readMinimaxProviderConfig(config, cfg) {
-	const normalized = normalizeMinimaxProviderConfig({}, cfg);
-	return {
-		apiKey: normalizeOptionalString(config.apiKey) ?? normalized.apiKey,
-		baseUrl: normalizeMinimaxTtsBaseUrl(normalizeOptionalString(config.baseUrl) ?? normalized.baseUrl),
-		model: normalizeOptionalString(config.model) ?? normalized.model,
-		voiceId: normalizeOptionalString(config.voiceId) ?? normalized.voiceId,
-		speed: normalizeMinimaxSpeed(config.speed) ?? normalized.speed,
-		vol: normalizeMinimaxVolume(config.vol) ?? normalized.vol,
-		pitch: normalizeMinimaxPitch(config.pitch) ?? normalized.pitch
-	};
+	return normalizeMinimaxProviderConfig({ minimax: {
+		...config,
+		apiKey: normalizeOptionalString(config.apiKey)
+	} }, cfg);
 }
 function readMinimaxOverrides(overrides) {
 	if (!overrides) return {};
-	return {
+	const normalized = {
 		model: normalizeOptionalString(overrides.model),
 		voiceId: normalizeOptionalString(overrides.voiceId),
 		speed: normalizeMinimaxSpeed(overrides.speed),
 		vol: normalizeMinimaxVolume(overrides.vol),
 		pitch: normalizeMinimaxPitch(overrides.pitch)
 	};
+	for (const key of [
+		"model",
+		"voiceId",
+		"speed",
+		"vol",
+		"pitch"
+	]) if (normalized[key] === void 0) delete normalized[key];
+	return normalized;
 }
 function parseDirectiveToken(ctx) {
 	switch (ctx.key) {
@@ -240,19 +233,15 @@ function buildMinimaxSpeechProvider({ isProviderAuthProfileConfigured }) {
 					path: "talk.providers.minimax.apiKey"
 				}) },
 				...normalizeOptionalString(talkProviderConfig.baseUrl) == null ? {} : { baseUrl: normalizeMinimaxTtsBaseUrl(normalizeOptionalString(talkProviderConfig.baseUrl)) },
-				...normalizeOptionalString(talkProviderConfig.modelId) == null ? {} : { model: normalizeOptionalString(talkProviderConfig.modelId) },
-				...normalizeOptionalString(talkProviderConfig.voiceId) == null ? {} : { voiceId: normalizeOptionalString(talkProviderConfig.voiceId) },
-				...normalizeMinimaxSpeed(talkProviderConfig.speed) == null ? {} : { speed: normalizeMinimaxSpeed(talkProviderConfig.speed) },
-				...normalizeMinimaxVolume(talkProviderConfig.vol) == null ? {} : { vol: normalizeMinimaxVolume(talkProviderConfig.vol) },
-				...normalizeMinimaxPitch(talkProviderConfig.pitch) == null ? {} : { pitch: normalizeMinimaxPitch(talkProviderConfig.pitch) }
+				...readMinimaxOverrides({
+					...talkProviderConfig,
+					model: talkProviderConfig.modelId
+				})
 			};
 		},
-		resolveTalkOverrides: ({ params }) => ({
-			...normalizeOptionalString(params.voiceId) == null ? {} : { voiceId: normalizeOptionalString(params.voiceId) },
-			...normalizeOptionalString(params.modelId) == null ? {} : { model: normalizeOptionalString(params.modelId) },
-			...normalizeMinimaxSpeed(params.speed) == null ? {} : { speed: normalizeMinimaxSpeed(params.speed) },
-			...normalizeMinimaxVolume(params.vol) == null ? {} : { vol: normalizeMinimaxVolume(params.vol) },
-			...normalizeMinimaxPitch(params.pitch) == null ? {} : { pitch: normalizeMinimaxPitch(params.pitch) }
+		resolveTalkOverrides: ({ params }) => readMinimaxOverrides({
+			...params,
+			model: params.modelId
 		}),
 		listVoices: async () => MINIMAX_TTS_VOICES.map((voice) => ({
 			id: voice,

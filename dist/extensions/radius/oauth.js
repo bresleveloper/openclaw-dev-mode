@@ -71,13 +71,8 @@ function parseDevice(payload) {
 	});
 	const intervalMs = intervalSeconds === void 0 ? void 0 : Math.ceil(intervalSeconds * 1e3);
 	if (typeof payload.device_code !== "string" || !payload.device_code.trim() || typeof payload.user_code !== "string" || !payload.user_code.trim() || typeof payload.verification_uri !== "string" || expiresAt === void 0 || intervalMs === void 0 || intervalMs > MAX_TIMER_TIMEOUT_MS) throw new Error("Radius OAuth returned an invalid device authorization response.");
-	let url;
-	try {
-		url = new URL(payload.verification_uri);
-	} catch {
-		throw new Error("Radius OAuth returned an invalid verification URL.");
-	}
-	if (url.origin !== "https://radius.earendil.com" || url.username || url.password) throw new Error("Radius OAuth returned an invalid verification URL.");
+	const url = URL.parse(payload.verification_uri);
+	if (!url || url.origin !== "https://radius.earendil.com" || url.username || url.password) throw new Error("Radius OAuth returned an invalid verification URL.");
 	return {
 		deviceCode: payload.device_code,
 		userCode: payload.user_code,

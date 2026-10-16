@@ -13,6 +13,11 @@
         "id": "memory-core-dreams-json-to-sqlite"
       },
       {
+        "id": "memory-core-dreaming-cron",
+        "doctorOnly": true,
+        "phase": "after-session-repair"
+      },
+      {
         "id": "memory-core-legacy-sidecar-index-to-agent-sqlite"
       },
       {

@@ -1,5 +1,5 @@
 import { n as findModel } from "./.setup/catalog-Bgbx4LHv.mjs";
-import { n as createOnnxProvider, t as InferenceWorkerClient } from "./.setup/worker-client-BfBezMH8.mjs";
+import { n as createOnnxProvider, t as InferenceWorkerClient } from "./.setup/worker-client-_elivstx.mjs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
@@ -72,7 +72,7 @@ var onnx_default = definePluginEntry({
 		});
 		api.lifecycle?.onDispose?.(() => client.stop());
 		api.registerCli(async (context) => {
-			const { registerOnnxCli } = await import("./.setup/cli-Ch_OkcD5.mjs");
+			const { registerOnnxCli } = await import("./.setup/cli-DBVZv0SK.mjs");
 			registerOnnxCli(context, config, workerUrl, api.resolvePath);
 		}, { descriptors: [{
 			name: "onnx",

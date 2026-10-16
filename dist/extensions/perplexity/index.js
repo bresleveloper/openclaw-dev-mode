@@ -1,4 +1,4 @@
-import { t as createPerplexityWebSearchProvider } from "./.setup/perplexity-web-search-provider-COgLtQqY.mjs";
+import { t as createPerplexityWebSearchProvider } from "./.setup/perplexity-web-search-provider-CV4FB2B3.mjs";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 //#region extensions/perplexity/index.ts
 var perplexity_default = definePluginEntry({

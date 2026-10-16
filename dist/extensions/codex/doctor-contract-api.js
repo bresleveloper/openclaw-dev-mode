@@ -1,4 +1,4 @@
-import { n as CODEX_APP_SERVER_BINDING_NAMESPACE } from "./.setup/session-binding-meta-B7aEMU7g.mjs";
+import { i as CODEX_APP_SERVER_BINDING_NAMESPACE } from "./.setup/session-binding-meta-Lkm5Lpf4.mjs";
 import { asNullableRecord, asOptionalRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { createHash } from "node:crypto";
 import { setImmediate } from "node:timers/promises";
@@ -114,6 +114,11 @@ function hasRetiredApprovalPolicy(value) {
 	const approvalPolicy = asNullableRecord(value)?.approvalPolicy;
 	return approvalPolicy === "on-failure" || approvalPolicy === "untrusted";
 }
+function hasBlankNetworkProxyOptionalFields(value) {
+	const appServer = asNullableRecord(value);
+	const networkProxy = asNullableRecord(appServer?.networkProxy);
+	return networkProxy?.enabled === true && [networkProxy.profileName, appServer?.remoteWorkspaceRoot].some((field) => typeof field === "string" && !field.trim());
+}
 const RETIRED_TURN_IDLE_TIMEOUT_KEYS = [
 	"turnCompletionIdleTimeoutMs",
 	"turnAssistantCompletionIdleTimeoutMs",
@@ -167,40 +172,40 @@ const legacyConfigRules = [
 		],
 		message: "Codex app-server turn idle timeouts are retired; native Codex owns provider liveness and turn completion. The existing agents.defaults.timeoutSeconds run limit remains unchanged. Run \"openclaw doctor --fix\" to remove the old settings.",
 		match: hasRetiredTurnIdleTimeout
+	},
+	{
+		path: [
+			"plugins",
+			"entries",
+			"codex",
+			"config",
+			"appServer"
+		],
+		message: "Blank plugins.entries.codex.config.appServer.networkProxy.profileName or appServer.remoteWorkspaceRoot must be removed to use the defaults with network restrictions. Run \"openclaw doctor --fix\".",
+		match: hasBlankNetworkProxyOptionalFields
 	}
 ];
 /**
-* Removes retired Codex plugin config keys while preserving unrelated config.
+* Repairs legacy Codex plugin config while preserving unrelated config.
 */
 function normalizeCompatibilityConfig({ cfg }) {
 	const rawEntry = asNullableRecord(cfg.plugins?.entries?.codex);
 	const rawPluginConfig = asNullableRecord(rawEntry?.config);
 	const rawCodexPlugins = asNullableRecord(rawPluginConfig?.codexPlugins);
 	const rawAppServer = asNullableRecord(rawPluginConfig?.appServer);
-	const shouldRemoveDynamicToolsProfile = rawPluginConfig !== null && hasRetiredDynamicToolsProfile(rawPluginConfig);
-	const shouldRewriteDestructivePolicy = hasLegacyPluginDestructivePolicy(rawCodexPlugins);
-	const shouldRewriteApprovalPolicy = hasRetiredApprovalPolicy(rawAppServer);
-	const shouldRemoveTurnIdleTimeouts = hasRetiredTurnIdleTimeout(rawAppServer);
-	if (!rawPluginConfig || !shouldRemoveDynamicToolsProfile && !shouldRewriteDestructivePolicy && !shouldRewriteApprovalPolicy && !shouldRemoveTurnIdleTimeouts) return {
+	if (!rawPluginConfig || !hasRetiredDynamicToolsProfile(rawPluginConfig) && !hasLegacyPluginDestructivePolicy(rawCodexPlugins) && !hasRetiredApprovalPolicy(rawAppServer) && !hasRetiredTurnIdleTimeout(rawAppServer) && !hasBlankNetworkProxyOptionalFields(rawAppServer)) return {
 		config: cfg,
 		changes: []
 	};
 	const nextConfig = structuredClone(cfg);
-	const nextPlugins = asNullableRecord(nextConfig.plugins);
-	const nextEntries = asNullableRecord(nextPlugins?.entries);
-	const nextEntry = asNullableRecord(nextEntries?.codex);
-	const nextPluginConfig = asNullableRecord(nextEntry?.config);
-	if (!nextPluginConfig) return {
-		config: cfg,
-		changes: []
-	};
+	const nextPluginConfig = nextConfig.plugins.entries.codex.config;
 	const changes = [];
-	if (shouldRemoveDynamicToolsProfile) {
+	if (hasRetiredDynamicToolsProfile(nextPluginConfig)) {
 		delete nextPluginConfig.codexDynamicToolsProfile;
 		changes.push("Removed retired plugins.entries.codex.config.codexDynamicToolsProfile; Codex app-server always keeps Codex-native workspace tools native.");
 	}
-	if (shouldRewriteDestructivePolicy) {
-		const nextCodexPlugins = asNullableRecord(nextPluginConfig.codexPlugins);
+	const nextCodexPlugins = asNullableRecord(nextPluginConfig.codexPlugins);
+	if (hasLegacyPluginDestructivePolicy(nextCodexPlugins)) {
 		if (nextCodexPlugins?.allow_destructive_actions === "on-request") nextCodexPlugins.allow_destructive_actions = "auto";
 		const nextPluginPolicies = asNullableRecord(nextCodexPlugins?.plugins);
 		for (const plugin of Object.values(nextPluginPolicies ?? {})) {
@@ -210,14 +215,29 @@ function normalizeCompatibilityConfig({ cfg }) {
 		changes.push("Renamed plugins.entries.codex.config.codexPlugins allow_destructive_actions=\"on-request\" values to \"auto\".");
 	}
 	const nextAppServer = asNullableRecord(nextPluginConfig.appServer);
-	if (nextAppServer && shouldRemoveTurnIdleTimeouts) {
+	if (nextAppServer && hasRetiredTurnIdleTimeout(nextAppServer)) {
 		for (const key of RETIRED_TURN_IDLE_TIMEOUT_KEYS) if (Object.hasOwn(nextAppServer, key)) {
 			delete nextAppServer[key];
 			changes.push(`Removed retired plugins.entries.codex.config.appServer.${key}; native Codex owns provider liveness and turn completion. agents.defaults.timeoutSeconds was not changed.`);
 		}
 	}
-	if (shouldRewriteApprovalPolicy) {
-		if (nextAppServer?.approvalPolicy === "on-failure" || nextAppServer?.approvalPolicy === "untrusted") nextAppServer.approvalPolicy = "on-request";
+	if (nextAppServer && hasBlankNetworkProxyOptionalFields(nextAppServer)) {
+		const nextNetworkProxy = asNullableRecord(nextAppServer.networkProxy);
+		for (const [target, key, configPath] of [[
+			nextNetworkProxy,
+			"profileName",
+			"networkProxy.profileName"
+		], [
+			nextAppServer,
+			"remoteWorkspaceRoot",
+			"remoteWorkspaceRoot"
+		]]) if (target && typeof target[key] === "string" && !target[key].trim()) {
+			delete target[key];
+			changes.push(`Removed blank plugins.entries.codex.config.appServer.${configPath}; the default now applies.`);
+		}
+	}
+	if (nextAppServer && hasRetiredApprovalPolicy(nextAppServer)) {
+		nextAppServer.approvalPolicy = "on-request";
 		changes.push("Renamed retired plugins.entries.codex.config.appServer.approvalPolicy to \"on-request\".");
 	}
 	return {
@@ -225,11 +245,21 @@ function normalizeCompatibilityConfig({ cfg }) {
 		changes
 	};
 }
-const stateMigrations = [{
-	id: "codex-app-server-sidecars-to-plugin-state",
-	label: "Codex app-server thread bindings",
-	detectLegacyState: async (params) => (await import("./.setup/session-binding-sidecars-BlB5EvIS.mjs")).detectLegacySessionBindingSidecars(params),
-	migrateLegacyState: async (params) => (await import("./.setup/session-binding-sidecars-BlB5EvIS.mjs")).migrateLegacySessionBindingSidecars(params)
-}, codexOrphanedSessionBindingMigration];
+const stateMigrations = [
+	{
+		id: "codex-app-server-sidecars-to-plugin-state",
+		label: "Codex app-server thread bindings",
+		detectLegacyState: async (params) => (await import("./.setup/session-binding-sidecars-BrdV95Fg.mjs")).detectLegacySessionBindingSidecars(params),
+		migrateLegacyState: async (params) => (await import("./.setup/session-binding-sidecars-BrdV95Fg.mjs")).migrateLegacySessionBindingSidecars(params)
+	},
+	{
+		id: "codex-native-task-assignments",
+		label: "Codex native pending assignments",
+		collectBackupResources: async (params) => (await import("./.setup/native-task-assignments-C6KVqiN1.mjs")).codexNativeTaskAssignmentMigration.collectBackupResources(params),
+		detectLegacyState: async (params) => (await import("./.setup/native-task-assignments-C6KVqiN1.mjs")).codexNativeTaskAssignmentMigration.detectLegacyState(params),
+		migrateLegacyState: async (params) => (await import("./.setup/native-task-assignments-C6KVqiN1.mjs")).codexNativeTaskAssignmentMigration.migrateLegacyState(params)
+	},
+	codexOrphanedSessionBindingMigration
+];
 //#endregion
 export { legacyConfigRules, normalizeCompatibilityConfig, stateMigrations };

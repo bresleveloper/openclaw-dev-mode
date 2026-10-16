@@ -1,7 +1,8 @@
-import { r as resolveRuntimeWorkerUrl, t as resolveRuntimeWorkerArgv } from "../../runtime-worker-url-B4o9tqvO.mjs";
-import "../../process-runtime-BF3dUvYO.mjs";
-import { a as QuicksilverSocketAudioQueue, t as QUICKSILVER_SOCKET_AUDIO_BATCH_BYTES } from "../../realtime-quicksilver-socket.shared-BAkFNqz8.mjs";
-import { Worker } from "node:worker_threads";
+import { i as resolveRuntimeWorkerUrl, n as resolveRuntimeWorkerArgv } from "../../runtime-worker-url-DoBSDhBS.mjs";
+import { n as createCpuTrackedWorker } from "../../worker-cpu-DU6Cf6Aq.mjs";
+import "../../process-runtime-CYiH_oPH.mjs";
+import { a as OpenAIQuicksilverPendingAudio } from "../../realtime-quicksilver-audio-buffer-BQ7ahbkO.mjs";
+import { t as QUICKSILVER_SOCKET_AUDIO_BATCH_BYTES } from "../../realtime-quicksilver-socket.shared-D8dEfKdA.mjs";
 import { EventEmitter } from "node:events";
 //#region extensions/openai/realtime-quicksilver-socket.ts
 /** A local socket-shaped control adapter, not a second media transport. */
@@ -16,7 +17,7 @@ var OpenAIQuicksilverWorkerSocket = class OpenAIQuicksilverWorkerSocket extends 
 				distWorkerPath: "realtime-quicksilver-socket.worker.js"
 			}
 		});
-		const worker = new Worker(workerUrl, {
+		const worker = createCpuTrackedWorker(workerUrl, {
 			workerData: {
 				url,
 				options: {
@@ -44,7 +45,7 @@ var OpenAIQuicksilverWorkerSocket = class OpenAIQuicksilverWorkerSocket extends 
 		this.sends = [];
 		this.sendBytes = 0;
 		this.closePosted = false;
-		this.pending = new QuicksilverSocketAudioQueue(telephony ? 4e4 : 24e4);
+		this.pending = new OpenAIQuicksilverPendingAudio(telephony ? 4e4 : 24e4, 1);
 		worker.on("message", (message) => this.receive(message));
 		worker.on("error", () => {
 			if (!this.closePosted) this.fail();

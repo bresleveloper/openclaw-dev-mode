@@ -1,9 +1,9 @@
-import { t as coerceErrorMessage } from "../../error-coercion-C787aVxk.mjs";
+import { t as coerceErrorMessage } from "../../error-coercion-CvJK4lmH.mjs";
 import { t as createDeferredCore } from "../../deferred-D0La5CRk.mjs";
-import { a as asOptionalRecord, l as isStringRecord } from "../../record-coerce-DItp3I4t.mjs";
+import { a as asOptionalRecord, l as isStringRecord } from "../../record-coerce-TIsquoVR.mjs";
 import { r as resolveEnvironmentValue, t as mergeProcessEnv } from "../../process-env-DlZFJzq6.mjs";
-import { t as getWindowsCmdExePath } from "../../windows-install-roots-DK9gNoYN.mjs";
-import { t as createWindowsOutputDecoder } from "../../windows-encoding-zGMz1ieM.mjs";
+import { t as getWindowsCmdExePath } from "../../windows-install-roots-Qi4d52Il.mjs";
+import { t as createWindowsOutputDecoder } from "../../windows-encoding-DWwh5Rcp.mjs";
 import { n as createWindowsJobBindings } from "../../service-child-windows-job-native-DZ9lDQG9.mjs";
 //#region src/process/supervisor/service-child-windows-job-start.ts
 function buildWindowsJobEnvironmentBlock(env) {

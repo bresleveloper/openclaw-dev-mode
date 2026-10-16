@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 var setup_entry_default = defineBundledChannelSetupEntry({
 	importMetaUrl: import.meta.url,
 	plugin: {
-		specifier: fileURLToPath(new URL(".setup/api-CGh4eWR8.mjs", import.meta.url).href),
+		specifier: fileURLToPath(new URL(".setup/api-BzvUhsz9.mjs", import.meta.url).href),
 		exportName: "signalSetupPlugin"
 	}
 });

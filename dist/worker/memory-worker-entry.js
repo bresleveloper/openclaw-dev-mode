@@ -3,7 +3,7 @@ try {
 	const [mode, workspace, ...extra] = process.argv.slice(2);
 	if (mode !== "--files" && mode !== "--watch-files" || !workspace || extra.length) throw new Error("Memory file worker requires --files or --watch-files <workspace>");
 	console.log = console.info = (...values) => console.error(...values);
-	const { loadBundledPluginPublicArtifactModuleSync } = await import("../public-surface-loader-BZAOxkem.mjs");
+	const { loadBundledPluginPublicArtifactModuleSync } = await import("../public-surface-loader-DvffICdw.mjs");
 	const { serveMemoryFiles } = loadBundledPluginPublicArtifactModuleSync({
 		dirName: "memory-core",
 		artifactBasename: "worker-api.js"

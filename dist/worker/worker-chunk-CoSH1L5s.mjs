@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{n as t,s as n}from"./worker-chunk-Beu5zrK3.mjs";function normalizeHostname(e){let t=n(e).replace(/\.+$/,``);return t.startsWith(`[`)&&t.endsWith(`]`)?t.slice(1,-1):t}var r=e((()=>{t()}));export{normalizeHostname as n,r as t};

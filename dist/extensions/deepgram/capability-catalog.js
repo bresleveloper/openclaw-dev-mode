@@ -8,11 +8,7 @@ const DEFAULT_DEEPGRAM_AUDIO_MODEL = "nova-3";
 const DEEPGRAM_REALTIME_DEFAULT_SAMPLE_RATE = 8e3;
 const DEEPGRAM_REALTIME_DEFAULT_ENCODING = "mulaw";
 const DEEPGRAM_REALTIME_DEFAULT_ENDPOINTING_MS = 800;
-const DEEPGRAM_REALTIME_CONNECT_TIMEOUT_MS = 1e4;
 const DEEPGRAM_REALTIME_CLOSE_TIMEOUT_MS = 5e3;
-const DEEPGRAM_REALTIME_MAX_RECONNECT_ATTEMPTS = 5;
-const DEEPGRAM_REALTIME_RECONNECT_DELAY_MS = 1e3;
-const DEEPGRAM_REALTIME_MAX_QUEUED_BYTES = 2097152;
 const DEEPGRAM_REALTIME_MAX_RETAINED_TRANSCRIPT_BYTES = 262144;
 const DEEPGRAM_REALTIME_FINALIZE_FALLBACK_MS = 4900;
 function readNestedDeepgramConfig(rawConfig) {
@@ -79,9 +75,6 @@ function readErrorDetail(value) {
 	const code = normalizeOptionalString(record?.code);
 	return message ?? code ?? "Deepgram realtime transcription error";
 }
-function readTranscriptText(event) {
-	return normalizeOptionalString(event.channel?.alternatives?.[0]?.transcript);
-}
 function createDeepgramRealtimeTranscriptionSession(config, createRealtimeTranscriptionWebSocketSession) {
 	let speechStarted = false;
 	let finalizedTranscript = "";
@@ -115,13 +108,8 @@ function createDeepgramRealtimeTranscriptionSession(config, createRealtimeTransc
 		pendingPartial = nextPartial;
 		return true;
 	};
-	const flushTurn = () => {
-		const full = joinTranscript(finalizedTranscript, pendingPartial);
-		clearTurn();
-		if (full) config.onTranscript?.(full);
-	};
-	const flushFinalizedTurn = () => {
-		const full = collapseWhitespace(finalizedTranscript);
+	const flushTurn = (includePartial = true) => {
+		const full = joinTranscript(finalizedTranscript, includePartial ? pendingPartial : "");
 		clearTurn();
 		if (full) config.onTranscript?.(full);
 	};
@@ -129,7 +117,7 @@ function createDeepgramRealtimeTranscriptionSession(config, createRealtimeTransc
 		switch (event.type) {
 			case "Results": {
 				if (finalizeFallbackFired) return;
-				const text = readTranscriptText(event);
+				const text = normalizeOptionalString(event.channel?.alternatives?.[0]?.transcript);
 				if (text && !speechStarted) {
 					speechStarted = true;
 					config.onSpeechStart?.();
@@ -141,14 +129,9 @@ function createDeepgramRealtimeTranscriptionSession(config, createRealtimeTransc
 					return;
 				}
 				if (!text) return;
-				if (event.is_final) {
-					const nextFinalized = joinTranscript(finalizedTranscript, text);
-					if (!updateTurn(nextFinalized, "", transport)) return;
-					config.onPartial?.(nextFinalized);
-				} else {
-					if (!updateTurn(finalizedTranscript, text, transport)) return;
-					config.onPartial?.(joinTranscript(finalizedTranscript, text));
-				}
+				const nextFinalized = event.is_final ? joinTranscript(finalizedTranscript, text) : finalizedTranscript;
+				if (!updateTurn(nextFinalized, event.is_final ? "" : text, transport)) return;
+				config.onPartial?.(event.is_final ? nextFinalized : joinTranscript(nextFinalized, text));
 				return;
 			}
 			case "SpeechStarted":
@@ -165,16 +148,12 @@ function createDeepgramRealtimeTranscriptionSession(config, createRealtimeTransc
 		url: () => toDeepgramRealtimeWsUrl(config),
 		headers: { Authorization: `Token ${config.apiKey}` },
 		readyOnOpen: true,
-		connectTimeoutMs: DEEPGRAM_REALTIME_CONNECT_TIMEOUT_MS,
 		closeTimeoutMs: DEEPGRAM_REALTIME_CLOSE_TIMEOUT_MS,
-		maxReconnectAttempts: DEEPGRAM_REALTIME_MAX_RECONNECT_ATTEMPTS,
-		reconnectDelayMs: DEEPGRAM_REALTIME_RECONNECT_DELAY_MS,
-		maxQueuedBytes: DEEPGRAM_REALTIME_MAX_QUEUED_BYTES,
 		connectTimeoutMessage: "Deepgram realtime transcription connection timeout",
 		connectClosedBeforeReadyMessage: "Deepgram realtime transcription connection closed before ready",
 		reconnectLimitMessage: "Deepgram realtime transcription reconnect limit reached",
 		onOpen: () => {
-			if (openedOnce) flushFinalizedTurn();
+			if (openedOnce) flushTurn(false);
 			else {
 				openedOnce = true;
 				clearTurn();
@@ -192,7 +171,7 @@ function createDeepgramRealtimeTranscriptionSession(config, createRealtimeTransc
 				finalizeFallbackTimer = void 0;
 				finalizeFallbackFired = true;
 				try {
-					flushFinalizedTurn();
+					flushTurn(false);
 				} catch (error) {
 					try {
 						config.onError?.(error instanceof Error ? error : new Error(String(error)));
@@ -201,7 +180,7 @@ function createDeepgramRealtimeTranscriptionSession(config, createRealtimeTransc
 			}, DEEPGRAM_REALTIME_FINALIZE_FALLBACK_MS);
 			transport.sendJson({ type: "Finalize" });
 		},
-		onMessage: (event, transport) => handleEvent(event, transport)
+		onMessage: handleEvent
 	});
 }
 function buildDeepgramRealtimeTranscriptionProvider({ createRealtimeTranscriptionWebSocketSession }) {

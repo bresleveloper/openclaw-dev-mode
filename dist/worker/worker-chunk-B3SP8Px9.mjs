@@ -1,0 +1,3 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{f as t,l as n}from"./worker-chunk-CUrtmFkF.mjs";import{h as r,m as i}from"./worker-chunk-P03ft_t-.mjs";import{i as a,t as o,u as s}from"./worker-chunk-B6rcFU5N.mjs";function createOpenClawStateSchemaEnsurer(e){let t=n(i,e.table,{endMarker:e.endMarker??`
+) STRICT;
+`,errorMessage:`Canonical state schema markers are missing for ${e.table}`}),r=/* @__PURE__ */ new WeakSet;return(n={})=>{let i=a(n);r.has(i.db)||(s(({db:e})=>{e.exec(t)},n,{operationLabel:e.operationLabel}),r.add(i.db))}}var c=e((()=>{t(),o(),r()}));export{c as n,createOpenClawStateSchemaEnsurer as t};

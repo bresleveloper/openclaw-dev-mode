@@ -1,24 +1,23 @@
-import { U as AgentBinding, r as OpenClawConfig } from "../types.openclaw-Ccmw-oTa.js";
-import { C as ReplyToMode } from "../types.base-CA0_JvyZ.js";
-import { s as MsgContext } from "../templating-0ElMwhje.js";
-import "../types-BaRTNmIt.js";
-import { j as ChannelThreadingAdapter } from "../types.core-BfkZpaZ6.js";
-import { t as ChannelId } from "../channel-id.types-CjcGKHk0.js";
-import { c as ChannelConfiguredBindingConversationRef, l as ChannelConfiguredBindingMatch, u as ChannelConfiguredBindingProvider } from "../types.adapters-IC4-T9eq.js";
-import { n as ResolvedAgentRoute } from "../resolve-route-C4dIs-KG.js";
-import "../types.public-DBD5_XgT.js";
+import { G as AgentBinding, r as OpenClawConfig } from "../types.openclaw-DWWUw8hA.js";
+import { x as ReplyToMode } from "../types.base-D8MIFbSh.js";
+import { dt as MsgContext } from "../reply-payload-DazZPys5.js";
+import "../types-C-BtfS0H.js";
+import { j as ChannelThreadingAdapter } from "../types.core-Bra2QBA5.js";
+import { t as ChannelId } from "../channel-id.types-CM2F8b5e.js";
+import { c as ChannelConfiguredBindingConversationRef, l as ChannelConfiguredBindingMatch, u as ChannelConfiguredBindingProvider } from "../types.adapters-Bo2TMZGx.js";
+import { n as ResolvedAgentRoute } from "../resolve-route-Dv1zO_Td.js";
+import "../types.plugin-BiZwy65L.js";
+import "../types.public-DpLTXZT0.js";
+import { t as PairingChannel } from "../pairing-store.types-D3p0FhGO.js";
+import { t as buildPairingReply } from "../pairing-messages-IY1JLDjq.js";
 import { n as ConversationRef, o as SessionBindingRecord, r as SessionBindingBindInput, t as BindingTargetKind } from "../session-binding.types-CHb9gl-M.js";
-import { a as testing, i as registerSessionBindingAdapter, n as getSessionBindingService, o as unregisterSessionBindingAdapter, t as SessionBindingAdapter } from "../session-binding-service-BC_tJfmx.js";
-import { n as PairingChannel, t as buildPairingReply } from "../pairing-messages-DiONVw10.js";
-import { s as resolvePinnedMainDmOwnerFromAllowlist } from "../dm-policy-shared-BXVdVRPm.js";
-import { r as upsertChannelPairingRequest, t as readChannelAllowFromStore } from "../pairing-store-C_WzeUIC.js";
-import { t as recordInboundSession } from "../session-Dzsx6DOO.js";
-import { a as resolvePluginConversationBindingApproval, n as buildPluginBindingResolvedText, r as parsePluginBindingApprovalCustomId, t as buildPluginBindingApprovalCustomId } from "../conversation-binding-C0gGf2Dr.js";
+import { a as testing, i as registerSessionBindingAdapter, n as getSessionBindingService, o as unregisterSessionBindingAdapter, r as inspectSessionBindingByConversation, t as SessionBindingAdapter } from "../session-binding-service-zDsYoGUk.js";
+import { a as resolvePinnedMainDmOwnerFromAllowlist } from "../dm-policy-shared-BQETzBuF.js";
+import "../channel-access-compat-CuzvLvYk.js";
+import { r as upsertChannelPairingRequest, t as readChannelAllowFromStore } from "../pairing-store-DLnk6P9g.js";
+import { t as recordInboundSession } from "../session-D7eRBIsl.js";
+import { a as resolvePluginConversationBindingApproval, n as buildPluginBindingResolvedText, r as parsePluginBindingApprovalCustomId, t as buildPluginBindingApprovalCustomId } from "../conversation-binding-CzJIUkPu.js";
 //#region src/channels/plugins/binding-types.d.ts
-/**
- * Normalized conversation facts used to match configured channel bindings.
- */
-type ConfiguredBindingConversation = ConversationRef;
 /**
  * Channel id used by configured binding rules.
  */
@@ -71,24 +70,18 @@ type CompiledConfiguredBinding = {
  * Full configured binding resolution used to rewrite routes and prepare target sessions.
  */
 type ConfiguredBindingResolution = ConfiguredBindingRecordResolution & {
-  conversation: ConfiguredBindingConversation;
+  conversation: ConversationRef;
   compiledBinding: CompiledConfiguredBinding;
   match: ChannelConfiguredBindingMatch;
 };
 //#endregion
 //#region src/channels/plugins/binding-routing.d.ts
-/**
- * Route resolution after applying a configured channel binding.
- */
 type ConfiguredBindingRouteResult = {
   bindingResolution: ConfiguredBindingResolution | null;
   route: ResolvedAgentRoute;
   boundSessionKey?: string;
   boundAgentId?: string;
 };
-/**
- * Route resolution after applying a runtime conversation binding record.
- */
 type RuntimeConversationBindingRouteResult = {
   /** False only when the authoritative channel-owned binding store is temporarily unavailable. */
   bindingOwnerAvailable?: boolean;
@@ -98,6 +91,19 @@ type RuntimeConversationBindingRouteResult = {
   boundAgentId?: string;
   pluginId?: string;
 };
+type RuntimeConversationBindingRouteResolver = (selection: {
+  inspection: ReturnType<typeof inspectSessionBindingByConversation>;
+  bindingOwnerAvailable: boolean;
+  bindingRecord: SessionBindingRecord | null;
+  boundAgentId?: string;
+}) => ResolvedAgentRoute;
+type RuntimeConversationBindingRouteInput = {
+  route: ResolvedAgentRoute;
+  resolveRoute?: never;
+} | {
+  route?: never;
+  resolveRoute: RuntimeConversationBindingRouteResolver;
+};
 type ConfiguredBindingRouteConversationInput = {
   conversation: ConversationRef;
 } | {
@@ -106,23 +112,13 @@ type ConfiguredBindingRouteConversationInput = {
   conversationId: string;
   parentConversationId?: string;
 };
-/**
- * Rewrites an agent route when the current conversation matches a configured binding.
- */
 export declare function resolveConfiguredBindingRoute(params: {
   cfg: OpenClawConfig;
   route: ResolvedAgentRoute;
 } & ConfiguredBindingRouteConversationInput): ConfiguredBindingRouteResult;
-/**
- * Rewrites an agent route using a persisted runtime conversation binding, when applicable.
- */
-export declare function resolveRuntimeConversationBindingRoute(params: {
-  route: ResolvedAgentRoute;
+export declare function resolveRuntimeConversationBindingRoute(params: RuntimeConversationBindingRouteInput & {
   touchBinding?: boolean;
 } & ConfiguredBindingRouteConversationInput): RuntimeConversationBindingRouteResult;
-/**
- * Ensures a configured binding target is ready without blocking route resolution indefinitely.
- */
 export declare function ensureConfiguredBindingRouteReady(params: {
   assertActive?: () => void;
   cfg: OpenClawConfig;
@@ -141,9 +137,6 @@ export declare function ensureConfiguredBindingRouteReady(params: {
 export declare function resolveConversationLabel(ctx: MsgContext): string | undefined;
 //#endregion
 //#region src/channels/session-meta.d.ts
-/**
- * Best-effort inbound session metadata recorder for channel plugin command handlers.
- */
 export declare function recordInboundSessionMetaSafe(params: {
   cfg: OpenClawConfig;
   agentId: string;

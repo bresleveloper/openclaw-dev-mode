@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{i as t,n}from"./worker-chunk-CWhAKJhB.mjs";var r;e((()=>{n(),r={"openclaw.approval.list":async({respond:e,client:n,context:r})=>{let i=r.systemAgentApprovalManager;e(!0,i?await t({manager:i,client:n,...n?.authenticatedUserProfile?{getCfg:r.getRuntimeConfig}:{}}):[],void 0)}}}))();export{r as systemAgentApprovalHandlers};

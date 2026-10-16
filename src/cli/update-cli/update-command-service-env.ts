@@ -3,6 +3,15 @@ import {
   GATEWAY_SERVICE_RUNTIME_PID_ENV,
   GATEWAY_SERVICE_SELECTOR_ENV_KEYS,
 } from "../../daemon/constants.js";
+import {
+  readServiceHeapExecArgv,
+  resolveGatewayHeapNodeOptions,
+} from "../../daemon/gateway-heap.js";
+import {
+  clearFsSafeEnvFallback,
+  fsSafeEnvInput,
+  normalizeFsSafeNativeEnv,
+} from "../../infra/fs-safe-env.js";
 import { mergePathPrepend } from "../../infra/path-prepend.js";
 import { mergeProcessEnv, resolveEnvironmentValue } from "../../infra/process-env.js";
 import { quoteCliArg, quotePowerShellArg } from "../quote-cli-arg.js";
@@ -58,7 +67,7 @@ function applyManagedServiceSelectorEnv(params: {
   serviceEnv: NodeJS.ProcessEnv;
   selectorEnv?: NodeJS.ProcessEnv;
 }): NodeJS.ProcessEnv {
-  const resolved = { ...params.baseEnv };
+  const resolved = { ...fsSafeEnvInput(params.baseEnv) };
   const selectorEnv = params.selectorEnv ?? params.serviceEnv;
   for (const key of MANAGED_UPDATE_SELECTOR_ENV_KEYS) {
     if (resolveEnvironmentValue(selectorEnv, key)?.trim()) {
@@ -79,23 +88,24 @@ export function resolveServiceRefreshEnv(
   const resolvedEnv: NodeJS.ProcessEnv =
     process.platform === "win32"
       ? Object.fromEntries(
-          Object.entries(mergeProcessEnv([env])).map(([key, value]) => [key.toUpperCase(), value]),
+          Object.entries(mergeProcessEnv([fsSafeEnvInput(env)])).map(([key, value]) => [
+            key.toUpperCase(),
+            value,
+          ]),
         )
-      : { ...env };
+      : { ...fsSafeEnvInput(env) };
   for (const key of SERVICE_REFRESH_PATH_ENV_KEYS) {
     const rawValue = resolvedEnv[key]?.trim();
     if (!rawValue) {
       continue;
     }
-    if (rawValue.startsWith("~") || path.isAbsolute(rawValue) || path.win32.isAbsolute(rawValue)) {
-      resolvedEnv[key] = rawValue;
-      continue;
-    }
-    if (!invocationCwd) {
-      resolvedEnv[key] = rawValue;
-      continue;
-    }
-    resolvedEnv[key] = path.resolve(invocationCwd, rawValue);
+    resolvedEnv[key] =
+      !invocationCwd ||
+      rawValue.startsWith("~") ||
+      path.isAbsolute(rawValue) ||
+      path.win32.isAbsolute(rawValue)
+        ? rawValue
+        : path.resolve(invocationCwd, rawValue);
   }
   return resolvedEnv;
 }
@@ -110,25 +120,62 @@ export async function withOwnedManagedUpdateEnv<T>(
   }
   // Update finalization is a single serialized CLI phase. Some plugin/config owners still read
   // process.env, so switch the complete phase atomically and restore the caller afterward.
-  const previousEnv = { ...process.env };
+  const previousEnv = { ...fsSafeEnvInput(process.env) };
+  // Snapshot an aliased input before clearing the process environment.
+  const phaseEnv = env === process.env ? previousEnv : { ...fsSafeEnvInput(env) };
+  clearFsSafeEnvFallback(process.env);
   for (const key of Object.keys(process.env)) {
     delete process.env[key];
   }
-  // A caller may pass process.env itself; clearing it must not erase the supplied scope.
-  const phaseEnv = env === process.env ? previousEnv : env;
   for (const [key, value] of Object.entries(phaseEnv)) {
     // Node stringifies undefined on assignment; unset selectors must remain absent.
     if (value !== undefined) {
       process.env[key] = value;
     }
   }
+  normalizeFsSafeNativeEnv();
   try {
     return await run();
   } finally {
+    clearFsSafeEnvFallback(process.env);
     for (const key of Object.keys(process.env)) {
       delete process.env[key];
     }
     Object.assign(process.env, previousEnv);
+    normalizeFsSafeNativeEnv();
+  }
+}
+
+/** Restore only this phase's overrides; other environment writes remain with their owners. */
+export async function withUpdateEnv<T>(
+  overrides: NodeJS.ProcessEnv,
+  run: () => Promise<T>,
+): Promise<T> {
+  const inputs = fsSafeEnvInput(overrides);
+  const before = fsSafeEnvInput(process.env);
+  const previous = Object.keys(inputs).map(
+    (key) =>
+      [
+        key,
+        process.platform === "win32" ? resolveEnvironmentValue(before, key) : before[key],
+      ] as const,
+  );
+  const apply = (entries: Iterable<readonly [string, string | undefined]>) => {
+    clearFsSafeEnvFallback(process.env);
+    for (const [key, value] of entries) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+    normalizeFsSafeNativeEnv();
+  };
+  apply(Object.entries(inputs));
+  try {
+    return await run();
+  } finally {
+    apply(previous);
   }
 }
 
@@ -138,26 +185,13 @@ export async function withUpdateInProgressEnv<T>(
 ): Promise<T> {
   const env = resolveServiceRefreshEnv(process.env, invocationCwd);
   env.OPENCLAW_UPDATE_IN_PROGRESS = "1";
-  const scopedKeys = Object.keys(env).filter(
-    (key) => key === "OPENCLAW_UPDATE_IN_PROGRESS" || env[key] !== process.env[key],
+  // Package replacement can remove cwd. Retain resolved selectors through cleanup.
+  const overrides = Object.fromEntries(
+    Object.entries(env).filter(
+      ([key, value]) => key === "OPENCLAW_UPDATE_IN_PROGRESS" || value !== process.env[key],
+    ),
   );
-  const previousValues = scopedKeys.map((key) => [key, process.env[key]] as const);
-  // Package replacement can remove cwd. All phase owners must share the
-  // invocation's resolved selectors until cleanup finishes.
-  for (const key of scopedKeys) {
-    process.env[key] = env[key];
-  }
-  try {
-    return await run();
-  } finally {
-    for (const [key, value] of previousValues) {
-      if (value === undefined) {
-        delete process.env[key];
-      } else {
-        process.env[key] = value;
-      }
-    }
-  }
+  return await withUpdateEnv(overrides, run);
 }
 
 export function stripGatewayServiceMarkerEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
@@ -175,6 +209,26 @@ export function disableUpdatedPackageCompileCacheEnv(env: NodeJS.ProcessEnv): No
   };
 }
 
+/** Carry service heap controls without changing the captured environment's other facts. */
+export function resolveUpdateServiceHeapEnv(
+  env: NodeJS.ProcessEnv,
+  processEnv: NodeJS.ProcessEnv = process.env,
+  programArguments: readonly string[] = [],
+): NodeJS.ProcessEnv {
+  const resolved = { ...env };
+  // An empty service value clears startup hooks, but must not discard the
+  // operator's heap budget for Doctor and other update children.
+  if (resolved.NODE_OPTIONS !== undefined && !resolved.NODE_OPTIONS.trim()) {
+    resolved.NODE_OPTIONS = resolveGatewayHeapNodeOptions(processEnv.NODE_OPTIONS);
+  }
+  const heapArgs = readServiceHeapExecArgv(programArguments);
+  if (heapArgs.length) {
+    // Node argv overrides NODE_OPTIONS. Project only heap controls, never service preloads.
+    resolved.NODE_OPTIONS = [resolved.NODE_OPTIONS, ...heapArgs].filter(Boolean).join(" ");
+  }
+  return resolved;
+}
+
 export function resolveUpdatedInstallCommandEnv(params?: {
   processEnv?: NodeJS.ProcessEnv;
   serviceEnv?: NodeJS.ProcessEnv;
@@ -189,10 +243,9 @@ export function resolveUpdatedInstallCommandEnv(params?: {
     : undefined;
   // SecretRefs may resolve from the updater's runtime env even when the
   // managed service intentionally omits resolved secrets from its definition.
-  return disableUpdatedPackageCompileCacheEnv({
-    ...processEnv,
-    ...serviceEnv,
-  });
+  return disableUpdatedPackageCompileCacheEnv(
+    resolveUpdateServiceHeapEnv({ ...processEnv, ...serviceEnv }, processEnv),
+  );
 }
 
 export function resolveOwnedManagedUpdateEnv(params: {

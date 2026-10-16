@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{AsyncLocalStorage as t}from"node:async_hooks";function getAgentToolExecutionContext(){return n.getStore()}function runWithAgentToolExecutionContext(e,t){return n.run(e,t)}var n,r=e((()=>{n=new t}));export{r as n,runWithAgentToolExecutionContext as r,getAgentToolExecutionContext as t};

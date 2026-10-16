@@ -1,10 +1,11 @@
-import { r as asNullableRecord } from "../../record-coerce-DItp3I4t.mjs";
-import { r as isPathInside } from "../../path-guards-D5kuI0Tv.mjs";
-import { E as resolveStateDir } from "../../paths-DehQwyE0.mjs";
-import "../../string-coerce-runtime-C_MKhRVt.mjs";
-import "../../file-access-runtime-CWjkXCju.mjs";
-import "../../state-paths-Bk2vDLZh.mjs";
-import { t as readPrivateNativeHostFile } from "../../extension-native-host-file-B8Lb2IZe.mjs";
+import { r as asNullableRecord } from "../../record-coerce-TIsquoVR.mjs";
+import { r as isPathInside } from "../../path-guards-CH7noY0Z.mjs";
+import { r as resolveStateDir } from "../../state-dir-BHJORNly.mjs";
+import "../../string-coerce-runtime-50qKeWeL.mjs";
+import "../../file-access-runtime-BMp89X4Y.mjs";
+import "../../state-paths-Dd9pLEOI.mjs";
+import { n as parseStrictJsonObject, t as hasExactKeys } from "../../strict-json-DsGFhwfH.mjs";
+import { t as readPrivateNativeHostFile } from "../../extension-native-host-file-0-U8B0JT.mjs";
 import "../../extension-native-host.constants-CchS6g7H.mjs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -20,73 +21,6 @@ function writeNativeUint32(buffer, value, offset = 0) {
 	if (os.endianness() === "LE") buffer.writeUInt32LE(value, offset);
 	else buffer.writeUInt32BE(value, offset);
 }
-function rootJsonKeys(raw) {
-	const keys = [];
-	let index = 0;
-	const skipWhitespace = () => {
-		while (/\s/u.test(raw[index] ?? "")) index += 1;
-	};
-	const readJsonString = () => {
-		if (raw[index] !== "\"") return null;
-		const start = index++;
-		while (index < raw.length) {
-			const char = raw[index++];
-			if (char === "\\") index += 1;
-			else if (char === "\"") try {
-				return JSON.parse(raw.slice(start, index));
-			} catch {
-				return null;
-			}
-		}
-		return null;
-	};
-	const skipValue = () => {
-		let depth = 0;
-		let inString = false;
-		let escaped = false;
-		while (index < raw.length) {
-			const char = raw[index];
-			if (inString) {
-				index += 1;
-				if (escaped) escaped = false;
-				else if (char === "\\") escaped = true;
-				else if (char === "\"") inString = false;
-				continue;
-			}
-			if (char === "\"") {
-				inString = true;
-				index += 1;
-				continue;
-			}
-			if (char === "{" || char === "[") depth += 1;
-			else if (char === "}" || char === "]") {
-				if (depth === 0) return true;
-				depth -= 1;
-			} else if (char === "," && depth === 0) return true;
-			index += 1;
-		}
-		return true;
-	};
-	skipWhitespace();
-	if (raw[index++] !== "{") return null;
-	for (;;) {
-		skipWhitespace();
-		if (raw[index] === "}") return keys;
-		const key = readJsonString();
-		if (key === null) return null;
-		keys.push(key);
-		skipWhitespace();
-		if (raw[index++] !== ":") return null;
-		skipWhitespace();
-		if (!skipValue()) return null;
-		skipWhitespace();
-		if (raw[index] === ",") {
-			index += 1;
-			continue;
-		}
-		return raw[index] === "}" ? keys : null;
-	}
-}
 function isCanonicalNonce(value) {
 	if (typeof value !== "string" || !NONCE_PATTERN.test(value)) return false;
 	const bytes = Buffer.from(value, "base64url");
@@ -94,15 +28,7 @@ function isCanonicalNonce(value) {
 }
 /** Strictly validate one decoded native bootstrap request. */
 function parseBrowserNativeRequest(raw) {
-	const keys = rootJsonKeys(raw);
-	if (!keys || new Set(keys).size !== keys.length) return null;
-	let parsed;
-	try {
-		parsed = JSON.parse(raw);
-	} catch {
-		return null;
-	}
-	const record = asNullableRecord(parsed);
+	const record = parseStrictJsonObject(raw);
 	if (record?.v !== 1 || !isCanonicalNonce(record.nonce)) return null;
 	const expected = record.op === "ensure_relay" ? [
 		"v",
@@ -114,7 +40,7 @@ function parseBrowserNativeRequest(raw) {
 		"op",
 		"nonce"
 	];
-	if (keys.length !== expected.length || !expected.every((key) => keys.includes(key))) return null;
+	if (!hasExactKeys(record, expected)) return null;
 	if (record.op === "bootstrap") return {
 		v: 1,
 		op: "bootstrap",
@@ -218,18 +144,16 @@ async function validateNativeManifest(params) {
 	const managedRoot = path.resolve(params.stateDir ?? resolveStateDir(), "browser", "native-messaging");
 	if (!isPathInside(managedRoot, launcherPath)) throw new Error("launcher is outside the managed root");
 	const parsed = JSON.parse(manifestFile.buffer.toString("utf8"));
-	const manifestRecord = asNullableRecord(parsed);
-	if (!manifestRecord) throw new Error("invalid manifest");
-	const manifest = manifestRecord;
+	const manifest = asNullableRecord(parsed);
+	if (!manifest) throw new Error("invalid manifest");
 	const expectedOrigins = validateExpectedOrigins(params.expectedOrigins);
-	const keys = [
+	if (!hasExactKeys(manifest, [
 		"name",
 		"description",
 		"path",
 		"type",
 		"allowed_origins"
-	];
-	if (Object.keys(manifest).length !== keys.length || !keys.every((key) => Object.hasOwn(manifest, key)) || manifest.name !== "ai.openclaw.browser_bootstrap" || manifest.type !== "stdio" || (process.platform === "win32" ? typeof manifest.path !== "string" || manifest.path.toLowerCase() !== launcherPath.toLowerCase() : manifest.path !== launcherPath) || !Array.isArray(manifest.allowed_origins) || JSON.stringify(manifest.allowed_origins) !== JSON.stringify(expectedOrigins)) throw new Error("invalid manifest");
+	]) || manifest.name !== "ai.openclaw.browser_bootstrap" || manifest.type !== "stdio" || (process.platform === "win32" ? typeof manifest.path !== "string" || manifest.path.toLowerCase() !== launcherPath.toLowerCase() : manifest.path !== launcherPath) || !Array.isArray(manifest.allowed_origins) || JSON.stringify(manifest.allowed_origins) !== JSON.stringify(expectedOrigins)) throw new Error("invalid manifest");
 	if (!expectedOrigins.includes(params.callerOrigin)) throw new Error("origin forbidden");
 }
 /** Run one request/response native host process. */
@@ -251,7 +175,7 @@ async function runBrowserNativeHost(params) {
 			let boundProfile;
 			try {
 				if ((params.platform ?? process.platform) === "win32") {
-					const { validateWindowsNativeContext } = await import("../../extension-windows-host-De9dw0U9.mjs");
+					const { validateWindowsNativeContext } = await import("../../extension-windows-host-8l7DnNoM.mjs");
 					boundProfile = await validateWindowsNativeContext(params);
 					if (!params.expectedOrigins.includes(params.callerOrigin)) throw new Error("origin forbidden");
 				} else await validateNativeManifest(params);
@@ -330,12 +254,12 @@ async function main() {
 			responseFrame = frame;
 		},
 		buildPairing: async (boundProfile) => {
-			const { buildBrowserNativeHostPairing } = await import("../../extension-native-host.runtime-eu4MybH7.mjs");
+			const { buildBrowserNativeHostPairing } = await import("../../extension-native-host.runtime-B6dAJ5tN.mjs");
 			const profile = process.argv.indexOf("--browser-profile") >= 0 ? requiredArgument("--browser-profile") : void 0;
 			return await buildBrowserNativeHostPairing(boundProfile ?? profile);
 		},
 		ensureRelay: async (port) => {
-			const { ensureBrowserNativeRelay } = await import("../../extension-native-host.runtime-eu4MybH7.mjs");
+			const { ensureBrowserNativeRelay } = await import("../../extension-native-host.runtime-B6dAJ5tN.mjs");
 			return await ensureBrowserNativeRelay(port, fileURLToPath(new URL("./relay-daemon-entry.js", import.meta.url)));
 		}
 	});

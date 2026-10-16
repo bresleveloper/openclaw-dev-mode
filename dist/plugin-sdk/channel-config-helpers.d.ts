@@ -1,68 +1,38 @@
-import { r as OpenClawConfig, yn as ChannelAccountKeyPolicy } from "../types.openclaw-Ccmw-oTa.js";
-import { D as ChannelSecurityDmPolicy } from "../types.core-BfkZpaZ6.js";
-import { F as ConfigWriteScopeLike, I as ConfigWriteTargetLike, M as canBypassConfigWritePolicy, N as formatConfigWriteDeniedMessage, P as ConfigWriteAuthorizationResultLike, j as authorizeConfigWrite, s as ChannelConfigAdapter } from "../types.adapters-IC4-T9eq.js";
-import { n as clearAccountFieldsFromConfigSection } from "../config-helpers-DGVsqE1f.js";
-import { t as buildAccountScopedDmSecurityPolicy } from "../helpers-BjSTA4Z3.js";
+import { r as OpenClawConfig, wn as ChannelAccountKeyPolicy } from "../types.openclaw-DWWUw8hA.js";
+import { D as ChannelSecurityDmPolicy } from "../types.core-Bra2QBA5.js";
+import { F as formatConfigWriteDeniedMessage, I as ConfigWriteAuthorizationResultLike, L as ConfigWriteScopeLike, N as authorizeConfigWrite, P as canBypassConfigWritePolicy, R as ConfigWriteTargetLike, s as ChannelConfigAdapter } from "../types.adapters-Bo2TMZGx.js";
+import { t as buildAccountScopedDmSecurityPolicy } from "../helpers-gk1rbVRv.js";
+import { n as clearAccountFieldsFromConfigSection } from "../config-helpers-B3C2dCc9.js";
 //#region src/channels/plugins/dm-access.d.ts
-/**
- * Selects whether canonical DM fields live at the top level or under `dm`.
- */
 type ChannelDmAllowFromMode = "topOnly" | "topOrNested" | "nestedOnly";
-/**
- * Supported direct-message policy values for channel account config.
- */
 type ChannelDmPolicy = "pairing" | "allowlist" | "open" | "disabled";
-/**
- * Normalized DM access view consumed by channel setup and reply gates.
- */
 type ChannelDmAccess = {
   dmPolicy?: ChannelDmPolicy;
   allowFrom?: Array<string | number>;
 };
-/**
- * Mutable config record used while migrating channel account DM fields.
- */
 type DmAccessRecord = Record<string, unknown>;
-/**
- * Result returned by compatibility helpers after optional DM config mutation.
- */
 type CompatMutationResult = {
   entry: DmAccessRecord;
   changed: boolean;
 };
-/**
- * Narrows a raw string to a supported channel DM policy.
- */
 export declare function normalizeChannelDmPolicy(value: string | undefined): ChannelDmPolicy | undefined;
-/**
- * Resolves the effective DM policy from account, parent account, and default policy.
- */
 export declare function resolveChannelDmPolicy(params: {
   account?: DmAccessRecord | null;
   parent?: DmAccessRecord | null;
   mode?: ChannelDmAllowFromMode;
   defaultPolicy?: string;
 }): ChannelDmPolicy | undefined;
-/**
- * Resolves the effective DM allowlist from account or parent account config.
- */
 export declare function resolveChannelDmAllowFrom(params: {
   account?: DmAccessRecord | null;
   parent?: DmAccessRecord | null;
   mode?: ChannelDmAllowFromMode;
 }): Array<string | number> | undefined;
-/**
- * Resolves policy and allowlist together for channel access checks.
- */
 export declare function resolveChannelDmAccess(params: {
   account?: DmAccessRecord | null;
   parent?: DmAccessRecord | null;
   mode?: ChannelDmAllowFromMode;
   defaultPolicy?: string;
 }): ChannelDmAccess;
-/**
- * Writes a canonical DM allowlist and removes the matching legacy alias.
- */
 export declare function setCanonicalDmAllowFrom(params: {
   entry: DmAccessRecord;
   mode: ChannelDmAllowFromMode;
@@ -71,18 +41,12 @@ export declare function setCanonicalDmAllowFrom(params: {
   changes?: string[];
   reason: string;
 }): void;
-/**
- * Migrates legacy `dm.*` aliases into the canonical DM access fields.
- */
 export declare function normalizeLegacyDmAliases(params: {
   entry: DmAccessRecord;
   pathPrefix: string;
   changes: string[];
   promoteAllowFrom?: boolean;
 }): CompatMutationResult;
-/**
- * Ensures `dmPolicy="open"` has the wildcard allowlist required by access gates.
- */
 export declare function ensureOpenDmPolicyAllowFromWildcard(params: {
   entry: DmAccessRecord;
   mode: ChannelDmAllowFromMode;
@@ -98,7 +62,7 @@ export type ConfigWriteTarget = ConfigWriteTargetLike;
 /** Decision returned by channel config write policy helpers. */
 export type ConfigWriteAuthorizationResult = ConfigWriteAuthorizationResultLike;
 type ChannelCrudConfigAdapter<ResolvedAccount> = Pick<ChannelConfigAdapter<ResolvedAccount>, "listAccountIds" | "resolveAccount" | "inspectAccount" | "defaultAccountId" | "setAccountEnabled" | "deleteAccount">;
-type ChannelConfigAdapterWithAccessors<ResolvedAccount> = Pick<ChannelConfigAdapter<ResolvedAccount>, "listAccountIds" | "resolveAccount" | "inspectAccount" | "defaultAccountId" | "setAccountEnabled" | "deleteAccount" | "resolveAllowFrom" | "formatAllowFrom" | "resolveDefaultTo">;
+type ChannelConfigAdapterWithAccessors<ResolvedAccount> = ChannelCrudConfigAdapter<ResolvedAccount> & Pick<ChannelConfigAdapter<ResolvedAccount>, "resolveAllowFrom" | "formatAllowFrom" | "resolveDefaultTo">;
 /** Returns whether config writes are enabled for a channel/account target. */
 export declare function resolveChannelConfigWrites(params: {
   cfg: OpenClawConfig;
@@ -109,15 +73,8 @@ type ChannelConfigAccessorParams<Config extends OpenClawConfig = OpenClawConfig>
   cfg: Config;
   accountId?: string | null;
 };
-type MultiAccountChannelConfigAdapterParams<ResolvedAccount, AccessorAccount = ResolvedAccount, Config extends OpenClawConfig = OpenClawConfig> = {
-  sectionKey: string;
-  accountKeyPolicy?: ChannelAccountKeyPolicy;
-  listAccountIds: (cfg: Config) => string[];
-  resolveAccount: (cfg: Config, accountId?: string | null) => ResolvedAccount;
+type MultiAccountChannelConfigAdapterParams<ResolvedAccount, AccessorAccount = ResolvedAccount, Config extends OpenClawConfig = OpenClawConfig> = NamedAccountChannelConfigBaseParams<ResolvedAccount, Config> & {
   resolveAccessorAccount?: (params: ChannelConfigAccessorParams<Config>) => AccessorAccount;
-  defaultAccountId: (cfg: Config) => string;
-  inspectAccount?: (cfg: Config, accountId?: string | null) => unknown;
-  clearBaseFields: string[];
   resolveAllowFrom: (account: AccessorAccount) => Array<string | number> | null | undefined;
   formatAllowFrom: (allowFrom: Array<string | number>) => string[];
   resolveDefaultTo?: (account: AccessorAccount) => string | number | null | undefined;
@@ -173,20 +130,10 @@ export declare function createTopLevelChannelConfigBase<ResolvedAccount, Config 
   inspectAccount?: (cfg: Config) => unknown;
   deleteMode?: "remove-section" | "clear-fields";
   clearBaseFields?: string[];
-}): Pick<ChannelConfigAdapter<ResolvedAccount>, "listAccountIds" | "resolveAccount" | "inspectAccount" | "defaultAccountId" | "setAccountEnabled" | "deleteAccount">;
+}): ChannelCrudConfigAdapter<ResolvedAccount>;
 /** Build the full shared config adapter for top-level single-account channels with allowlist/default target accessors. */
-export declare function createTopLevelChannelConfigAdapter<ResolvedAccount, AccessorAccount = ResolvedAccount, Config extends OpenClawConfig = OpenClawConfig>(params: {
-  sectionKey: string;
-  resolveAccount: (cfg: Config) => ResolvedAccount;
-  resolveAccessorAccount?: (params: {
-    cfg: Config;
-    accountId?: string | null;
-  }) => AccessorAccount;
-  listAccountIds?: (cfg: Config) => string[];
-  defaultAccountId?: (cfg: Config) => string;
-  inspectAccount?: (cfg: Config) => unknown;
-  deleteMode?: "remove-section" | "clear-fields";
-  clearBaseFields?: string[];
+export declare function createTopLevelChannelConfigAdapter<ResolvedAccount, AccessorAccount = ResolvedAccount, Config extends OpenClawConfig = OpenClawConfig>(params: Parameters<typeof createTopLevelChannelConfigBase<ResolvedAccount, Config>>[0] & {
+  resolveAccessorAccount?: (params: ChannelConfigAccessorParams<Config>) => AccessorAccount;
   resolveAllowFrom: (account: AccessorAccount) => Array<string | number> | null | undefined;
   formatAllowFrom: (allowFrom: Array<string | number>) => string[];
   resolveDefaultTo?: (account: AccessorAccount) => string | number | null | undefined;

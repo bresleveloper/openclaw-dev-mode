@@ -1,2 +1,2 @@
-import { t as buildMicrosoftFoundryProvider } from "../../provider-BNKPTgh1.mjs";
+import { t as buildMicrosoftFoundryProvider } from "../../provider-DlHcn_Pd.mjs";
 export { buildMicrosoftFoundryProvider };

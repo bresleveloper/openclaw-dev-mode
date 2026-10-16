@@ -1,7 +1,7 @@
-import { r as OpenClawConfig } from "../types.openclaw-Ccmw-oTa.js";
-import { h as ReplyPayload, p as readAskUserQuestionId } from "../reply-payload-DSrL-UWv.js";
-import { f as MessagePresentation } from "../payload-Co5fPRVS.js";
-import "../index-hVvy_KTe.js";
+import { r as OpenClawConfig } from "../types.openclaw-DWWUw8hA.js";
+import { p as readAskUserQuestionId, pn as ReplyPayload } from "../reply-payload-DazZPys5.js";
+import { f as MessagePresentation } from "../payload-DbVrIDaU.js";
+import "../index-B4F-ENEv.js";
 //#region src/infra/question-channel-runtime.d.ts
 declare const registerQuestionChannelDelivery: (params: {
   questionId: string;

@@ -1,5 +1,5 @@
-import { n as serveWorkerTasks } from "../worker-task-server-CwtaNZgU.mjs";
-import { c as buildSummaryChunks, l as computeAdaptiveChunkRatio, o as buildOversizedFallbackPlan, s as buildStageSplitPlan } from "../compaction-planning-Cn8w0Co8.mjs";
+import { n as serveWorkerTasks } from "../worker-task-server-BC_7U18u.mjs";
+import { a as buildStageSplitPlan, i as buildOversizedFallbackPlan, o as buildSummaryChunks, s as computeAdaptiveChunkRatio } from "../compaction-planning-UE4SWl9c.mjs";
 //#region src/agents/compaction-planning.worker.ts
 /**
 * Worker-thread entrypoint for serializable compaction planning requests.

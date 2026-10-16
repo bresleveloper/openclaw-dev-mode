@@ -1,2 +1,2 @@
-import { t as createLazyXaiRealtimeVoiceBridge } from "../../realtime-voice-lazy-BXQ4I33l.mjs";
+import { t as createLazyXaiRealtimeVoiceBridge } from "../../realtime-voice-lazy-CY-GDHCy.mjs";
 export { createLazyXaiRealtimeVoiceBridge };

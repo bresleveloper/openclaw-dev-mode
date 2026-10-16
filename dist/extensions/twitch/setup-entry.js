@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 var setup_entry_default = defineBundledChannelSetupEntry({
 	importMetaUrl: import.meta.url,
 	plugin: {
-		specifier: fileURLToPath(new URL(".setup/setup-plugin-api-CWMOjn6G.mjs", import.meta.url).href),
+		specifier: fileURLToPath(new URL(".setup/setup-plugin-api-f4_tNl5M.mjs", import.meta.url).href),
 		exportName: "twitchSetupPlugin"
 	}
 });

@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{r as t}from"./worker-chunk-CR8KBmOE.mjs";import{t as n}from"./worker-chunk-Lqnok8Oi.mjs";function resolveOriginMessageProvider(e){return t(e.originatingChannel)??t(e.provider)}var r=e((()=>{n()}));export{resolveOriginMessageProvider as n,r as t};

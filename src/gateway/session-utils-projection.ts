@@ -1,3 +1,4 @@
+import { asPositiveFiniteNumber } from "@openclaw/normalization-core/number-coercion";
 import { readAcpSessionMetaForEntry } from "../acp/runtime/session-meta-readonly.js";
 import { readAcpSessionMeta } from "../acp/runtime/session-meta.js";
 import { resolveCurrentSessionAgentRuntimeMetadata } from "../agents/agent-runtime-metadata.js";
@@ -22,7 +23,7 @@ import {
   type SessionActorProfileIdentity,
   type SessionListRowContext,
 } from "./session-utils-contracts.js";
-import { resolveEstimatedSessionCostUsd, resolvePositiveNumber } from "./session-utils-core.js";
+import { resolveEstimatedSessionCostUsd } from "./session-utils-core.js";
 import { resolveWorkerPlacementModelRuntime } from "./worker-environments/placement-session-runtime.js";
 
 export function buildSessionListRowMetadataContext(params: {
@@ -30,8 +31,12 @@ export function buildSessionListRowMetadataContext(params: {
   sessionKeys?: readonly string[];
   subagentRuns?: SessionListRowContext["subagentRuns"];
   projectedAgentRuns?: ProjectedAgentRunIndex;
+  projectedSubagentActivity?: ReadonlySet<string>;
   userProfileIdentityById?: Map<string, SessionActorProfileIdentity | undefined>;
-}): SessionListRowContext {
+}): SessionListRowContext & {
+  projectedAgentRuns: ProjectedAgentRunIndex;
+  projectedSubagentActivity: ReadonlySet<string>;
+} {
   const subagentRuns =
     params.subagentRuns ?? buildSubagentSessionListReadIndex(params.now, params.sessionKeys);
   const projectedAgentRuns = params.projectedAgentRuns ?? buildProjectedAgentRunIndex();
@@ -46,7 +51,9 @@ export function buildSessionListRowMetadataContext(params: {
   return {
     subagentRuns,
     projectedAgentRuns,
-    projectedSubagentActivity: buildProjectedSubagentActivity(subagentRuns, projectedAgentRuns),
+    projectedSubagentActivity:
+      params.projectedSubagentActivity ??
+      buildProjectedSubagentActivity(subagentRuns, projectedAgentRuns),
     subagentRunsByChildSessionKey: subagentRuns.runsByChildSessionKey,
     configuredDefaultModelByAgent: new Map(),
     thinkingFactsByModelRef: new Map(),
@@ -111,7 +118,6 @@ export function resolveTranscriptUsageFallbacks(params: {
   freshTotalTokens?: number;
   fallbackModelRefs: readonly (string | undefined)[];
   allowPluginNormalization?: boolean;
-  maxTranscriptBytes?: number;
   rowContext?: SessionListRowContext;
   agentId: string;
   storeAgentId?: string;
@@ -159,7 +165,7 @@ export function resolveTranscriptUsageFallbacks(params: {
             sessionKey: params.key,
             storePath,
           },
-          typeof params.maxTranscriptBytes === "number" ? params.maxTranscriptBytes : 256 * 1024,
+          256 * 1024,
         );
       } catch {
         snapshot = null;
@@ -175,7 +181,7 @@ export function resolveTranscriptUsageFallbacks(params: {
         rowContext: params.rowContext,
       });
       fallbacks.set(fallbackModelRef, {
-        totalTokens: resolvePositiveNumber(snapshot.totalTokens),
+        totalTokens: asPositiveFiniteNumber(snapshot.totalTokens),
         totalTokensFresh: snapshot.totalTokensFresh === true,
         estimatedCostUsd,
       });
@@ -199,6 +205,7 @@ export function resolveGatewaySessionRuntimeProjection(params: {
   agentId: string;
   sessionKey: string;
   entry?: SessionEntry;
+  preparedAcpMeta?: SessionEntry["acp"] | null;
   rowContext?: SessionListRowContext;
   metadataSnapshot?: PluginMetadataSnapshot;
 }) {
@@ -207,9 +214,11 @@ export function resolveGatewaySessionRuntimeProjection(params: {
   // replacement lifecycle while projecting the original entry.
   const acpMeta =
     entry?.acp ??
-    (entry
-      ? readAcpSessionMetaForEntry({ cfg, sessionKey, agentId, entry })
-      : readAcpSessionMeta({ sessionKey, agentId }));
+    (params.preparedAcpMeta !== undefined
+      ? (params.preparedAcpMeta ?? undefined)
+      : entry
+        ? readAcpSessionMetaForEntry({ cfg, sessionKey, agentId, entry })
+        : readAcpSessionMeta({ sessionKey, agentId }));
   const agentRuntime = resolveCurrentSessionAgentRuntimeMetadata({
     cfg: params.cfg,
     agentScope: { kind: "prepared", agentId: params.agentId },

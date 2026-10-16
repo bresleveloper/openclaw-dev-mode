@@ -1,2 +1,2 @@
-import { a as resolveApprovalApprovers, i as markImplicitSameChatApprovalAuthorization, n as createResolvedApproverActionAuthAdapter, r as isImplicitSameChatApprovalAuthorization, t as createChannelApprovalAuth } from "../approval-auth-helpers-KNkxWSWN.js";
+import { a as resolveApprovalApprovers, i as markImplicitSameChatApprovalAuthorization, n as createResolvedApproverActionAuthAdapter, r as isImplicitSameChatApprovalAuthorization, t as createChannelApprovalAuth } from "../approval-auth-helpers-Dl2BnQOC.js";
 export { createChannelApprovalAuth, createResolvedApproverActionAuthAdapter, isImplicitSameChatApprovalAuthorization, markImplicitSameChatApprovalAuthorization, resolveApprovalApprovers };

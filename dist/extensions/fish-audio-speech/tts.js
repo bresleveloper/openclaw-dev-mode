@@ -1,5 +1,4 @@
-import { MAX_AUDIO_BYTES } from "openclaw/plugin-sdk/speech-provider";
-import { asOptionalRecord, normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
+import { asOptionalRecord, normalizeOptionalString, normalizeTrimmedStringList } from "openclaw/plugin-sdk/string-coerce-runtime";
 //#region extensions/fish-audio-speech/tts.ts
 const FISH_AUDIO_BASE_URL = "https://api.fish.audio";
 const FISH_AUDIO_VOICES_MAX_BYTES = 2097152;
@@ -79,8 +78,8 @@ function parseVoiceItem(value) {
 	const item = asOptionalRecord(value);
 	const id = normalizeOptionalString(item?.["_id"]);
 	if (!id) return;
-	const languages = Array.isArray(item?.languages) ? item.languages.flatMap((entry) => typeof entry === "string" && entry.trim() ? [entry.trim()] : []) : [];
-	const tags = Array.isArray(item?.tags) ? item.tags.flatMap((entry) => typeof entry === "string" && entry.trim() ? [entry.trim()] : []) : [];
+	const languages = normalizeTrimmedStringList(item?.languages);
+	const tags = normalizeTrimmedStringList(item?.tags);
 	return {
 		id,
 		name: normalizeOptionalString(item?.title),
@@ -141,6 +140,5 @@ async function listFishAudioVoices(params) {
 		return true;
 	});
 }
-const FISH_AUDIO_STREAM_MAX_BYTES = MAX_AUDIO_BYTES;
 //#endregion
-export { FISH_AUDIO_STREAM_MAX_BYTES, fishAudioTts, fishAudioTtsStream, listFishAudioVoices, normalizeFishAudioBaseUrl };
+export { fishAudioTts, fishAudioTtsStream, listFishAudioVoices, normalizeFishAudioBaseUrl };

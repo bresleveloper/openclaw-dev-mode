@@ -26,11 +26,7 @@ function supportsBedrockClaudePromptCaching(modelId, modelName) {
 		if (typeof process !== "undefined" && process.env.AWS_BEDROCK_FORCE_CACHE === "1") return true;
 		return false;
 	}
-	if (candidates.some((s) => s.includes("-4-"))) return true;
-	if (candidates.some((candidate) => candidate.includes("claude-fable-5") || candidate.includes("claude-mythos-5") || candidate.includes("claude-opus-5") || candidate.includes("claude-sonnet-5"))) return true;
-	if (candidates.some((s) => s.includes("claude-3-7-sonnet"))) return true;
-	if (candidates.some((s) => s.includes("claude-3-5-haiku"))) return true;
-	return false;
+	return candidates.some((candidate) => candidate.includes("-4-") || /claude-(?:fable-5|mythos-5|opus-5|sonnet-5|3-7-sonnet|3-5-haiku)/.test(candidate));
 }
 //#endregion
 export { resolveBedrockCachePoint, resolveBedrockPromptCachePolicy, supportsBedrockClaudePromptCaching };

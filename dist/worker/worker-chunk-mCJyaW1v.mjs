@@ -1,0 +1,1 @@
+import{i as e,s as t}from"./worker-chunk-BH8Vb2ZY.mjs";t();export{e as getTailnetHostname};

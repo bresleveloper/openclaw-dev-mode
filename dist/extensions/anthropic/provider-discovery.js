@@ -1,4 +1,4 @@
-import { a as CLAUDE_CLI_NATIVE_AUTH_MARKER, n as CLAUDE_CLI_CLEAR_ENV, t as CLAUDE_CLI_BACKEND_ID } from "./.setup/cli-constants-ej8FmFRy.mjs";
+import { a as CLAUDE_CLI_NATIVE_AUTH_MARKER, n as CLAUDE_CLI_CLEAR_ENV, t as CLAUDE_CLI_BACKEND_ID } from "./.setup/cli-constants-DdiQJ1Sq.mjs";
 import { isRecord, normalizeLowercaseStringOrEmpty, normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { runUtf8CommandWithTimeout } from "openclaw/plugin-sdk/process-runtime";
 import { materializeWindowsSpawnProgram, resolveWindowsSpawnProgram } from "openclaw/plugin-sdk/windows-spawn";

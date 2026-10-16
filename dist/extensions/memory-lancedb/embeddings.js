@@ -9,6 +9,7 @@ import { resolveGlobalSingleton } from "openclaw/plugin-sdk/global-singleton";
 import { canonicalizeBase64 } from "openclaw/plugin-sdk/media-runtime";
 import { resolveTimerTimeoutMs } from "openclaw/plugin-sdk/number-runtime";
 import { ensureGlobalUndiciEnvProxyDispatcher } from "openclaw/plugin-sdk/runtime-env";
+import { raceWithTimeout } from "openclaw/plugin-sdk/time-runtime";
 //#region extensions/memory-lancedb/embeddings.ts
 const loadOpenAiModule = createLazyRuntimeModule(() => import("openai"));
 const loadMemoryEmbeddingProviderModule = createLazyRuntimeModule(() => import("openclaw/plugin-sdk/memory-core-host-engine-embeddings"));
@@ -181,30 +182,27 @@ var ProviderAdapterEmbeddings = class {
 	async createProvider(config, agentDir, embedding) {
 		return await runProviderAdapterLifecycle(async () => {
 			await drainRetainedProviders();
-			return await this.createProviderAfterRetirement(config, agentDir, embedding);
+			const providerId = embedding.provider;
+			const { getMemoryEmbeddingProvider, registerRuntimeAuthProfileStoreMutationListener } = await loadMemoryEmbeddingProviderModule();
+			if (!this.closed && !this.unregisterAuthMutationListener) this.unregisterAuthMutationListener = registerRuntimeAuthProfileStoreMutationListener((event) => this.invalidateProvidersForAuthMutation(event));
+			const adapter = getMemoryEmbeddingProvider(providerId, config);
+			if (!adapter) throw new Error(`Unknown memory embedding provider: ${providerId}`);
+			const remote = embedding.apiKey || embedding.baseUrl ? {
+				...embedding.apiKey ? { apiKey: embedding.apiKey } : {},
+				...embedding.baseUrl ? { baseUrl: embedding.baseUrl } : {}
+			} : void 0;
+			const result = await adapter.create({
+				config,
+				agentDir,
+				provider: providerId,
+				fallback: "none",
+				model: embedding.model,
+				...remote ? { remote } : {},
+				...typeof embedding.dimensions === "number" ? { dimensions: embedding.dimensions } : {}
+			});
+			if (!result.provider) throw new Error(`Memory embedding provider ${providerId} is unavailable.`);
+			return result.provider;
 		});
-	}
-	async createProviderAfterRetirement(config, agentDir, embedding) {
-		const providerId = embedding.provider;
-		const { getMemoryEmbeddingProvider, registerRuntimeAuthProfileStoreMutationListener } = await loadMemoryEmbeddingProviderModule();
-		if (!this.closed && !this.unregisterAuthMutationListener) this.unregisterAuthMutationListener = registerRuntimeAuthProfileStoreMutationListener((event) => this.invalidateProvidersForAuthMutation(event));
-		const adapter = getMemoryEmbeddingProvider(providerId, config);
-		if (!adapter) throw new Error(`Unknown memory embedding provider: ${providerId}`);
-		const remote = embedding.apiKey || embedding.baseUrl ? {
-			...embedding.apiKey ? { apiKey: embedding.apiKey } : {},
-			...embedding.baseUrl ? { baseUrl: embedding.baseUrl } : {}
-		} : void 0;
-		const result = await adapter.create({
-			config,
-			agentDir,
-			provider: providerId,
-			fallback: "none",
-			model: embedding.model,
-			...remote ? { remote } : {},
-			...typeof embedding.dimensions === "number" ? { dimensions: embedding.dimensions } : {}
-		});
-		if (!result.provider) throw new Error(`Memory embedding provider ${providerId} is unavailable.`);
-		return result.provider;
 	}
 	async embed(agentId, text, embeddingConfig, timeoutMs) {
 		if (this.closed) throw new Error("memory-lancedb embeddings are closed");
@@ -262,18 +260,11 @@ var ProviderAdapterEmbeddings = class {
 	}
 };
 async function runWithTimeout(params) {
-	let timeout;
 	const TIMEOUT = Symbol("timeout");
 	const timeoutMs = resolveTimerTimeoutMs(params.timeoutMs, 1);
 	const deadlineAtMs = Date.now() + timeoutMs;
-	const timeoutPromise = new Promise((resolve) => {
-		timeout = setTimeout(() => resolve(TIMEOUT), timeoutMs);
-		timeout.unref?.();
-	});
-	const taskPromise = params.task(deadlineAtMs);
-	taskPromise.catch(() => void 0);
 	try {
-		const result = await Promise.race([taskPromise, timeoutPromise]);
+		const result = await raceWithTimeout(() => params.task(deadlineAtMs), timeoutMs, () => TIMEOUT, { ref: false });
 		if (result === TIMEOUT || Date.now() >= deadlineAtMs) return { status: "timeout" };
 		return {
 			status: "ok",
@@ -282,8 +273,6 @@ async function runWithTimeout(params) {
 	} catch (error) {
 		if (Date.now() >= deadlineAtMs) return { status: "timeout" };
 		throw error;
-	} finally {
-		if (timeout) clearTimeout(timeout);
 	}
 }
 function isMemoryRecallTimeoutError(error) {
@@ -362,4 +351,4 @@ function normalizeEmbeddingVector(value) {
 	return value;
 }
 //#endregion
-export { MemoryRecallEmbeddingError, buildMemoryRecallUnavailableResult, createEmbeddings, isMemoryRecallTimeoutError, normalizeEmbeddingVector, runWithTimeout };
+export { MemoryRecallEmbeddingError, buildMemoryRecallUnavailableResult, createEmbeddings, isMemoryRecallTimeoutError, runWithTimeout };

@@ -1,8 +1,9 @@
-import { a as resolveRaftAccount, i as resolveDefaultRaftAccountId, n as RAFT_CHANNEL_ID, r as listRaftAccountIds, t as raftSetupPlugin } from "./.setup/setup-Ch6ZQ_L7.mjs";
+import { n as RAFT_CHANNEL_ID, t as raftSetupPlugin } from "./.setup/setup-DgJ7DQHN.mjs";
 import { describeAccountSnapshot } from "openclaw/plugin-sdk/account-helpers";
 import { createChatChannelPlugin } from "openclaw/plugin-sdk/channel-core";
 import { detectBinary } from "openclaw/plugin-sdk/setup-tools";
 import { buildBaseChannelStatusSummary, createComputedAccountStatusAdapter, createDefaultChannelRuntimeState } from "openclaw/plugin-sdk/status-helpers";
+import { isRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { buildChannelConfigSchema, buildMultiAccountChannelSchema } from "openclaw/plugin-sdk/channel-config-schema";
 import { z } from "zod";
 import { spawn } from "node:child_process";
@@ -137,21 +138,6 @@ const WAKE_EVENT_ID_FIELDS = [
 	"wake_id",
 	"id"
 ];
-function createRaftWakeReplayGuard(params) {
-	return createChannelReplayGuard({
-		dedupe: {
-			ttlMs: WAKE_DEDUPE_TTL_MS,
-			memoryMaxSize: WAKE_DEDUPE_MEMORY_MAX_SIZE,
-			pluginId: RAFT_CHANNEL_ID,
-			namespacePrefix: "raft-wake-dedupe",
-			stateMaxEntries: WAKE_DEDUPE_STATE_MAX_ENTRIES,
-			...params?.env ? { env: params.env } : {},
-			...params?.onDiskError ? { onDiskError: params.onDiskError } : {}
-		},
-		buildReplayKey: (event) => event.key,
-		namespace: (event) => event.accountId
-	});
-}
 var WakeRequestError = class extends Error {
 	constructor(statusCode, message, closeAfterResponse = false) {
 		super(message);
@@ -159,9 +145,6 @@ var WakeRequestError = class extends Error {
 		this.closeAfterResponse = closeAfterResponse;
 	}
 };
-function createToken() {
-	return randomBytes(32).toString("hex");
-}
 function spawnRaftBridge(params) {
 	return spawn("raft", [
 		"--profile",
@@ -198,7 +181,7 @@ async function readWakePayload(request) {
 		throw new WakeRequestError(400, body.code === "INVALID_JSON" ? "Wake payload must be valid JSON." : body.error);
 	}
 	const payload = body.value;
-	if (!payload || typeof payload !== "object" || Array.isArray(payload)) throw new WakeRequestError(400, "Wake payload must be an object.");
+	if (!isRecord(payload)) throw new WakeRequestError(400, "Wake payload must be an object.");
 	return payload;
 }
 function containsMessageContent(value) {
@@ -213,12 +196,9 @@ function resolveWakeEventId(payload) {
 		if (typeof value === "number" && Number.isFinite(value)) return String(value);
 	}
 }
-function hashWakeEventId(eventId) {
-	return createHash("sha256").update(eventId).digest("hex");
-}
 function resolveWakeDedupeKey(payload) {
 	const eventId = resolveWakeEventId(payload);
-	return eventId ? hashWakeEventId(`id:${eventId}`) : void 0;
+	return eventId ? createHash("sha256").update(`id:${eventId}`).digest("hex") : void 0;
 }
 function sendJson(response, statusCode, body) {
 	response.writeHead(statusCode, {
@@ -250,7 +230,7 @@ async function listenLoopback(server) {
 	if (!address || typeof address === "string") throw new Error("Raft wake server did not bind a TCP port.");
 	return address.port;
 }
-async function startRaftGatewayAccount(ctx, deps = {}) {
+async function startRaftGatewayAccount(ctx) {
 	const profile = ctx.account.profile;
 	if (!ctx.account.enabled) {
 		await waitUntilAbort(ctx.abortSignal);
@@ -259,10 +239,21 @@ async function startRaftGatewayAccount(ctx, deps = {}) {
 	if (!profile) throw new Error(`Raft account "${ctx.accountId}" is missing a CLI profile.`);
 	if (!ctx.channelRuntime) throw new Error("Raft requires OpenClaw channel runtime support. Update OpenClaw and retry.");
 	const wakeQueue = new KeyedAsyncQueue();
-	const wakeDedupe = deps.wakeDedupe ?? createRaftWakeReplayGuard({ onDiskError: (error) => {
-		ctx.log?.warn?.(`Raft wake dedupe storage failed: ${String(error)}`);
-	} });
-	const token = (deps.createToken ?? createToken)();
+	const wakeDedupe = createChannelReplayGuard({
+		dedupe: {
+			ttlMs: WAKE_DEDUPE_TTL_MS,
+			memoryMaxSize: WAKE_DEDUPE_MEMORY_MAX_SIZE,
+			pluginId: RAFT_CHANNEL_ID,
+			namespacePrefix: "raft-wake-dedupe",
+			stateMaxEntries: WAKE_DEDUPE_STATE_MAX_ENTRIES,
+			onDiskError: (error) => {
+				ctx.log?.warn?.(`Raft wake dedupe storage failed: ${String(error)}`);
+			}
+		},
+		buildReplayKey: (event) => event.key,
+		namespace: (event) => event.accountId
+	});
+	const token = randomBytes(32).toString("hex");
 	const runtimeSession = randomUUID();
 	const sockets = /* @__PURE__ */ new Set();
 	let stopped = false;
@@ -357,10 +348,9 @@ async function startRaftGatewayAccount(ctx, deps = {}) {
 	};
 	try {
 		const port = await listenLoopback(server);
-		const endpoint = `http://${BRIDGE_HOST}:${port}${WAKE_PATH}`;
-		bridge = (deps.spawnBridge ?? spawnRaftBridge)({
+		bridge = spawnRaftBridge({
 			profile,
-			endpoint,
+			endpoint: `http://${BRIDGE_HOST}:${port}${WAKE_PATH}`,
 			token
 		});
 		bridge.once("error", (error) => {
@@ -416,30 +406,11 @@ async function startRaftGatewayAccount(ctx, deps = {}) {
 //#endregion
 //#region extensions/raft/src/channel.ts
 const raftPlugin = createChatChannelPlugin({ base: {
-	id: RAFT_CHANNEL_ID,
-	meta: {
-		id: RAFT_CHANNEL_ID,
-		label: "Raft",
-		selectionLabel: "Raft (CLI wake bridge)",
-		docsPath: "/channels/raft",
-		docsLabel: "raft",
-		blurb: "Raft CLI wake bridge for human and agent collaboration.",
-		order: 72
-	},
-	capabilities: { chatTypes: ["direct"] },
-	setupContract: raftSetupPlugin.setupContract,
-	setupWizard: raftSetupPlugin.setupWizard,
+	...raftSetupPlugin,
 	reload: { configPrefixes: ["channels.raft"] },
 	configSchema: raftChannelConfigSchema,
 	config: {
-		listAccountIds: listRaftAccountIds,
-		resolveAccount: (cfg, accountId) => resolveRaftAccount({
-			cfg,
-			accountId
-		}),
-		defaultAccountId: resolveDefaultRaftAccountId,
-		isConfigured: (account) => account.configured,
-		isEnabled: (account) => account.enabled,
+		...raftSetupPlugin.config,
 		describeAccount: (account) => describeAccountSnapshot({
 			account,
 			configured: account.configured,
@@ -482,7 +453,7 @@ const raftPlugin = createChatChannelPlugin({ base: {
 			extra: { profile: account.profile }
 		})
 	}),
-	gateway: { startAccount: async (ctx) => await startRaftGatewayAccount(ctx) }
+	gateway: { startAccount: startRaftGatewayAccount }
 } });
 //#endregion
 export { raftPlugin };

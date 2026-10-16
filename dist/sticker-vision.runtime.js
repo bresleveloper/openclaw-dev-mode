@@ -1,1 +1,1 @@
-export * from "./sticker-vision.runtime-BL3a1dnf.mjs";
+export * from "./sticker-vision.runtime-89gwEQC_.mjs";

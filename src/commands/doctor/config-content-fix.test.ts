@@ -20,7 +20,13 @@ async function withConfigHome<T>(
   return await withDoctorConfigPreflightHome(
     async (home) =>
       await withEnvAsync({ OPENCLAW_DISABLE_BUNDLED_PLUGINS: "1", ...options.env }, async () => {
-        const configPath = await writeOpenClawConfig(home, config);
+        // 10.4: doctor stamps meta.migrations.webhookListeners once into any config without it
+        // ("Recorded webhook listener decisions"); pre-stamp so the cases see only their own repair.
+        const stamped =
+          config && typeof config === "object" && !("meta" in config)
+            ? { ...config, meta: { migrations: { webhookListeners: true } } }
+            : config;
+        const configPath = await writeOpenClawConfig(home, stamped);
         for (const [name, content] of Object.entries(options.extraFiles ?? {})) {
           await fs.writeFile(path.join(path.dirname(configPath), name), content, "utf-8");
         }
@@ -100,11 +106,16 @@ describe("fixConfigContent", { timeout: 300_000 }, () => {
     );
   });
 
-  it("persists a read-time migration in a config that already passes validation", async () => {
+  it("persists a retired context budget the reader still migrates in memory", async () => {
     await withConfigHome(
       { gateway: { mode: "local" }, agents: { defaults: { contextTokens: 100000 } } },
       async (home) => {
-        expect((await readConfigFileSnapshot()).valid).toBe(true);
+        // 9.6 read this as valid (a pure read-time migration); 10.4 reports it as a legacy rule.
+        const snapshot = await readConfigFileSnapshot();
+        expect(snapshot.valid).toBe(false);
+        expect(snapshot.legacyIssues.map((issue) => issue.message)).toEqual([
+          expect.stringContaining("contextTokens"),
+        ]);
 
         const report = await fixConfigContent();
 

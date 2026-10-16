@@ -14,11 +14,7 @@ import { tryResolveLegacyCompatibilityAgentId } from "../legacy.default-agent-ow
 import type { OpenClawConfig } from "../types.openclaw.js";
 import { resolveSessionStorePathCore } from "./paths.js";
 import { updateSessionEntry } from "./session-accessor.entry-mutation.js";
-import {
-  loadSessionEntryReadOnly,
-  resolveSessionEntryFromStore,
-  resolveSessionEntrySelection,
-} from "./session-accessor.entry.js";
+import { resolveSessionEntryFromStore } from "./session-accessor.entry.js";
 import {
   readCommittedTranscriptMessageSequence,
   rememberCommittedTranscriptMessageSequences,
@@ -37,6 +33,7 @@ import type {
   SessionTranscriptTurnPersistResult,
 } from "./session-accessor.types.js";
 import { resolvePersistedSessionStoreOwnerForTarget } from "./session-store-owner.js";
+import { completeSessionTranscriptCommit } from "./session-transcript-commit-completion.js";
 import { captureSessionTranscriptTargetBinding } from "./transcript-target-binding.js";
 import {
   getOwnedSessionTranscriptWriterFence,
@@ -168,13 +165,7 @@ export async function persistSessionTranscriptTurn(
   // entries (from scope.sessionStore/scope.sessionEntry) and transcript-only
   // scopes (no entry) keep the legacy append — the guarded transaction
   // requires a persisted row to validate. (#119221)
-  if (
-    target.entryFromPersistedStore &&
-    target.storePath &&
-    target.sessionKey &&
-    target.sessionEntry &&
-    target.sessionId
-  ) {
+  if (target.entryFromPersistedStore && target.storePath && target.sessionKey && target.sessionId) {
     return await persistExpectedSessionTranscriptTurn(
       {
         ...scope,
@@ -184,6 +175,7 @@ export async function persistSessionTranscriptTurn(
         ...options,
         expectedSessionId: target.sessionId,
       },
+      target,
     );
   }
   const appendedMessages = await runWithOwnedSessionTranscriptWrite(
@@ -194,12 +186,34 @@ export async function persistSessionTranscriptTurn(
     },
     () => appendTranscriptTurnMessages(target, options),
   );
-  const appendedCount = countAppendedTranscriptMessages(appendedMessages);
-  const sessionEntry = await touchTranscriptTurnSessionEntry({
-    scope,
-    target,
-    shouldTouch: options.touchSessionEntry === true && appendedCount > 0,
-  });
+  const appendedCount = appendedMessages.filter((message) => message.appended).length;
+  let sessionEntry = target.sessionEntry;
+  if (
+    options.touchSessionEntry === true &&
+    appendedCount > 0 &&
+    target.storePath &&
+    target.sessionKey &&
+    target.sessionId
+  ) {
+    const updatedAt = Date.now();
+    const updated = await updateSessionEntry(
+      {
+        sessionKey: target.sessionKey,
+        storePath: target.storePath,
+        ...(target.agentId ? { agentId: target.agentId } : {}),
+        ...(target.env ? { env: target.env } : {}),
+      },
+      (current) =>
+        current.sessionId === target.sessionId
+          ? { updatedAt: Math.max(current.updatedAt ?? 0, updatedAt) }
+          : null,
+      { skipMaintenance: true },
+    );
+    if (updated && scope.sessionStore) {
+      scope.sessionStore[target.sessionKey] = updated;
+    }
+    sessionEntry = updated ?? target.sessionEntry;
+  }
   await publishTranscriptTurnUpdate({
     target,
     sessionEntry,
@@ -220,7 +234,20 @@ async function appendTranscriptTurnMessages(
   target: SessionTranscriptWriteScope,
   options: SessionTranscriptTurnPersistOptions,
 ): Promise<TranscriptMessageAppendResult<unknown>[]> {
-  const selectedMessages = await selectAppendableTranscriptTurnMessages(target, options);
+  const selectedMessages: SessionTranscriptTurnMessageAppend[] = [];
+  for (const append of options.messages) {
+    if (
+      !append.shouldAppend ||
+      (await append.shouldAppend({
+        ...(target.agentId ? { agentId: target.agentId } : {}),
+        ...(target.sessionId ? { sessionId: target.sessionId } : {}),
+        ...(target.sessionKey ? { sessionKey: target.sessionKey } : {}),
+        ...(target.storePath ? { storePath: target.storePath } : {}),
+      }))
+    ) {
+      selectedMessages.push(append);
+    }
+  }
   const appendedMessages: TranscriptMessageAppendResult<unknown>[] = [];
   for (const append of selectedMessages) {
     const { shouldAppend: _shouldAppend, ...appendOptions } = append;
@@ -234,47 +261,23 @@ async function appendTranscriptTurnMessages(
       },
       {
         ...appendOptions,
+        ...appendOptions.workerPreparation,
         message: attachSessionTranscriptRunId(appendOptions.message, options.runId),
         ...((append.cwd ?? options.cwd) ? { cwd: append.cwd ?? options.cwd } : {}),
         ...((append.config ?? options.config) ? { config: append.config ?? options.config } : {}),
       },
     );
     if (result) {
-      options.onMessageCommitted?.(result);
+      const completion = completeSessionTranscriptCommit([result], options.onMessageCommitted);
+      if (completion) {
+        await completion;
+      }
       appendedMessages.push(result);
     }
   }
   // Resolve cursors only after the last explicit parent has chosen the branch.
   rememberCommittedTranscriptMessageSequences(target, appendedMessages);
   return appendedMessages;
-}
-
-async function selectAppendableTranscriptTurnMessages(
-  target: SessionTranscriptTurnWriteContext,
-  options: SessionTranscriptTurnPersistOptions,
-): Promise<SessionTranscriptTurnMessageAppend[]> {
-  const selectedMessages: SessionTranscriptTurnMessageAppend[] = [];
-  for (const append of options.messages) {
-    const shouldAppend = append.shouldAppend
-      ? await append.shouldAppend({
-          ...(target.agentId ? { agentId: target.agentId } : {}),
-          ...(target.sessionId ? { sessionId: target.sessionId } : {}),
-          ...(target.sessionKey ? { sessionKey: target.sessionKey } : {}),
-          ...(target.storePath ? { storePath: target.storePath } : {}),
-        })
-      : true;
-    if (!shouldAppend) {
-      continue;
-    }
-    selectedMessages.push(append);
-  }
-  return selectedMessages;
-}
-
-function countAppendedTranscriptMessages(
-  messages: readonly TranscriptMessageAppendResult<unknown>[],
-): number {
-  return messages.filter((message) => message.appended).length;
 }
 
 async function persistExpectedSessionTranscriptTurn(
@@ -286,20 +289,13 @@ async function persistExpectedSessionTranscriptTurn(
     atomicGroup?: boolean;
     expectedSessionId: string;
   },
+  preparedTarget?: Awaited<ReturnType<typeof prepareTranscriptTurnTarget>>,
 ): Promise<SessionTranscriptTurnPersistResult> {
   const requestedSessionKey = scope.sessionKey?.trim();
   const expectedSessionId = options.expectedSessionId;
-  const preparedTarget = await prepareTranscriptTurnTarget(
-    { ...scope, sessionId: expectedSessionId },
-    options.config,
-  );
-  const resolved = scope.sessionStore
-    ? resolveSessionEntryFromStore({
-        store: scope.sessionStore,
-        sessionKey: preparedTarget.sessionKey,
-      })
-    : resolveSessionEntrySelection(preparedTarget);
-  const target = { ...preparedTarget, sessionKey: resolved.normalizedKey };
+  const { selectedSessionId, selectedLifecycleRevision, ...target } =
+    preparedTarget ??
+    (await prepareTranscriptTurnTarget({ ...scope, sessionId: expectedSessionId }, options.config));
   const inheritedWriterFence = getOwnedSessionTranscriptWriterFence({
     sessionFile: target.sessionKey,
     sessionKey: target.sessionKey,
@@ -315,6 +311,9 @@ async function persistExpectedSessionTranscriptTurn(
       appendExpectedSessionTranscriptTurn(target, {
         config: options.config,
         cwd: options.cwd,
+        keyFormat: "agent-qualified",
+        selectedSessionId,
+        selectedLifecycleRevision,
         expectedLifecycleRevision:
           options.expectedLifecycleRevision !== undefined
             ? options.expectedLifecycleRevision
@@ -322,6 +321,8 @@ async function persistExpectedSessionTranscriptTurn(
         expectedWriterRunId:
           options.expectedWriterRunId ?? inheritedWriterFence?.expectedWriterRunId,
         expectedSessionState: options.expectedSessionState,
+        assertCurrent: options.assertCurrent,
+        acceptedResultGuard: options.acceptedResultGuard,
         expectedSessionId,
         initialSessionEntry: options.initialSessionEntry,
         atomicGroup: options.atomicGroup,
@@ -361,11 +362,12 @@ async function persistExpectedSessionTranscriptTurn(
   });
 
   if (turn.sessionEntry && scope.sessionStore) {
-    scope.sessionStore[resolved.normalizedKey] = turn.sessionEntry;
+    scope.sessionStore[target.sessionKey] = turn.sessionEntry;
   }
   return {
     sessionTurnMutationResult: turn.sessionTurnMutationResult,
-    appendedCount: countAppendedTranscriptMessages(turn.appendedMessages),
+    predicateSkipped: turn.predicateSkipped,
+    appendedCount: turn.appendedMessages.filter((message) => message.appended).length,
     messages: turn.appendedMessages,
     sessionEntry: turn.sessionEntry ?? scope.sessionEntry,
   };
@@ -406,7 +408,9 @@ async function prepareTranscriptTurnTarget(
     sessionKey,
     storePath,
   });
-  const runtimeTarget = await resolveSessionTranscriptRuntimeTarget(binding);
+  const runtimeTarget = await resolveSessionTranscriptRuntimeTarget(binding, config, {
+    keyFormat: "agent-qualified",
+  });
   // Keep the selected locator and private storage namespace across the await.
   // Incognito accessors resolve their owner from env even with a concrete locator.
   return { ...runtimeTarget, storePath: binding.storePath, env: binding.env };
@@ -423,56 +427,13 @@ async function resolveTranscriptTurnTarget(
   const resolved = scope.sessionStore
     ? resolveSessionEntryFromStore({ store: scope.sessionStore, sessionKey: target.sessionKey })
     : undefined;
-  // Mirrors can represent either durable Gateway state or memory-only internal
-  // sessions. Classify that provenance without materializing SQLite state.
-  const persistedEntry = loadSessionEntryReadOnly({
-    ...scope,
-    ...target,
-  });
-  const sessionEntry = persistedEntry ?? resolved?.existing ?? scope.sessionEntry;
+  // The target reader selected persisted identity; only the legacy mirror path needs this entry.
+  const sessionEntry = resolved?.existing ?? scope.sessionEntry;
   return {
     ...target,
     sessionEntry,
-    entryFromPersistedStore: persistedEntry != null,
+    entryFromPersistedStore: target.selectedSessionId != null,
   };
-}
-
-async function touchTranscriptTurnSessionEntry(params: {
-  scope: SessionTranscriptWriteScope & {
-    sessionEntry?: SessionEntry;
-    sessionStore?: Record<string, SessionEntry>;
-  };
-  target: SessionTranscriptWriteScope & {
-    sessionEntry: SessionEntry | undefined;
-  };
-  shouldTouch: boolean;
-}): Promise<SessionEntry | undefined> {
-  if (
-    !params.shouldTouch ||
-    !params.target.storePath ||
-    !params.target.sessionKey ||
-    !params.target.sessionId
-  ) {
-    return params.target.sessionEntry;
-  }
-  const updatedAt = Date.now();
-  const updated = await updateSessionEntry(
-    {
-      sessionKey: params.target.sessionKey,
-      storePath: params.target.storePath,
-      ...(params.target.agentId ? { agentId: params.target.agentId } : {}),
-      ...(params.target.env ? { env: params.target.env } : {}),
-    },
-    (current) =>
-      current.sessionId === params.target.sessionId
-        ? { updatedAt: Math.max(current.updatedAt ?? 0, updatedAt) }
-        : null,
-    { skipMaintenance: true },
-  );
-  if (updated && params.scope.sessionStore) {
-    params.scope.sessionStore[params.target.sessionKey] = updated;
-  }
-  return updated ?? params.target.sessionEntry;
 }
 
 async function publishTranscriptTurnUpdate(params: {

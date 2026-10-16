@@ -1,14 +1,16 @@
-import { s as getRuntimeConfigSnapshot } from "../../runtime-snapshot-DbgWcCyV.mjs";
+import { r as resolveGlobalMap } from "../../global-singleton-0m-JziJW.mjs";
+import { o as getRuntimeConfigSnapshot } from "../../runtime-snapshot-DYptB0Cf.mjs";
 import { t as jsonResult } from "../../tool-results-BCM3fdVS.mjs";
-import { h as readToolStringParam, p as readStringArrayParam } from "../../common-XfKigJno.mjs";
-import { c as resolveTimeoutSeconds, i as readCache, l as writeCache, o as resolveCacheTtlMs } from "../../web-shared-7z6bteLg.mjs";
-import { c as normalizeToIsoDate } from "../../web-search-provider-common-6Yt6-I5E.mjs";
-import "../../runtime-config-snapshot-CyQh9ezF.mjs";
-import "../../provider-web-search-CRDOBhl4.mjs";
-import { r as resolveXaiToolApiKeyWithAuth, t as isXaiToolEnabled } from "../../tool-auth-shared-BKm-JLrq.mjs";
-import { t as resolveEffectiveXSearchConfig } from "../../x-search-config-Dj2uABTe.mjs";
+import { f as readStringArrayParam, m as readToolStringParam } from "../../common-Dyxcwsy8.mjs";
+import { c as resolveTimeoutSeconds, i as readCache, l as writeCache, o as resolveCacheTtlMs } from "../../web-shared-D8fUK6Vo.mjs";
+import { c as normalizeToIsoDate } from "../../web-search-provider-common-CA2avHBq.mjs";
+import "../../runtime-config-snapshot-DgZgcXUX.mjs";
+import "../../global-singleton-yHEs_vfD.mjs";
+import "../../provider-web-search-DUaDxxRi.mjs";
+import { r as resolveXaiToolApiKeyWithAuth, t as isXaiToolEnabled } from "../../tool-auth-shared-DfHEiTF0.mjs";
+import { t as resolveEffectiveXSearchConfig } from "../../x-search-config-wCiEf8cg.mjs";
 import { n as buildMissingXSearchApiKeyPayload, r as createXSearchToolDefinition } from "../../x-search-tool-shared-nlZ40kdg.mjs";
-import { a as resolveXaiXSearchInlineCitations, i as resolveXaiXSearchEndpoint, n as buildXaiXSearchPayload, o as resolveXaiXSearchMaxTurns, r as requestXaiXSearch, s as resolveXaiXSearchModel } from "../../x-search-shared-Cw7HA56V.mjs";
+import { a as resolveXaiXSearchInlineCitations, i as resolveXaiXSearchEndpoint, n as buildXaiXSearchPayload, o as resolveXaiXSearchMaxTurns, r as requestXaiXSearch, s as resolveXaiXSearchModel } from "../../x-search-shared-CurBogrk.mjs";
 //#region extensions/xai/x-search.ts
 var PluginToolInputError = class extends Error {
 	constructor(message) {
@@ -16,16 +18,7 @@ var PluginToolInputError = class extends Error {
 		this.name = "ToolInputError";
 	}
 };
-const X_SEARCH_CACHE_KEY = Symbol.for("openclaw.xai.x-search.cache");
-function getSharedXSearchCache() {
-	const root = globalThis;
-	const existing = root[X_SEARCH_CACHE_KEY];
-	if (existing instanceof Map) return existing;
-	const next = /* @__PURE__ */ new Map();
-	root[X_SEARCH_CACHE_KEY] = next;
-	return next;
-}
-const X_SEARCH_CACHE = getSharedXSearchCache();
+const X_SEARCH_CACHE = resolveGlobalMap(Symbol.for("openclaw.xai.x-search.cache"));
 function normalizeOptionalIsoDate(value, label) {
 	if (!value) return;
 	const trimmed = value.trim();
@@ -90,25 +83,17 @@ function createXSearchTool(options) {
 			enableImageUnderstanding: args.enable_image_understanding === true,
 			enableVideoUnderstanding: args.enable_video_understanding === true
 		};
-		const xSearchConfigRecord = xSearchConfig;
-		const model = resolveXaiXSearchModel(xSearchConfigRecord);
-		const endpoint = resolveXaiXSearchEndpoint(xSearchConfigRecord);
-		const inlineCitations = resolveXaiXSearchInlineCitations(xSearchConfigRecord);
-		const maxTurns = resolveXaiXSearchMaxTurns(xSearchConfigRecord);
+		const model = resolveXaiXSearchModel(xSearchConfig);
+		const endpoint = resolveXaiXSearchEndpoint(xSearchConfig);
+		const inlineCitations = resolveXaiXSearchInlineCitations(xSearchConfig);
+		const maxTurns = resolveXaiXSearchMaxTurns(xSearchConfig);
 		const cacheKey = buildXSearchCacheKey({
 			query,
 			model,
 			endpoint,
 			inlineCitations,
 			maxTurns,
-			options: {
-				allowedXHandles,
-				excludedXHandles,
-				fromDate,
-				toDate,
-				enableImageUnderstanding: xSearchOptions.enableImageUnderstanding,
-				enableVideoUnderstanding: xSearchOptions.enableVideoUnderstanding
-			}
+			options: xSearchOptions
 		});
 		const cacheTtlMs = resolveCacheTtlMs(xSearchConfig?.cacheTtlMinutes, 15);
 		const cached = readCache(X_SEARCH_CACHE, cacheKey, cacheTtlMs);
@@ -132,10 +117,7 @@ function createXSearchTool(options) {
 			query,
 			model,
 			tookMs: Date.now() - startedAt,
-			content: result.content,
-			citations: result.citations,
-			inlineCitations: result.inlineCitations,
-			truncated: result.truncated,
+			...result,
 			options: xSearchOptions
 		});
 		writeCache(X_SEARCH_CACHE, cacheKey, payload, cacheTtlMs);

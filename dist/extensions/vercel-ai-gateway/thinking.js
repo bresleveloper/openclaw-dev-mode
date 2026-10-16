@@ -27,16 +27,12 @@ function stripTrustedUpstreamPrefix(modelId, prefix) {
 	if (!normalized.startsWith(prefix)) return null;
 	return normalized.slice(prefix.length).trim() || null;
 }
-function resolveOpenAiThinkingProfile(modelId) {
-	if (!matchesExactOrPrefix(modelId, VERCEL_OPENAI_XHIGH_MODEL_IDS)) return;
-	return { levels: [...BASE_OPENAI_THINKING_LEVELS, { id: "xhigh" }] };
-}
 function hasVercelSpecificClaudeProfile(profile) {
 	return Boolean(profile.defaultLevel || profile.levels.some((level) => level.id === "adaptive" || level.id === "xhigh" || level.id === "max"));
 }
 function resolveVercelAiGatewayThinkingProfile(modelId) {
 	const openAiModelId = stripTrustedUpstreamPrefix(modelId, UPSTREAM_OPENAI_PREFIX);
-	if (openAiModelId) return resolveOpenAiThinkingProfile(openAiModelId);
+	if (openAiModelId) return matchesExactOrPrefix(openAiModelId, VERCEL_OPENAI_XHIGH_MODEL_IDS) ? { levels: [...BASE_OPENAI_THINKING_LEVELS, { id: "xhigh" }] } : void 0;
 	const anthropicModelId = stripTrustedUpstreamPrefix(modelId, UPSTREAM_ANTHROPIC_PREFIX);
 	if (anthropicModelId) {
 		const profile = resolveClaudeThinkingProfile(anthropicModelId);

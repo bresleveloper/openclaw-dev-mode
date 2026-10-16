@@ -1,23 +1,24 @@
-import { c as isRecord } from "../../record-coerce-DItp3I4t.mjs";
-import { i as normalizeBoundedOptionalString } from "../../string-coerce-CIXf7egm.mjs";
+import { i as normalizeBoundedOptionalString } from "../../string-coerce-1VuiLaaR.mjs";
+import { s as asFiniteNumber } from "../../number-coercion-CuVhdCBs.mjs";
+import { c as isRecord } from "../../record-coerce-TIsquoVR.mjs";
 import { r as truncateUtf16Safe } from "../../utf16-slice-D_ngcYKd.mjs";
-import { i as getPluginRuntimeGatewayRequestScope } from "../../gateway-request-scope-BLBH-Gpf.mjs";
-import { b as redactToolPayloadText } from "../../redact-B5EGyLvV.mjs";
-import { b as resolveSessionAgentIdsStrict } from "../../agent-scope-CTuYDtny.mjs";
-import { t as resolveConfiguredSecretInputString } from "../../resolve-configured-secret-input-string-SF_iuPva.mjs";
-import { b as ssrfPolicyFromHttpBaseUrlAllowedOrigin } from "../../ssrf-BQRtcdBp.mjs";
-import { i as fetchWithSsrFGuard, n as GuardedFetchRedirectError } from "../../fetch-guard-EFfAF2PS.mjs";
-import "../../string-coerce-runtime-C_MKhRVt.mjs";
-import "../../text-utility-runtime-D7I29NA0.mjs";
-import "../../agent-scope-runtime-OY7yRyJL.mjs";
-import { t as definePluginEntry } from "../../plugin-entry-BOulgRcx.mjs";
-import "../../ssrf-runtime-Darh53Ay.mjs";
-import "../../plugin-runtime-BzN5G15j.mjs";
-import "../../logging-core-DinLJN7p.mjs";
-import { n as buildControlUiCatalogSharePath, r as isControlUiCatalogShareId, t as listActiveSessionCatalogs } from "../../session-catalog-runtime-DzkYyo6M.mjs";
-import "../../secret-input-runtime-C01-y7l7.mjs";
-import { o as createFixedWindowRateLimiter } from "../../webhook-ingress-CIZf5z_G.mjs";
-import { a as createWebhookInFlightLimiter, i as beginWebhookRequestPipelineOrReject, s as readJsonWebhookBodyOrReject } from "../../webhook-request-guards-CccCHICi.mjs";
+import { b as redactToolPayloadText } from "../../redact-DJ8j6ADa.mjs";
+import { i as clampNumber } from "../../utils-DgZn2dLu.mjs";
+import { y as resolveSessionAgentIdsStrict } from "../../agent-scope-CG17uXFn.mjs";
+import { a as getPluginRuntimeGatewayRequestScope } from "../../gateway-request-scope-BSmCVVpP.mjs";
+import { g as ssrfPolicyFromHttpBaseUrlAllowedOrigin } from "../../ssrf-v45DW-yR.mjs";
+import { i as fetchWithSsrFGuard, n as GuardedFetchRedirectError } from "../../fetch-guard-DI6biu8d.mjs";
+import "../../string-coerce-runtime-50qKeWeL.mjs";
+import "../../text-utility-runtime-BDs7x8Fk.mjs";
+import "../../agent-scope-runtime-DMJYuX7c.mjs";
+import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
+import "../../ssrf-runtime-BzkFo_VJ.mjs";
+import "../../plugin-runtime-C3Ot0aFc.mjs";
+import "../../logging-core-LMmGpAHM.mjs";
+import { n as buildControlUiCatalogSharePath, r as isControlUiCatalogShareId, t as listActiveSessionCatalogs } from "../../session-catalog-runtime-BtXiXE2b.mjs";
+import { n as resolveConfiguredSecretInputString } from "../../secret-input-runtime-BO-nQ7OX.mjs";
+import { s as createFixedWindowRateLimiter } from "../../webhook-ingress-vFV0tc_8.mjs";
+import { a as createWebhookInFlightLimiter, i as beginWebhookRequestPipelineOrReject, s as readJsonWebhookBodyOrReject } from "../../webhook-request-guards-o9Ex3xOU.mjs";
 import { createHash } from "node:crypto";
 //#region extensions/beam/src/types.ts
 const BEAM_HOST_ID = "gateway";
@@ -48,11 +49,6 @@ const TOP_LEVEL_KEYS = /* @__PURE__ */ new Set([
 ]);
 const ITEM_KEYS = /* @__PURE__ */ new Set(["type", "text"]);
 const SOURCE_MODEL_KEYS = /* @__PURE__ */ new Set(["provider", "model"]);
-const ITEM_TYPES = /* @__PURE__ */ new Set([
-	"userMessage",
-	"agentMessage",
-	"other"
-]);
 function hasOnlyKeys(value, allowed) {
 	return Object.keys(value).every((key) => allowed.has(key));
 }
@@ -130,7 +126,7 @@ function parseBeamUpload(value) {
 			ok: false,
 			error: "each transcript item must be a closed object"
 		};
-		if (typeof rawItem.type !== "string" || !ITEM_TYPES.has(rawItem.type)) return {
+		if (rawItem.type !== "userMessage" && rawItem.type !== "agentMessage" && rawItem.type !== "other") return {
 			ok: false,
 			error: "transcript item type is invalid"
 		};
@@ -275,33 +271,24 @@ const MIRROR_KEYS = /* @__PURE__ */ new Set([
 	"pollSeconds",
 	"activeWindowMinutes"
 ]);
-function boundedNumber(value, fallback, min, max) {
-	if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
-	return Math.min(max, Math.max(min, value));
-}
 /** Returns the mirror config, undefined when mirroring is not configured, or an error string. */
 function parseBeamMirrorConfig(config) {
 	const mirror = config.plugins?.entries?.beam?.config?.mirror;
 	if (mirror === void 0) return;
 	if (!isRecord(mirror) || !Object.keys(mirror).every((key) => MIRROR_KEYS.has(key))) return `${MIRROR_CONFIG_PATH} must be a closed object with endpoint/token/catalogs/pollSeconds/activeWindowMinutes`;
 	const endpoint = typeof mirror.endpoint === "string" ? mirror.endpoint.trim() : "";
-	let parsedEndpoint;
-	try {
-		parsedEndpoint = new URL(endpoint);
-	} catch {
-		return `${MIRROR_CONFIG_PATH}.endpoint must be an absolute URL`;
-	}
+	const parsedEndpoint = URL.parse(endpoint);
+	if (!parsedEndpoint) return `${MIRROR_CONFIG_PATH}.endpoint must be an absolute URL`;
 	if (parsedEndpoint.protocol === "http:") {
 		if (!isLoopbackHostname(parsedEndpoint.hostname)) return `${MIRROR_CONFIG_PATH}.endpoint must use https for non-loopback hosts`;
 	} else if (parsedEndpoint.protocol !== "https:") return `${MIRROR_CONFIG_PATH}.endpoint must use http(s)`;
-	if (!Array.isArray(mirror.catalogs) || mirror.catalogs.length === 0 || mirror.catalogs.some((id) => typeof id !== "string" || !id.trim())) return `${MIRROR_CONFIG_PATH}.catalogs must explicitly list the catalog ids to mirror`;
-	const catalogs = mirror.catalogs.map((id) => id.trim().toLowerCase());
+	if (!Array.isArray(mirror.catalogs) || mirror.catalogs.length === 0 || !mirror.catalogs.every((id) => typeof id === "string" && id.trim().length > 0)) return `${MIRROR_CONFIG_PATH}.catalogs must explicitly list the catalog ids to mirror`;
 	return {
 		endpoint,
 		...mirror.token !== void 0 ? { token: mirror.token } : {},
-		catalogs,
-		pollSeconds: boundedNumber(mirror.pollSeconds, DEFAULT_POLL_SECONDS, 10, 3600),
-		activeWindowMinutes: boundedNumber(mirror.activeWindowMinutes, DEFAULT_ACTIVE_WINDOW_MINUTES, 1, 10080)
+		catalogs: mirror.catalogs.map((id) => id.trim().toLowerCase()),
+		pollSeconds: clampNumber(asFiniteNumber(mirror.pollSeconds) ?? DEFAULT_POLL_SECONDS, 10, 3600),
+		activeWindowMinutes: clampNumber(asFiniteNumber(mirror.activeWindowMinutes) ?? DEFAULT_ACTIVE_WINDOW_MINUTES, 1, 10080)
 	};
 }
 function beamMirrorId(catalogId, hostId, threadId) {
@@ -392,14 +379,11 @@ function createBeamMirrorRunner(params) {
 	const now = params.now ?? Date.now;
 	const listCatalogs = params.listCatalogs ?? listActiveSessionCatalogs;
 	const tracked = /* @__PURE__ */ new Map();
-	const controller = new AbortController();
-	const { signal } = controller;
+	const { signal } = params;
 	let lastWarnAt = 0;
 	let warnedProcessHomeIsolation = false;
 	let endpoint = "";
 	let redirectBlocked = false;
-	let activeTick;
-	let stopPromise;
 	const stopError = /* @__PURE__ */ new Error("Beam mirror stopped");
 	const raceCatalog = async (operation) => {
 		let rejectAbort;
@@ -501,6 +485,7 @@ function createBeamMirrorRunner(params) {
 	const mirrorFingerprint = ({ updatedAt: _updatedAt, ...content }) => createHash("sha256").update(JSON.stringify(content)).digest("hex");
 	const scan = async () => {
 		try {
+			signal.throwIfAborted();
 			const config = params.runtime.config.current();
 			const mirror = parseBeamMirrorConfig(config);
 			if (mirror === void 0) return;
@@ -622,28 +607,12 @@ function createBeamMirrorRunner(params) {
 			if (!signal.aborted) throw error;
 		}
 	};
-	return {
-		tick: () => {
-			if (signal.aborted) return stopPromise ?? Promise.resolve();
-			activeTick ??= scan().finally(() => {
-				activeTick = void 0;
-			});
-			return activeTick;
-		},
-		stop: () => {
-			if (!stopPromise) {
-				stopPromise = activeTick ?? Promise.resolve();
-				controller.abort();
-			}
-			return stopPromise;
-		}
-	};
+	return { tick: scan };
 }
 function createBeamMirrorService(params) {
-	let interval;
-	let runner;
 	return {
 		id: "beam-mirror",
+		apiVersion: 2,
 		start(ctx) {
 			const mirror = parseBeamMirrorConfig(params.runtime.config.current());
 			if (mirror === void 0) return;
@@ -651,23 +620,18 @@ function createBeamMirrorService(params) {
 				ctx.logger.warn(`beam mirror disabled: ${mirror}`);
 				return;
 			}
-			runner = createBeamMirrorRunner({
+			const active = createBeamMirrorRunner({
 				runtime: params.runtime,
-				logger: ctx.logger
+				logger: ctx.logger,
+				signal: ctx.scheduler.signal
 			});
-			interval = setInterval(() => {
-				runner?.tick();
-			}, mirror.pollSeconds * 1e3);
-			interval.unref?.();
+			ctx.scheduler.schedule({
+				id: "mirror",
+				delayMs: 0,
+				everyMs: mirror.pollSeconds * 1e3,
+				run: () => active.tick()
+			});
 			ctx.logger.info(`beam mirror active: ${mirror.catalogs.join(", ")} -> ${new URL(mirror.endpoint).origin}`);
-			runner.tick();
-		},
-		stop() {
-			if (interval) {
-				clearInterval(interval);
-				interval = void 0;
-			}
-			return runner?.stop() ?? Promise.resolve();
 		}
 	};
 }
@@ -682,9 +646,6 @@ function cursorOffset(value) {
 	if (!value || !/^\d+$/.test(value)) return 0;
 	const parsed = Number(value);
 	return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : 0;
-}
-function searchableText(session) {
-	return `${session.title}\n${session.source}`.toLowerCase();
 }
 function transcriptRevision(session) {
 	return createHash("sha256").update(JSON.stringify(session.items)).digest("base64url");
@@ -712,7 +673,7 @@ function createBeamSessionCatalog(store) {
 		async list(params) {
 			const search = params.search?.trim().toLowerCase();
 			const shareId = search && isControlUiCatalogShareId(BEAM_SESSION_SHARE_ROUTE, search) ? search : void 0;
-			const sessions = (await store.list()).filter((session) => !search || (shareId ? session.beamId.startsWith(shareId) : searchableText(session).includes(search))).toSorted((left, right) => right.receivedAt - left.receivedAt || left.beamId.localeCompare(right.beamId));
+			const sessions = (await store.list()).filter((session) => !search || (shareId ? session.beamId.startsWith(shareId) : `${session.title}\n${session.source}`.toLowerCase().includes(search))).toSorted((left, right) => right.receivedAt - left.receivedAt || left.beamId.localeCompare(right.beamId));
 			const offset = cursorOffset(params.cursors?.[BEAM_HOST_ID]);
 			const limit = boundedLimit(params.limitPerHost);
 			const page = sessions.slice(offset, offset + limit);
@@ -813,7 +774,63 @@ function createBeamStore(runtime) {
 		overflowPolicy: "evict-oldest",
 		defaultTtlMs: BEAM_RETENTION_MS
 	});
+	let revision = 0;
+	let inventory;
+	let refreshing;
+	let lifetime;
+	const invalidate = () => {
+		revision++;
+		inventory = void 0;
+	};
+	const refresh = () => {
+		if (lifetime?.aborted) return Promise.reject(/* @__PURE__ */ new Error("Beam catalog inventory is stopped"));
+		refreshing ??= (async () => {
+			for (;;) {
+				const observedRevision = revision;
+				const entries = await store.entries();
+				if (lifetime?.aborted) return;
+				if (observedRevision !== revision) continue;
+				inventory = entries.map(({ value, expiresAt }) => ({
+					value: {
+						beamId: value.beamId,
+						title: value.title,
+						source: value.source,
+						completed: value.completed,
+						createdAt: value.createdAt,
+						receivedAt: value.receivedAt
+					},
+					expiresAt
+				}));
+				return;
+			}
+		})().finally(() => {
+			refreshing = void 0;
+		});
+		return refreshing;
+	};
 	return {
+		catalogService: {
+			id: "beam-catalog",
+			apiVersion: 2,
+			async start(ctx) {
+				lifetime = ctx.scheduler.signal;
+				const update = () => refresh().catch((error) => {
+					invalidate();
+					ctx.logger.warn(`beam catalog inventory refresh failed: ${String(error)}`);
+				});
+				ctx.scheduler.schedule({
+					id: "inventory",
+					delayMs: 3e4,
+					everyMs: 3e4,
+					run: update
+				});
+				await update();
+			},
+			async stop() {
+				invalidate();
+				await refreshing?.catch(() => {});
+			}
+		},
 		async upload(upload, { receivedAt, uploaderProfileId, revalidatePublisher }) {
 			if (!store.observe || !store.compareAndApply) throw new Error("Beam uploads require plugin-state observe and compareAndApply support");
 			const snapshot = {
@@ -821,25 +838,43 @@ function createBeamStore(runtime) {
 				...uploaderProfileId ? { uploaderProfileId } : {},
 				receivedAt
 			};
-			let observation = await store.observe(snapshot.beamId);
-			for (;;) {
-				const value = decideBeamUpload(observation.value, snapshot);
-				await revalidatePublisher?.();
-				const result = await store.compareAndApply(snapshot.beamId, observation.comparison, value ? {
-					operation: "update",
-					action: "set",
-					value
-				} : {
-					operation: "update",
-					action: "keep"
-				});
-				if (result.status !== "conflict") return result.status === "applied";
-				observation = result.current;
+			try {
+				let observation = await store.observe(snapshot.beamId);
+				for (;;) {
+					const value = decideBeamUpload(observation.value, snapshot);
+					await revalidatePublisher?.();
+					const result = await store.compareAndApply(snapshot.beamId, observation.comparison, value ? {
+						operation: "update",
+						action: "set",
+						value
+					} : {
+						operation: "update",
+						action: "keep"
+					});
+					if (result.status !== "conflict") return result.status === "applied";
+					observation = result.current;
+				}
+			} finally {
+				invalidate();
 			}
 		},
 		get: (beamId) => store.lookup(beamId),
-		delete: (beamId) => store.delete(beamId),
-		list: async () => (await store.entries()).map((entry) => entry.value)
+		async delete(beamId) {
+			try {
+				return await store.delete(beamId);
+			} finally {
+				invalidate();
+			}
+		},
+		async list() {
+			for (;;) {
+				if (inventory) {
+					const now = Date.now();
+					return inventory.filter((entry) => entry.expiresAt === void 0 || entry.expiresAt > now).map(({ value }) => value);
+				}
+				await refresh();
+			}
+		}
 	};
 }
 //#endregion
@@ -851,6 +886,7 @@ var beam_default = definePluginEntry({
 	register(api) {
 		const store = createBeamStore(api.runtime);
 		api.registerSessionCatalog(createBeamSessionCatalog(store));
+		api.registerService(store.catalogService);
 		api.registerHttpRoute({
 			path: "/api/v1/beam/sessions",
 			auth: "gateway",

@@ -1,4 +1,4 @@
-import "../node-list-types-DOyAbui_.js";
+import "../node-list-types-By5Rieo2.js";
 import { Command } from "commander";
 //#region src/cli/nodes-cli/cli-utils.d.ts
 /** Return color helpers that degrade to plain text in non-rich terminals. */
@@ -22,7 +22,7 @@ export declare const nodesCallOpts: (cmd: Command, defaults?: {
 export declare function buildNodeInvokeParams(params: {
   nodeId: string;
   command: string;
-  params?: Record<string, unknown>;
+  params?: unknown;
   timeoutMs?: number;
   idempotencyKey?: string;
 }): Record<string, unknown>;

@@ -14,23 +14,15 @@ import {
 } from "./call-events.js";
 import type { FaceTimeCallRegistry } from "./call-lifecycle.js";
 import type { FaceTimeConfig } from "./config.js";
-import {
-  projectFaceTimeNativeAction,
-  type FaceTimeHelperPeer,
-  type FaceTimeHelperSocketServer,
-} from "./helper-rpc.js";
+import { projectFaceTimeNativeAction } from "./helper-results.js";
+import type { FaceTimeHelperPeer, FaceTimeHelperSocketServer } from "./helper-rpc.js";
 import {
   doesFaceTimeCallMatchPendingDial,
   retainFaceTimeDialCallUUID,
   type PendingFaceTimeDial,
 } from "./outbound-call.js";
 import { retainHelperResultPeers } from "./runtime-helper-results.js";
-import {
-  createManagedCall,
-  readCallUUID,
-  updateCallStatus,
-  type ActiveFaceTimeCall,
-} from "./runtime-state.js";
+import { ActiveFaceTimeCall, updateCallStatus } from "./runtime-state.js";
 
 type CallControl = {
   activateCallTalk(call: ActiveFaceTimeCall, options: { unmute: boolean }): Promise<void>;
@@ -79,7 +71,7 @@ export function createFaceTimeCallEventHandler(params: {
     event: FaceTimeCallStatusEvent,
     pending: PendingFaceTimeDial,
   ): Promise<AuthenticatedFaceTimeOwner | undefined> => {
-    retainFaceTimeDialCallUUID(pending, readCallUUID(event));
+    retainFaceTimeDialCallUUID(pending, event.data.call_uuid);
     await params.persistPendingDial();
     if (params.isStopping() || params.getPendingDial() !== pending) {
       return undefined;
@@ -120,7 +112,7 @@ export function createFaceTimeCallEventHandler(params: {
         params.calls.retainAlias(call, alias);
       }
     }
-    call.carrierCallUUIDs.add(String(event.data.call_uuid));
+    call.carrierCallUUIDs.add(event.data.call_uuid);
   };
   const retainPendingDial = (call: ActiveFaceTimeCall, pending: PendingFaceTimeDial) => {
     params.calls.retainAlias(call, pending.dialID);
@@ -140,7 +132,7 @@ export function createFaceTimeCallEventHandler(params: {
     owner: AuthenticatedFaceTimeOwner,
     peer?: FaceTimeHelperPeer,
   ) => {
-    const callUUID = readCallUUID(event);
+    const callUUID = event.data.call_uuid;
     if (params.isDriverInstallPending()) {
       params.logger.warn("[facetime] ignored incoming call; audio driver installation is pending");
       return;
@@ -152,7 +144,7 @@ export function createFaceTimeCallEventHandler(params: {
       params.logger.warn("[facetime] ignored incoming call; another FaceTime bridge is active");
       return;
     }
-    const call = createManagedCall({
+    const call = new ActiveFaceTimeCall({
       callUUID,
       phase: "ringing",
       owner,
@@ -201,7 +193,7 @@ export function createFaceTimeCallEventHandler(params: {
     peer?: FaceTimeHelperPeer,
     pending?: PendingFaceTimeDial,
   ) => {
-    const callUUID = readCallUUID(event);
+    const callUUID = event.data.call_uuid;
     if (params.isDriverInstallPending()) {
       params.logger.warn("[facetime] ignored active call; audio driver installation is pending");
       return;
@@ -216,7 +208,7 @@ export function createFaceTimeCallEventHandler(params: {
         params.logger.warn("[facetime] ignored active call; another FaceTime bridge is active");
         return;
       }
-      call = createManagedCall({
+      call = new ActiveFaceTimeCall({
         callUUID,
         phase: "active",
         owner,
@@ -252,7 +244,7 @@ export function createFaceTimeCallEventHandler(params: {
     if (params.isStopping()) {
       return;
     }
-    const callUUID = readCallUUID(event);
+    const callUUID = event.data.call_uuid;
     const existingCall = resolveEventCall(event);
     const pending = params.getPendingDial();
     if (existingCall) {
@@ -299,7 +291,7 @@ export function createFaceTimeCallEventHandler(params: {
         }
         let ringingCall = resolveEventCall(event);
         if (!ringingCall && params.calls.size === 0) {
-          ringingCall = createManagedCall({
+          ringingCall = new ActiveFaceTimeCall({
             callUUID,
             phase: "ringing",
             owner,

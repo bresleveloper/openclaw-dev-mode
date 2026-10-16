@@ -15,7 +15,8 @@
   "contracts": {
     "agentToolResultMiddleware": [
       "openclaw",
-      "codex"
+      "codex",
+      "agentsapi"
     ]
   },
   "configSchema": {

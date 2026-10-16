@@ -1,11 +1,11 @@
-import { a as parseFeishuTargetId, i as parseFeishuDirectConversationId, n as buildFeishuModelOverrideParentCandidates, r as parseFeishuConversationId, t as buildFeishuConversationId } from "./.setup/conversation-id-H-lUayji.mjs";
-import { a as setFeishuNamedAccountEnabled, i as feishuSetupAdapter, n as feishuSetupWizard, r as runFeishuLogin, t as feishuPlugin } from "./.setup/channel-DsndN1sp.mjs";
-import { J as toolExecutionErrorResult, K as registerFeishuDriveTools, Q as resolveFeishuToolAccount, X as createFeishuToolClient, Y as unknownToolActionResult, Z as resolveAnyEnabledFeishuToolsConfig, dt as chunkFeishuMarkdown, mt as parseFeishuMarkdown, q as feishuExternalToolResult } from "./.setup/reply-delivery-result-CRIHpSze.mjs";
+import { a as parseFeishuTargetId, i as parseFeishuDirectConversationId, n as buildFeishuModelOverrideParentCandidates, r as parseFeishuConversationId, t as buildFeishuConversationId } from "./.setup/conversation-id-C1ofUfU8.mjs";
+import { a as setFeishuNamedAccountEnabled, i as feishuSetupAdapter, n as feishuSetupWizard, r as runFeishuLogin, t as feishuPlugin } from "./.setup/channel-CYW02TqI.mjs";
+import { J as feishuExternalToolResult, K as registerFeishuDriveTools, Q as assertFeishuApiSuccess, X as createFeishuToolClient, Y as unknownToolActionResult, Z as resolveFeishuToolAccount, dt as chunkFeishuMarkdown, gt as visitFeishuMarkdown, mt as parseFeishuMarkdown, q as registerFeishuTool } from "./.setup/reply-delivery-result-laBNOmBu.mjs";
 import { t as getFeishuRuntime } from "./.setup/runtime-C5JxBWZp.mjs";
-import { f as resolveConfiguredHttpTimeoutMs, r as createFeishuClient } from "./.setup/client-DCwNVFZg.mjs";
-import { o as registerFeishuChatTools } from "./.setup/chat-BlvUjdN9.mjs";
-import { n as getFeishuThreadBindingManager, t as createFeishuThreadBindingManager } from "./.setup/thread-bindings-BiL1wGqK.mjs";
-import { n as handleFeishuSubagentEnded, t as handleFeishuSubagentDeliveryTarget } from "./.setup/subagent-hooks-BBfF1hZk.mjs";
+import { f as resolveConfiguredHttpTimeoutMs, r as createFeishuClient } from "./.setup/client-CcxmEkoy.mjs";
+import { o as registerFeishuChatTools } from "./.setup/chat-mTBvMMvx.mjs";
+import { n as getFeishuThreadBindingManager, t as createFeishuThreadBindingManager } from "./.setup/thread-bindings--wJ9fHq5.mjs";
+import { n as handleFeishuSubagentEnded, t as handleFeishuSubagentDeliveryTarget } from "./.setup/subagent-hooks-JTYBKuB2.mjs";
 import { optionalPositiveIntegerSchema } from "openclaw/plugin-sdk/channel-actions";
 import { formatErrorMessage } from "openclaw/plugin-sdk/error-runtime";
 import { normalizeLowercaseStringOrEmpty, normalizeOptionalString, readStringValue, uniqueStrings } from "openclaw/plugin-sdk/string-coerce-runtime";
@@ -170,19 +170,6 @@ function normalizeChildBlockIds(children) {
 	if (Array.isArray(children)) return children;
 	return typeof children === "string" ? [children] : [];
 }
-function omitParentId(block) {
-	const cleanBlock = { ...block };
-	delete cleanBlock.parent_id;
-	return cleanBlock;
-}
-function createDescendantTable(table, adaptiveWidths) {
-	const { row_size, column_size } = table.property || {};
-	return { property: {
-		row_size,
-		column_size,
-		...adaptiveWidths?.length ? { column_width: adaptiveWidths } : {}
-	} };
-}
 function calculateAdaptiveColumnWidths(blocks, tableBlockId, getBlockMap) {
 	const tableBlock = blocks.find((b) => b.block_id === tableBlockId && b.block_type === 31);
 	if (!tableBlock?.table?.property) return [];
@@ -205,14 +192,7 @@ function calculateAdaptiveColumnWidths(blocks, tableBlockId, getBlockMap) {
 	}
 	function getWeightedLength(text) {
 		let length = 0;
-		for (let index = 0; index < text.length; index += 1) {
-			const code = text.charCodeAt(index);
-			length += code > 255 ? 2 : 1;
-			if (code >= 55296 && code <= 56319) {
-				const next = text.charCodeAt(index + 1);
-				if (next >= 56320 && next <= 57343) index += 1;
-			}
-		}
+		for (const character of text) length += character.charCodeAt(0) > 255 ? 2 : 1;
 		return length;
 	}
 	const maxLengths = Array.from({ length: column_size }, () => 0);
@@ -228,11 +208,7 @@ function calculateAdaptiveColumnWidths(blocks, tableBlockId, getBlockMap) {
 		const equalWidth = Math.max(MIN_COLUMN_WIDTH, Math.min(MAX_COLUMN_WIDTH, Math.floor(totalWidth / column_size)));
 		return Array.from({ length: column_size }, () => equalWidth);
 	}
-	let widths = maxLengths.map((len) => {
-		const proportion = len / totalLength;
-		return Math.round(proportion * totalWidth);
-	});
-	widths = widths.map((w) => Math.max(MIN_COLUMN_WIDTH, Math.min(MAX_COLUMN_WIDTH, w)));
+	const widths = maxLengths.map((length) => Math.max(MIN_COLUMN_WIDTH, Math.min(MAX_COLUMN_WIDTH, Math.round(length / totalLength * totalWidth))));
 	let remaining = totalWidth - widths.reduce((a, b) => a + b, 0);
 	while (remaining > 0) {
 		const growable = widths.map((w, i) => w < MAX_COLUMN_WIDTH ? i : -1).filter((i) => i >= 0);
@@ -249,17 +225,6 @@ function calculateAdaptiveColumnWidths(blocks, tableBlockId, getBlockMap) {
 	}
 	return widths;
 }
-/**
-* Clean blocks for Descendant API with adaptive column widths.
-*
-* - Removes parent_id from all blocks
-* - Fixes children type (string → array) for TableCell blocks
-* - Removes merge_info (read-only, causes API error)
-* - Calculates and applies adaptive column_width for tables
-*
-* @param blocks - Array of blocks from Convert API
-* @returns Cleaned blocks ready for Descendant API
-*/
 function cleanBlocksForDescendant(blocks) {
 	let blockMap;
 	const getBlockMap = () => {
@@ -269,17 +234,18 @@ function cleanBlocksForDescendant(blocks) {
 		}
 		return blockMap;
 	};
-	const tableWidths = /* @__PURE__ */ new Map();
-	for (const block of blocks) if (block.block_type === 31 && block.block_id) {
-		const widths = calculateAdaptiveColumnWidths(blocks, block.block_id, getBlockMap);
-		tableWidths.set(block.block_id, widths);
-	}
 	return blocks.map((block) => {
-		const cleanBlock = omitParentId(block);
+		const cleanBlock = { ...block };
+		delete cleanBlock.parent_id;
 		if (cleanBlock.block_type === 32 && typeof cleanBlock.children === "string") cleanBlock.children = [cleanBlock.children];
 		if (cleanBlock.block_type === 31 && cleanBlock.table) {
-			const adaptiveWidths = block.block_id ? tableWidths.get(block.block_id) : void 0;
-			cleanBlock.table = createDescendantTable(cleanBlock.table, adaptiveWidths);
+			const adaptiveWidths = block.block_id ? calculateAdaptiveColumnWidths(blocks, block.block_id, getBlockMap) : void 0;
+			const { row_size, column_size } = cleanBlock.table.property || {};
+			cleanBlock.table = { property: {
+				row_size,
+				column_size,
+				...adaptiveWidths?.length ? { column_width: adaptiveWidths } : {}
+			} };
 		}
 		return cleanBlock;
 	});
@@ -335,7 +301,7 @@ async function patchTable(client, params) {
 		},
 		data
 	});
-	if (res.code !== 0) throw new Error(res.msg);
+	assertFeishuApiSuccess(res);
 	return {
 		success: true,
 		...counts,
@@ -350,17 +316,13 @@ function normalizeChildIds$1(children) {
 	const child = readStringValue(children);
 	return child ? [child] : void 0;
 }
-function toDescendantBlock$1(block) {
+function toDescendantBlock(block) {
 	const children = normalizeChildIds$1(block.children);
 	return {
 		...block,
 		...children ? { children } : {}
 	};
 }
-/**
-* Collect all descendant blocks for a given first-level block ID.
-* Recursively traverses the block tree to gather all children.
-*/
 function collectDescendants(blockMap, rootId) {
 	const result = [];
 	const visited = /* @__PURE__ */ new Set();
@@ -377,14 +339,7 @@ function collectDescendants(blockMap, rootId) {
 	collect(rootId);
 	return result;
 }
-/**
-* Insert a single batch of blocks using Descendant API.
-*
-* @param parentBlockId - Parent block to insert into (defaults to docToken)
-* @param index - Position within parent's children (-1 = end)
-*/
-async function insertBatch(client, docToken, blocks, firstLevelBlockIds, parentBlockId = docToken, index = -1) {
-	const descendants = cleanBlocksForDescendant(blocks);
+async function insertDocxDescendants(client, docToken, descendants, firstLevelBlockIds, parentBlockId = docToken, index = -1) {
 	if (descendants.length === 0) return [];
 	const res = await client.docx.documentBlockDescendant.create({
 		path: {
@@ -393,29 +348,13 @@ async function insertBatch(client, docToken, blocks, firstLevelBlockIds, parentB
 		},
 		data: {
 			children_id: firstLevelBlockIds,
-			descendants: descendants.map(toDescendantBlock$1),
+			descendants,
 			index
 		}
 	});
 	if (res.code !== 0) throw new Error(`${res.msg} (code: ${res.code})`);
 	return res.data?.children ?? [];
 }
-/**
-* Insert blocks in batches for large documents (>1000 blocks).
-*
-* Batches are split to ensure BOTH children_id AND descendants
-* arrays stay under the 1000 block API limit.
-*
-* @param client - Feishu API client
-* @param docToken - Document ID
-* @param blocks - All blocks from Convert API
-* @param firstLevelBlockIds - IDs of top-level blocks to insert
-* @param logger - Optional logger for progress updates
-* @param parentBlockId - Parent block to insert into (defaults to docToken = document root)
-* @param startIndex - Starting position within parent (-1 = end). For multi-batch inserts,
-*   each batch advances this by the number of first-level IDs inserted so far.
-* @returns Inserted children blocks and any skipped block IDs
-*/
 async function insertBlocksInBatches(client, docToken, blocks, firstLevelBlockIds, logger, parentBlockId = docToken, startIndex = -1) {
 	const allChildren = [];
 	const batches = [];
@@ -446,18 +385,15 @@ async function insertBlocksInBatches(client, docToken, blocks, firstLevelBlockId
 	let currentIndex = startIndex;
 	for (const [i, batch] of batches.entries()) {
 		logger?.info?.(`feishu_doc: Inserting batch ${i + 1}/${batches.length} (${batch.blocks.length} blocks)...`);
-		const children = await insertBatch(client, docToken, batch.blocks, batch.firstLevelIds, parentBlockId, currentIndex);
+		const children = await insertDocxDescendants(client, docToken, cleanBlocksForDescendant(batch.blocks).map(toDescendantBlock), batch.firstLevelIds, parentBlockId, currentIndex);
 		allChildren.push(...children);
 		if (currentIndex !== -1) currentIndex += batch.firstLevelIds.length;
 	}
-	return {
-		children: allChildren,
-		skipped: []
-	};
+	return allChildren;
 }
 //#endregion
 //#region extensions/feishu/src/docx-color-text.ts
-const TEXT_COLOR = {
+const COLORS = {
 	red: 1,
 	orange: 2,
 	yellow: 3,
@@ -467,60 +403,37 @@ const TEXT_COLOR = {
 	grey: 7,
 	gray: 7
 };
-const BACKGROUND_COLOR = {
-	red: 1,
-	orange: 2,
-	yellow: 3,
-	green: 4,
-	blue: 5,
-	purple: 6,
-	grey: 7,
-	gray: 7
-};
-/**
-* Parse color markup into segments.
-*
-* Supports:
-*   [red]text[/red]               → red text
-*   [bg:yellow]text[/bg]          → yellow background
-*   [bold]text[/bold]             → bold
-*   [green bold]text[/green]      → green + bold
-*/
 function parseColorMarkup(content) {
-	const segments = [];
+	const elements = [];
 	const KNOWN = "(?:bg:[a-z]+|bold|red|orange|yellow|green|blue|purple|gr[ae]y)";
 	const tagPattern = new RegExp(`\\[(${KNOWN}(?:\\s+${KNOWN})*)\\](.*?)\\[\\/(?:[^\\]]+)\\]|([^[]+|\\[)`, "gis");
 	let match;
-	while ((match = tagPattern.exec(content)) !== null) if (match[3] !== void 0) {
-		if (match[3]) segments.push({ text: match[3] });
-	} else {
-		const tagStr = normalizeLowercaseStringOrEmpty(match[1]);
-		const text = match[2];
-		if (text === void 0) continue;
-		const tags = tagStr.split(/\s+/);
-		const segment = { text };
-		for (const tag of tags) if (tag.startsWith("bg:")) {
-			const color = tag.slice(3);
-			if (BACKGROUND_COLOR[color]) segment.bgColor = BACKGROUND_COLOR[color];
-		} else if (tag === "bold") segment.bold = true;
-		else if (TEXT_COLOR[tag]) segment.textColor = TEXT_COLOR[tag];
-		if (text) segments.push(segment);
-	}
-	return segments;
-}
-/**
-* Update a text block with colored segments.
-*/
-async function updateColorText(client, docToken, blockId, content) {
-	const segments = parseColorMarkup(content);
-	const elements = segments.map((seg) => ({ text_run: {
-		content: seg.text,
-		text_element_style: {
-			...seg.textColor && { text_color: seg.textColor },
-			...seg.bgColor && { background_color: seg.bgColor },
-			...seg.bold && { bold: true }
+	while ((match = tagPattern.exec(content)) !== null) {
+		const text = match[3] ?? match[2];
+		if (!text) continue;
+		let textColor;
+		let bgColor;
+		let bold = false;
+		if (match[3] === void 0) {
+			for (const tag of normalizeLowercaseStringOrEmpty(match[1]).split(/\s+/)) if (tag.startsWith("bg:")) {
+				const color = tag.slice(3);
+				if (COLORS[color]) bgColor = COLORS[color];
+			} else if (tag === "bold") bold = true;
+			else if (COLORS[tag]) textColor = COLORS[tag];
 		}
-	} }));
+		elements.push({ text_run: {
+			content: text,
+			text_element_style: {
+				...textColor && { text_color: textColor },
+				...bgColor && { background_color: bgColor },
+				...bold && { bold: true }
+			}
+		} });
+	}
+	return elements;
+}
+async function updateColorText(client, docToken, blockId, content) {
+	const elements = parseColorMarkup(content);
 	const res = await client.docx.documentBlock.patch({
 		path: {
 			document_id: docToken,
@@ -528,10 +441,10 @@ async function updateColorText(client, docToken, blockId, content) {
 		},
 		data: { update_text_elements: { elements } }
 	});
-	if (res.code !== 0) throw new Error(res.msg);
+	assertFeishuApiSuccess(res);
 	return {
 		success: true,
-		segments: segments.length,
+		segments: elements.length,
 		block: res.data?.block
 	};
 }
@@ -543,19 +456,6 @@ const STABLE_LINE_CONTAINER_TYPES = /* @__PURE__ */ new Set([
 	"blockquote",
 	"code"
 ]);
-function visitMarkdown(root, visitor) {
-	const pending = [root];
-	while (pending.length > 0) {
-		const node = pending.pop();
-		if (!node) continue;
-		visitor(node);
-		if (!node.children) continue;
-		for (let index = node.children.length - 1; index >= 0; index -= 1) {
-			const child = node.children[index];
-			if (child) pending.push(child);
-		}
-	}
-}
 function resolveRemoteImageUrl(value) {
 	if (!value) return;
 	try {
@@ -568,7 +468,7 @@ function resolveRemoteImageUrl(value) {
 function collectMarkdownImages(root) {
 	const definitions = /* @__PURE__ */ new Map();
 	const imageNodes = [];
-	visitMarkdown(root, (node) => {
+	visitFeishuMarkdown(root, (node) => {
 		if (node.type === "definition" && node.identifier && node.url) {
 			if (!definitions.has(node.identifier)) definitions.set(node.identifier, node.url);
 		} else if (node.type === "image" || node.type === "imageReference") imageNodes.push(node);
@@ -651,13 +551,7 @@ function splitTableAtRow(source, root, target) {
 	if (chunks.every((chunk) => parseFeishuMarkdown(chunk).children?.[0]?.type === "table")) return chunks;
 }
 function isFencedCodeSource(source) {
-	const firstLineEnd = source.indexOf("\n");
-	const firstLine = source.slice(0, firstLineEnd === -1 ? source.length : firstLineEnd);
-	let indent = 0;
-	while (indent < firstLine.length && firstLine[indent] === " ") indent += 1;
-	if (indent > 3) return false;
-	const marker = firstLine.slice(indent);
-	return marker.startsWith("```") || marker.startsWith("~~~");
+	return /^ {0,3}(?:`{3}|~{3})/.test(source);
 }
 function createDocxMarkdownChunk(markdown) {
 	return {
@@ -805,32 +699,13 @@ const BLOCK_TYPE_NAMES = {
 	32: "TableCell"
 };
 const UNSUPPORTED_CREATE_TYPES = /* @__PURE__ */ new Set([31, 32]);
-/** Remove block types unsupported by the children insertion API. */
-function cleanBlocksForInsert(blocks) {
-	const skipped = [];
-	return {
-		cleaned: blocks.filter((block) => {
-			if (UNSUPPORTED_CREATE_TYPES.has(block.block_type)) {
-				const typeName = BLOCK_TYPE_NAMES[block.block_type] || `type_${block.block_type}`;
-				skipped.push(typeName);
-				return false;
-			}
-			return true;
-		}),
-		skipped
-	};
-}
-/** Max blocks per documentBlockChildren.create request */
 const MAX_CONVERT_RETRY_DEPTH = 8;
-function assertFeishuDocApiSuccess(response) {
-	if (response.code !== 0) throw new Error(response.msg);
-}
 async function convertMarkdown(client, markdown) {
 	const res = await client.docx.document.convert({ data: {
 		content_type: "markdown",
 		content: markdown
 	} });
-	assertFeishuDocApiSuccess(res);
+	assertFeishuApiSuccess(res);
 	return {
 		blocks: res.data?.blocks ?? [],
 		firstLevelBlockIds: res.data?.first_level_block_ids ?? []
@@ -840,21 +715,6 @@ function normalizeChildIds(children) {
 	if (Array.isArray(children)) return children.filter((child) => typeof child === "string");
 	if (typeof children === "string") return [children];
 	return [];
-}
-function toCreateChildBlock(block) {
-	return block;
-}
-function toDescendantBlock(block) {
-	const children = normalizeChildIds(block.children);
-	return {
-		...block.block_id ? { block_id: block.block_id } : {},
-		...children.length > 0 ? { children } : {},
-		...block
-	};
-}
-function normalizeInsertedChildBlocks(children) {
-	if (!Array.isArray(children)) return [];
-	return children.filter((child) => typeof child === "object" && child !== null);
 }
 function normalizeConvertedBlockTree(blocks, firstLevelIds) {
 	if (blocks.length <= 1) return {
@@ -875,15 +735,14 @@ function normalizeConvertedBlockTree(blocks, firstLevelIds) {
 		const parentId = typeof block?.parent_id === "string" ? block.parent_id : "";
 		return !childIds.has(blockId) && (!parentId || !byId.has(parentId));
 	}).toSorted((a, b) => (originalOrder.get(a.block_id ?? "__missing__") ?? 0) - (originalOrder.get(b.block_id ?? "__missing__") ?? 0)).map((block) => block.block_id).filter((blockId) => typeof blockId === "string");
-	const rootIds = (firstLevelIds && firstLevelIds.length > 0 ? firstLevelIds : inferredTopLevelIds).filter((id) => typeof id === "string" && byId.has(id));
+	const rootIds = (firstLevelIds.length > 0 ? firstLevelIds : inferredTopLevelIds).filter((id) => typeof id === "string" && byId.has(id));
 	const uniqueRootIds = uniqueStrings(rootIds);
 	const orderedBlocks = [];
 	const visited = /* @__PURE__ */ new Set();
 	const visit = (blockId) => {
-		if (!byId.has(blockId) || visited.has(blockId)) return;
-		visited.add(blockId);
 		const block = byId.get(blockId);
-		if (!block) return;
+		if (!block || visited.has(blockId)) return;
+		visited.add(blockId);
 		orderedBlocks.push(block);
 		for (const childId of normalizeChildIds(block?.children)) visit(childId);
 	};
@@ -895,32 +754,22 @@ function normalizeConvertedBlockTree(blocks, firstLevelIds) {
 		rootIds: uniqueRootIds
 	};
 }
-async function insertBlocks(client, docToken, blocks, parentBlockId, index) {
-	const { cleaned, skipped } = cleanBlocksForInsert(blocks);
+async function insertBlocks(client, docToken, blocks, parentBlockId) {
+	const cleaned = blocks.filter((block) => !UNSUPPORTED_CREATE_TYPES.has(block.block_type));
 	const blockId = parentBlockId ?? docToken;
-	if (cleaned.length === 0) return {
-		children: [],
-		skipped
-	};
 	const allInserted = [];
-	for (const [offset, block] of cleaned.entries()) {
+	for (const block of cleaned) {
 		const res = await client.docx.documentBlockChildren.create({
 			path: {
 				document_id: docToken,
 				block_id: blockId
 			},
-			data: {
-				children: [toCreateChildBlock(block)],
-				...index !== void 0 ? { index: index + offset } : {}
-			}
+			data: { children: [block] }
 		});
-		assertFeishuDocApiSuccess(res);
+		assertFeishuApiSuccess(res);
 		allInserted.push(...res.data?.children ?? []);
 	}
-	return {
-		children: allInserted,
-		skipped
-	};
+	return allInserted;
 }
 async function convertMarkdownWithFallback(client, chunk, depth = 0) {
 	try {
@@ -967,44 +816,24 @@ async function chunkedConvertMarkdown(client, chunks) {
 		images: allImages
 	};
 }
-/**
-* Insert blocks using the Descendant API (supports tables, nested lists, large docs).
-* Unlike the Children API, this supports block_type 31/32 (Table/TableCell).
-*
-* @param parentBlockId - Parent block to insert into (defaults to docToken = document root)
-* @param index - Position within parent's children (-1 = end, 0 = first)
-*/
-async function insertBlocksWithDescendant(client, docToken, blocks, firstLevelBlockIds, { parentBlockId = docToken, index = -1 } = {}) {
-	const descendants = cleanBlocksForDescendant(blocks);
-	if (descendants.length === 0) return { children: [] };
-	const res = await client.docx.documentBlockDescendant.create({
+async function deleteBlockChildren(client, docToken, parentId, startIndex, endIndex) {
+	const res = await client.docx.documentBlockChildren.batchDelete({
 		path: {
 			document_id: docToken,
-			block_id: parentBlockId
+			block_id: parentId
 		},
 		data: {
-			children_id: firstLevelBlockIds,
-			descendants: descendants.map(toDescendantBlock),
-			index
+			start_index: startIndex,
+			end_index: endIndex
 		}
 	});
-	if (res.code !== 0) throw new Error(`${res.msg} (code: ${res.code})`);
-	return { children: res.data?.children ?? [] };
+	assertFeishuApiSuccess(res);
 }
 async function clearDocumentContent(client, docToken) {
 	const existing = await client.docx.documentBlock.list({ path: { document_id: docToken } });
-	assertFeishuDocApiSuccess(existing);
+	assertFeishuApiSuccess(existing);
 	const childIds = existing.data?.items?.filter((b) => b.parent_id === docToken && b.block_type !== 1).map((b) => b.block_id) ?? [];
-	if (childIds.length > 0) assertFeishuDocApiSuccess(await client.docx.documentBlockChildren.batchDelete({
-		path: {
-			document_id: docToken,
-			block_id: docToken
-		},
-		data: {
-			start_index: 0,
-			end_index: childIds.length
-		}
-	}));
+	if (childIds.length > 0) await deleteBlockChildren(client, docToken, docToken, 0, childIds.length);
 	return childIds.length;
 }
 async function uploadImageToDocx(client, blockId, imageBuffer, fileName, docToken) {
@@ -1034,13 +863,14 @@ async function processImages(client, docToken, images, insertedBlocks, maxBytes,
 				remoteReadTimeoutMs: imageReadTimeoutMs
 			});
 			const fileToken = await uploadImageToDocx(client, blockId, upload.buffer, upload.fileName, docToken);
-			assertFeishuDocApiSuccess(await client.docx.documentBlock.patch({
+			const patchRes = await client.docx.documentBlock.patch({
 				path: {
 					document_id: docToken,
 					block_id: blockId
 				},
 				data: { replace_image: { token: fileToken } }
-			}));
+			});
+			assertFeishuApiSuccess(patchRes);
 			processed++;
 		} catch (err) {
 			console.error(`Failed to process image ${url}:`, err);
@@ -1048,37 +878,35 @@ async function processImages(client, docToken, images, insertedBlocks, maxBytes,
 	}
 	return processed;
 }
-async function convertInsertAndProcessDocx(params) {
-	const { client, docToken, logger, target } = params;
+async function editDoc(client, params, maxBytes, imageReadTimeoutMs, logger) {
+	const docToken = params.doc_token;
+	const target = params.action === "insert" ? await resolveInsertTarget(client, docToken, params.after_block_id) : void 0;
 	logger?.info?.("feishu_doc: Converting markdown...");
-	const { blocks, firstLevelBlockIds, images } = await chunkedConvertMarkdown(client, createDocxMarkdownPlan(params.markdown).chunks);
-	await params.onConverted(blocks.length);
-	if (blocks.length === 0) return {
-		blocks,
-		inserted: [],
-		imagesProcessed: 0
-	};
+	const { blocks, firstLevelBlockIds, images } = await chunkedConvertMarkdown(client, createDocxMarkdownPlan(params.content).chunks);
+	const deleted = params.action === "write" ? await clearDocumentContent(client, docToken) : 0;
+	if (blocks.length === 0) {
+		if (params.action !== "write") throw new Error("Content is empty");
+		return {
+			success: true,
+			blocks_deleted: deleted,
+			blocks_added: 0,
+			images_processed: 0
+		};
+	}
 	const { orderedBlocks, rootIds } = normalizeConvertedBlockTree(blocks, firstLevelBlockIds);
 	logger?.info?.(`feishu_doc: Converted to ${blocks.length} blocks, inserting${target ? ` at index ${target.index}` : ""}...`);
-	const { children: inserted } = blocks.length > 1e3 ? await insertBlocksInBatches(client, docToken, orderedBlocks, rootIds, logger, target?.parentBlockId, target?.index) : await insertBlocksWithDescendant(client, docToken, orderedBlocks, rootIds, target);
-	const imagesProcessed = await processImages(client, docToken, images, inserted, params.maxBytes, params.imageReadTimeoutMs);
+	const inserted = blocks.length > 1e3 ? await insertBlocksInBatches(client, docToken, orderedBlocks, rootIds, logger, target?.parentBlockId, target?.index) : await insertDocxDescendants(client, docToken, cleanBlocksForDescendant(orderedBlocks), rootIds, target?.parentBlockId, target?.index);
+	const imagesProcessed = await processImages(client, docToken, images, inserted, maxBytes, imageReadTimeoutMs);
 	logger?.info?.(`feishu_doc: Done (${blocks.length} blocks, ${imagesProcessed} images)`);
 	return {
-		blocks,
-		inserted,
-		imagesProcessed
+		success: true,
+		...params.action === "write" ? { blocks_deleted: deleted } : {},
+		blocks_added: blocks.length,
+		images_processed: imagesProcessed,
+		...params.action !== "write" ? { block_ids: inserted.map((b) => b.block_id) } : {}
 	};
 }
-async function uploadImageBlock(client, docToken, maxBytes, imageReadTimeoutMs, localRoots, url, filePath, parentBlockId, filename, index, imageInput) {
-	const upload = await resolveDocxUploadInput({
-		url,
-		filePath,
-		image: imageInput,
-		maxBytes,
-		localRoots,
-		fileName: filename,
-		remoteReadTimeoutMs: imageReadTimeoutMs
-	});
+async function uploadImageBlock(client, { doc_token: docToken, parent_block_id: parentBlockId, index }, upload) {
 	const insertRes = await client.docx.documentBlockChildren.create({
 		path: {
 			document_id: docToken,
@@ -1097,13 +925,14 @@ async function uploadImageBlock(client, docToken, maxBytes, imageReadTimeoutMs, 
 	const imageBlockId = insertRes.data?.children?.find((b) => b.block_type === 27)?.block_id;
 	if (!imageBlockId) throw new Error("Failed to create image block");
 	const fileToken = await uploadImageToDocx(client, imageBlockId, upload.buffer, upload.fileName, docToken);
-	assertFeishuDocApiSuccess(await client.docx.documentBlock.patch({
+	const patchRes = await client.docx.documentBlock.patch({
 		path: {
 			document_id: docToken,
 			block_id: imageBlockId
 		},
 		data: { replace_image: { token: fileToken } }
-	}));
+	});
+	assertFeishuApiSuccess(patchRes);
 	return {
 		success: true,
 		block_id: imageBlockId,
@@ -1112,37 +941,20 @@ async function uploadImageBlock(client, docToken, maxBytes, imageReadTimeoutMs, 
 		size: upload.buffer.length
 	};
 }
-async function uploadFileBlock(client, docToken, maxBytes, localRoots, url, filePath, parentBlockId, filename) {
+async function uploadFileBlock(client, { doc_token: docToken, parent_block_id: parentBlockId }, upload) {
 	const blockId = parentBlockId ?? docToken;
-	const upload = await resolveDocxUploadInput({
-		url,
-		filePath,
-		maxBytes,
-		localRoots,
-		fileName: filename
-	});
 	const converted = await convertMarkdown(client, "[file](https://example.com/placeholder)");
 	const { orderedBlocks } = normalizeConvertedBlockTree(converted.blocks, converted.firstLevelBlockIds);
-	const { children: inserted } = await insertBlocks(client, docToken, orderedBlocks, blockId);
-	const placeholderBlock = inserted[0];
+	const placeholderBlock = (await insertBlocks(client, docToken, orderedBlocks, blockId))[0];
 	if (!placeholderBlock?.block_id) throw new Error("Failed to create placeholder block for file upload");
 	const parentId = placeholderBlock.parent_id ?? blockId;
 	const childrenRes = await client.docx.documentBlockChildren.get({ path: {
 		document_id: docToken,
 		block_id: parentId
 	} });
-	assertFeishuDocApiSuccess(childrenRes);
+	assertFeishuApiSuccess(childrenRes);
 	const placeholderIdx = (childrenRes.data?.items ?? []).findIndex((item) => item.block_id === placeholderBlock.block_id);
-	if (placeholderIdx >= 0) assertFeishuDocApiSuccess(await client.docx.documentBlockChildren.batchDelete({
-		path: {
-			document_id: docToken,
-			block_id: parentId
-		},
-		data: {
-			start_index: placeholderIdx,
-			end_index: placeholderIdx + 1
-		}
-	}));
+	if (placeholderIdx >= 0) await deleteBlockChildren(client, docToken, parentId, placeholderIdx, placeholderIdx + 1);
 	const fileToken = (await client.drive.media.uploadAll({ data: {
 		file_name: upload.fileName,
 		parent_type: "docx_file",
@@ -1175,7 +987,7 @@ async function readDoc(client, docToken) {
 		client.docx.document.get({ path: { document_id: docToken } }),
 		client.docx.documentBlock.list({ path: { document_id: docToken } })
 	]);
-	assertFeishuDocApiSuccess(contentRes);
+	assertFeishuApiSuccess(contentRes);
 	const blocks = blocksRes.data?.items ?? [];
 	const blockCounts = {};
 	const structuredTypes = [];
@@ -1201,7 +1013,7 @@ async function createDoc(client, title, folderToken, options) {
 		title,
 		folder_token: folderToken
 	} });
-	assertFeishuDocApiSuccess(res);
+	assertFeishuApiSuccess(res);
 	const doc = res.data?.document;
 	const docToken = doc?.document_id;
 	if (!docToken) throw new Error("Document creation succeeded but no document_id was returned");
@@ -1214,7 +1026,7 @@ async function createDoc(client, title, folderToken, options) {
 	if (shouldGrantToRequester) {
 		if (!requesterOpenId) requesterPermissionSkippedReason = "trusted requester identity unavailable";
 		else try {
-			assertFeishuDocApiSuccess(await client.drive.permissionMember.create({
+			const permissionRes = await client.drive.permissionMember.create({
 				path: { token: docToken },
 				params: {
 					type: "docx",
@@ -1225,7 +1037,8 @@ async function createDoc(client, title, folderToken, options) {
 					member_id: requesterOpenId,
 					perm: requesterPermType
 				}
-			}));
+			});
+			assertFeishuApiSuccess(permissionRes);
 			requesterPermissionAdded = true;
 		} catch (err) {
 			requesterPermissionError = formatErrorMessage(err);
@@ -1244,52 +1057,9 @@ async function createDoc(client, title, folderToken, options) {
 		}
 	};
 }
-async function writeDoc(client, docToken, markdown, maxBytes, imageReadTimeoutMs, logger) {
-	let deleted = 0;
-	const { blocks, imagesProcessed } = await convertInsertAndProcessDocx({
-		client,
-		docToken,
-		markdown,
-		maxBytes,
-		imageReadTimeoutMs,
-		logger,
-		onConverted: async () => {
-			deleted = await clearDocumentContent(client, docToken);
-		}
-	});
-	return {
-		success: true,
-		blocks_deleted: deleted,
-		blocks_added: blocks.length,
-		images_processed: imagesProcessed
-	};
-}
-async function appendDoc(client, docToken, markdown, maxBytes, imageReadTimeoutMs, logger) {
-	const { blocks, inserted, imagesProcessed } = await convertInsertAndProcessDocx({
-		client,
-		docToken,
-		markdown,
-		maxBytes,
-		imageReadTimeoutMs,
-		logger,
-		onConverted: (blockCount) => {
-			if (blockCount === 0) throw new Error("Content is empty");
-		}
-	});
-	return {
-		success: true,
-		blocks_added: blocks.length,
-		images_processed: imagesProcessed,
-		block_ids: inserted.map((b) => b.block_id)
-	};
-}
-async function insertDoc(client, docToken, markdown, afterBlockId, maxBytes, imageReadTimeoutMs, logger) {
-	const blockInfo = await client.docx.documentBlock.get({ path: {
-		document_id: docToken,
-		block_id: afterBlockId
-	} });
-	assertFeishuDocApiSuccess(blockInfo);
-	const parentId = blockInfo.data?.block?.parent_id ?? docToken;
+async function resolveInsertTarget(client, docToken, afterBlockId) {
+	const { block } = await getBlock(client, docToken, afterBlockId);
+	const parentId = block?.parent_id ?? docToken;
 	const items = [];
 	let pageToken;
 	const seenPageTokens = /* @__PURE__ */ new Set();
@@ -1301,7 +1071,7 @@ async function insertDoc(client, docToken, markdown, afterBlockId, maxBytes, ima
 			},
 			params: pageToken ? { page_token: pageToken } : {}
 		});
-		assertFeishuDocApiSuccess(childrenRes);
+		assertFeishuApiSuccess(childrenRes);
 		items.push(...childrenRes.data?.items ?? []);
 		if (childrenRes.data?.has_more !== true) break;
 		const nextPageToken = childrenRes.data.page_token?.trim();
@@ -1312,29 +1082,13 @@ async function insertDoc(client, docToken, markdown, afterBlockId, maxBytes, ima
 	}
 	const blockIndex = items.findIndex((item) => item.block_id === afterBlockId);
 	if (blockIndex === -1) throw new Error(`after_block_id "${afterBlockId}" was not found among the children of parent block "${parentId}". Use list_blocks to verify the block ID.`);
-	const { blocks, inserted, imagesProcessed } = await convertInsertAndProcessDocx({
-		client,
-		docToken,
-		markdown,
-		maxBytes,
-		imageReadTimeoutMs,
-		logger,
-		target: {
-			parentBlockId: parentId,
-			index: blockIndex + 1
-		},
-		onConverted: (blockCount) => {
-			if (blockCount === 0) throw new Error("Content is empty");
-		}
-	});
 	return {
-		success: true,
-		blocks_added: blocks.length,
-		images_processed: imagesProcessed,
-		block_ids: inserted.map((b) => b.block_id)
+		parentBlockId: parentId,
+		index: blockIndex + 1
 	};
 }
-async function createTable(client, docToken, rowSize, columnSize, parentBlockId, columnWidth) {
+async function createTable(client, params) {
+	const { doc_token: docToken, row_size: rowSize, column_size: columnSize, parent_block_id: parentBlockId, column_width: columnWidth } = params;
 	if (columnWidth && columnWidth.length !== columnSize) throw new Error("column_width length must equal column_size");
 	const blockId = parentBlockId ?? docToken;
 	const res = await client.docx.documentBlockChildren.create({
@@ -1351,26 +1105,32 @@ async function createTable(client, docToken, rowSize, columnSize, parentBlockId,
 			} }
 		}] }
 	});
-	assertFeishuDocApiSuccess(res);
+	assertFeishuApiSuccess(res);
 	const tableBlock = res.data?.children?.find((b) => b.block_type === 31);
-	const cells = normalizeInsertedChildBlocks(tableBlock?.children);
+	if (params.action === "create_table_with_values") {
+		const tableBlockId = tableBlock?.block_id;
+		if (!tableBlockId) throw new Error("create_table succeeded but table_block_id is missing");
+		return {
+			success: true,
+			table_block_id: tableBlockId,
+			row_size: rowSize,
+			column_size: columnSize,
+			cells_written: (await writeTableCells(client, docToken, tableBlockId, params.values)).cells_written
+		};
+	}
+	const cells = Array.isArray(tableBlock?.children) ? tableBlock.children.map((child) => typeof child === "string" ? child : child?.block_id) : [];
 	return {
 		success: true,
 		table_block_id: tableBlock?.block_id,
 		row_size: rowSize,
 		column_size: columnSize,
-		table_cell_block_ids: cells.map((c) => c.block_id).filter(Boolean),
+		table_cell_block_ids: normalizeChildIds(cells).filter(Boolean),
 		raw_children_count: res.data?.children?.length ?? 0
 	};
 }
 async function writeTableCells(client, docToken, tableBlockId, values) {
 	if (!values.length || !values[0]?.length) throw new Error("values must be a non-empty 2D array");
-	const tableRes = await client.docx.documentBlock.get({ path: {
-		document_id: docToken,
-		block_id: tableBlockId
-	} });
-	assertFeishuDocApiSuccess(tableRes);
-	const tableBlock = tableRes.data?.block;
+	const { block: tableBlock } = await getBlock(client, docToken, tableBlockId);
 	if (tableBlock?.block_type !== 31) throw new Error("table_block_id is not a table block");
 	const tableData = tableBlock.table;
 	const rows = tableData?.property?.row_size;
@@ -1389,18 +1149,9 @@ async function writeTableCells(client, docToken, tableBlockId, values) {
 				document_id: docToken,
 				block_id: cellId
 			} });
-			assertFeishuDocApiSuccess(childrenRes);
+			assertFeishuApiSuccess(childrenRes);
 			const existingChildren = childrenRes.data?.items ?? [];
-			if (existingChildren.length > 0) assertFeishuDocApiSuccess(await client.docx.documentBlockChildren.batchDelete({
-				path: {
-					document_id: docToken,
-					block_id: cellId
-				},
-				data: {
-					start_index: 0,
-					end_index: existingChildren.length
-				}
-			}));
+			if (existingChildren.length > 0) await deleteBlockChildren(client, docToken, cellId, 0, existingChildren.length);
 			const converted = await convertMarkdown(client, rowValues[c] ?? "");
 			const { orderedBlocks } = normalizeConvertedBlockTree(converted.blocks, converted.firstLevelBlockIds);
 			if (orderedBlocks.length > 0) await insertBlocks(client, docToken, orderedBlocks, cellId);
@@ -1417,58 +1168,32 @@ async function writeTableCells(client, docToken, tableBlockId, values) {
 		}
 	};
 }
-async function createTableWithValues(client, docToken, rowSize, columnSize, values, parentBlockId, columnWidth) {
-	const tableBlockId = (await createTable(client, docToken, rowSize, columnSize, parentBlockId, columnWidth)).table_block_id;
-	if (!tableBlockId) throw new Error("create_table succeeded but table_block_id is missing");
-	return {
-		success: true,
-		table_block_id: tableBlockId,
-		row_size: rowSize,
-		column_size: columnSize,
-		cells_written: (await writeTableCells(client, docToken, tableBlockId, values)).cells_written
-	};
-}
 async function updateBlock(client, docToken, blockId, content) {
-	assertFeishuDocApiSuccess(await client.docx.documentBlock.get({ path: {
-		document_id: docToken,
-		block_id: blockId
-	} }));
-	assertFeishuDocApiSuccess(await client.docx.documentBlock.patch({
+	await getBlock(client, docToken, blockId);
+	const res = await client.docx.documentBlock.patch({
 		path: {
 			document_id: docToken,
 			block_id: blockId
 		},
 		data: { update_text_elements: { elements: [{ text_run: { content } }] } }
-	}));
+	});
+	assertFeishuApiSuccess(res);
 	return {
 		success: true,
 		block_id: blockId
 	};
 }
 async function deleteBlock(client, docToken, blockId) {
-	const blockInfo = await client.docx.documentBlock.get({ path: {
-		document_id: docToken,
-		block_id: blockId
-	} });
-	assertFeishuDocApiSuccess(blockInfo);
-	const parentId = blockInfo.data?.block?.parent_id ?? docToken;
+	const { block } = await getBlock(client, docToken, blockId);
+	const parentId = block?.parent_id ?? docToken;
 	const children = await client.docx.documentBlockChildren.get({ path: {
 		document_id: docToken,
 		block_id: parentId
 	} });
-	assertFeishuDocApiSuccess(children);
+	assertFeishuApiSuccess(children);
 	const index = (children.data?.items ?? []).findIndex((item) => item.block_id === blockId);
 	if (index === -1) throw new Error("Block not found");
-	assertFeishuDocApiSuccess(await client.docx.documentBlockChildren.batchDelete({
-		path: {
-			document_id: docToken,
-			block_id: parentId
-		},
-		data: {
-			start_index: index,
-			end_index: index + 1
-		}
-	}));
+	await deleteBlockChildren(client, docToken, parentId, index, index + 1);
 	return {
 		success: true,
 		deleted_block_id: blockId
@@ -1476,7 +1201,7 @@ async function deleteBlock(client, docToken, blockId) {
 }
 async function listBlocks(client, docToken) {
 	const res = await client.docx.documentBlock.list({ path: { document_id: docToken } });
-	assertFeishuDocApiSuccess(res);
+	assertFeishuApiSuccess(res);
 	return { blocks: res.data?.items ?? [] };
 }
 async function getBlock(client, docToken, blockId) {
@@ -1484,12 +1209,12 @@ async function getBlock(client, docToken, blockId) {
 		document_id: docToken,
 		block_id: blockId
 	} });
-	assertFeishuDocApiSuccess(res);
+	assertFeishuApiSuccess(res);
 	return { block: res.data?.block };
 }
 async function listAppScopes(client) {
 	const res = await client.application.scope.list({});
-	assertFeishuDocApiSuccess(res);
+	assertFeishuApiSuccess(res);
 	const scopes = res.data?.scopes ?? [];
 	const granted = scopes.filter((s) => s.grant_status === 1);
 	const pending = scopes.filter((s) => s.grant_status !== 1);
@@ -1506,92 +1231,92 @@ async function listAppScopes(client) {
 	};
 }
 function registerFeishuDocTools(api) {
-	api.registerTool((ctx) => {
-		const cfg = ctx.runtimeConfig ?? ctx.config ?? api.config;
-		if (!cfg || !resolveAnyEnabledFeishuToolsConfig(cfg).doc) return null;
-		const defaultAccountId = ctx.agentAccountId;
-		const mediaLocalRoots = resolveDocToolLocalRoots(ctx);
-		const trustedRequesterOpenId = ctx.messageChannel === "feishu" ? normalizeOptionalString(ctx.requesterSenderId) : void 0;
-		return {
-			name: "feishu_doc",
-			resultContentSource: "network",
-			label: "Feishu Doc",
-			description: "Feishu document operations. Actions: read, write, append, insert, create, list_blocks, get_block, update_block, delete_block, create_table, write_table_cells, create_table_with_values, insert_table_row, insert_table_column, delete_table_rows, delete_table_columns, merge_table_cells, upload_image, upload_file, color_text",
-			parameters: FeishuDocSchema,
-			async execute(_toolCallId, params) {
-				const p = params;
-				try {
-					if (p.action === "create" && Object.hasOwn(p, "content")) return feishuExternalToolResult({ error: "Feishu document creation does not support content. Call action \"create\" first, then call action \"write\" with the returned document_id as doc_token." });
-					const account = resolveFeishuToolAccount({
-						cfg,
-						executeParams: p,
-						defaultAccountId,
-						requiredTool: {
-							family: "doc",
-							label: "Doc"
-						}
-					});
-					const client = createFeishuClient(account);
-					const mediaMaxBytes = (account.config.mediaMaxMb ?? 30) * 1024 * 1024;
-					const imageReadTimeoutMs = resolveConfiguredHttpTimeoutMs(account);
-					switch (p.action) {
-						case "read": return feishuExternalToolResult(await readDoc(client, p.doc_token));
-						case "write": return feishuExternalToolResult(await writeDoc(client, p.doc_token, p.content, mediaMaxBytes, imageReadTimeoutMs, api.logger));
-						case "append": return feishuExternalToolResult(await appendDoc(client, p.doc_token, p.content, mediaMaxBytes, imageReadTimeoutMs, api.logger));
-						case "insert": return feishuExternalToolResult(await insertDoc(client, p.doc_token, p.content, p.after_block_id, mediaMaxBytes, imageReadTimeoutMs, api.logger));
-						case "create": return feishuExternalToolResult(await createDoc(client, p.title, p.folder_token, {
-							grantToRequester: p.grant_to_requester,
-							requesterOpenId: trustedRequesterOpenId
-						}));
-						case "list_blocks": return feishuExternalToolResult(await listBlocks(client, p.doc_token));
-						case "get_block": return feishuExternalToolResult(await getBlock(client, p.doc_token, p.block_id));
-						case "update_block": return feishuExternalToolResult(await updateBlock(client, p.doc_token, p.block_id, p.content));
-						case "delete_block": return feishuExternalToolResult(await deleteBlock(client, p.doc_token, p.block_id));
-						case "create_table": return feishuExternalToolResult(await createTable(client, p.doc_token, p.row_size, p.column_size, p.parent_block_id, p.column_width));
-						case "write_table_cells": return feishuExternalToolResult(await writeTableCells(client, p.doc_token, p.table_block_id, p.values));
-						case "create_table_with_values": return feishuExternalToolResult(await createTableWithValues(client, p.doc_token, p.row_size, p.column_size, p.values, p.parent_block_id, p.column_width));
-						case "upload_image": return feishuExternalToolResult(await uploadImageBlock(client, p.doc_token, mediaMaxBytes, imageReadTimeoutMs, mediaLocalRoots, p.url, p.file_path, p.parent_block_id, p.filename, p.index, p.image));
-						case "upload_file": return feishuExternalToolResult(await uploadFileBlock(client, p.doc_token, mediaMaxBytes, mediaLocalRoots, p.url, p.file_path, p.parent_block_id, p.filename));
-						case "color_text": return feishuExternalToolResult(await updateColorText(client, p.doc_token, p.block_id, p.content));
-						case "insert_table_row":
-						case "insert_table_column":
-						case "delete_table_rows":
-						case "delete_table_columns":
-						case "merge_table_cells": return feishuExternalToolResult(await patchTable(client, p));
-						default: return feishuExternalToolResult({ error: "Unknown action" });
+	registerFeishuTool(api, {
+		family: "doc",
+		name: "feishu_doc",
+		label: "Feishu Doc",
+		description: "Feishu document operations. Actions: read, write, append, insert, create, list_blocks, get_block, update_block, delete_block, create_table, write_table_cells, create_table_with_values, insert_table_row, insert_table_column, delete_table_rows, delete_table_columns, merge_table_cells, upload_image, upload_file, color_text",
+		parameters: FeishuDocSchema,
+		createExecute(ctx, cfg) {
+			const defaultAccountId = ctx.agentAccountId;
+			const mediaLocalRoots = resolveDocToolLocalRoots(ctx);
+			const trustedRequesterOpenId = ctx.messageChannel === "feishu" ? normalizeOptionalString(ctx.requesterSenderId) : void 0;
+			return async (p) => {
+				if (p.action === "create" && Object.hasOwn(p, "content")) return feishuExternalToolResult({ error: "Feishu document creation does not support content. Call action \"create\" first, then call action \"write\" with the returned document_id as doc_token." });
+				const account = resolveFeishuToolAccount({
+					cfg,
+					executeParams: p,
+					defaultAccountId,
+					requiredTool: {
+						family: "doc",
+						label: "Doc"
 					}
-				} catch (err) {
-					return feishuExternalToolResult({ error: formatErrorMessage(err) });
-				}
-			}
-		};
-	}, { name: "feishu_doc" });
-	api.registerTool((ctx) => {
-		const cfg = ctx.runtimeConfig ?? ctx.config ?? api.config;
-		if (!cfg || !resolveAnyEnabledFeishuToolsConfig(cfg).scopes) return null;
-		return {
-			name: "feishu_app_scopes",
-			resultContentSource: "network",
-			label: "Feishu App Scopes",
-			description: "List current app permissions (scopes). Use to debug permission issues or check available capabilities.",
-			parameters: Type.Object({}),
-			async execute() {
-				try {
-					const result = await listAppScopes(createFeishuToolClient({
-						cfg,
-						defaultAccountId: ctx.agentAccountId,
-						requiredTool: {
-							family: "scopes",
-							label: "App Scopes"
-						}
+				});
+				const client = createFeishuClient(account);
+				const mediaMaxBytes = (account.config.mediaMaxMb ?? 30) * 1024 * 1024;
+				const imageReadTimeoutMs = resolveConfiguredHttpTimeoutMs(account);
+				switch (p.action) {
+					case "read": return feishuExternalToolResult(await readDoc(client, p.doc_token));
+					case "write":
+					case "append":
+					case "insert": return feishuExternalToolResult(await editDoc(client, p, mediaMaxBytes, imageReadTimeoutMs, api.logger));
+					case "create": return feishuExternalToolResult(await createDoc(client, p.title, p.folder_token, {
+						grantToRequester: p.grant_to_requester,
+						requesterOpenId: trustedRequesterOpenId
 					}));
-					return feishuExternalToolResult(result);
-				} catch (err) {
-					return feishuExternalToolResult({ error: formatErrorMessage(err) });
+					case "list_blocks": return feishuExternalToolResult(await listBlocks(client, p.doc_token));
+					case "get_block": return feishuExternalToolResult(await getBlock(client, p.doc_token, p.block_id));
+					case "update_block": return feishuExternalToolResult(await updateBlock(client, p.doc_token, p.block_id, p.content));
+					case "delete_block": return feishuExternalToolResult(await deleteBlock(client, p.doc_token, p.block_id));
+					case "create_table":
+					case "create_table_with_values": return feishuExternalToolResult(await createTable(client, p));
+					case "write_table_cells": return feishuExternalToolResult(await writeTableCells(client, p.doc_token, p.table_block_id, p.values));
+					case "upload_image":
+					case "upload_file": {
+						const upload = await resolveDocxUploadInput({
+							url: p.url,
+							filePath: p.file_path,
+							maxBytes: mediaMaxBytes,
+							localRoots: mediaLocalRoots,
+							fileName: p.filename,
+							...p.action === "upload_image" ? {
+								image: p.image,
+								remoteReadTimeoutMs: imageReadTimeoutMs
+							} : {}
+						});
+						return feishuExternalToolResult(await (p.action === "upload_image" ? uploadImageBlock(client, p, upload) : uploadFileBlock(client, p, upload)));
+					}
+					case "color_text": return feishuExternalToolResult(await updateColorText(client, p.doc_token, p.block_id, p.content));
+					case "insert_table_row":
+					case "insert_table_column":
+					case "delete_table_rows":
+					case "delete_table_columns":
+					case "merge_table_cells": return feishuExternalToolResult(await patchTable(client, p));
+					default: return feishuExternalToolResult({ error: "Unknown action" });
 				}
-			}
-		};
-	}, { name: "feishu_app_scopes" });
+			};
+		}
+	});
+	registerFeishuTool(api, {
+		family: "scopes",
+		name: "feishu_app_scopes",
+		label: "Feishu App Scopes",
+		description: "List current app permissions (scopes). Use to debug permission issues or check available capabilities.",
+		parameters: Type.Object({}),
+		createExecute(ctx, cfg) {
+			return async (_params) => {
+				const result = await listAppScopes(createFeishuToolClient({
+					cfg,
+					defaultAccountId: ctx.agentAccountId,
+					requiredTool: {
+						family: "scopes",
+						label: "App Scopes"
+					}
+				}));
+				return feishuExternalToolResult(result);
+			};
+		}
+	});
 }
 //#endregion
 //#region extensions/feishu/src/wiki-schema.ts
@@ -1669,168 +1394,149 @@ function readWikiPageSize(params) {
 		message: "page_size must be a positive integer between 1 and 50"
 	}) ?? WIKI_PAGE_SIZE;
 }
-async function listSpaces(client, pageSize, pageToken) {
-	const res = await client.wiki.space.list({ params: {
-		page_size: pageSize,
-		page_token: pageToken
-	} });
-	if (res.code !== 0) throw new Error(res.msg);
-	const spaces = res.data?.items?.map((s) => ({
-		space_id: s.space_id,
-		name: s.name,
-		description: s.description,
-		visibility: s.visibility
-	})) ?? [];
-	return {
-		spaces,
-		has_more: res.data?.has_more ?? false,
-		page_token: res.data?.page_token,
-		...spaces.length === 0 && pageToken === void 0 && res.data?.has_more !== true && { hint: WIKI_ACCESS_HINT }
-	};
-}
-async function listNodes(client, spaceId, parentNodeToken, pageSize, pageToken) {
-	const res = await client.wiki.spaceNode.list({
-		path: { space_id: spaceId },
-		params: {
-			parent_node_token: parentNodeToken,
-			page_size: pageSize,
-			page_token: pageToken
-		}
-	});
-	if (res.code !== 0) throw new Error(res.msg);
-	return {
-		nodes: res.data?.items?.map((n) => ({
-			node_token: n.node_token,
-			obj_token: n.obj_token,
-			obj_type: n.obj_type,
-			title: n.title,
-			has_child: n.has_child
-		})) ?? [],
-		has_more: res.data?.has_more ?? false,
-		page_token: res.data?.page_token
-	};
-}
-async function getNode(client, token) {
-	const res = await client.wiki.space.getNode({ params: { token } });
-	if (res.code !== 0) throw new Error(res.msg);
-	const node = res.data?.node;
-	return {
-		node_token: node?.node_token,
-		space_id: node?.space_id,
-		obj_token: node?.obj_token,
-		obj_type: node?.obj_type,
-		title: node?.title,
-		parent_node_token: node?.parent_node_token,
-		has_child: node?.has_child,
-		creator: node?.creator,
-		create_time: node?.node_create_time
-	};
-}
-async function createNode(client, spaceId, title, objType, parentNodeToken) {
-	const res = await client.wiki.spaceNode.create({
-		path: { space_id: spaceId },
-		data: {
-			obj_type: objType || "docx",
-			node_type: "origin",
-			title,
-			parent_node_token: parentNodeToken
-		}
-	});
-	if (res.code !== 0) throw new Error(res.msg);
-	const node = res.data?.node;
-	return {
-		node_token: node?.node_token,
-		obj_token: node?.obj_token,
-		obj_type: node?.obj_type,
-		title: node?.title
-	};
-}
-async function moveNode(client, spaceId, nodeToken, targetSpaceId, targetParentToken) {
-	const res = await client.wiki.spaceNode.move({
-		path: {
-			space_id: spaceId,
-			node_token: nodeToken
-		},
-		data: {
-			target_space_id: targetSpaceId || spaceId,
-			target_parent_token: targetParentToken
-		}
-	});
-	if (res.code !== 0) throw new Error(res.msg);
-	return {
-		success: true,
-		node_token: res.data?.node?.node_token
-	};
-}
-async function renameNode(client, spaceId, nodeToken, title) {
-	const res = await client.wiki.spaceNode.updateTitle({
-		path: {
-			space_id: spaceId,
-			node_token: nodeToken
-		},
-		data: { title }
-	});
-	if (res.code !== 0) throw new Error(res.msg);
-	return {
-		success: true,
-		node_token: nodeToken,
-		title
-	};
-}
 function registerFeishuWikiTools(api) {
-	api.registerTool((ctx) => {
-		const cfg = ctx.runtimeConfig ?? ctx.config ?? api.config;
-		if (!cfg || !resolveAnyEnabledFeishuToolsConfig(cfg).wiki) return null;
-		const defaultAccountId = ctx.agentAccountId;
-		return {
-			name: "feishu_wiki",
-			resultContentSource: "network",
-			label: "Feishu Wiki",
-			description: "Feishu knowledge base operations. Actions: spaces, nodes, get, create, move, rename",
-			parameters: FeishuWikiSchema,
-			async execute(_toolCallId, params) {
-				const p = params;
-				try {
-					const createClient = () => createFeishuToolClient({
-						cfg,
-						executeParams: p,
-						defaultAccountId,
-						requiredTool: {
-							family: "wiki",
-							label: "Wiki"
-						}
-					});
-					switch (p.action) {
-						case "spaces": return feishuExternalToolResult(await listSpaces(createClient(), readWikiPageSize(p), p.page_token));
-						case "nodes": {
-							const spaceId = requireWikiSpaceId(p.space_id, "space_id");
-							return feishuExternalToolResult(await listNodes(createClient(), spaceId, p.parent_node_token, readWikiPageSize(p), p.page_token));
-						}
-						case "get": return feishuExternalToolResult(await getNode(createClient(), p.token));
-						case "search":
-							optionalWikiSpaceId(p.space_id, "space_id");
-							createClient();
-							return feishuExternalToolResult({ error: "Search is not available. Use feishu_wiki with action: 'nodes' to browse or action: 'get' to lookup by token." });
-						case "create": {
-							const spaceId = requireWikiSpaceId(p.space_id, "space_id");
-							return feishuExternalToolResult(await createNode(createClient(), spaceId, p.title, p.obj_type, p.parent_node_token));
-						}
-						case "move": {
-							const spaceId = requireWikiSpaceId(p.space_id, "space_id");
-							return feishuExternalToolResult(await moveNode(createClient(), spaceId, p.node_token, optionalWikiSpaceId(p.target_space_id, "target_space_id"), p.target_parent_token));
-						}
-						case "rename": {
-							const spaceId = requireWikiSpaceId(p.space_id, "space_id");
-							return feishuExternalToolResult(await renameNode(createClient(), spaceId, p.node_token, p.title));
-						}
-						default: return unknownToolActionResult(p.action);
+	registerFeishuTool(api, {
+		family: "wiki",
+		name: "feishu_wiki",
+		label: "Feishu Wiki",
+		description: "Feishu knowledge base operations. Actions: spaces, nodes, get, create, move, rename",
+		parameters: FeishuWikiSchema,
+		createExecute(ctx, cfg) {
+			const defaultAccountId = ctx.agentAccountId;
+			return async (p) => {
+				const createClient = () => createFeishuToolClient({
+					cfg,
+					executeParams: p,
+					defaultAccountId,
+					requiredTool: {
+						family: "wiki",
+						label: "Wiki"
 					}
-				} catch (err) {
-					return toolExecutionErrorResult(err);
+				});
+				switch (p.action) {
+					case "spaces": {
+						const pageToken = p.page_token;
+						const res = await createClient().wiki.space.list({ params: {
+							page_size: readWikiPageSize(p),
+							page_token: pageToken
+						} });
+						assertFeishuApiSuccess(res);
+						const spaces = res.data?.items?.map((s) => ({
+							space_id: s.space_id,
+							name: s.name,
+							description: s.description,
+							visibility: s.visibility
+						})) ?? [];
+						return feishuExternalToolResult({
+							spaces,
+							has_more: res.data?.has_more ?? false,
+							page_token: res.data?.page_token,
+							...spaces.length === 0 && pageToken === void 0 && res.data?.has_more !== true && { hint: WIKI_ACCESS_HINT }
+						});
+					}
+					case "nodes": {
+						const spaceId = requireWikiSpaceId(p.space_id, "space_id");
+						const res = await createClient().wiki.spaceNode.list({
+							path: { space_id: spaceId },
+							params: {
+								parent_node_token: p.parent_node_token,
+								page_size: readWikiPageSize(p),
+								page_token: p.page_token
+							}
+						});
+						assertFeishuApiSuccess(res);
+						return feishuExternalToolResult({
+							nodes: res.data?.items?.map((n) => ({
+								node_token: n.node_token,
+								obj_token: n.obj_token,
+								obj_type: n.obj_type,
+								title: n.title,
+								has_child: n.has_child
+							})) ?? [],
+							has_more: res.data?.has_more ?? false,
+							page_token: res.data?.page_token
+						});
+					}
+					case "get": {
+						const res = await createClient().wiki.space.getNode({ params: { token: p.token } });
+						assertFeishuApiSuccess(res);
+						const node = res.data?.node;
+						return feishuExternalToolResult({
+							node_token: node?.node_token,
+							space_id: node?.space_id,
+							obj_token: node?.obj_token,
+							obj_type: node?.obj_type,
+							title: node?.title,
+							parent_node_token: node?.parent_node_token,
+							has_child: node?.has_child,
+							creator: node?.creator,
+							create_time: node?.node_create_time
+						});
+					}
+					case "search":
+						optionalWikiSpaceId(p.space_id, "space_id");
+						createClient();
+						return feishuExternalToolResult({ error: "Search is not available. Use feishu_wiki with action: 'nodes' to browse or action: 'get' to lookup by token." });
+					case "create": {
+						const spaceId = requireWikiSpaceId(p.space_id, "space_id");
+						const res = await createClient().wiki.spaceNode.create({
+							path: { space_id: spaceId },
+							data: {
+								obj_type: p.obj_type || "docx",
+								node_type: "origin",
+								title: p.title,
+								parent_node_token: p.parent_node_token
+							}
+						});
+						assertFeishuApiSuccess(res);
+						const node = res.data?.node;
+						return feishuExternalToolResult({
+							node_token: node?.node_token,
+							obj_token: node?.obj_token,
+							obj_type: node?.obj_type,
+							title: node?.title
+						});
+					}
+					case "move": {
+						const spaceId = requireWikiSpaceId(p.space_id, "space_id");
+						const res = await createClient().wiki.spaceNode.move({
+							path: {
+								space_id: spaceId,
+								node_token: p.node_token
+							},
+							data: {
+								target_space_id: optionalWikiSpaceId(p.target_space_id, "target_space_id") || spaceId,
+								target_parent_token: p.target_parent_token
+							}
+						});
+						assertFeishuApiSuccess(res);
+						return feishuExternalToolResult({
+							success: true,
+							node_token: res.data?.node?.node_token
+						});
+					}
+					case "rename": {
+						const spaceId = requireWikiSpaceId(p.space_id, "space_id");
+						const { node_token, title } = p;
+						const res = await createClient().wiki.spaceNode.updateTitle({
+							path: {
+								space_id: spaceId,
+								node_token
+							},
+							data: { title }
+						});
+						assertFeishuApiSuccess(res);
+						return feishuExternalToolResult({
+							success: true,
+							node_token,
+							title
+						});
+					}
+					default: return unknownToolActionResult(p.action);
 				}
-			}
-		};
-	}, { name: "feishu_wiki" });
+			};
+		}
+	});
 }
 //#endregion
 //#region extensions/feishu/src/perm-schema.ts
@@ -1881,103 +1587,85 @@ const FeishuPermSchema = Type.Union([
 ]);
 //#endregion
 //#region extensions/feishu/src/perm.ts
-async function listMembers(client, token, type) {
-	const res = await client.drive.permissionMember.list({
-		path: { token },
-		params: { type }
-	});
-	if (res.code !== 0) throw new Error(res.msg);
-	return { members: res.data?.items?.map((m) => ({
-		member_type: m.member_type,
-		member_id: m.member_id,
-		perm: m.perm,
-		name: m.name
-	})) ?? [] };
-}
-async function addMember(client, token, type, memberType, memberId, perm) {
-	const res = await client.drive.permissionMember.create({
-		path: { token },
-		params: {
-			type,
-			need_notification: false
-		},
-		data: {
-			member_type: memberType,
-			member_id: memberId,
-			perm
-		}
-	});
-	if (res.code !== 0) throw new Error(res.msg);
-	return {
-		success: true,
-		member: res.data?.member
-	};
-}
-async function removeMember(client, token, type, memberType, memberId) {
-	const res = await client.drive.permissionMember.delete({
-		path: {
-			token,
-			member_id: memberId
-		},
-		params: {
-			type,
-			member_type: memberType
-		}
-	});
-	if (res.code !== 0) throw new Error(res.msg);
-	return { success: true };
-}
 function registerFeishuPermTools(api) {
-	api.registerTool((ctx) => {
-		const cfg = ctx.runtimeConfig ?? ctx.config ?? api.config;
-		if (!cfg || !resolveAnyEnabledFeishuToolsConfig(cfg).perm) return null;
-		const defaultAccountId = ctx.agentAccountId;
-		return {
-			name: "feishu_perm",
-			resultContentSource: "network",
-			label: "Feishu Perm",
-			description: "Feishu permission management. Actions: list, add, remove",
-			parameters: FeishuPermSchema,
-			async execute(_toolCallId, params) {
-				const p = params;
-				try {
-					const client = createFeishuToolClient({
-						cfg,
-						executeParams: p,
-						defaultAccountId,
-						requiredTool: {
-							family: "perm",
-							label: "Perm"
-						}
-					});
-					switch (p.action) {
-						case "list": return feishuExternalToolResult(await listMembers(client, p.token, p.type));
-						case "add": return feishuExternalToolResult(await addMember(client, p.token, p.type, p.member_type, p.member_id, p.perm));
-						case "remove": return feishuExternalToolResult(await removeMember(client, p.token, p.type, p.member_type, p.member_id));
-						default: return unknownToolActionResult(p.action);
+	registerFeishuTool(api, {
+		family: "perm",
+		name: "feishu_perm",
+		label: "Feishu Perm",
+		description: "Feishu permission management. Actions: list, add, remove",
+		parameters: FeishuPermSchema,
+		createExecute(ctx, cfg) {
+			const defaultAccountId = ctx.agentAccountId;
+			return async (p) => {
+				const client = createFeishuToolClient({
+					cfg,
+					executeParams: p,
+					defaultAccountId,
+					requiredTool: {
+						family: "perm",
+						label: "Perm"
 					}
-				} catch (err) {
-					return toolExecutionErrorResult(err);
+				});
+				switch (p.action) {
+					case "list": {
+						const res = await client.drive.permissionMember.list({
+							path: { token: p.token },
+							params: { type: p.type }
+						});
+						assertFeishuApiSuccess(res);
+						return feishuExternalToolResult({ members: res.data?.items?.map((m) => ({
+							member_type: m.member_type,
+							member_id: m.member_id,
+							perm: m.perm,
+							name: m.name
+						})) ?? [] });
+					}
+					case "add": {
+						const { token, type, member_type, member_id, perm } = p;
+						const res = await client.drive.permissionMember.create({
+							path: { token },
+							params: {
+								type,
+								need_notification: false
+							},
+							data: {
+								member_type,
+								member_id,
+								perm
+							}
+						});
+						assertFeishuApiSuccess(res);
+						return feishuExternalToolResult({
+							success: true,
+							member: res.data?.member
+						});
+					}
+					case "remove": {
+						const { token, type, member_type, member_id } = p;
+						const res = await client.drive.permissionMember.delete({
+							path: {
+								token,
+								member_id
+							},
+							params: {
+								type,
+								member_type
+							}
+						});
+						assertFeishuApiSuccess(res);
+						return feishuExternalToolResult({ success: true });
+					}
+					default: return unknownToolActionResult(p.action);
 				}
-			}
-		};
-	}, { name: "feishu_perm" });
+			};
+		}
+	});
 }
 //#endregion
 //#region extensions/feishu/src/bitable.ts
-var LarkApiError = class extends Error {
-	constructor(code, message, api, context) {
-		super(`[${api}] code=${code} message=${message}`);
-		this.name = "LarkApiError";
-		this.code = code;
-		this.api = api;
-		this.context = context;
-	}
-};
-function ensureLarkSuccess(res, api, context) {
-	if (res.code !== 0) throw new LarkApiError(res.code ?? -1, res.msg ?? "unknown error", api, context);
+function ensureLarkSuccess(res, api) {
+	if (res.code !== 0) throw new Error(`[${api}] code=${res.code ?? -1} message=${res.msg ?? "unknown error"}`);
 }
-/** Field type ID to human-readable name */
 const FIELD_TYPE_NAMES = {
 	1: "Text",
 	2: "Number",
@@ -2001,52 +1689,35 @@ const FIELD_TYPE_NAMES = {
 	1004: "ModifiedUser",
 	1005: "AutoNumber"
 };
-/** Parse bitable URL and extract tokens */
 function parseBitableUrl(url) {
 	try {
 		const u = new URL(url);
 		const tableId = u.searchParams.get("table") ?? void 0;
 		const wikiMatch = u.pathname.match(/\/wiki\/([A-Za-z0-9]+)/);
-		if (wikiMatch) {
-			const wikiPathSegment = wikiMatch[1];
-			return wikiPathSegment === void 0 ? null : {
-				token: wikiPathSegment,
-				tableId,
-				isWiki: true
-			};
-		}
-		const baseMatch = u.pathname.match(/\/base\/([A-Za-z0-9]+)/);
-		if (baseMatch) {
-			const basePathSegment = baseMatch[1];
-			return basePathSegment === void 0 ? null : {
-				token: basePathSegment,
-				tableId,
-				isWiki: false
-			};
-		}
-		return null;
+		const token = (wikiMatch ?? u.pathname.match(/\/base\/([A-Za-z0-9]+)/))?.[1];
+		return token === void 0 ? null : {
+			token,
+			tableId,
+			isWiki: Boolean(wikiMatch)
+		};
 	} catch {
 		return null;
 	}
 }
-/** Get app_token from wiki node_token */
 async function getAppTokenFromWiki(client, nodeToken) {
 	const res = await client.wiki.space.getNode({ params: { token: nodeToken } });
-	ensureLarkSuccess(res, "wiki.space.getNode", { nodeToken });
+	ensureLarkSuccess(res, "wiki.space.getNode");
 	const node = res.data?.node;
 	if (!node) throw new Error("Node not found");
 	if (node.obj_type !== "bitable") throw new Error(`Node is not a bitable (type: ${node.obj_type})`);
 	return node.obj_token;
 }
-/** Get bitable metadata from URL (handles both /base/ and /wiki/ URLs) */
 async function getBitableMeta(client, url) {
 	const parsed = parseBitableUrl(url);
 	if (!parsed) throw new Error("Invalid URL format. Expected /base/XXX or /wiki/XXX URL");
-	let appToken;
-	if (parsed.isWiki) appToken = await getAppTokenFromWiki(client, parsed.token);
-	else appToken = parsed.token;
+	const appToken = parsed.isWiki ? await getAppTokenFromWiki(client, parsed.token) : parsed.token;
 	const res = await client.bitable.app.get({ path: { app_token: appToken } });
-	ensureLarkSuccess(res, "bitable.app.get", { appToken });
+	ensureLarkSuccess(res, "bitable.app.get");
 	let tables = [];
 	if (!parsed.tableId) {
 		const tablesRes = await client.bitable.appTable.list({ path: { app_token: appToken } });
@@ -2064,85 +1735,6 @@ async function getBitableMeta(client, url) {
 		hint: parsed.tableId ? `Use app_token="${appToken}" and table_id="${parsed.tableId}" for other bitable tools` : `Use app_token="${appToken}" for other bitable tools. Select a table_id from the tables list.`
 	};
 }
-async function listFields(client, appToken, tableId) {
-	const res = await client.bitable.appTableField.list({ path: {
-		app_token: appToken,
-		table_id: tableId
-	} });
-	ensureLarkSuccess(res, "bitable.appTableField.list", {
-		appToken,
-		tableId
-	});
-	const fields = res.data?.items ?? [];
-	return {
-		fields: fields.map((f) => ({
-			field_id: f.field_id,
-			field_name: f.field_name,
-			type: f.type,
-			type_name: FIELD_TYPE_NAMES[f.type ?? 0] || `type_${f.type}`,
-			is_primary: f.is_primary,
-			...f.property && { property: f.property }
-		})),
-		total: fields.length
-	};
-}
-async function listRecords(client, appToken, tableId, pageSize, pageToken) {
-	const res = await client.bitable.appTableRecord.list({
-		path: {
-			app_token: appToken,
-			table_id: tableId
-		},
-		params: {
-			page_size: pageSize ?? 100,
-			...pageToken && { page_token: pageToken }
-		}
-	});
-	ensureLarkSuccess(res, "bitable.appTableRecord.list", {
-		appToken,
-		tableId,
-		pageSize
-	});
-	return {
-		records: res.data?.items ?? [],
-		has_more: res.data?.has_more ?? false,
-		page_token: res.data?.page_token,
-		total: res.data?.total
-	};
-}
-function readBitableListRecordsPageSize(params) {
-	return readPositiveIntegerParam(params, "page_size", {
-		max: 500,
-		message: "page_size must be a positive integer between 1 and 500"
-	});
-}
-async function getRecord(client, appToken, tableId, recordId) {
-	const res = await client.bitable.appTableRecord.get({ path: {
-		app_token: appToken,
-		table_id: tableId,
-		record_id: recordId
-	} });
-	ensureLarkSuccess(res, "bitable.appTableRecord.get", {
-		appToken,
-		tableId,
-		recordId
-	});
-	return { record: res.data?.record };
-}
-async function createRecord(client, appToken, tableId, fields) {
-	const res = await client.bitable.appTableRecord.create({
-		path: {
-			app_token: appToken,
-			table_id: tableId
-		},
-		data: { fields }
-	});
-	ensureLarkSuccess(res, "bitable.appTableRecord.create", {
-		appToken,
-		tableId
-	});
-	return { record: res.data?.record };
-}
-/** Default field types created for new Bitable tables (to be cleaned up) */
 const DEFAULT_CLEANUP_FIELD_TYPES = /* @__PURE__ */ new Set([
 	3,
 	5,
@@ -2154,7 +1746,6 @@ function isDefaultEmptyBitableFieldValue(value) {
 	if (typeof value === "object") {
 		const record = value;
 		const keys = Object.keys(record);
-		if (keys.length === 0) return true;
 		if ("text" in record && keys.every((key) => key === "text" || key === "type")) return record.text === void 0 || record.text === null || record.text === "";
 		return Object.values(record).every(isDefaultEmptyBitableFieldValue);
 	}
@@ -2164,7 +1755,6 @@ function isPlaceholderBitableRecord(fields) {
 	if (!fields || typeof fields !== "object" || Array.isArray(fields)) return true;
 	return Object.values(fields).every(isDefaultEmptyBitableFieldValue);
 }
-/** Clean up default placeholder rows and fields in a newly created Bitable table */
 async function cleanupNewBitable(client, appToken, tableId, tableName, logger) {
 	let cleanedRows = 0;
 	let cleanedFields = 0;
@@ -2175,29 +1765,28 @@ async function cleanupNewBitable(client, appToken, tableId, tableName, logger) {
 	if (fieldsRes.code === 0 && fieldsRes.data?.items) {
 		const primaryField = fieldsRes.data.items.find((f) => f.is_primary);
 		if (primaryField?.field_id) try {
-			const newFieldName = tableName.length <= 20 ? tableName : "Name";
-			await client.bitable.appTableField.update({
+			ensureLarkSuccess(await client.bitable.appTableField.update({
 				path: {
 					app_token: appToken,
 					table_id: tableId,
 					field_id: primaryField.field_id
 				},
 				data: {
-					field_name: newFieldName,
+					field_name: tableName.length <= 20 ? tableName : "Name",
 					type: 1
 				}
-			});
+			}), "bitable.appTableField.update");
 			cleanedFields++;
 		} catch (err) {
 			logger.debug(`Failed to rename primary field: ${String(err)}`);
 		}
 		const defaultFieldsToDelete = fieldsRes.data.items.filter((f) => !f.is_primary && DEFAULT_CLEANUP_FIELD_TYPES.has(f.type ?? 0));
 		for (const field of defaultFieldsToDelete) if (field.field_id) try {
-			await client.bitable.appTableField.delete({ path: {
+			ensureLarkSuccess(await client.bitable.appTableField.delete({ path: {
 				app_token: appToken,
 				table_id: tableId,
 				field_id: field.field_id
-			} });
+			} }), "bitable.appTableField.delete");
 			cleanedFields++;
 		} catch (err) {
 			logger.debug(`Failed to delete default field ${field.field_name}: ${String(err)}`);
@@ -2213,21 +1802,21 @@ async function cleanupNewBitable(client, appToken, tableId, tableName, logger) {
 	if (recordsRes.code === 0 && recordsRes.data?.items) {
 		const emptyRecordIds = recordsRes.data.items.filter((r) => isPlaceholderBitableRecord(r.fields)).map((r) => r.record_id).filter((id) => Boolean(id));
 		if (emptyRecordIds.length > 0) try {
-			await client.bitable.appTableRecord.batchDelete({
+			ensureLarkSuccess(await client.bitable.appTableRecord.batchDelete({
 				path: {
 					app_token: appToken,
 					table_id: tableId
 				},
 				data: { records: emptyRecordIds }
-			});
+			}), "bitable.appTableRecord.batchDelete");
 			cleanedRows = emptyRecordIds.length;
 		} catch {
 			for (const recordId of emptyRecordIds) try {
-				await client.bitable.appTableRecord.delete({ path: {
+				ensureLarkSuccess(await client.bitable.appTableRecord.delete({ path: {
 					app_token: appToken,
 					table_id: tableId,
 					record_id: recordId
-				} });
+				} }), "bitable.appTableRecord.delete");
 				cleanedRows++;
 			} catch (err) {
 				logger.debug(`Failed to delete empty row ${recordId}: ${String(err)}`);
@@ -2244,23 +1833,17 @@ async function createApp(client, name, folderToken, logger) {
 		name,
 		...folderToken && { folder_token: folderToken }
 	} });
-	ensureLarkSuccess(res, "bitable.app.create", {
-		name,
-		folderToken
-	});
+	ensureLarkSuccess(res, "bitable.app.create");
 	const appToken = res.data?.app?.app_token;
 	if (!appToken) throw new Error("Failed to create Bitable: no app_token returned");
-	const log = logger ?? {
-		debug: () => {},
-		warn: () => {}
-	};
+	const log = logger ?? { debug: () => {} };
 	let tableId;
 	let cleanedRows = 0;
 	let cleanedFields = 0;
 	try {
 		const tablesRes = await client.bitable.appTable.list({ path: { app_token: appToken } });
-		if (tablesRes.code === 0 && tablesRes.data?.items && tablesRes.data.items.length > 0) {
-			tableId = tablesRes.data.items.at(0)?.table_id;
+		if (tablesRes.code === 0) {
+			tableId = tablesRes.data?.items?.[0]?.table_id;
 			if (tableId) {
 				const cleanup = await cleanupNewBitable(client, appToken, tableId, name, log);
 				cleanedRows = cleanup.cleanedRows;
@@ -2280,47 +1863,6 @@ async function createApp(client, name, folderToken, logger) {
 		hint: tableId ? `Table created. Use app_token="${appToken}" and table_id="${tableId}" for other bitable tools.` : "Application created, but table metadata was not retrieved. Inspect the existing application using the returned app_token or URL; do not create it again."
 	};
 }
-async function createField(client, appToken, tableId, fieldName, fieldType, property) {
-	const res = await client.bitable.appTableField.create({
-		path: {
-			app_token: appToken,
-			table_id: tableId
-		},
-		data: {
-			field_name: fieldName,
-			type: fieldType,
-			...property && { property }
-		}
-	});
-	ensureLarkSuccess(res, "bitable.appTableField.create", {
-		appToken,
-		tableId,
-		fieldName,
-		fieldType
-	});
-	return {
-		field_id: res.data?.field?.field_id,
-		field_name: res.data?.field?.field_name,
-		type: res.data?.field?.type,
-		type_name: FIELD_TYPE_NAMES[res.data?.field?.type ?? 0] || `type_${res.data?.field?.type}`
-	};
-}
-async function updateRecord(client, appToken, tableId, recordId, fields) {
-	const res = await client.bitable.appTableRecord.update({
-		path: {
-			app_token: appToken,
-			table_id: tableId,
-			record_id: recordId
-		},
-		data: { fields }
-	});
-	ensureLarkSuccess(res, "bitable.appTableRecord.update", {
-		appToken,
-		tableId,
-		recordId
-	});
-	return { record: res.data?.record };
-}
 const BITABLE_APP_TOKEN_DESCRIPTION = "Bitable application token (the /base/ URL identifier, or app_token from metadata). Not the node token in a /wiki/ URL.";
 const BITABLE_RECORD_FIELDS_DESCRIPTION = "Field values keyed by field name. Format by type: Text='string', Number=123, SingleSelect='Option', MultiSelect=['A','B'], DateTime=timestamp_ms, User=[{id:'ou_xxx'}], URL={text:'Display',link:'https://...'}";
 const GetMetaSchema = Type.Object({ url: Type.String({ description: "Bitable URL. Supports both formats: /base/XXX?table=YYY or /wiki/XXX?table=YYY" }) });
@@ -2329,8 +1871,7 @@ const ListFieldsSchema = Type.Object({
 	table_id: Type.String({ description: "Table ID (from URL: ?table=YYY)" })
 });
 const ListRecordsSchema = Type.Object({
-	app_token: Type.String({ description: BITABLE_APP_TOKEN_DESCRIPTION }),
-	table_id: Type.String({ description: "Table ID (from URL: ?table=YYY)" }),
+	...ListFieldsSchema.properties,
 	page_size: optionalPositiveIntegerSchema({
 		description: "Number of records per page (1-500, default 100)",
 		maximum: 500
@@ -2338,8 +1879,7 @@ const ListRecordsSchema = Type.Object({
 	page_token: Type.Optional(Type.String({ description: "Pagination token from previous response" }))
 });
 const GetRecordSchema = Type.Object({
-	app_token: Type.String({ description: BITABLE_APP_TOKEN_DESCRIPTION }),
-	table_id: Type.String({ description: "Table ID (from URL: ?table=YYY)" }),
+	...ListFieldsSchema.properties,
 	record_id: Type.String({ description: "Record ID to retrieve" })
 });
 const BitableFieldValueSchema = Type.Unsafe({ type: [
@@ -2351,8 +1891,7 @@ const BitableFieldValueSchema = Type.Unsafe({ type: [
 	"null"
 ] });
 const CreateRecordSchema = Type.Object({
-	app_token: Type.String({ description: BITABLE_APP_TOKEN_DESCRIPTION }),
-	table_id: Type.String({ description: "Table ID (from URL: ?table=YYY)" }),
+	...ListFieldsSchema.properties,
 	fields: Type.Record(Type.String(), BitableFieldValueSchema, { description: BITABLE_RECORD_FIELDS_DESCRIPTION })
 });
 const CreateAppSchema = Type.Object({
@@ -2360,8 +1899,7 @@ const CreateAppSchema = Type.Object({
 	folder_token: Type.Optional(Type.String({ description: "Optional folder token to place the Bitable in a specific folder" }))
 });
 const CreateFieldSchema = Type.Object({
-	app_token: Type.String({ description: BITABLE_APP_TOKEN_DESCRIPTION }),
-	table_id: Type.String({ description: "Table ID (from URL: ?table=YYY)" }),
+	...ListFieldsSchema.properties,
 	field_name: Type.String({ description: "Name for the new field" }),
 	field_type: Type.Number({
 		description: "Field type ID: 1=Text, 2=Number, 3=SingleSelect, 4=MultiSelect, 5=DateTime, 7=Checkbox, 11=User, 13=Phone, 15=URL, 17=Attachment, 18=SingleLink, 19=Lookup, 20=Formula, 21=DuplexLink, 22=Location, 23=GroupChat, 1001=CreatedTime, 1002=ModifiedTime, 1003=CreatedUser, 1004=ModifiedUser, 1005=AutoNumber",
@@ -2370,43 +1908,32 @@ const CreateFieldSchema = Type.Object({
 	property: Type.Optional(Type.Record(Type.String(), BitableFieldValueSchema, { description: "Field-specific properties (e.g., options for SingleSelect, format for Number)" }))
 });
 const UpdateRecordSchema = Type.Object({
-	app_token: Type.String({ description: BITABLE_APP_TOKEN_DESCRIPTION }),
-	table_id: Type.String({ description: "Table ID (from URL: ?table=YYY)" }),
+	...ListFieldsSchema.properties,
 	record_id: Type.String({ description: "Record ID to update" }),
-	fields: Type.Record(Type.String(), BitableFieldValueSchema, { description: BITABLE_RECORD_FIELDS_DESCRIPTION })
+	fields: CreateRecordSchema.properties.fields
 });
 function registerFeishuBitableTools(api) {
-	const registerBitableTool = (params) => {
-		api.registerTool((ctx) => {
-			const cfg = ctx.runtimeConfig ?? ctx.config ?? api.config;
-			if (!cfg || !resolveAnyEnabledFeishuToolsConfig(cfg).bitable) return null;
-			return {
-				name: params.name,
-				resultContentSource: "network",
-				label: params.label,
-				description: params.description,
-				parameters: params.parameters,
-				async execute(_toolCallId, rawParams) {
-					const executeParams = rawParams;
-					try {
-						return feishuExternalToolResult(await params.execute({
-							params: executeParams,
-							client: createFeishuToolClient({
-								cfg,
-								executeParams,
-								defaultAccountId: ctx.agentAccountId,
-								requiredTool: {
-									family: "bitable",
-									label: "Bitable"
-								}
-							})
-						}));
-					} catch (err) {
-						return feishuExternalToolResult({ error: formatErrorMessage(err) });
-					}
-				}
-			};
-		}, { name: params.name });
+	const registerBitableTool = (tool) => {
+		registerFeishuTool(api, {
+			...tool,
+			family: "bitable",
+			createExecute(ctx, cfg) {
+				return async (params) => {
+					return feishuExternalToolResult(await tool.execute({
+						params,
+						client: createFeishuToolClient({
+							cfg,
+							executeParams: params,
+							defaultAccountId: ctx.agentAccountId,
+							requiredTool: {
+								family: "bitable",
+								label: "Bitable"
+							}
+						})
+					}));
+				};
+			}
+		});
 	};
 	registerBitableTool({
 		name: "feishu_bitable_get_meta",
@@ -2423,7 +1950,24 @@ function registerFeishuBitableTools(api) {
 		description: "List all fields (columns) in a Bitable table with their types and properties",
 		parameters: ListFieldsSchema,
 		async execute({ params, client }) {
-			return listFields(client, params.app_token, params.table_id);
+			const { app_token, table_id } = params;
+			const res = await client.bitable.appTableField.list({ path: {
+				app_token,
+				table_id
+			} });
+			ensureLarkSuccess(res, "bitable.appTableField.list");
+			const fields = res.data?.items ?? [];
+			return {
+				fields: fields.map((f) => ({
+					field_id: f.field_id,
+					field_name: f.field_name,
+					type: f.type,
+					type_name: FIELD_TYPE_NAMES[f.type ?? 0] || `type_${f.type}`,
+					is_primary: f.is_primary,
+					...f.property && { property: f.property }
+				})),
+				total: fields.length
+			};
 		}
 	});
 	registerBitableTool({
@@ -2432,7 +1976,28 @@ function registerFeishuBitableTools(api) {
 		description: "List records (rows) from a Bitable table with pagination support",
 		parameters: ListRecordsSchema,
 		async execute({ params, client }) {
-			return listRecords(client, params.app_token, params.table_id, readBitableListRecordsPageSize(params), params.page_token);
+			const { app_token, table_id, page_token } = params;
+			const pageSize = readPositiveIntegerParam(params, "page_size", {
+				max: 500,
+				message: "page_size must be a positive integer between 1 and 500"
+			});
+			const res = await client.bitable.appTableRecord.list({
+				path: {
+					app_token,
+					table_id
+				},
+				params: {
+					page_size: pageSize ?? 100,
+					...page_token && { page_token }
+				}
+			});
+			ensureLarkSuccess(res, "bitable.appTableRecord.list");
+			return {
+				records: res.data?.items ?? [],
+				has_more: res.data?.has_more ?? false,
+				page_token: res.data?.page_token,
+				total: res.data?.total
+			};
 		}
 	});
 	registerBitableTool({
@@ -2441,7 +2006,14 @@ function registerFeishuBitableTools(api) {
 		description: "Get a single record by ID from a Bitable table",
 		parameters: GetRecordSchema,
 		async execute({ params, client }) {
-			return getRecord(client, params.app_token, params.table_id, params.record_id);
+			const { app_token, table_id, record_id } = params;
+			const res = await client.bitable.appTableRecord.get({ path: {
+				app_token,
+				table_id,
+				record_id
+			} });
+			ensureLarkSuccess(res, "bitable.appTableRecord.get");
+			return { record: res.data?.record };
 		}
 	});
 	registerBitableTool({
@@ -2450,7 +2022,16 @@ function registerFeishuBitableTools(api) {
 		description: "Create a new record (row) in a Bitable table",
 		parameters: CreateRecordSchema,
 		async execute({ params, client }) {
-			return createRecord(client, params.app_token, params.table_id, params.fields);
+			const { app_token, table_id, fields } = params;
+			const res = await client.bitable.appTableRecord.create({
+				path: {
+					app_token,
+					table_id
+				},
+				data: { fields }
+			});
+			ensureLarkSuccess(res, "bitable.appTableRecord.create");
+			return { record: res.data?.record };
 		}
 	});
 	registerBitableTool({
@@ -2459,7 +2040,17 @@ function registerFeishuBitableTools(api) {
 		description: "Update an existing record (row) in a Bitable table",
 		parameters: UpdateRecordSchema,
 		async execute({ params, client }) {
-			return updateRecord(client, params.app_token, params.table_id, params.record_id, params.fields);
+			const { app_token, table_id, record_id, fields } = params;
+			const res = await client.bitable.appTableRecord.update({
+				path: {
+					app_token,
+					table_id,
+					record_id
+				},
+				data: { fields }
+			});
+			ensureLarkSuccess(res, "bitable.appTableRecord.update");
+			return { record: res.data?.record };
 		}
 	});
 	registerBitableTool({
@@ -2468,10 +2059,7 @@ function registerFeishuBitableTools(api) {
 		description: "Create a new Bitable (multidimensional table) application",
 		parameters: CreateAppSchema,
 		async execute({ params, client }) {
-			return createApp(client, params.name, params.folder_token, {
-				debug: (msg) => api.logger.debug?.(msg),
-				warn: (msg) => api.logger.warn?.(msg)
-			});
+			return createApp(client, params.name, params.folder_token, { debug: (msg) => api.logger.debug?.(msg) });
 		}
 	});
 	registerBitableTool({
@@ -2480,7 +2068,25 @@ function registerFeishuBitableTools(api) {
 		description: "Create a new field (column) in a Bitable table",
 		parameters: CreateFieldSchema,
 		async execute({ params, client }) {
-			return createField(client, params.app_token, params.table_id, params.field_name, params.field_type, params.property);
+			const { app_token, table_id, field_name, field_type, property } = params;
+			const res = await client.bitable.appTableField.create({
+				path: {
+					app_token,
+					table_id
+				},
+				data: {
+					field_name,
+					type: field_type,
+					...property && { property }
+				}
+			});
+			ensureLarkSuccess(res, "bitable.appTableField.create");
+			return {
+				field_id: res.data?.field?.field_id,
+				field_name: res.data?.field?.field_name,
+				type: res.data?.field?.type,
+				type_name: FIELD_TYPE_NAMES[res.data?.field?.type ?? 0] || `type_${res.data?.field?.type}`
+			};
 		}
 	});
 }

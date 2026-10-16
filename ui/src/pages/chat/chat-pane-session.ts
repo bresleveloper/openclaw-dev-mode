@@ -11,7 +11,7 @@ import type { GatewaySessionRow } from "../../api/types.ts";
 import { t } from "../../i18n/index.ts";
 import { formatUiError } from "../../lib/format-error.ts";
 import { clampText } from "../../lib/format.ts";
-import { isGatewayMethodAdvertised } from "../../lib/gateway-methods.ts";
+import { canCallGatewayMethod } from "../../lib/gateway-methods.ts";
 import { projectsForGateway } from "../../lib/projects.ts";
 import { readSessionMethodAccess } from "../../lib/session-method-access.ts";
 import {
@@ -121,9 +121,10 @@ export abstract class ChatPaneSession extends ChatPaneTaskSuggestions {
     const scope = this.captureConnectionScope();
     if (
       !scope ||
-      !isGatewayMethodAdvertised(
+      !canCallGatewayMethod(
         scope.context.gateway.snapshot,
         SESSION_PULL_REQUESTS_SUBSCRIBE_METHOD,
+        "operator.read",
       )
     ) {
       if (scope) {
@@ -360,6 +361,8 @@ export abstract class ChatPaneSession extends ChatPaneTaskSuggestions {
     const access = readSessionMethodAccess(scope.context.gateway.snapshot, {
       method: "sessions.patch",
       params: { key: sessionKey, archived: false },
+      sessionScope: true,
+      session: selectedChatSessionRow(scope.state),
     });
     if (!access.allowed) {
       scope.state.lastError = access.reason;
@@ -569,14 +572,10 @@ export abstract class ChatPaneSession extends ChatPaneTaskSuggestions {
       }
       return false;
     } finally {
-      if (isCurrent()) {
-        if (!older) {
-          this.catalogLoading = false;
-          state.chatLoading = false;
-        }
-        if (!older) {
-          state.requestUpdate();
-        }
+      if (isCurrent() && !older) {
+        this.catalogLoading = false;
+        state.chatLoading = false;
+        state.requestUpdate();
       }
     }
   }

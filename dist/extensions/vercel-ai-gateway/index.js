@@ -12,6 +12,10 @@ var vercel_ai_gateway_default = defineSingleProviderPluginEntry({
 		activation: { "onStartup": false },
 		enabledByDefault: true,
 		providers: ["vercel-ai-gateway"],
+		providerEndpoints: [{
+			"endpointClass": "vercel-ai-gateway",
+			"hosts": ["ai-gateway.vercel.sh"]
+		}],
 		modelCatalog: { "discovery": { "vercel-ai-gateway": "refreshable" } },
 		modelIdNormalization: { "providers": { "vercel-ai-gateway": {
 			"aliases": {
@@ -24,6 +28,10 @@ var vercel_ai_gateway_default = defineSingleProviderPluginEntry({
 			}]
 		} } },
 		modelPricing: { "providers": { "vercel-ai-gateway": {
+			"modelsDev": {
+				"provider": "vercel",
+				"passthroughProviderModel": true
+			},
 			"openRouter": { "passthroughProviderModel": true },
 			"liteLLM": { "passthroughProviderModel": true }
 		} } },

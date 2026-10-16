@@ -1,0 +1,1 @@
+import{a as e,i as t,n,o as r,r as i,s as a,t as o}from"./worker-chunk-D6ELcZrx.mjs";o();export{n as isConfiguredCommandOwner,i as isResetAuthorizedForContext,t as prepareCommandOwnerAuthority,e as resolveCommandAuthorization,r as resolveCommandOwnerAuthority,a as resolveUpdateRequesterIdentityAuthority};

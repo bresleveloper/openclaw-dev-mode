@@ -1,10 +1,20 @@
 import "openclaw/plugin-sdk/provider-model-shared";
+//#region extensions/minimax/thinking.ts
+const MINIMAX_M31_MODEL_ID = "MiniMax-M3.1-Flash-Preview";
 const MINIMAX_TEXT_MODEL_ORDER = [
 	"MiniMax-M3",
+	MINIMAX_M31_MODEL_ID,
 	"MiniMax-M2.7",
 	"MiniMax-M2.7-highspeed"
 ];
 const MINIMAX_TEXT_MODEL_CATALOG = {
+	[MINIMAX_M31_MODEL_ID]: {
+		name: "MiniMax M3.1 Flash Preview",
+		reasoning: true,
+		input: ["text", "image"],
+		contextWindow: 1e6,
+		compat: { codeMode: "preferred" }
+	},
 	"MiniMax-M3": {
 		name: "MiniMax M3",
 		reasoning: true,
@@ -61,7 +71,14 @@ const MINIMAX_M25_API_HIGHSPEED_COST = {
 	cacheRead: .03,
 	cacheWrite: .375
 };
+const MINIMAX_HOSTED_COST = {
+	input: 0,
+	output: 0,
+	cacheRead: 0,
+	cacheWrite: 0
+};
 function resolveMinimaxApiCost(modelId) {
+	if (modelId === "MiniMax-M3.1-Flash-Preview") return MINIMAX_HOSTED_COST;
 	if (modelId === "MiniMax-M2.7") return MINIMAX_M27_API_COST;
 	if (modelId === "MiniMax-M2.5-highspeed") return MINIMAX_M25_API_HIGHSPEED_COST;
 	if (modelId === "MiniMax-M2.5") return MINIMAX_M25_API_COST;
@@ -93,56 +110,31 @@ function buildMinimaxApiModelDefinition(modelId) {
 //#endregion
 //#region extensions/minimax/provider-catalog.ts
 function resolveMinimaxCatalogBaseUrl(env = process.env) {
-	const rawHost = env.MINIMAX_API_HOST?.trim();
-	if (!rawHost) return MINIMAX_API_BASE_URL;
-	try {
-		const url = new URL(rawHost);
-		const basePath = url.pathname.replace(/\/+$/, "");
-		if (basePath.endsWith("/anthropic")) return `${url.origin}${basePath}`;
-		return `${url.origin}/anthropic`;
-	} catch {
-		return MINIMAX_API_BASE_URL;
-	}
-}
-function buildMinimaxCatalog() {
-	return MINIMAX_TEXT_MODEL_ORDER.map(buildMinimaxApiModelDefinition);
+	const url = URL.parse(env.MINIMAX_API_HOST?.trim() ?? "");
+	if (!url) return MINIMAX_API_BASE_URL;
+	const basePath = url.pathname.replace(/\/+$/, "");
+	if (basePath.endsWith("/anthropic")) return `${url.origin}${basePath}`;
+	return `${url.origin}/anthropic`;
 }
 function buildMinimaxProvider(env) {
 	return {
 		baseUrl: resolveMinimaxCatalogBaseUrl(env),
 		api: "anthropic-messages",
 		authHeader: true,
-		models: buildMinimaxCatalog()
-	};
-}
-function buildMinimaxPortalProvider(env) {
-	return {
-		baseUrl: resolveMinimaxCatalogBaseUrl(env),
-		api: "anthropic-messages",
-		authHeader: true,
-		models: buildMinimaxCatalog()
+		models: MINIMAX_TEXT_MODEL_ORDER.map(buildMinimaxApiModelDefinition)
 	};
 }
 //#endregion
 //#region extensions/minimax/provider-discovery.ts
-const minimaxProviderDiscovery = [{
-	id: "minimax",
+const minimaxProviderDiscovery = ["minimax", "minimax-portal"].map((id) => ({
+	id,
 	label: "MiniMax",
 	docsPath: "/providers/minimax",
 	auth: [],
 	staticCatalog: {
 		order: "simple",
-		run: async (ctx) => ({ providers: { minimax: buildMinimaxProvider(ctx.env) } })
+		run: async (ctx) => ({ providers: { [id]: buildMinimaxProvider(ctx.env) } })
 	}
-}, {
-	id: "minimax-portal",
-	label: "MiniMax",
-	docsPath: "/providers/minimax",
-	auth: [],
-	staticCatalog: {
-		order: "simple",
-		run: async (ctx) => ({ providers: { "minimax-portal": buildMinimaxPortalProvider(ctx.env) } })
-	}
-}];
+}));
 //#endregion
 export { minimaxProviderDiscovery as default };

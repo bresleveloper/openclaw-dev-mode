@@ -38,11 +38,11 @@ existing recovery outcome.
 
 Auto-compaction is on by default. It runs when the session nears the context limit, or when the model returns a context-overflow error (in which case OpenClaw compacts and retries).
 
-If the provider rejects a request after tool calls have completed, the built-in runtime can compact and continue from their recorded results. It keeps the current model and account, preserves the original request, and does not replay completed actions. This recovery requires settled tool results; pending tools, approvals, cancellation, and a tool that intentionally ended the turn retain their normal handling.
+If the provider rejects a request after tool calls have completed, the built-in runtime can compact and continue from their recorded results. It keeps the current model and account, preserves the original request, and does not replay completed actions. This recovery requires settled tool results; pending tools, approvals, cancellation, and a tool that intentionally ended the turn retain their normal handling. If a Gateway restart later interrupts that continuing run, recovery preserves the accepted input even when compaction has summarized it.
 
 Overflow recovery trims tool results within the current model-context window. Older messages and reset boundaries remain in retained history without being copied into new transcript entries.
 
-Stopping a run also stops its overflow or timeout recovery. The built-in OpenClaw runtime does not start further recovery hooks, maintenance, transcript truncation, or retries after cancellation. Cancellation is not rollback: a compaction that already completed remains in the transcript and is still counted, without sending a late reply. The context estimate follows the latest model or compaction observation; billing totals remain separate.
+Stopping or timing out a run also stops its overflow or timeout recovery. The built-in OpenClaw runtime does not start further recovery hooks, maintenance, transcript truncation, or retries after cancellation. Cancellation is not rollback: a compaction that already completed remains in the transcript and is still counted, without sending a late reply. The context estimate follows the latest model or compaction observation; billing totals remain separate.
 
 The built-in OpenClaw runtime performs required checkpointing and compaction before inference. In persistent Gateway sessions, optional memory flushing and compaction wait until reply delivery has settled and its foreground owner has closed. That work uses a separate session owner and the turn's remaining time. A new message cancels and settles optional work before reading the session for its own inference.
 
@@ -76,11 +76,22 @@ Before compacting, OpenClaw automatically reminds the agent to save important no
 
 ## Manual compaction
 
-Type `/compact` in any chat to force a compaction. Add instructions to guide the summary:
+Type `/compact` in a chat to force compaction when its runtime supports manual
+compaction. In the built-in OpenClaw runtime, add instructions to guide the
+summary, as in the example below. When manual compaction is available in native
+Codex sessions with Codex login or an API key, use bare `/compact`; focus
+instructions are not passed to Codex. Native Codex sessions using
+[Sign in with ChatGPT](/providers/openai/authentication) support automatic
+compaction, but cannot run manual `/compact`.
 
 ```text
 /compact Focus on the API design decisions
 ```
+
+If a turn is active, `/compact` gives it up to 60 seconds to finish before
+cancelling it and waiting up to 15 more seconds for it to stop. When cancellation
+succeeds, the command's reply asks you to resend the interrupted request, including
+when the run is still stopping and compaction cannot proceed.
 
 Client-side compaction in the built-in OpenClaw runtime passes focus to both older-history and split-turn-prefix summaries. The host limits operator-provided focus to 800 Unicode code points and escapes it as prompt data before adding it to model requests.
 
@@ -180,7 +191,9 @@ By default, compaction runs silently. Set `notifyUser` to show brief status mess
 
 ### Memory flush
 
-Before compaction, OpenClaw can run a **silent memory flush** turn to store durable notes to disk. Set `agents.defaults.compaction.memoryFlush.model` when this housekeeping turn should use a local model instead of the active conversation model:
+Before compaction, OpenClaw can run a **silent memory flush** turn to save durable context. Memory Core appends to a workspace memory file; another selected memory plugin can persist through its own tools and use declared read-only lookup tools to check existing memory first. The tools retain the source conversation's memory audience and sandbox restrictions. Missing lookup tools produce a warning but do not block persistence. If policy removes every declared persistence tool, OpenClaw skips the flush and continues compaction.
+
+Set `agents.defaults.compaction.memoryFlush.model` when this housekeeping turn should use a local model instead of the active conversation model:
 
 ```json
 {
@@ -208,9 +221,30 @@ When an embedded Responses provider returns a compacted window, OpenClaw preserv
 
 After a successful continuation, OpenClaw uses the provider's measured context usage when the saved request prefix still matches the current checkpoint, conversation, and provider identity. New content and current request overhead still receive a local estimate. Edited or incompatible history falls back to estimation without changing the saved conversation.
 
-Predicted context pressure uses budget compaction before the next request. The public OpenAI Responses API and native xAI can use their compact endpoint by default; `params.responsesCompactEndpoint: false` disables that endpoint for a model. A provider-confirmed overflow keeps the client recovery path because compact endpoints also require their input to fit. Endpoint failures fall back to client-side summarization.
+Predicted context pressure uses budget compaction before the next request. The public OpenAI Responses API and native xAI use their compact endpoint by default for budget compaction and for `/compact` without focus instructions. `params.responsesCompactEndpoint: false` disables that endpoint for a model. `/compact <focus>` keeps client-side summarization so the instructions apply. A provider-confirmed overflow keeps the client recovery path because compact endpoints also require their input to fit. Endpoint failures fall back to client-side summarization.
+
+Once the foreground request budget is prepared, a returned endpoint window must
+also fit beside its fixed instructions, tools, pending input, and reserve before
+OpenClaw saves it. If retained user messages still exceed that budget,
+client-side compaction selects a smaller recent tail instead of retrying the
+same oversized window.
+
+A returned window keeps recent user messages verbatim, and on xAI the system
+prompt too (the public OpenAI endpoint receives it as `instructions` instead).
+If [transcript redaction](/gateway/config-observability) would change any of that content,
+OpenClaw skips the endpoint before calling it and uses client-side compaction.
+The skip, a discarded endpoint result, and an endpoint failure are each logged
+as a warning with the reason.
+
+If the pending input alone fills the model's context window, recovery asks for a
+smaller message or a larger-context model without repeatedly compacting history.
+Later messages retain their normal recovery budget.
 
 If an older version or transcript redaction removes the complete window needed for replay, OpenClaw asks you to run `/compact`. That command rebuilds context from the saved conversation through client-side compaction. It does not guess the missing provider context or delete the transcript.
+
+Direct Anthropic API-key requests on models that Anthropic documents for threshold compaction ask the API to compact inside an ordinary request once input reaches the threshold, and OpenClaw replays the returned summary on later requests. `params.anthropicServerCompaction: false` disables it for a model. If Anthropic returns an empty summary, OpenClaw keeps sending the existing history and its client-side compaction remains the fallback. See [Anthropic server-side compaction](/providers/anthropic#advanced-configuration).
+
+Memory flush turns disable provider server-side compaction, including Anthropic threshold compaction and OpenAI inline compaction, so memory extraction sees the unsummarized history.
 
 ### Successor transcripts
 

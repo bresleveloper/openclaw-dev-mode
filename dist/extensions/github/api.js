@@ -1,14 +1,15 @@
-import { s as asFiniteNumber } from "../../number-coercion-CLj0HTDM.mjs";
-import { c as isRecord } from "../../record-coerce-DItp3I4t.mjs";
-import { m as readNonBlankString } from "../../string-coerce-CIXf7egm.mjs";
+import { m as readNonBlankString } from "../../string-coerce-1VuiLaaR.mjs";
+import { s as asFiniteNumber } from "../../number-coercion-CuVhdCBs.mjs";
+import { c as isRecord } from "../../record-coerce-TIsquoVR.mjs";
 import { r as truncateUtf16Safe } from "../../utf16-slice-D_ngcYKd.mjs";
-import { t as pruneMapToMaxSize } from "../../map-size-CNcWiFKu.mjs";
-import "../../string-coerce-runtime-C_MKhRVt.mjs";
-import { i as parseGitHubItemTarget, o as parseGitHubTarget, r as githubTargetUrl } from "../../targets-B79WC-j3.mjs";
-import { _ as requiredString, a as GITHUB_REQUEST_TIMEOUT_MS, c as fetchGitHubApi, d as githubApiCredentialCacheScope, f as optionalNumber, g as readOptionalGitHubString, h as readGitHubJsonResponse, i as GITHUB_API_ORIGIN, l as fetchGitHubJson, m as readGitHubGraphQLResponse, n as githubPreviewView, o as GitHubGraphQLUnavailableError, p as readBoundedResponse, r as ControlUiGitHubError, s as discardResponse, t as githubChangeMetadata, u as formatControlUiGitHubPreviewError, v as withOptionalGitHubAuth } from "../../view-model-CqdoXJT9.mjs";
+import { t as pruneMapToMaxSize } from "../../map-size-BlrH_CnE.mjs";
+import "../../string-coerce-runtime-50qKeWeL.mjs";
+import { i as parseGitHubItemTarget, o as parseGitHubTarget, r as githubTargetUrl } from "../../targets-RjAEePy1.mjs";
+import { S as withOptionalGitHubAuth, _ as readGitHubGraphQLResponse, a as GITHUB_API_ORIGIN, b as requiredString, c as GitHubGraphQLUnavailableError, d as fetchGitHubJson, f as formatControlUiGitHubPreviewError, g as readBoundedResponse, h as optionalNumber, i as GITHUB_API_BASE_URL, l as discardResponse, m as githubRestApiPath, n as githubPreviewView, o as GITHUB_GRAPHQL_URL, p as githubApiCredentialCacheScope, r as ControlUiGitHubError, s as GITHUB_REQUEST_TIMEOUT_MS, t as githubChangeMetadata, u as fetchGitHubApi, v as readGitHubJsonResponse, x as resolveGitHubApiUrls, y as readOptionalGitHubString } from "../../view-model-BP_nLgQX.mjs";
 //#region extensions/github/src/preview.ts
 const GITHUB_AVATAR_HOST = "avatars.githubusercontent.com";
 const GITHUB_AVATAR_MAX_BYTES = 262144;
+const GITHUB_PREVIEW_TIMEOUT_MS = 2e3;
 const GITHUB_COMMITS_PAGE_SIZE = 100;
 const GITHUB_COMMITS_MAX_BYTES = 1048576;
 const CO_AUTHOR_FACE_LIMIT = 3;
@@ -22,11 +23,11 @@ const parseControlUiGitHubPreviewTarget = parseGitHubItemTarget;
 function isPublicGitHubRepository(value) {
 	return isRecord(value) && value.private === false && value.visibility === "public";
 }
-async function assertPublicGitHubRepository(repositoryUrl, fetchImpl, token, identity) {
-	if (!isPublicGitHubRepository(await readGitHubJsonResponse(await fetchGitHubApi(repositoryUrl, fetchImpl, token, void 0, identity)))) throw new ControlUiGitHubError(404, "GitHub repository is not public");
+async function assertPublicGitHubRepository(repositoryUrl, fetchImpl, token, identity, signal) {
+	if (!isPublicGitHubRepository(await readGitHubJsonResponse(await fetchGitHubApi(repositoryUrl, fetchImpl, token, void 0, identity, void 0, signal, void 0, "https://api.github.com")))) throw new ControlUiGitHubError(404, "GitHub repository is not public");
 }
 function redirectedRepositoryApiUrl(target, url) {
-	const segments = url.pathname.split("/").filter(Boolean);
+	const segments = githubRestApiPath(url, GITHUB_API_ORIGIN).split("/").filter(Boolean);
 	const collection = target.kind === "pull" ? "pulls" : "issues";
 	const itemSegments = segments.at(-1) === "commits" ? segments.slice(0, -1) : segments;
 	if (itemSegments.length === 5 && itemSegments[0] === "repos" && itemSegments[1] && itemSegments[2] && itemSegments[3] === collection && /^\d+$/u.test(itemSegments[4] ?? "")) return `${GITHUB_API_ORIGIN}/repos/${itemSegments[1]}/${itemSegments[2]}`;
@@ -63,19 +64,15 @@ function parseControlUiGitHubPreviewResponse(target, value) {
 }
 function safeAvatarUrl(raw) {
 	if (!raw) return null;
-	try {
-		const url = new URL(raw);
-		const rawPathEnd = raw.search(/[?#]/u);
-		const rawPath = rawPathEnd === -1 ? raw : raw.slice(0, rawPathEnd);
-		if (url.protocol !== "https:" || url.hostname !== GITHUB_AVATAR_HOST || url.hash || url.username || url.password || url.port || rawPath.includes("..") || rawPath.includes("\\") || url.pathname.includes("..") || url.pathname.includes("\\")) return null;
-		url.search = "";
-		url.searchParams.set("s", "64");
-		return url;
-	} catch {
-		return null;
-	}
+	const url = URL.parse(raw);
+	const rawPathEnd = raw.search(/[?#]/u);
+	const rawPath = rawPathEnd === -1 ? raw : raw.slice(0, rawPathEnd);
+	if (!url || url.protocol !== "https:" || url.hostname !== GITHUB_AVATAR_HOST || url.hash || url.username || url.password || url.port || rawPath.includes("..") || rawPath.includes("\\") || url.pathname.includes("..") || url.pathname.includes("\\")) return null;
+	url.search = "";
+	url.searchParams.set("s", "64");
+	return url;
 }
-async function fetchCoAuthors(authorLogin, loadCommits, fetchImpl) {
+async function fetchCoAuthors(authorLogin, loadCommits, fetchImpl, signal) {
 	const empty = {
 		coAuthors: [],
 		coAuthorCount: 0
@@ -106,7 +103,7 @@ async function fetchCoAuthors(authorLogin, loadCommits, fetchImpl) {
 	const faces = [...byLogin.values()].slice(0, CO_AUTHOR_FACE_LIMIT);
 	return {
 		coAuthors: await Promise.all(faces.map(async (face) => {
-			const avatarDataUrl = await fetchAvatarDataUrl(`https://${GITHUB_AVATAR_HOST}/u/${face.accountId}`, fetchImpl);
+			const avatarDataUrl = await fetchAvatarDataUrl(`https://${GITHUB_AVATAR_HOST}/u/${face.accountId}`, fetchImpl, signal);
 			return avatarDataUrl ? {
 				login: face.login,
 				avatarDataUrl
@@ -115,14 +112,14 @@ async function fetchCoAuthors(authorLogin, loadCommits, fetchImpl) {
 		coAuthorCount: byLogin.size
 	};
 }
-async function fetchAvatarDataUrl(rawUrl, fetchImpl) {
+async function fetchAvatarDataUrl(rawUrl, fetchImpl, signal) {
 	const url = safeAvatarUrl(rawUrl);
 	if (!url) return;
 	try {
 		const response = await fetchImpl(url, {
 			headers: { Accept: "image/webp,image/png,image/jpeg,image/gif" },
 			redirect: "error",
-			signal: AbortSignal.timeout(GITHUB_REQUEST_TIMEOUT_MS)
+			signal
 		});
 		const contentType = response.headers.get("content-type")?.split(";", 1)[0]?.trim();
 		if (!response.ok || !contentType || ![
@@ -139,9 +136,9 @@ async function fetchAvatarDataUrl(rawUrl, fetchImpl) {
 		return;
 	}
 }
-async function fetchPreview(target, fetchImpl, token, identity) {
-	const request = (url, beforeRedirect) => fetchGitHubApi(url, fetchImpl, token, beforeRedirect, identity);
-	const assertPublicRepository = (url) => assertPublicGitHubRepository(url, fetchImpl, token, identity);
+async function fetchPreview(target, fetchImpl, signal, token, identity) {
+	const request = (url, beforeRedirect) => fetchGitHubApi(url, fetchImpl, token, beforeRedirect, identity, void 0, signal, void 0, GITHUB_API_ORIGIN);
+	const assertPublicRepository = (url) => assertPublicGitHubRepository(url, fetchImpl, token, identity, signal);
 	const repositoryUrl = `${GITHUB_API_ORIGIN}/repos/${encodeURIComponent(target.owner)}/${encodeURIComponent(target.repo)}`;
 	const itemUrl = `${repositoryUrl}/${target.kind === "pull" ? "pulls" : "issues"}/${target.number}`;
 	if (token) await assertPublicRepository(repositoryUrl);
@@ -155,7 +152,7 @@ async function fetchPreview(target, fetchImpl, token, identity) {
 	if (!isRecord(parsed)) throw new ControlUiGitHubError(502, "GitHub response was not an object");
 	if (token) await assertPublicRepository(previewRepositoryApiUrl(target, parsed));
 	const { preview, avatarUrl } = parseControlUiGitHubPreviewResponse(target, parsed);
-	const [avatarDataUrl, coAuthorFacts] = await Promise.all([fetchAvatarDataUrl(avatarUrl, fetchImpl), target.kind === "pull" ? fetchCoAuthors(preview.login, () => readItem(`${itemUrl}/commits?per_page=${GITHUB_COMMITS_PAGE_SIZE}`, GITHUB_COMMITS_MAX_BYTES), fetchImpl) : Promise.resolve({
+	const [avatarDataUrl, coAuthorFacts] = await Promise.all([fetchAvatarDataUrl(avatarUrl, fetchImpl, signal), target.kind === "pull" ? fetchCoAuthors(preview.login, () => readItem(`${itemUrl}/commits?per_page=${GITHUB_COMMITS_PAGE_SIZE}`, GITHUB_COMMITS_MAX_BYTES), fetchImpl, signal) : Promise.resolve({
 		coAuthors: [],
 		coAuthorCount: 0
 	})]);
@@ -194,7 +191,8 @@ async function loadControlUiGitHubPreview(target, identity, fetchImpl = fetch, r
 		previewCache.set(key, entry);
 	} else {
 		const successCacheMs = token ? AUTHENTICATED_SUCCESS_CACHE_MS : ANONYMOUS_SUCCESS_CACHE_MS;
-		const request = identity && !identity.optionalAuth ? fetchPreview(target, fetchImpl, token, identity) : withOptionalGitHubAuth(token, (requestToken) => fetchPreview(target, fetchImpl, requestToken, identity));
+		const signal = AbortSignal.timeout(GITHUB_PREVIEW_TIMEOUT_MS);
+		const request = identity && !identity.optionalAuth ? fetchPreview(target, fetchImpl, signal, token, identity) : withOptionalGitHubAuth(token, (requestToken) => fetchPreview(target, fetchImpl, signal, requestToken, identity));
 		const pending = {
 			expiresAt: now + successCacheMs,
 			promise: request.then((preview) => {
@@ -228,96 +226,97 @@ const STATE_ORDER = {
 	success: 2,
 	neutral: 3
 };
+const RUN_STATES = /* @__PURE__ */ new Map([
+	["queued", {
+		state: "pending",
+		detail: "Queued"
+	}],
+	["in_progress", {
+		state: "pending",
+		detail: "In progress"
+	}],
+	["waiting", {
+		state: "pending",
+		detail: "Waiting"
+	}],
+	["requested", {
+		state: "pending",
+		detail: "Waiting"
+	}],
+	["pending", {
+		state: "pending",
+		detail: "Waiting"
+	}]
+]);
+const RUN_CONCLUSIONS = /* @__PURE__ */ new Map([
+	["success", {
+		state: "success",
+		detail: "Passed"
+	}],
+	["neutral", {
+		state: "neutral",
+		detail: "Neutral"
+	}],
+	["skipped", {
+		state: "neutral",
+		detail: "Skipped"
+	}],
+	["failure", {
+		state: "failure",
+		detail: "Failed"
+	}],
+	["cancelled", {
+		state: "failure",
+		detail: "Canceled"
+	}],
+	["timed_out", {
+		state: "failure",
+		detail: "Timed out"
+	}],
+	["action_required", {
+		state: "failure",
+		detail: "Action required"
+	}],
+	["stale", {
+		state: "failure",
+		detail: "Stale"
+	}],
+	["startup_failure", {
+		state: "failure",
+		detail: "Could not start"
+	}]
+]);
+const STATUS_STATES = /* @__PURE__ */ new Map([
+	["success", {
+		state: "success",
+		detail: "Passed"
+	}],
+	["pending", {
+		state: "pending",
+		detail: "Pending"
+	}],
+	["failure", {
+		state: "failure",
+		detail: "Failed"
+	}],
+	["error", {
+		state: "failure",
+		detail: "Error"
+	}]
+]);
 function count(value) {
 	if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) throw new ControlUiGitHubError(502, "GitHub checks returned an invalid count");
 	return value;
 }
 function checkUrl(value) {
 	if (typeof value !== "string" || value.length > 4096) return;
-	try {
-		const url = new URL(value);
-		return url.protocol === "https:" && !url.username && !url.password ? url.href : void 0;
-	} catch {
-		return;
-	}
+	const url = URL.parse(value);
+	return url?.protocol === "https:" && !url.username && !url.password ? url.href : void 0;
 }
-function runState(run) {
-	switch (run.status) {
-		case "queued": return {
-			state: "pending",
-			detail: "Queued"
-		};
-		case "in_progress": return {
-			state: "pending",
-			detail: "In progress"
-		};
-		case "waiting":
-		case "requested":
-		case "pending": return {
-			state: "pending",
-			detail: "Waiting"
-		};
-		case "completed": switch (run.conclusion) {
-			case "success": return {
-				state: "success",
-				detail: "Passed"
-			};
-			case "neutral": return {
-				state: "neutral",
-				detail: "Neutral"
-			};
-			case "skipped": return {
-				state: "neutral",
-				detail: "Skipped"
-			};
-			case "failure": return {
-				state: "failure",
-				detail: "Failed"
-			};
-			case "cancelled": return {
-				state: "failure",
-				detail: "Canceled"
-			};
-			case "timed_out": return {
-				state: "failure",
-				detail: "Timed out"
-			};
-			case "action_required": return {
-				state: "failure",
-				detail: "Action required"
-			};
-			case "stale": return {
-				state: "failure",
-				detail: "Stale"
-			};
-			case "startup_failure": return {
-				state: "failure",
-				detail: "Could not start"
-			};
-		}
-	}
-	throw new ControlUiGitHubError(502, "GitHub check returned an unknown state");
-}
-function statusState(status) {
-	switch (status.state) {
-		case "success": return {
-			state: "success",
-			detail: "Passed"
-		};
-		case "pending": return {
-			state: "pending",
-			detail: "Pending"
-		};
-		case "failure": return {
-			state: "failure",
-			detail: "Failed"
-		};
-		case "error": return {
-			state: "failure",
-			detail: "Error"
-		};
-	}
-	throw new ControlUiGitHubError(502, "GitHub commit status returned an unknown state");
+function checkState(entry, kind) {
+	const state = kind === "statuses" ? STATUS_STATES.get(entry.state) : entry.status === "completed" ? RUN_CONCLUSIONS.get(entry.conclusion) : RUN_STATES.get(entry.status);
+	if (!state) throw new ControlUiGitHubError(502, kind === "runs" ? "GitHub check returned an unknown state" : "GitHub commit status returned an unknown state");
+	return state;
 }
 function parsePage(page, commit, kind) {
 	if (!isRecord(page.value)) throw new ControlUiGitHubError(502, "GitHub checks were not an object");
@@ -332,12 +331,11 @@ function parsePage(page, commit, kind) {
 		const name = requiredString(entry, kind === "runs" ? "name" : "context");
 		const key = kind === "runs" ? String(id) : name.toLowerCase();
 		if ((latest.get(key)?.id ?? -1) >= id) continue;
-		const state = kind === "runs" ? runState(entry) : statusState(entry);
 		latest.set(key, {
 			id,
 			item: {
 				name: name.slice(0, LABEL_MAX_CHARS),
-				...state,
+				...checkState(entry, kind),
 				url: checkUrl(kind === "runs" ? entry.html_url : entry.target_url)
 			}
 		});
@@ -414,14 +412,14 @@ var GitHubDetailAccessError = class extends ControlUiGitHubError {
 	}
 };
 function redirectedRepositoryUrl(url, suffix) {
-	const match = /^(\/repos\/[^/]+\/[^/]+|\/repositories\/\d+)(\/.*)?$/u.exec(url.pathname);
+	const match = /^(\/repos\/[^/]+\/[^/]+|\/repositories\/\d+)(\/.*)?$/u.exec(githubRestApiPath(url, GITHUB_API_ORIGIN));
 	if (!match || (match[2] ?? "") !== suffix) throw new GitHubDetailAccessError();
 	return GITHUB_API_ORIGIN + match[1];
 }
 async function readPublicRepository(url, fetchImpl, identity, expectedId) {
 	const repository = await readGitHubJsonResponse(await fetchGitHubApi(url, fetchImpl, identity.token, async (redirect) => {
 		redirectedRepositoryUrl(redirect, "");
-	}, identity));
+	}, identity, void 0, void 0, void 0, GITHUB_API_ORIGIN));
 	const id = isRecord(repository) ? optionalNumber(repository, "id") : void 0;
 	if (!isPublicGitHubRepository(repository) || id === void 0 || !Number.isSafeInteger(id) || id <= 0 || expectedId !== void 0 && id !== expectedId) throw new GitHubDetailAccessError();
 	return id;
@@ -634,7 +632,7 @@ async function loadGitHubDetailWithIdentity(target, identity, fetchImpl = fetch,
 				const redirected = redirectedRepositoryUrl(redirect, suffix);
 				await readPublicRepository(redirected, fetchImpl, identity, repositoryId);
 				repositoryUrls.add(redirected);
-			} : void 0, identity);
+			} : void 0, identity, void 0, void 0, void 0, GITHUB_API_ORIGIN);
 			return {
 				hasNextPage: /;\s*rel="next"/u.test(response.headers.get("link") ?? ""),
 				value: await readGitHubJsonResponse(response, DETAIL_JSON_MAX_BYTES)
@@ -676,4 +674,4 @@ function loadGitHubDetail(target, identity, fetchImpl = fetch, refresh = false) 
 	}, fetchImpl, refresh)) : loadGitHubDetailWithIdentity(target, identity, fetchImpl, refresh);
 }
 //#endregion
-export { ControlUiGitHubError, GITHUB_API_ORIGIN, GITHUB_REQUEST_TIMEOUT_MS, GitHubGraphQLUnavailableError, discardResponse, fetchGitHubApi, fetchGitHubJson, formatControlUiGitHubPreviewError, githubApiCredentialCacheScope, isRecord, loadControlUiGitHubPreview, loadGitHubDetail, optionalNumber, parseControlUiGitHubPreviewTarget, parseGitHubTarget, readBoundedResponse, readGitHubGraphQLResponse, readGitHubJsonResponse, readOptionalGitHubString, requiredString, withOptionalGitHubAuth };
+export { ControlUiGitHubError, GITHUB_API_BASE_URL, GITHUB_API_ORIGIN, GITHUB_GRAPHQL_URL, GITHUB_REQUEST_TIMEOUT_MS, GitHubGraphQLUnavailableError, discardResponse, fetchGitHubApi, fetchGitHubJson, formatControlUiGitHubPreviewError, githubApiCredentialCacheScope, isRecord, loadControlUiGitHubPreview, loadGitHubDetail, optionalNumber, parseControlUiGitHubPreviewTarget, parseGitHubTarget, readBoundedResponse, readGitHubGraphQLResponse, readGitHubJsonResponse, readOptionalGitHubString, requiredString, resolveGitHubApiUrls, withOptionalGitHubAuth };

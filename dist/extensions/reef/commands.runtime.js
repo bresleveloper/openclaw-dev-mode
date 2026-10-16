@@ -1,5 +1,5 @@
 import { t as ReefAutonomySchema } from "../../friend-types-DKK2gCV4.mjs";
-import { n as getActiveReef } from "../../runtime-CEUOPcIW.mjs";
+import { n as getActiveReef } from "../../runtime-vZ438Ktq.mjs";
 //#region extensions/reef/src/commands.ts
 async function handleReefCommand({ args, senderIsOwner, assertOwnerCurrent }) {
 	const words = (args ?? "").trim().split(/\s+/).filter(Boolean);

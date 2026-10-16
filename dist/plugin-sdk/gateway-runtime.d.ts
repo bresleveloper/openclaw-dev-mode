@@ -1,12 +1,10 @@
-import { $u as mintPluginNodeCapabilityToken, Kc as NodeSession, Os as GatewayRequestHandlerOptions, Qt as isGatewayTransportError, Qu as buildPluginNodeCapabilityScopedHostUrl, Xu as NormalizedPluginNodeCapabilityUrl, Yu as DEFAULT_PLUGIN_NODE_CAPABILITY_TTL_MS, Zt as isGatewayClientRequestError, Zu as PLUGIN_NODE_CAPABILITY_PATH_PREFIX, ed as normalizePluginNodeCapabilityScopedUrl, ks as GatewayRequestHandlers, td as RespondFn } from "../agent-harness-runtime-wMciqZ6Z.js";
-import { F as GatewayTailscaleMode, I as GatewayTrustedProxyConfig, M as GatewayAuthConfig, P as GatewayTailscaleConfig, r as OpenClawConfig } from "../types.openclaw-Ccmw-oTa.js";
-import { Yt as errorShape, tn as ErrorCodes } from "../index-hVvy_KTe.js";
-import { r as ChannelAccountSnapshot } from "../types.core-BfkZpaZ6.js";
-import { t as isLoopbackHost } from "../net-CCJeF4_i.js";
-import { n as GatewayClientOptions, r as startGatewayClientWhenEventLoopReady, t as GatewayClient } from "../client-CoSKDups.js";
-import { n as callGatewayFromCli, r as GatewayRpcOpts, t as addGatewayClientOptions } from "../gateway-rpc-JavFiplO.js";
-import "../auth-rate-limit-cQPMjVTf.js";
-import { IncomingMessage } from "node:http";
+import { L as GatewayTailscaleConfig, P as GatewayAuthConfig, r as OpenClawConfig } from "../types.openclaw-DWWUw8hA.js";
+import { Gt as ErrorCodes, Rt as errorShape } from "../index-B4F-ENEv.js";
+import { Ao as NodeSession, Eo as GatewayRequestHandlers, To as GatewayRequestHandlerOptions, _s as resolveGatewayAuth, cn as startGatewayClientWhenEventLoopReady, cs as PLUGIN_NODE_CAPABILITY_PATH_PREFIX, ds as normalizePluginNodeCapabilityScopedUrl, fs as RespondFn, gs as ResolvedGatewayAuth, ls as buildPluginNodeCapabilityScopedHostUrl, on as isGatewayClientRequestError, os as DEFAULT_PLUGIN_NODE_CAPABILITY_TTL_MS, sn as isGatewayTransportError, ss as NormalizedPluginNodeCapabilityUrl, us as mintPluginNodeCapabilityToken } from "../agent-harness-runtime-DZjstJNb.js";
+import { r as ChannelAccountSnapshot } from "../types.core-Bra2QBA5.js";
+import { n as GatewayClientOptions, t as GatewayClient } from "../client-DIJ-R7Dq.js";
+import { t as isLoopbackHost } from "../net-BAY1NiI6.js";
+import { n as callGatewayFromCli, r as GatewayRpcOpts, t as addGatewayClientOptions } from "../gateway-rpc-8kP-oCwp.js";
 //#region packages/net-policy/src/redact-sensitive-url.d.ts
 /** Redacts sensitive URL-looking substrings even when the full value is not a valid URL. */
 export declare function redactSensitiveUrlLikeString(value: string): string;
@@ -65,7 +63,7 @@ type NodeMatchCandidate = {
   remoteIp?: string;
   /** Connected nodes win only after the strongest match type is chosen. */
   connected?: boolean;
-  /** Client id used to prefer current OpenClaw nodes over legacy migration ties. */
+  /** Client id included in ambiguous-node diagnostics. */
   clientId?: string;
 };
 //#endregion
@@ -90,28 +88,6 @@ export declare function respondUnavailableOnNodeInvokeError<T extends {
 }>(respond: RespondFn, res: T): res is T & {
   ok: true;
 };
-//#endregion
-//#region src/gateway/auth-resolve.d.ts
-/** Authentication modes after config, override, and credential inputs are combined. */
-type ResolvedGatewayAuthMode = "none" | "token" | "password" | "trusted-proxy";
-/** Records which input selected the effective Gateway auth mode. */
-type ResolvedGatewayAuthModeSource = "override" | "config" | "password" | "token" | "default";
-/** Fully resolved Gateway auth policy before startup validates required secrets. */
-type ResolvedGatewayAuth = {
-  mode: ResolvedGatewayAuthMode;
-  modeSource?: ResolvedGatewayAuthModeSource;
-  token?: string;
-  password?: string;
-  allowTailscale: boolean;
-  trustedProxy?: GatewayTrustedProxyConfig;
-};
-/** Resolve Gateway auth mode, credentials, trusted-proxy policy, and Tailscale allowance. */
-export declare function resolveGatewayAuth(params: {
-  authConfig?: GatewayAuthConfig | null;
-  authOverride?: GatewayAuthConfig | null;
-  env?: NodeJS.ProcessEnv;
-  tailscaleMode?: GatewayTailscaleMode;
-}): ResolvedGatewayAuth;
 //#endregion
 //#region src/gateway/startup-auth.d.ts
 /** Ensure startup has effective Gateway auth, generating only an ephemeral token if needed. */
@@ -192,4 +168,4 @@ export declare function channelStoppedPatch<TExtras extends StoppedChannelStatus
 //#region src/plugin-sdk/gateway-runtime.d.ts
 export declare function resolveAdvertisedLanHost(): Promise<string | null>;
 //#endregion
-export { DEFAULT_PLUGIN_NODE_CAPABILITY_TTL_MS, ErrorCodes, GatewayClient, type GatewayRequestHandlerOptions, type GatewayRequestHandlers, type GatewayRpcOpts, type HostedPluginSurfaceUrlParams, type NodeMatchCandidate, type NodeSession, type NormalizedPluginNodeCapabilityUrl, PLUGIN_NODE_CAPABILITY_PATH_PREFIX, addGatewayClientOptions, buildPluginNodeCapabilityScopedHostUrl, callGatewayFromCli, errorShape, isGatewayClientRequestError, isGatewayTransportError, isLoopbackHost, mintPluginNodeCapabilityToken, normalizePluginNodeCapabilityScopedUrl, parseGatewayPayload as safeParseJson, startGatewayClientWhenEventLoopReady };
+export { DEFAULT_PLUGIN_NODE_CAPABILITY_TTL_MS, ErrorCodes, GatewayClient, type GatewayRequestHandlerOptions, type GatewayRequestHandlers, type GatewayRpcOpts, type HostedPluginSurfaceUrlParams, type NodeMatchCandidate, type NodeSession, type NormalizedPluginNodeCapabilityUrl, PLUGIN_NODE_CAPABILITY_PATH_PREFIX, addGatewayClientOptions, buildPluginNodeCapabilityScopedHostUrl, callGatewayFromCli, errorShape, isGatewayClientRequestError, isGatewayTransportError, isLoopbackHost, mintPluginNodeCapabilityToken, normalizePluginNodeCapabilityScopedUrl, resolveGatewayAuth, parseGatewayPayload as safeParseJson, startGatewayClientWhenEventLoopReady };

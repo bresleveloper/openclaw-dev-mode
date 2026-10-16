@@ -1,4 +1,4 @@
-import { D as SessionsListParams, Nt as BoardGetParams, jt as SessionRow, rt as AgentSummary } from "../index-hVvy_KTe.js";
+import { H as AgentSummary, an as SessionsListParams, ht as BoardGetParams, mn as SessionRow } from "../index-B4F-ENEv.js";
 //#region src/plugin-sdk/control-ui-components.d.ts
 /** Semantic host components available to native Control UI plugins. */
 type ControlUiComponentHandle<T> = {
@@ -92,6 +92,27 @@ type ControlUiComponents = {
   mountSessionSummary: (container: HTMLElement, props: ControlUiSessionSummaryProps) => ControlUiComponentHandle<ControlUiSessionSummaryProps>;
   mountDashboard: (container: HTMLElement, props: ControlUiDashboardProps) => ControlUiComponentHandle<ControlUiDashboardProps>;
 };
+//#endregion
+//#region src/plugin-sdk/control-ui-session-link.d.ts
+type SessionHeaderLink = {
+  url: string;
+  label: string;
+};
+type SessionHeaderLinkContext = {
+  signal: AbortSignal;
+  presented: boolean;
+  props: {
+    session?: {
+      conversationLink?: SessionHeaderLink;
+    };
+  };
+};
+type SessionHeaderLinkMount = (container: HTMLElement, initialContext: SessionHeaderLinkContext) => {
+  update?: (context: SessionHeaderLinkContext) => void;
+  dispose?: () => void;
+} | void;
+/** A plugin-owned accessory with the standard header link appearance and direct navigation. */
+export declare function createSessionHeaderLink(resolve: (session: NonNullable<SessionHeaderLinkContext["props"]["session"]>) => SessionHeaderLink | undefined): SessionHeaderLinkMount;
 //#endregion
 //#region src/plugin-sdk/control-ui.d.ts
 export type ControlUiDisposer = () => void;
@@ -190,6 +211,8 @@ export type ControlUiPage = {
 };
 export type ControlUiNavigationItem = {
   id: string;
+  /** Navigation item ID in this plugin whose active section displays this child. */
+  parent?: string;
   label: string;
   page: ControlUiPageTarget;
   icon?: string;
@@ -222,7 +245,9 @@ export type ControlUiAction = {
 export type ControlUiAccessory = {
   id: string;
   placement: "session-header";
-  mount: ControlUiView<BoardGetParams>;
+  mount: ControlUiView<BoardGetParams & {
+    session?: ControlUiSession;
+  }>;
 };
 export type ControlUiWidget = {
   id: string;
@@ -285,6 +310,22 @@ export type ControlUiHost = {
     setScope: (agentId: string | null) => void;
     refresh: () => Promise<void>;
   };
+  dock?: {
+    /** Dock a conversation beside the current page; replaces a conversation dock already open. */
+    openSession: (params: {
+      sessionKey: string;
+      agentId: string;
+      /** Dock tab title. */
+      label: string;
+      /** Untrusted ambient reference data, never instructions or access authority. */
+      context?: {
+        page: string;
+        detail?: Readonly<Record<string, string>>;
+      };
+    }) => void;
+    close: () => void;
+    readonly openSessionKey: string | null;
+  };
   navigation: {
     openPage: (target: ControlUiPageTarget, options?: ControlUiPageNavigationOptions) => void;
     pageHref: (target: ControlUiPageTarget, options?: Pick<ControlUiPageNavigationOptions, "preserveSearch">) => string;
@@ -294,7 +335,11 @@ export type ControlUiHost = {
     invalidate: () => void;
     registerPage: (page: ControlUiPage) => ControlUiDisposer;
     registerNavigation: (item: ControlUiNavigationItem) => ControlUiDisposer;
+    /** Pin an already registered navigation item once; unknown or pinned IDs are a no-op. */
+    pinNavigation: (id: string) => void;
     registerPanel: (panel: ControlUiPanel) => ControlUiDisposer;
+    /** Open an owned registered panel beside the supplied or currently selected session. */
+    openPanel: (id: string, session?: BoardGetParams) => void;
     registerAction: (action: ControlUiAction) => ControlUiDisposer;
     registerAccessory: (accessory: ControlUiAccessory) => ControlUiDisposer;
     registerWidget: (widget: ControlUiWidget) => ControlUiDisposer;

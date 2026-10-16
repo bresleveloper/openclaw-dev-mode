@@ -1,5 +1,5 @@
-import { n as zaloDmPolicy, r as zaloSetupAdapter, t as createZaloSetupWizardProxy } from "./.setup/setup-core-CCMLSh4Q.mjs";
-import { n as resolveZaloRuntimeGroupPolicy } from "./.setup/group-access-8qHRzDHx.mjs";
+import { n as zaloDmPolicy, r as zaloSetupAdapter, t as createZaloSetupWizardProxy } from "./.setup/setup-core-BE-EaCnS.mjs";
+import { n as resolveZaloRuntimeGroupPolicy } from "./.setup/group-access-Blsyu-ot.mjs";
 import { loadBundledEntryExportSync } from "openclaw/plugin-sdk/channel-entry-contract";
 //#region extensions/zalo/setup-api.ts
 function createLazyObjectValue(load) {

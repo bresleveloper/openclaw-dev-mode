@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import t from"node:path";function resolveNodeRunner(){let e=t.basename(process.execPath).trim().toLowerCase();return process.versions.bun||e===`node`||e===`node.exe`?process.execPath:`node`}var n=e((()=>{}));export{resolveNodeRunner as n,n as t};

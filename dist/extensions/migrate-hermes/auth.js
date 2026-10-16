@@ -1,2 +1,2 @@
-import { n as buildAuthItems, t as applyAuthItem } from "../../auth-BK3hArBX.mjs";
+import { n as buildAuthItems, t as applyAuthItem } from "../../auth-BipNh_8-.mjs";
 export { applyAuthItem, buildAuthItems };

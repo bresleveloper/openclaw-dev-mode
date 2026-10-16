@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function parseMediaContentLength(e){if(e===null)return null;let t=e.split(`,`).map(e=>e.replace(/^[\t ]+|[\t ]+$/g,``)),n=t[0]??``,r=Number(n);if(!/^\d+$/.test(n)||t.some(e=>e!==n)||!Number.isSafeInteger(r))throw Error(`invalid content-length header: ${e}`);return r}var t=e((()=>{}));export{parseMediaContentLength as n,t};

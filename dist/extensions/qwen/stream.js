@@ -1,5 +1,5 @@
-import { B as isQwen38ModelId, G as isQwenTokenPlanKimiModelId, J as supportsQwenTokenPlanGlmMaxThinking, K as isQwenTokenPlanThinkingOnlyModelId, U as isQwenTokenPlanDeepSeekV4ModelId, W as isQwenTokenPlanGlmModelId } from "./.setup/models-DIZ7f-Lx.mjs";
-import { asOptionalRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
+import { B as isQwen38ModelId, G as isQwenTokenPlanKimiModelId, J as supportsQwenTokenPlanGlmMaxThinking, K as isQwenTokenPlanThinkingOnlyModelId, U as isQwenTokenPlanDeepSeekV4ModelId, W as isQwenTokenPlanGlmModelId } from "./.setup/models-NTrSBQ85.mjs";
+import { asOptionalObjectRecord, asOptionalRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { streamSimple } from "openclaw/plugin-sdk/llm";
 import { normalizeProviderId } from "openclaw/plugin-sdk/provider-model-shared";
 import { createPayloadPatchStreamWrapper, isOpenAICompatibleThinkingEnabled, normalizeOpenAICompatibleReasoningReplay, setQwenChatTemplateThinking } from "openclaw/plugin-sdk/provider-stream-shared";
@@ -51,13 +51,9 @@ function patchQwen38Payload(payload, thinkingLevel, enableThinking) {
 }
 function patchTokenPlanDeepSeekV4Payload(payload, thinkingLevel, enableThinking) {
 	delete payload.thinking;
-	if (!enableThinking) {
-		delete payload.reasoning_effort;
-		normalizeOpenAICompatibleReasoningReplay(payload, { thinkingEnabled: false });
-		return;
-	}
-	payload.reasoning_effort = thinkingLevel === "xhigh" || thinkingLevel === "max" ? "max" : "high";
-	normalizeOpenAICompatibleReasoningReplay(payload, { thinkingEnabled: true });
+	if (!enableThinking) delete payload.reasoning_effort;
+	else payload.reasoning_effort = thinkingLevel === "xhigh" || thinkingLevel === "max" ? "max" : "high";
+	normalizeOpenAICompatibleReasoningReplay(payload, { thinkingEnabled: enableThinking });
 }
 function patchTokenPlanKimiPayload(payload, enableThinking) {
 	delete payload.thinking;
@@ -104,11 +100,6 @@ function enforceQwenPayloadAfterCaller(payload, tokenPlanContract, forceThinking
 	delete payload.reasoningEffort;
 	delete payload.reasoning;
 }
-function finalizeQwenPayloadAfterCaller(value, fallbackPayload, tokenPlanContract, forceThinking, requestedEnableThinking, requestedThinkingLevel) {
-	const finalPayload = asOptionalRecord(value) ?? fallbackPayload;
-	if (finalPayload) enforceQwenPayloadAfterCaller(finalPayload, tokenPlanContract, forceThinking, requestedEnableThinking, requestedThinkingLevel);
-	return value;
-}
 function createQwenConstraintWrapper(baseStreamFn, tokenPlanContract, forceThinking, thinkingLevel, sourceApi) {
 	const underlying = baseStreamFn ?? streamSimple;
 	return (model, context, options) => {
@@ -123,9 +114,14 @@ function createQwenConstraintWrapper(baseStreamFn, tokenPlanContract, forceThink
 			...options,
 			onPayload(payload, payloadModel) {
 				const payloadObj = asOptionalRecord(payload);
+				const finalizePayload = (value) => {
+					const finalPayload = asOptionalRecord(value) ?? payloadObj;
+					if (finalPayload) enforceQwenPayloadAfterCaller(finalPayload, tokenPlanContract, forceThinking, requestedEnableThinking, requestedThinkingLevel);
+					return value;
+				};
 				const result = originalOnPayload?.(payload, payloadModel);
-				if (result && typeof result.then === "function") return Promise.resolve(result).then((resolved) => finalizeQwenPayloadAfterCaller(resolved, payloadObj, tokenPlanContract, forceThinking, requestedEnableThinking, requestedThinkingLevel));
-				return finalizeQwenPayloadAfterCaller(result, payloadObj, tokenPlanContract, forceThinking, requestedEnableThinking, requestedThinkingLevel);
+				if (result && typeof result.then === "function") return Promise.resolve(result).then(finalizePayload);
+				return finalizePayload(result);
 			}
 		});
 	};
@@ -152,7 +148,7 @@ function patchTokenPlanGlmPayload(payload, thinkingLevel, enableThinking, suppor
 }
 function readQwenThinkingFormatFromModel(model, sourceApi) {
 	if ((sourceApi ?? model.api) !== "openai-completions") return;
-	const compat = model.compat && typeof model.compat === "object" ? model.compat : void 0;
+	const compat = asOptionalObjectRecord(model.compat);
 	return typeof compat?.thinkingFormat === "string" ? compat.thinkingFormat : void 0;
 }
 function createQwenThinkingWrapper(baseStreamFn, thinkingLevel, thinkingFormat, forceThinking = false, tokenPlanContract, sourceApi) {

@@ -1,2 +1,2 @@
-import { t as selectStyled } from "../prompt-select-styled-Bv34-Wgx.mjs";
+import { t as selectStyled } from "../prompt-select-styled-DNEVEnJM.mjs";
 export { selectStyled };

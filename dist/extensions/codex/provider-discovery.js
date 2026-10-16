@@ -5,7 +5,7 @@ const codexProviderDiscovery = {
 	auth: [],
 	prepareSyntheticAuth: async ({ config, provider, env, signal, pluginRoot }) => {
 		if (provider !== "codex") return;
-		const { probeCodexNativeAuth } = await import("./.setup/native-auth-rWbGbMn3.mjs");
+		const { probeCodexNativeAuth } = await import("./.setup/native-auth-Cjb9y7IZ.mjs");
 		return await probeCodexNativeAuth({
 			config,
 			env,

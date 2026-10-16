@@ -1,2 +1,2 @@
-import { t as stripOpencodeGoKimiReasoningPayload } from "../../reasoning-sanitizer-BA49xp2a.mjs";
+import { t as stripOpencodeGoKimiReasoningPayload } from "../../reasoning-sanitizer-C0WUTAfb.mjs";
 export { stripOpencodeGoKimiReasoningPayload };

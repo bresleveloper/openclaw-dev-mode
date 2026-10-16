@@ -1,2 +1,2 @@
-import { t as resolveOpenAIChatGptSubscriptionAuth } from "../../realtime-auth-B5Xgkcgd.mjs";
+import { t as resolveOpenAIChatGptSubscriptionAuth } from "../../realtime-auth-os3OZQyJ.mjs";
 export { resolveOpenAIChatGptSubscriptionAuth };

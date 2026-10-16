@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function isPassThroughRemoteMediaSource(e){let n=e?.trim()??``;return t.test(n)}var t,n=e((()=>{t=/^(?:https?|mxc|buffer):\/\//i}));export{isPassThroughRemoteMediaSource as n,n as t};

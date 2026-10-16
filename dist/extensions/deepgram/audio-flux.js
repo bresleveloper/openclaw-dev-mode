@@ -1,15 +1,15 @@
-import { a as asOptionalRecord } from "../../record-coerce-DItp3I4t.mjs";
-import { n as resolvePreferredOpenClawTmpDir } from "../../tmp-openclaw-dir-BSb3HetY.mjs";
-import { t as _usingCtx } from "../../usingCtx-CoYZqMqE.mjs";
-import { t as tempWorkspace } from "../../private-temp-workspace-DQFTMfun.mjs";
-import { t as runCommandBuffered } from "../../exec-shcN2-sN.mjs";
-import { n as resolveFfmpegBin } from "../../ffmpeg-exec-Dx-p1dpM.mjs";
-import "../../string-coerce-runtime-C_MKhRVt.mjs";
-import { d as requireTranscriptionText, i as createProviderOperationTimeoutResolver, r as createProviderOperationDeadline } from "../../shared-BLFkM12I.mjs";
-import "../../media-ffmpeg-CcZtktSN.mjs";
-import "../../process-runtime-BF3dUvYO.mjs";
-import "../../temp-path-PENdksor.mjs";
-import { n as openProviderWebSocket } from "../../provider-http-Dn9NddwC.mjs";
+import { a as asOptionalRecord } from "../../record-coerce-TIsquoVR.mjs";
+import { n as resolvePreferredOpenClawTmpDir } from "../../tmp-openclaw-dir-DR7bHNl9.mjs";
+import { t as runCommandBuffered } from "../../exec-DJvyCA0D.mjs";
+import { t as _usingCtx } from "../../usingCtx-DwOBYOJf.mjs";
+import { n as resolveFfmpegBin } from "../../ffmpeg-exec-C4A6Kzb2.mjs";
+import "../../string-coerce-runtime-50qKeWeL.mjs";
+import { a as createProviderOperationTimeoutResolver, p as requireTranscriptionText, r as createProviderOperationDeadline } from "../../shared-DcnGQdHV.mjs";
+import "../../process-runtime-CYiH_oPH.mjs";
+import { t as tempWorkspace } from "../../fs-safe-compat-Cbx7s6au.mjs";
+import "../../media-ffmpeg-oqc-CGJb.mjs";
+import "../../temp-path-C5ZA6ftW.mjs";
+import { n as openProviderWebSocket } from "../../provider-http-CuRGJD0L.mjs";
 import { open } from "node:fs/promises";
 //#region extensions/deepgram/audio-flux.ts
 const DEEPGRAM_FLUX_SAMPLE_RATE = 16e3;

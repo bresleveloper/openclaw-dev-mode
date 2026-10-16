@@ -1,6 +1,5 @@
-import { c as isRecord } from "./string-coerce-Dyy0qgLy.js";
-import { s as defineChannelAliasMigration } from "./runtime-doctor-migrations-8XPPImoy.js";
-import "./string-coerce-runtime-BSQ-eR6f.js";
+import { a as defineChannelAliasMigration, j as isRecord } from "./runtime-doctor-migrations-BhouWAUC.js";
+import "./string-coerce-runtime-CM4JCyJk.js";
 //#region extensions/imessage/config-doctor-api.ts
 function isEnabledCatchup(value) {
 	return isRecord(value) && value.enabled === true;

@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function parseSessionLabel(e){if(typeof e!=`string`)return{ok:!1,error:`invalid label: must be a string`};let t=e.trim();return t?t.length>512?{ok:!1,error:`invalid label: too long (max 512)`}:{ok:!0,label:t}:{ok:!1,error:`invalid label: empty`}}var t=e((()=>{}));export{parseSessionLabel as n,t};

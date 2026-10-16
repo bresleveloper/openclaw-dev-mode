@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function resolveProcessToolScopeKey(e){let t=e.scopeKey?.trim()||e.sessionKey?.trim()||e.sessionId?.trim();if(t)return t;let n=e.agentId?.trim();return n?`agent:${n}`:void 0}var t=e((()=>{}));export{resolveProcessToolScopeKey as n,t};

@@ -4,11 +4,11 @@ import { fileURLToPath } from "node:url";
 var setup_entry_default = defineBundledChannelSetupEntry({
 	importMetaUrl: import.meta.url,
 	plugin: {
-		specifier: fileURLToPath(new URL(".setup/api-BDqk_OyX.mjs", import.meta.url).href),
+		specifier: fileURLToPath(new URL(".setup/api-Do4fKxXr.mjs", import.meta.url).href),
 		exportName: "zaloPlugin"
 	},
 	secrets: {
-		specifier: fileURLToPath(new URL(".setup/secret-contract-api-DKDS_ZlS.mjs", import.meta.url).href),
+		specifier: fileURLToPath(new URL(".setup/secret-contract-api-CRklpdRx.mjs", import.meta.url).href),
 		exportName: "channelSecrets"
 	}
 });

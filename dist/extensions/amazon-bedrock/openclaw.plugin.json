@@ -12,6 +12,9 @@
   "providers": [
     "amazon-bedrock"
   ],
+  "providerAuthAliases": {
+    "bedrock-converse-stream": "amazon-bedrock"
+  },
   "modelCatalog": {
     "discovery": {
       "amazon-bedrock": "refreshable"

@@ -1,7 +1,20 @@
-import { b as ImageGenerationProvider, n as GenerateImageRuntimeResult, q as OpenClawConfig, s as getProviderEnvVarsCore, t as GenerateImageParams, w as SubsystemLogger } from "../../runtime-types-3YLzQ8ua.js";
+import { I as SubsystemLogger, X as OpenClawConfig, _ as ImageGenerationProvider, l as VideoGenerationProvider, m as MusicGenerationProvider, n as GenerateImageRuntimeResult, r as getProviderEnvVarsCore, t as GenerateImageParams } from "../../runtime-types-LI_BBveH.js";
 //#region src/media-generation/registry.d.ts
 /** Registry for image-generation providers contributed by plugin capabilities. */
-declare const listImageGenerationProviders: (cfg?: OpenClawConfig, additionalProviderIds?: readonly string[]) => ImageGenerationProvider[], getImageGenerationProvider: (providerId: string | undefined, cfg?: OpenClawConfig) => ImageGenerationProvider | undefined;
+declare const { listProviders: listImageGenerationProviders, getProvider: getImageGenerationProvider }: {
+  listProviders: (cfg?: OpenClawConfig, additionalProviderIds?: readonly string[]) => ImageGenerationProvider[];
+  getProvider: (providerId: string | undefined, cfg?: OpenClawConfig) => ImageGenerationProvider | undefined;
+};
+/** Registry for music-generation providers contributed by plugin capabilities. */
+declare const { listProviders: listMusicGenerationProviders, getProvider: getMusicGenerationProvider }: {
+  listProviders: (cfg?: OpenClawConfig, additionalProviderIds?: readonly string[]) => MusicGenerationProvider[];
+  getProvider: (providerId: string | undefined, cfg?: OpenClawConfig) => MusicGenerationProvider | undefined;
+};
+/** Registry for video-generation providers contributed by plugin capabilities. */
+declare const { listProviders: listVideoGenerationProviders, getProvider: getVideoGenerationProvider }: {
+  listProviders: (cfg?: OpenClawConfig, additionalProviderIds?: readonly string[]) => VideoGenerationProvider[];
+  getProvider: (providerId: string | undefined, cfg?: OpenClawConfig) => VideoGenerationProvider | undefined;
+};
 //#endregion
 //#region src/image-generation/runtime.d.ts
 declare const log: SubsystemLogger;

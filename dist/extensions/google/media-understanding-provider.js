@@ -1,20 +1,17 @@
-import { m as readProviderJsonResponse, r as assertOkOrThrowProviderError } from "../../provider-http-errors-CTY_-ABT.mjs";
-import { l as postJsonRequest } from "../../shared-BLFkM12I.mjs";
-import "../../provider-http-Dn9NddwC.mjs";
-import { n as normalizeGoogleModelId } from "../../model-id-CAmKILzd.mjs";
-import { f as createGoogleMediaUnderstandingProviderMetadata, o as GOOGLE_MEDIA_UNDERSTANDING_DEFAULT_MODELS } from "../../generation-provider-metadata-Rktr_0z6.mjs";
-import { t as resolveGoogleGenerativeAiHttpRequestConfig } from "../../api-BOVzuGpO.mjs";
-import "../../runtime-api-DsbI7YvO.mjs";
+import { m as readProviderJsonResponse, r as assertOkOrThrowProviderError } from "../../provider-http-errors-DmewLLH7.mjs";
+import { n as normalizeGooglePreviewModelId } from "../../provider-model-id-normalize-Bx8UgVVS.mjs";
+import { d as postJsonRequest } from "../../shared-DcnGQdHV.mjs";
+import "../../provider-http-CuRGJD0L.mjs";
+import "../../model-id-CPDOOOMu.mjs";
+import { f as createGoogleMediaUnderstandingProviderMetadata, o as GOOGLE_MEDIA_UNDERSTANDING_DEFAULT_MODELS } from "../../generation-provider-metadata-D0HXeJwn.mjs";
+import { t as resolveGoogleGenerativeAiHttpRequestConfig } from "../../http-request-Bp4RpyLy.mjs";
 //#region extensions/google/media-understanding-provider.ts
 const DEFAULT_GOOGLE_AUDIO_PROMPT = "Transcribe the audio.";
 const DEFAULT_GOOGLE_VIDEO_PROMPT = "Describe the video.";
 async function generateGeminiInlineDataText(params) {
 	const fetchFn = params.fetchFn ?? fetch;
-	const model = (() => {
-		const trimmed = params.model?.trim();
-		if (!trimmed) return params.defaultModel;
-		return normalizeGoogleModelId(trimmed);
-	})();
+	const requestedModel = params.model?.trim();
+	const model = requestedModel ? normalizeGooglePreviewModelId(requestedModel) : params.defaultModel;
 	const { baseUrl, allowPrivateNetwork, headers, dispatcherPolicy } = resolveGoogleGenerativeAiHttpRequestConfig({
 		apiKey: params.apiKey,
 		baseUrl: params.baseUrl,
@@ -26,9 +23,7 @@ async function generateGeminiInlineDataText(params) {
 	const url = `${baseUrl}/models/${model}:generateContent`;
 	const body = { contents: [{
 		role: "user",
-		parts: [{ text: (() => {
-			return params.prompt?.trim() || params.defaultPrompt;
-		})() }, { inline_data: {
+		parts: [{ text: params.prompt?.trim() || params.defaultPrompt }, { inline_data: {
 			mime_type: params.mime ?? params.defaultMime,
 			data: params.buffer.toString("base64")
 		} }]
@@ -56,7 +51,7 @@ async function generateGeminiInlineDataText(params) {
 	}
 }
 async function transcribeGeminiAudio(params) {
-	const { text, model } = await generateGeminiInlineDataText({
+	return await generateGeminiInlineDataText({
 		...params,
 		defaultModel: GOOGLE_MEDIA_UNDERSTANDING_DEFAULT_MODELS.audio,
 		defaultPrompt: DEFAULT_GOOGLE_AUDIO_PROMPT,
@@ -64,13 +59,9 @@ async function transcribeGeminiAudio(params) {
 		httpErrorLabel: "Audio transcription failed",
 		missingTextError: "Audio transcription response missing text"
 	});
-	return {
-		text,
-		model
-	};
 }
 async function describeGeminiVideo(params) {
-	const { text, model } = await generateGeminiInlineDataText({
+	return await generateGeminiInlineDataText({
 		...params,
 		defaultModel: GOOGLE_MEDIA_UNDERSTANDING_DEFAULT_MODELS.video,
 		defaultPrompt: DEFAULT_GOOGLE_VIDEO_PROMPT,
@@ -78,10 +69,6 @@ async function describeGeminiVideo(params) {
 		httpErrorLabel: "Video description failed",
 		missingTextError: "Video description response missing text"
 	});
-	return {
-		text,
-		model
-	};
 }
 const googleMediaUnderstandingProvider = {
 	...createGoogleMediaUnderstandingProviderMetadata(),

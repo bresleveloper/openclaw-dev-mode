@@ -2,6 +2,7 @@ import { groqMediaUnderstandingProvider } from "./media-understanding-provider.j
 import { t as openclaw_plugin_default } from "./.setup/openclaw.plugin-D8U6uSHC.mjs";
 import { createAssistantMessageEventStream, streamSimple } from "openclaw/plugin-sdk/llm";
 import { defineSingleProviderPluginEntry } from "openclaw/plugin-sdk/provider-entry";
+import { buildAssistantMessage, createEmptyTransportUsage } from "openclaw/plugin-sdk/provider-transport-runtime";
 //#region extensions/groq/index.ts
 const GROQ_OVERSIZED_RECOVERY_MODEL_ID = "llama-3.3-70b-versatile";
 const GROQ_FALLBACK_MAX_TOKENS = 1024;
@@ -62,32 +63,18 @@ function wrapGroqOversizedRequestRecovery(streamFn, enabled) {
 					for await (const event of fallback) output.push(event);
 				}
 			} catch (error) {
+				const errorMessage = error instanceof Error ? error.message : String(error);
 				output.push({
 					type: "error",
 					reason: "error",
 					error: {
-						role: "assistant",
-						content: [],
-						api: model.api,
-						provider: model.provider,
-						model: model.id,
-						usage: {
-							input: 0,
-							output: 0,
-							cacheRead: 0,
-							cacheWrite: 0,
-							totalTokens: 0,
-							cost: {
-								input: 0,
-								output: 0,
-								cacheRead: 0,
-								cacheWrite: 0,
-								total: 0
-							}
-						},
-						stopReason: "error",
-						errorMessage: error instanceof Error ? error.message : String(error),
-						timestamp: Date.now()
+						...buildAssistantMessage({
+							model,
+							content: [],
+							usage: createEmptyTransportUsage(),
+							stopReason: "error"
+						}),
+						errorMessage
 					}
 				});
 			} finally {

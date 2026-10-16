@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{n as t,t as n}from"./worker-chunk-DHn5u9kO.mjs";import r from"node:fs";function pathMayExistSync(e){try{return r.lstatSync(e),!0}catch(e){return!t(e)}}var i=e((()=>{n()}));export{pathMayExistSync as n,i as t};

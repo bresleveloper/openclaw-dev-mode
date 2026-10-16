@@ -1,10 +1,7 @@
-import { i as resolveGoogleThinkingProfile, t as normalizeGoogleProviderConfig } from "../../provider-policy-BWkzSuhk.mjs";
+import { i as resolveGoogleThinkingProfile, t as normalizeGoogleProviderConfig } from "../../provider-policy-4Ba5tPL0.mjs";
 //#region extensions/google/provider-policy-api.ts
 function normalizeConfig(params) {
 	return normalizeGoogleProviderConfig(params.provider, params.providerConfig);
 }
-function resolveThinkingProfile(context) {
-	return resolveGoogleThinkingProfile(context);
-}
 //#endregion
-export { normalizeConfig, resolveThinkingProfile };
+export { normalizeConfig, resolveGoogleThinkingProfile as resolveThinkingProfile };

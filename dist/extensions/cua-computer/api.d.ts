@@ -1,4 +1,4 @@
-import { t as HealthCheck } from "../../health-CklxGczV.js";
+import { t as HealthCheck } from "../../health-CmgFZOuS.js";
 //#region extensions/cua-computer/src/doctor.d.ts
 export declare const CUA_DRIVER_ARTIFACT_CHECK_ID = "cua-computer/driver-artifacts";
 type CuaDriverDoctorRegistrationHost = {

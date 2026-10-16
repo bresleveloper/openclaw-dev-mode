@@ -5,8 +5,7 @@ const FIREWORKS_KIMI_THINKING_PROFILE = {
 	defaultLevel: "off"
 };
 function resolveFireworksThinkingProfile(modelId) {
-	if (!isFireworksKimiModelId(modelId)) return;
-	return FIREWORKS_KIMI_THINKING_PROFILE;
+	return isFireworksKimiModelId(modelId) ? FIREWORKS_KIMI_THINKING_PROFILE : void 0;
 }
 //#endregion
 export { resolveFireworksThinkingProfile };

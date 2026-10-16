@@ -1,13 +1,6 @@
-import { Socket } from "node:net";
+import { a as WebSocketServer, i as RawData, n as Data, o as createWebSocketStream, t as ClientOptions } from "../websocket-DbnFnlN8.js";
 import { Duplex } from "node:stream";
-import { ClientOptions, Data, RawData } from "ws";
-//#region packages/gateway-client/src/websocket.d.ts
-export declare const WebSocket: typeof import("ws").WebSocket;
-export declare const WebSocketServer: typeof import("ws").WebSocketServer;
-export declare const createWebSocketStream: typeof import("ws").createWebSocketStream;
-export type WebSocket = import("ws").WebSocket;
-export type WebSocketServer = import("ws").WebSocketServer;
-//#endregion
+import { Socket } from "node:net";
 //#region src/shared/one-time-ticket-store.d.ts
 type OneTimeTicketStore<T> = {
   mint(payload: T, opts?: {
@@ -28,7 +21,7 @@ type OneTimeTicketStore<T> = {
 export declare function createOneTimeTicketStore<T>(opts: {
   ttlMs: number;
   now?: () => number;
-  /** Called when an unconsumed ticket expires through its timer or clear(). */
+  /** Called when an unconsumed ticket expires through its timer, consume() or clear(). */
   onExpire?: (payload: T, token: string) => void;
 }): OneTimeTicketStore<T>;
 //#endregion
@@ -54,7 +47,7 @@ export declare function startWebSocketKeepalive(socket: WebSocketKeepaliveSocket
 //#endregion
 //#region src/shared/websocket-upgrade-reject.d.ts
 type WebSocketUpgradeRejection = {
-  status: 400 | 401 | 403 | 404 | 426 | 429 | 503;
+  status: 400 | 401 | 403 | 404 | 426 | 429 | 502 | 503 | 504;
   reason?: string;
   body?: {
     contentType: string;
@@ -64,4 +57,8 @@ type WebSocketUpgradeRejection = {
 };
 export declare function rejectWebSocketUpgrade(socket: Pick<Duplex, "end" | "destroy">, params: WebSocketUpgradeRejection): void;
 //#endregion
-export type { ClientOptions, Data, OneTimeTicketStore, RawData, WebSocketHeartbeatDiagnostics, WebSocketKeepaliveSocket, WebSocketUpgradeRejection };
+//#region src/plugin-sdk/websocket-runtime.d.ts
+export declare const WebSocket: typeof import("ws").WebSocket;
+export type WebSocket = import("ws").WebSocket;
+//#endregion
+export { type ClientOptions, type Data, type OneTimeTicketStore, type RawData, type WebSocketHeartbeatDiagnostics, type WebSocketKeepaliveSocket, WebSocketServer, type WebSocketUpgradeRejection, createWebSocketStream };

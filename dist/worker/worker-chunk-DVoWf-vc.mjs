@@ -1,0 +1,1 @@
+import{n as e,t}from"./worker-chunk-CABMmi1F.mjs";e();export{t as detectLegacyRestartSentinel};

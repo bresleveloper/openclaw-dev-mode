@@ -1,3 +1,3 @@
-import { a as tlonSetupAdapter } from "./.setup/setup-core-Ny4-ZMK0.mjs";
-import { t as tlonSetupWizard } from "./.setup/setup-surface-C4uWCLAo.mjs";
+import { r as tlonSetupAdapter } from "./.setup/setup-core-CDShPwjB.mjs";
+import { t as tlonSetupWizard } from "./.setup/setup-surface-o-30U28J.mjs";
 export { tlonSetupAdapter, tlonSetupWizard };

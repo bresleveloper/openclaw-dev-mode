@@ -1,0 +1,3 @@
+import { a as observeWorkerTaskCancellation, c as waitForWorkerNativeSections, i as createWorkerTaskControl, l as withWorkerTaskNativeSectionScope, n as cancelWorkerNativeSections, o as releaseWorkerNativeSectionsOnExit, r as createWorkerNativeSectionState, s as retainCurrentWorkerNativeSection, t as areWorkerNativeSectionsSettled } from "../worker-task-native-sections-DVlyZQtL.mjs";
+import { t as serveOwnedWorkerTasks } from "../worker-BNX4X1Kw.mjs";
+export { areWorkerNativeSectionsSettled, cancelWorkerNativeSections, createWorkerNativeSectionState, createWorkerTaskControl, observeWorkerTaskCancellation, releaseWorkerNativeSectionsOnExit, retainCurrentWorkerNativeSection, serveOwnedWorkerTasks, waitForWorkerNativeSections, withWorkerTaskNativeSectionScope };

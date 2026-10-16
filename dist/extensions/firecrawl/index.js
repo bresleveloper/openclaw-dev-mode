@@ -1,6 +1,6 @@
-import { n as runFirecrawlScrape, r as runFirecrawlSearch } from "./.setup/firecrawl-client-hBjAoE8s.mjs";
-import { t as createFirecrawlWebFetchProvider } from "./.setup/firecrawl-fetch-provider-DH8FdBjV.mjs";
-import { n as createFirecrawlWebSearchProvider, t as createFirecrawlFreeWebSearchProvider } from "./.setup/firecrawl-search-provider-8H0Cu9l0.mjs";
+import { n as runFirecrawlScrape, r as runFirecrawlSearch } from "./.setup/firecrawl-client-Bqyr6x90.mjs";
+import { t as createFirecrawlWebFetchProvider } from "./.setup/firecrawl-fetch-provider-CcYAp_u6.mjs";
+import { n as createFirecrawlWebSearchProvider, t as createFirecrawlFreeWebSearchProvider } from "./.setup/firecrawl-search-provider-lAiZ3IJ5.mjs";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import { optionalStringEnum } from "openclaw/plugin-sdk/channel-actions";
 import { jsonResult, readNonNegativeIntegerParam, readPositiveIntegerParam, readStringArrayParam, readStringParam } from "openclaw/plugin-sdk/provider-web-search";
@@ -93,33 +93,22 @@ function createFirecrawlSearchTool(api) {
 		parameters: FirecrawlSearchToolSchema,
 		execute: async (_toolCallId, rawParams, signal) => {
 			signal?.throwIfAborted();
-			const query = readStringParam(rawParams, "query", { required: true });
-			const count = readPositiveIntegerParam(rawParams, "count", {
-				max: 100,
-				message: "count must be an integer from 1 to 100"
-			});
-			const timeoutSeconds = readPositiveIntegerParam(rawParams, "timeoutSeconds");
-			const sources = readStringArrayParam(rawParams, "sources");
-			const categories = readStringArrayParam(rawParams, "categories");
-			const includeDomains = readStringArrayParam(rawParams, "includeDomains");
-			const excludeDomains = readStringArrayParam(rawParams, "excludeDomains");
-			const tbs = readStringParam(rawParams, "tbs");
-			const location = readStringParam(rawParams, "location");
-			const country = readStringParam(rawParams, "country");
-			const scrapeResults = rawParams.scrapeResults === true;
 			return jsonResult(await runFirecrawlSearch({
+				query: readStringParam(rawParams, "query", { required: true }),
+				count: readPositiveIntegerParam(rawParams, "count", {
+					max: 100,
+					message: "count must be an integer from 1 to 100"
+				}),
+				timeoutSeconds: readPositiveIntegerParam(rawParams, "timeoutSeconds"),
+				sources: readStringArrayParam(rawParams, "sources"),
+				categories: readStringArrayParam(rawParams, "categories"),
+				includeDomains: readStringArrayParam(rawParams, "includeDomains"),
+				excludeDomains: readStringArrayParam(rawParams, "excludeDomains"),
+				tbs: readStringParam(rawParams, "tbs"),
+				location: readStringParam(rawParams, "location"),
+				country: readStringParam(rawParams, "country"),
+				scrapeResults: rawParams.scrapeResults === true,
 				cfg: api.config,
-				query,
-				count,
-				timeoutSeconds,
-				sources,
-				categories,
-				includeDomains,
-				excludeDomains,
-				tbs,
-				location,
-				country,
-				scrapeResults,
 				...signal ? { signal } : {}
 			}));
 		}

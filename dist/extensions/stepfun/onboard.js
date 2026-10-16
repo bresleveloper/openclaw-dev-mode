@@ -1,18 +1,17 @@
 import { a as STEPFUN_PLAN_PROVIDER_ID, c as STEPFUN_STANDARD_INTL_BASE_URL, i as STEPFUN_PLAN_INTL_BASE_URL, l as buildStepFunPlanProvider, n as STEPFUN_PLAN_CN_BASE_URL, o as STEPFUN_PROVIDER_ID, r as STEPFUN_PLAN_DEFAULT_MODEL_REF, s as STEPFUN_STANDARD_CN_BASE_URL, t as STEPFUN_DEFAULT_MODEL_REF, u as buildStepFunProvider } from "./.setup/provider-catalog-BXohNkBo.mjs";
-import { createModelCatalogPresetAppliers } from "openclaw/plugin-sdk/provider-onboard";
+import { createProviderConnectionPresetAppliers } from "openclaw/plugin-sdk/provider-onboard";
 //#region extensions/stepfun/onboard.ts
 function createStepFunPresetAppliers(params) {
-	return createModelCatalogPresetAppliers({
+	return createProviderConnectionPresetAppliers({
 		primaryModelRef: params.primaryModelRef,
-		resolveParams: (cfg, baseUrl) => {
+		resolveParams: (_cfg, baseUrl) => {
 			const provider = params.buildProvider(baseUrl);
-			const models = provider.models ?? [];
 			return {
 				providerId: params.providerId,
 				api: provider.api ?? "openai-completions",
 				baseUrl,
-				catalogModels: cfg.models?.mode === "replace" ? models : [],
-				aliases: [...models.map((model) => `${params.providerId}/${model.id}`), {
+				catalogModels: provider.models,
+				aliases: [...provider.models.map((model) => `${params.providerId}/${model.id}`), {
 					modelRef: params.primaryModelRef,
 					alias: params.alias
 				}]

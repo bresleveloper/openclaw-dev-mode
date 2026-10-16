@@ -1,16 +1,17 @@
-import { s as asFiniteNumber } from "../../number-coercion-CLj0HTDM.mjs";
-import { t as asNonArrayRecord } from "../../record-coerce-DItp3I4t.mjs";
+import { s as asFiniteNumber } from "../../number-coercion-CuVhdCBs.mjs";
+import { t as asNonArrayRecord } from "../../record-coerce-TIsquoVR.mjs";
 import { r as truncateUtf16Safe } from "../../utf16-slice-D_ngcYKd.mjs";
+import { m as tryParseJson, n as clamp } from "../../utils-DgZn2dLu.mjs";
+import { n as resolvePreferredOpenClawTmpDir } from "../../tmp-openclaw-dir-DR7bHNl9.mjs";
 import { Lt as boolean, qn as strictObject } from "../../schemas-BOYIvvln.mjs";
-import { n as resolvePreferredOpenClawTmpDir } from "../../tmp-openclaw-dir-BSb3HetY.mjs";
-import { r as withTempWorkspace } from "../../private-temp-workspace-DQFTMfun.mjs";
-import { i as runCommandWithTimeout } from "../../exec-shcN2-sN.mjs";
-import "../../string-coerce-runtime-C_MKhRVt.mjs";
-import "../../text-utility-runtime-D7I29NA0.mjs";
-import { n as buildPluginConfigSchema } from "../../config-schema-c9utjSlx.mjs";
-import { t as definePluginEntry } from "../../plugin-entry-BOulgRcx.mjs";
-import "../../process-runtime-BF3dUvYO.mjs";
-import "../../temp-path-PENdksor.mjs";
+import { i as runCommandWithTimeout } from "../../exec-DJvyCA0D.mjs";
+import "../../string-coerce-runtime-50qKeWeL.mjs";
+import "../../text-utility-runtime-BDs7x8Fk.mjs";
+import "../../process-runtime-CYiH_oPH.mjs";
+import { n as buildPluginConfigSchema } from "../../config-schema-BBtylDlH.mjs";
+import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
+import { n as withTempWorkspace } from "../../fs-safe-compat-Cbx7s6au.mjs";
+import "../../temp-path-C5ZA6ftW.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import fs$1 from "node:fs/promises";
@@ -43,16 +44,7 @@ function resolveLinuxNodePluginConfigFromHost(config) {
 //#endregion
 //#region extensions/linux-node/src/command-utils.ts
 function parseParams(paramsJSON) {
-	if (!paramsJSON) return {};
-	try {
-		const parsed = JSON.parse(paramsJSON);
-		return asNonArrayRecord(parsed);
-	} catch {
-		return {};
-	}
-}
-function clamp(value, minimum, maximum) {
-	return Math.min(maximum, Math.max(minimum, value));
+	return asNonArrayRecord(tryParseJson(paramsJSON ?? ""));
 }
 function formatToolError(result) {
 	const detail = result.stderr.trim() || result.stdout.trim();
@@ -67,26 +59,23 @@ function isCapabilityEnabledForHost(context, capability) {
 }
 //#endregion
 //#region extensions/linux-node/src/executables.ts
-function createCachedExecutableResolver(isExecutable = (candidate) => {
-	try {
-		fs.accessSync(candidate, fs.constants.X_OK);
-		return true;
-	} catch {
-		return false;
-	}
-}) {
-	const cache = /* @__PURE__ */ new Map();
-	return (command, env, extraCandidates = []) => {
-		const pathValue = env.PATH ?? "";
-		const key = `${command}\0${pathValue}\0${extraCandidates.join("\0")}`;
-		if (cache.has(key)) return cache.get(key) ?? null;
-		const pathCandidates = pathValue.split(path.delimiter).filter(Boolean).map((dir) => path.join(dir, command));
-		const found = (path.isAbsolute(command) ? [command] : [...pathCandidates, ...extraCandidates]).find(isExecutable) ?? null;
-		cache.set(key, found);
-		return found;
-	};
-}
-const resolveExecutable = createCachedExecutableResolver();
+const cache = /* @__PURE__ */ new Map();
+const resolveExecutable = (command, env, extraCandidates = []) => {
+	const pathValue = env.PATH ?? "";
+	const key = `${command}\0${pathValue}\0${extraCandidates.join("\0")}`;
+	if (cache.has(key)) return cache.get(key) ?? null;
+	const pathCandidates = pathValue.split(path.delimiter).filter(Boolean).map((dir) => path.join(dir, command));
+	const found = (path.isAbsolute(command) ? [command] : [...pathCandidates, ...extraCandidates]).find((candidate) => {
+		try {
+			fs.accessSync(candidate, fs.constants.X_OK);
+			return true;
+		} catch {
+			return false;
+		}
+	}) ?? null;
+	cache.set(key, found);
+	return found;
+};
 //#endregion
 //#region extensions/linux-node/src/location.ts
 const GEOCLUE_DEMO_PATHS = ["/usr/libexec/geoclue-2.0/demos/where-am-i", "/usr/lib/geoclue-2.0/demos/where-am-i"];
@@ -186,13 +175,10 @@ function createLinuxLocationCommand(deps) {
 }
 //#endregion
 //#region extensions/linux-node/src/commands.ts
-const MAX_BASE64_BYTES = 26148864;
-const MAX_MEDIA_RAW_BYTES = Math.floor(MAX_BASE64_BYTES / 4) * 3;
+const MAX_MEDIA_RAW_BYTES = Math.floor(6537216) * 3;
 function encodeMedia(buffer) {
 	if (buffer.byteLength > MAX_MEDIA_RAW_BYTES) throw new Error("PAYLOAD_TOO_LARGE: camera payload exceeds the 25 MB base64 limit");
-	const base64 = buffer.toString("base64");
-	if (Buffer.byteLength(base64, "ascii") > MAX_BASE64_BYTES) throw new Error("PAYLOAD_TOO_LARGE: camera payload exceeds the 25 MB base64 limit");
-	return base64;
+	return buffer.toString("base64");
 }
 function readJpegDimensions(buffer) {
 	if (buffer.byteLength < 4 || buffer[0] !== 255 || buffer[1] !== 216) return null;
@@ -267,9 +253,8 @@ function createLinuxNodeCommands(deps) {
 	const statFile = deps.statFile ?? fs$1.stat;
 	const withTempFile = deps.withTempFile ?? defaultWithTempFile;
 	const now = deps.now ?? (() => /* @__PURE__ */ new Date());
-	const findTool = (name, candidateEnv = env) => findExecutable(name, candidateEnv);
 	const listVideoDevices = deps.listVideoDevices ?? (async () => {
-		const ffmpeg = findTool("ffmpeg");
+		const ffmpeg = findExecutable("ffmpeg", env);
 		return ffmpeg ? await listLinuxVideoDevices({
 			ffmpeg,
 			runCommand
@@ -283,10 +268,10 @@ function createLinuxNodeCommands(deps) {
 		if (platform !== "linux") throw new Error(`${code}: Linux node host required`);
 		if (!deps.config[capability].enabled) throw new Error(`${code}: enable plugins.entries.linux-node.config.${capability}.enabled and restart the node service`);
 	};
-	const isAvailable = (capability, tool) => (context) => platform === "linux" && isCapabilityEnabledForHost(context, capability) && findTool(tool, context.env) !== null;
+	const isAvailable = (capability, tool) => (context) => platform === "linux" && isCapabilityEnabledForHost(context, capability) && findExecutable(tool, context.env) !== null;
 	const resolveTool = (capability, tool, disabledCode, unavailableCode) => {
 		assertLinuxCapability(capability, disabledCode);
-		const executable = findTool(tool);
+		const executable = findExecutable(tool, env);
 		if (!executable) throw new Error(`${unavailableCode}: ${tool} not found`);
 		return executable;
 	};

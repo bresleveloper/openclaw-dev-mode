@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function parseInlineOptionToken(e){let t=e.indexOf(`=`);return t<0?{name:e,hasInlineValue:!1}:{name:e.slice(0,t),hasInlineValue:!0,inlineValue:e.slice(t+1)}}var t=e((()=>{}));export{parseInlineOptionToken as n,t};

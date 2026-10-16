@@ -1,4 +1,4 @@
-import { a as FEATHERLESS_DEFAULT_MODEL_REF, l as buildFeatherlessCatalogModels, t as FEATHERLESS_BASE_URL } from "./.setup/models-J3WOft2N.mjs";
+import { a as FEATHERLESS_DEFAULT_MODEL_REF, l as buildFeatherlessCatalogModels, t as FEATHERLESS_BASE_URL } from "./.setup/models-BN2vG1Qe.mjs";
 import { createModelCatalogPresetAppliers, createProviderConnectionPresetAppliers } from "openclaw/plugin-sdk/provider-onboard";
 //#region extensions/featherless/onboard.ts
 const featherlessPreset = {

@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function runtimeWebSecretOwnerId(e,t){return`web-${e}:${t}`}var t=e((()=>{}));export{runtimeWebSecretOwnerId as n,t};

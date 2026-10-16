@@ -1,8 +1,9 @@
-import { bn as resolveAccountEntry, r as OpenClawConfig } from "../types.openclaw-Ccmw-oTa.js";
+import { Tn as resolveAccountEntry, r as OpenClawConfig } from "../types.openclaw-DWWUw8hA.js";
 import { t as Result } from "../result-VHVNeWs6.js";
-import { a as isAcpSessionKey, c as parseThreadSessionSuffix, i as sanitizeAgentId, n as resolveAgentIdFromSessionKey, o as isCronSessionKey, r as resolveThreadSessionKeys, s as isSubagentSessionKey, t as buildGroupHistoryKey } from "../session-key-B5U478FO.js";
+import { i as parseThreadSessionSuffix, n as isCronSessionKey, r as isSubagentSessionKey, t as isAcpSessionKey } from "../session-key-utils-GUKTYFFD.js";
 import { n as normalizeAccountId, r as normalizeOptionalAccountId, t as DEFAULT_ACCOUNT_ID } from "../account-id-Dh6XMgGH.js";
-import { a as buildAgentSessionKey, c as resolveInboundLastRouteSessionKey, i as RoutePeerKind, n as ResolvedAgentRoute, o as deriveLastRoutePolicy, r as RoutePeer, s as resolveAgentRoute } from "../resolve-route-C4dIs-KG.js";
+import { i as sanitizeAgentId, n as resolveAgentIdFromSessionKey, r as resolveThreadSessionKeys, t as buildGroupHistoryKey } from "../session-key-B_WKkX2s.js";
+import { a as buildAgentSessionKey, c as resolveInboundLastRouteSessionKey, i as RoutePeerKind, n as ResolvedAgentRoute, o as deriveLastRoutePolicy, r as RoutePeer, s as resolveAgentRoute } from "../resolve-route-Dv1zO_Td.js";
 //#region packages/normalization-core/src/agent-id.d.ts
 /** Normalizes an OpenClaw agent id to its filesystem-safe canonical form. */
 export declare function normalizeAgentId(value: string | undefined | null): string;
@@ -56,12 +57,7 @@ export declare function formatSetExplicitDefaultToConfiguredInstruction(params: 
 }): string;
 //#endregion
 //#region src/infra/outbound/base-session-key.d.ts
-/**
- * Builds the canonical outbound base-session key for a resolved route peer.
- *
- * Mirrors the routing layer's session-scope rules so outbound-only sends and
- * inbound route resolution keep the same session scopes and identity-link behavior.
- */
+/** Outbound-only sends use the routing owner's session scopes and identity links. */
 export declare function buildOutboundBaseSessionKey(params: {
   cfg: OpenClawConfig;
   agentId: string;

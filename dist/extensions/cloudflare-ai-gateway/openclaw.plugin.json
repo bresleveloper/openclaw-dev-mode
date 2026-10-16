@@ -13,6 +13,9 @@
   "modelPricing": {
     "providers": {
       "cloudflare-ai-gateway": {
+        "modelsDev": {
+          "passthroughProviderModel": true
+        },
         "openRouter": {
           "passthroughProviderModel": true
         },

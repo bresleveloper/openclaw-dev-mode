@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{n as t,r as n}from"./worker-chunk-ClXbB-Qn.mjs";function normalizeHttpWebhookUrl(e){if(typeof e!=`string`)return null;let t=e.trim();if(!t)return null;try{let e=new URL(t);if(!n(e)||e.username||e.password)return null}catch{return null}return t}var r=e((()=>{t()}));export{normalizeHttpWebhookUrl as n,r as t};

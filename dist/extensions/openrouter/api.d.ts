@@ -1,7 +1,10 @@
-import { Gt as ImageGenerationProvider, Jt as OpenClawConfig, Ut as SpeechProviderPlugin, Wt as MusicGenerationProvider, Zt as ModelProviderDeclarationConfig } from "../../runtime-api-DpOeiZhR.js";
-import "../../provider-http-OGQ1X-4k.js";
-import "../../provider-model-shared-Bq2qfQMS.js";
-import "../../provider-catalog-live-runtime-BtYklyhY.js";
+import { S as ModelProviderDeclarationConfig } from "../../group-policy-Dw25VUD2.js";
+import { d as ImageGenerationProvider, l as SpeechProviderPlugin, u as MusicGenerationProvider } from "../../plugin-entry-QAozMft-.js";
+import "../../config-contracts-BCJ3MTRY.js";
+import "../../provider-model-shared-DyxwAg5_.js";
+import "../../ssrf-runtime-DmEx94Wz.js";
+import { t as ProviderOnboardPresetAppliers } from "../../provider-onboard-BRaUQflr.js";
+import "@openclaw/ai/internal/shared";
 //#region extensions/openrouter/image-generation-provider.d.ts
 export declare function buildOpenRouterImageGenerationProvider(): ImageGenerationProvider;
 //#endregion
@@ -17,6 +20,6 @@ export declare function buildOpenRouterSpeechProvider(): SpeechProviderPlugin;
 //#endregion
 //#region extensions/openrouter/onboard.d.ts
 export declare const OPENROUTER_DEFAULT_MODEL_REF = "openrouter/auto";
-export declare function applyOpenrouterProviderConfig(cfg: OpenClawConfig): OpenClawConfig;
-export declare function applyOpenrouterConfig(cfg: OpenClawConfig): OpenClawConfig;
+declare const { applyProviderConfig: applyOpenrouterProviderConfig, applyConfig: applyOpenrouterConfig }: ProviderOnboardPresetAppliers<[]>;
 //#endregion
+export { applyOpenrouterConfig, applyOpenrouterProviderConfig };

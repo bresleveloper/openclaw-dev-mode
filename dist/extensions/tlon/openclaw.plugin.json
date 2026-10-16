@@ -90,6 +90,9 @@
           "responsePrefix": {
             "type": "string"
           },
+          "requireMentionInBotThreads": {
+            "type": "boolean"
+          },
           "implicitMentions": {
             "type": "object",
             "properties": {
@@ -144,6 +147,9 @@
                         "type": "string",
                         "minLength": 1
                       }
+                    },
+                    "requireMentionInBotThreads": {
+                      "type": "boolean"
                     }
                   },
                   "additionalProperties": false
@@ -229,6 +235,9 @@
                 "responsePrefix": {
                   "type": "string"
                 },
+                "requireMentionInBotThreads": {
+                  "type": "boolean"
+                },
                 "implicitMentions": {
                   "type": "object",
                   "properties": {
@@ -279,6 +288,18 @@
         "implicitMentions.threadParticipation": {
           "label": "Tlon Thread Participation",
           "help": "Treat follow-ups in threads where the bot participated as implicit mentions when the channel reports that signal."
+        },
+        "requireMentionInBotThreads": {
+          "label": "Require Mention in Bot Threads",
+          "help": "Override mention gating when this account's ship authored the thread root. False allows unmentioned replies; true requires a mention even after the bot participates. Omit to preserve existing behavior. Sender authorization still applies."
+        },
+        "accounts.*.requireMentionInBotThreads": {
+          "label": "Require Mention in Bot Threads",
+          "help": "Override mention gating when this account's ship authored the thread root. False allows unmentioned replies; true requires a mention even after the bot participates. Omit to preserve existing behavior. Sender authorization still applies."
+        },
+        "authorization.channelRules.*.requireMentionInBotThreads": {
+          "label": "Require Mention in Bot Threads",
+          "help": "Override mention gating when this account's ship authored the thread root. False allows unmentioned replies; true requires a mention even after the bot participates. Omit to preserve existing behavior. Sender authorization still applies."
         }
       }
     }

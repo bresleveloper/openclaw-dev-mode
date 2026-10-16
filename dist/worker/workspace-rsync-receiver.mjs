@@ -6,42 +6,61 @@ import { compileFunction } from "node:vm";
 const STAGED_INPUT_DIRECTORY_PREFIX = "media/inbound/openclaw-staged-";
 const STAGED_INPUT_GITIGNORE = "# Raw task inputs remain private; copy outputs into the project to publish.\n*\n";
 const STAGED_INPUT_GITIGNORE_SHA256 = createHash("sha256").update(STAGED_INPUT_GITIGNORE).digest("hex");
-/** A producer-shaped name is only a candidate; the marker establishes ownership. */
-function stagedInputPathDirectory(relativePath) {
-	if (!relativePath.startsWith(STAGED_INPUT_DIRECTORY_PREFIX)) return;
-	const identity = relativePath.slice(30).split("/")[0];
-	return /^(?:[a-f0-9]{64}|[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12})$/u.exec(identity)?.[0] === identity ? STAGED_INPUT_DIRECTORY_PREFIX + identity : void 0;
-}
-function isStagedInputPath(relativePath, directories) {
-	const directory = stagedInputPathDirectory(relativePath);
-	return directory !== void 0 && directories.has(directory);
-}
-/** Complete manifests bind the regular marker's exact bytes through their file digest. */
-function stagedInputDirectoriesFromEntries(entries) {
-	const directories = /* @__PURE__ */ new Set();
-	for (const entry of entries) {
-		const directory = stagedInputPathDirectory(entry.path);
-		if (directory && entry.path === `${directory}/.gitignore` && entry.type === "file" && entry.size === 78 && entry.sha256 === STAGED_INPUT_GITIGNORE_SHA256) directories.add(directory);
-	}
-	return directories;
-}
-const STAGED_INPUT_PATHS_JS = `
+const STAGED_INPUT_PATHS_JS = String.raw`
 const STAGED_INPUT_DIRECTORY_PREFIX = ${JSON.stringify(STAGED_INPUT_DIRECTORY_PREFIX)};
 const STAGED_INPUT_GITIGNORE = ${JSON.stringify(STAGED_INPUT_GITIGNORE)};
 const STAGED_INPUT_GITIGNORE_SHA256 = ${JSON.stringify(STAGED_INPUT_GITIGNORE_SHA256)};
-const stagedInputPathDirectory = ${stagedInputPathDirectory.toString()};
-const isStagedInputPath = ${isStagedInputPath.toString()};
-const stagedInputDirectoriesFromEntries = ${stagedInputDirectoriesFromEntries.toString()};`;
+// A producer-shaped name is only a candidate; the marker establishes ownership.
+function stagedInputPathDirectory(relativePath) {
+  if (!relativePath.startsWith(STAGED_INPUT_DIRECTORY_PREFIX)) {
+    return undefined;
+  }
+  const identity = relativePath.slice(STAGED_INPUT_DIRECTORY_PREFIX.length).split("/")[0];
+  const match =
+    /^(?:[a-f0-9]{64}|[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12})$/u.exec(
+      identity,
+    );
+  return match?.[0] === identity ? STAGED_INPUT_DIRECTORY_PREFIX + identity : undefined;
+}
+
+function isStagedInputPath(relativePath, directories) {
+  const directory = stagedInputPathDirectory(relativePath);
+  return directory !== undefined && directories.has(directory);
+}
+
+// Complete manifests bind the regular marker's exact bytes through their file digest.
+function stagedInputDirectoriesFromEntries(entries) {
+  const directories = new Set();
+  for (const entry of entries) {
+    const directory = stagedInputPathDirectory(entry.path);
+    if (
+      directory &&
+      entry.path === directory + "/.gitignore" &&
+      entry.type === "file" &&
+      entry.size === STAGED_INPUT_GITIGNORE.length &&
+      entry.sha256 === STAGED_INPUT_GITIGNORE_SHA256
+    ) {
+      directories.add(directory);
+    }
+  }
+  return directories;
+}`;
+const { stagedInputPathDirectory, isStagedInputPath, stagedInputDirectoriesFromEntries } = compileFunction(`${STAGED_INPUT_PATHS_JS}\nreturn { stagedInputPathDirectory, isStagedInputPath, stagedInputDirectoriesFromEntries };`)();
 //#endregion
 //#region src/gateway/worker-environments/workspace-inventory-limits.ts
 const MAX_WORKSPACE_INVENTORY_ENTRIES = 25e4;
 const MATERIALIZED_SANDBOX_SKILLS_WORKSPACE = [".openclaw", "sandbox-skills"].join("/");
-function isManagedSandboxSkillsPath$1(relativePath) {
-	return relativePath === MATERIALIZED_SANDBOX_SKILLS_WORKSPACE || relativePath.startsWith(`${MATERIALIZED_SANDBOX_SKILLS_WORKSPACE}/`);
-}
+const MANAGED_SANDBOX_SKILLS_PATH_JS = `
+const MATERIALIZED_SANDBOX_SKILLS_WORKSPACE = ${JSON.stringify(MATERIALIZED_SANDBOX_SKILLS_WORKSPACE)};
+function isManagedSandboxSkillsPath(relativePath) {
+  return (
+    relativePath === MATERIALIZED_SANDBOX_SKILLS_WORKSPACE ||
+    relativePath.startsWith(MATERIALIZED_SANDBOX_SKILLS_WORKSPACE + "/")
+  );
+}`;
+compileFunction(`${MANAGED_SANDBOX_SKILLS_PATH_JS}\nreturn isManagedSandboxSkillsPath;`)();
 //#endregion
 //#region src/gateway/worker-environments/workspace-path-exclusions.ts
-const isManagedSandboxSkillsPath = isManagedSandboxSkillsPath$1;
 const DERIVED_WORKSPACE_DIRECTORY_NAMES = [
 	"__pycache__",
 	".pytest_cache",
@@ -60,27 +79,37 @@ const WORKER_ATTACHMENT_DIRECTORY_PATTERN = WORKER_ATTACHMENT_DIRECTORY_PREFIX +
 	`[89ab]${UUID_HEX.repeat(3)}`,
 	UUID_HEX.repeat(12)
 ].join("-");
-const WORKER_ATTACHMENT_DIRECTORY_RE = new RegExp(`^${WORKER_ATTACHMENT_DIRECTORY_PATTERN}$`);
+const WORKSPACE_PATH_EXCLUSIONS_JS = `
+${STAGED_INPUT_PATHS_JS}
+${MANAGED_SANDBOX_SKILLS_PATH_JS}
+const DERIVED_WORKSPACE_DIRECTORY_NAMES = ${JSON.stringify(DERIVED_WORKSPACE_DIRECTORY_NAMES)};
+const DERIVED_WORKSPACE_FILE_NAMES = ${JSON.stringify(DERIVED_WORKSPACE_FILE_NAMES)};
+const DERIVED_WORKSPACE_FILE_SUFFIXES = ${JSON.stringify(DERIVED_WORKSPACE_FILE_SUFFIXES)};
+const WORKER_ATTACHMENT_DIRECTORY_RE = new RegExp(${JSON.stringify(`^${WORKER_ATTACHMENT_DIRECTORY_PATTERN}$`)});
 function isDerivedWorkspacePath(relativePath, retainedInput = false) {
-	if (isManagedSandboxSkillsPath(relativePath)) return true;
-	if (retainedInput) return false;
-	return relativePath.split("/").some((segment) => WORKER_ATTACHMENT_DIRECTORY_RE.exec(segment)?.[0] === segment || DERIVED_WORKSPACE_DIRECTORY_NAMES.includes(segment) || DERIVED_WORKSPACE_FILE_NAMES.includes(segment) || DERIVED_WORKSPACE_FILE_SUFFIXES.some((suffix) => segment.endsWith(suffix)));
-}
+  if (isManagedSandboxSkillsPath(relativePath)) {
+    return true;
+  }
+  if (retainedInput) {
+    return false;
+  }
+  const segments = relativePath.split("/");
+  // "$" can match before a final newline; require the entire path segment.
+  return segments.some(
+    (segment) =>
+      WORKER_ATTACHMENT_DIRECTORY_RE.exec(segment)?.[0] === segment ||
+      DERIVED_WORKSPACE_DIRECTORY_NAMES.includes(segment) ||
+      DERIVED_WORKSPACE_FILE_NAMES.includes(segment) ||
+      DERIVED_WORKSPACE_FILE_SUFFIXES.some((suffix) => segment.endsWith(suffix)),
+  );
+}`;
+compileFunction(`${WORKSPACE_PATH_EXCLUSIONS_JS}\nreturn isDerivedWorkspacePath;`)();
 [
 	`${MATERIALIZED_SANDBOX_SKILLS_WORKSPACE}`,
 	...DERIVED_WORKSPACE_DIRECTORY_NAMES,
 	...DERIVED_WORKSPACE_FILE_NAMES,
 	...DERIVED_WORKSPACE_FILE_SUFFIXES.map((suffix) => `*${suffix}`)
 ];
-const WORKSPACE_PATH_EXCLUSIONS_JS = `
-${STAGED_INPUT_PATHS_JS}
-const MATERIALIZED_SANDBOX_SKILLS_WORKSPACE = ${JSON.stringify(MATERIALIZED_SANDBOX_SKILLS_WORKSPACE)};
-const isManagedSandboxSkillsPath = ${isManagedSandboxSkillsPath.toString()};
-const DERIVED_WORKSPACE_DIRECTORY_NAMES = ${JSON.stringify(DERIVED_WORKSPACE_DIRECTORY_NAMES)};
-const DERIVED_WORKSPACE_FILE_NAMES = ${JSON.stringify(DERIVED_WORKSPACE_FILE_NAMES)};
-const DERIVED_WORKSPACE_FILE_SUFFIXES = ${JSON.stringify(DERIVED_WORKSPACE_FILE_SUFFIXES)};
-const WORKER_ATTACHMENT_DIRECTORY_RE = ${WORKER_ATTACHMENT_DIRECTORY_RE.toString()};
-const isDerivedWorkspacePath = ${isDerivedWorkspacePath.toString()};`;
 const WORKSPACE_STAGED_INPUT_OWNERSHIP_JS = String.raw`
 const stagedInputOwnership = new Map();
 function isStagedInput(relativePath) {
@@ -122,7 +151,37 @@ function isStagedInput(relativePath) {
 const MAX_RECONCILIATION_ENTRIES = MAX_WORKSPACE_INVENTORY_ENTRIES * 2;
 //#endregion
 //#region src/gateway/worker-environments/workspace-mutation-lock-remote-script.ts
-const REMOTE_WORKSPACE_MUTATION_LOCK_JS = String.raw`const lockRoot = path.join(
+const REMOTE_WORKSPACE_MUTATION_LOCK_JS = String.raw`function removeTree(target) {
+  let stats;
+  try {
+    stats = fs.lstatSync(target);
+  } catch (error) {
+    if (error && error.code === "ENOENT") return;
+    throw error;
+  }
+  if (stats.isDirectory() && !stats.isSymbolicLink()) {
+    fs.chmodSync(target, 0o700);
+    for (const name of fs.readdirSync(target)) removeTree(path.join(target, name));
+    fs.rmdirSync(target);
+  } else {
+    fs.unlinkSync(target);
+  }
+}
+function sameInode(left, right) {
+  return left.dev === right.dev && left.ino === right.ino;
+}
+function removeQuarantinedLock(quarantine, observed, message) {
+  const directory = fs.lstatSync(quarantine);
+  const entry = fs.lstatSync(path.join(quarantine, observed.name));
+  if (
+    !sameInode(directory, observed.directoryStats) ||
+    !sameInode(entry, observed.entryStats)
+  ) {
+    throw new Error(message);
+  }
+  removeTree(quarantine);
+}
+const lockRoot = path.join(
   transactionRoot,
   ".openclaw-accepted-lock-" + workspaceKey,
 );
@@ -185,22 +244,12 @@ function processIsAlive(pid) {
     throw error;
   }
 }
-function processGroupIsAlive(pid) {
-  try {
-    process.kill(-pid, 0);
-    return true;
-  } catch (error) {
-    if (error && error.code === "EPERM") return true;
-    if (error && error.code === "ESRCH") return false;
-    throw error;
-  }
-}
 function lockIdentityIsAlive(identity) {
   if (identity.action === "receiver") {
     // Receiver descendants own mutation liveness; the wrapper owns acquire/release.
     // Reclaim is safe only after both the receiver group and wrapper are dead.
     return processIsAlive(identity.pid) ||
-      processGroupIsAlive(identity.pid) ||
+      processIsAlive(-identity.pid) ||
       processIsAlive(identity.controllerPid);
   }
   return processIsAlive(identity.pid);
@@ -330,15 +379,7 @@ function reclaimDeadOwner(observed) {
     claimed = validated;
     fs.renameSync(lockRoot, quarantine);
     quarantined = true;
-    const quarantinedDirectory = fs.lstatSync(quarantine);
-    const quarantinedEntry = fs.lstatSync(path.join(quarantine, claimed.name));
-    if (
-      !sameInode(quarantinedDirectory, claimed.directoryStats) ||
-      !sameInode(quarantinedEntry, claimed.entryStats)
-    ) {
-      throw new Error("workspace mutation lock changed during reclamation");
-    }
-    removeTree(quarantine);
+    removeQuarantinedLock(quarantine, claimed, "workspace mutation lock changed during reclamation");
     return true;
   } finally {
     if (!quarantined) restoreOwnerEntry(claimed);
@@ -413,15 +454,7 @@ function releaseWorkspaceLock() {
   }
   const quarantine = lockRoot + ".released." + process.pid + "." + lockToken;
   fs.renameSync(lockRoot, quarantine);
-  const quarantinedDirectory = fs.lstatSync(quarantine);
-  const quarantinedEntry = fs.lstatSync(path.join(quarantine, validated.name));
-  if (
-    !sameInode(quarantinedDirectory, validated.directoryStats) ||
-    !sameInode(quarantinedEntry, validated.entryStats)
-  ) {
-    throw new Error("workspace mutation lock changed during release");
-  }
-  removeTree(quarantine);
+  removeQuarantinedLock(quarantine, validated, "workspace mutation lock changed during release");
 }`;
 //#endregion
 //#region src/gateway/worker-environments/workspace-mutation-remote-script.ts
@@ -462,26 +495,7 @@ const transactionRootStats = fs.lstatSync(transactionRoot);
 if (transactionRootStats.isSymbolicLink() || !transactionRootStats.isDirectory()) {
   throw new Error("unsafe workspace mutation directory");
 }
-const workspaceKey = crypto.createHash("sha256").update(root).digest("hex");
-function removeTree(target) {
-  let stats;
-  try {
-    stats = fs.lstatSync(target);
-  } catch (error) {
-    if (error && error.code === "ENOENT") return;
-    throw error;
-  }
-  if (stats.isDirectory() && !stats.isSymbolicLink()) {
-    fs.chmodSync(target, 0o700);
-    for (const name of fs.readdirSync(target)) removeTree(path.join(target, name));
-    fs.rmdirSync(target);
-  } else {
-    fs.unlinkSync(target);
-  }
-}
-function sameInode(left, right) {
-  return left.dev === right.dev && left.ino === right.ino;
-}`;
+const workspaceKey = crypto.createHash("sha256").update(root).digest("hex");`;
 const REMOTE_WORKSPACE_RSYNC_RECEIVER_RUNTIME_JS = String.raw`const receiverArgs = process.argv.slice(receiverArgvIndex);
 const receiverDestination = receiverArgs.at(-1);
 if (
@@ -519,7 +533,7 @@ let gateOpened = false;
     gate.end("open\n");
     const result = await receiverExit;
     const groupWait = new Int32Array(new SharedArrayBuffer(4));
-    while (processGroupIsAlive(lockOwnerPid)) Atomics.wait(groupWait, 0, 0, 10);
+    while (processIsAlive(-lockOwnerPid)) Atomics.wait(groupWait, 0, 0, 10);
     releaseWorkspaceLock();
     lockAcquired = false;
     if (result.signal) process.kill(process.pid, result.signal);
@@ -691,18 +705,19 @@ function parsePaths(raw) {
     })
     .sort();
 }
-function targetPath(base, relative) {
-  return path.join(base, relative);
+function liveDirectoryStats(target) {
+  const stats = fs.lstatSync(target);
+  if (stats.isSymbolicLink() || !stats.isDirectory()) {
+    throw new Error("unsafe accepted workspace parent");
+  }
+  return stats;
 }
 function livePath(relative) {
   const segments = relative.split("/");
   let parent = root;
   for (const segment of segments.slice(0, -1)) {
     parent = path.join(parent, segment);
-    const stats = fs.lstatSync(parent);
-    if (stats.isSymbolicLink() || !stats.isDirectory()) {
-      throw new Error("unsafe accepted workspace parent");
-    }
+    liveDirectoryStats(parent);
   }
   return path.join(root, relative);
 }
@@ -715,29 +730,7 @@ function exists(target) {
     throw error;
   }
 }
-function removeTree(target) {
-  let stats;
-  try {
-    stats = fs.lstatSync(target);
-  } catch (error) {
-    if (error && error.code === "ENOENT") return;
-    throw error;
-  }
-  if (stats.isDirectory() && !stats.isSymbolicLink()) {
-    fs.chmodSync(target, 0o700);
-    for (const name of fs.readdirSync(target)) removeTree(path.join(target, name));
-    fs.rmdirSync(target);
-  } else {
-    fs.unlinkSync(target);
-  }
-}
-function sameInode(left, right) {
-  return left.dev === right.dev && left.ino === right.ino;
-}
 ${REMOTE_WORKSPACE_MUTATION_LOCK_JS}
-function readPaths() {
-  return parsePaths(fs.readFileSync(pathsFile, "utf8"));
-}
 function readPhase(candidate, required = true) {
   let value;
   try {
@@ -865,11 +858,8 @@ function prepareWritableAncestors(paths) {
   // parsePaths removes descendants of changed directories, so these are all
   // unchanged live ancestors. Read every mode before mutating any permission.
   const modes = ["", ...ancestorPaths(paths)].map((relative) => {
-    const target = relative ? targetPath(root, relative) : root;
-    const stats = fs.lstatSync(target);
-    if (stats.isSymbolicLink() || !stats.isDirectory()) {
-      throw new Error("unsafe accepted workspace parent");
-    }
+    const target = relative ? path.join(root, relative) : root;
+    const stats = liveDirectoryStats(target);
     return { relative, mode: stats.mode & 0o7777 };
   });
   writeAncestorModes(modes);
@@ -880,11 +870,8 @@ function makeAncestorsWritable(modes) {
   const widened = [];
   try {
     for (const entry of modes) {
-      const target = entry.relative ? targetPath(root, entry.relative) : root;
-      const stats = fs.lstatSync(target);
-      if (stats.isSymbolicLink() || !stats.isDirectory()) {
-        throw new Error("unsafe accepted workspace parent");
-      }
+      const target = entry.relative ? path.join(root, entry.relative) : root;
+      const stats = liveDirectoryStats(target);
       const currentMode = stats.mode & 0o7777;
       const writableMode = entry.mode | 0o700;
       if (currentMode !== writableMode) {
@@ -907,16 +894,10 @@ function makeAncestorsWritable(modes) {
 }
 function restoreAncestorModes(modes) {
   for (const entry of [...modes].reverse()) {
-    const target = entry.relative ? targetPath(root, entry.relative) : root;
-    const stats = fs.lstatSync(target);
-    if (stats.isSymbolicLink() || !stats.isDirectory()) {
-      throw new Error("unsafe accepted workspace parent");
-    }
+    const target = entry.relative ? path.join(root, entry.relative) : root;
+    const stats = liveDirectoryStats(target);
     if ((stats.mode & 0o7777) !== entry.mode) fs.chmodSync(target, entry.mode);
   }
-}
-function removeTransaction(candidate = transaction) {
-  removeTree(candidate);
 }
 function restoreTransaction(candidate) {
   if (!exists(candidate)) return;
@@ -928,7 +909,7 @@ function restoreTransaction(candidate) {
       const candidateBackup = path.join(candidate, "backup");
       for (const entry of [...readState(candidate)].reverse()) {
         const live = livePath(entry.relative);
-        const backup = targetPath(candidateBackup, entry.relative);
+        const backup = path.join(candidateBackup, entry.relative);
         if (exists(backup)) {
           removeTree(live);
           fs.renameSync(backup, live);
@@ -943,7 +924,7 @@ function restoreTransaction(candidate) {
   } finally {
     restoreAncestorModes(ancestorModes);
   }
-  removeTransaction(candidate);
+  removeTree(candidate);
 }
 function recoverTransaction(candidate) {
   const phase = normalizeRecoveredPhase(candidate);
@@ -956,7 +937,7 @@ function recoverCleanup(candidate) {
   const phase = normalizeRecoveredPhase(candidate, true);
   if (phase === "applied") transitionPhase(candidate, phase, "applied", "committed");
   else if (phase !== "committed") throw new Error("invalid accepted workspace cleanup phase");
-  removeTransaction(candidate);
+  removeTree(candidate);
 }
 function recoverTransactions() {
   for (const name of fs.readdirSync(transactionRoot)) {
@@ -997,7 +978,7 @@ function runAction() {
     }
     if (phase !== "begun") throw new Error("accepted workspace transaction cannot be applied");
     transitionPhase(transaction, phase, "begun", "applying");
-    const paths = readPaths();
+    const paths = parsePaths(fs.readFileSync(pathsFile, "utf8"));
     try {
       const ancestorModes = prepareWritableAncestors(paths);
       const state = paths.map((relative) => {
@@ -1019,7 +1000,7 @@ function runAction() {
         if (!entry.hadLive) continue;
         const source = livePath(entry.relative);
         const sourceStats = fs.lstatSync(source);
-        const destination = targetPath(backupRoot, entry.relative);
+        const destination = path.join(backupRoot, entry.relative);
         fs.mkdirSync(path.dirname(destination), { recursive: true, mode: 0o700 });
         try {
           if (sourceStats.isDirectory() && !sourceStats.isSymbolicLink()) {
@@ -1034,7 +1015,7 @@ function runAction() {
         }
       }
       for (const entry of state) {
-        const source = targetPath(nextRoot, entry.relative);
+        const source = path.join(nextRoot, entry.relative);
         if (exists(source)) fs.renameSync(source, livePath(entry.relative));
       }
       restoreAncestorModes(ancestorModes);

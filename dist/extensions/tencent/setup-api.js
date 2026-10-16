@@ -6,7 +6,7 @@ var setup_api_default = definePluginEntry({
 	name: "Tencent Cloud Provider Setup",
 	description: "Lightweight Tencent Cloud provider setup hooks",
 	register(api) {
-		api.registerConfigMigration((config) => migrateTencentTokenHubModelDefaults(config));
+		api.registerConfigMigration(migrateTencentTokenHubModelDefaults);
 	}
 });
 //#endregion

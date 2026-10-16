@@ -1,54 +1,15 @@
-import { a as asNullableRecord } from "./string-coerce-Dyy0qgLy.js";
-import { l as normalizeChannelConfigEntries, x as hasLegacyAccountStreamingAliases } from "./runtime-doctor-migrations-8XPPImoy.js";
+import { S as normalizeChannelConfigEntries, b as hasLegacyAccountStreamingAliases, n as defineKeyMoveMigration } from "./runtime-doctor-migrations-BhouWAUC.js";
 //#region extensions/zalouser/src/doctor-contract.ts
-function hasLegacyZalouserGroupAllowAlias(value) {
-	const group = asNullableRecord(value);
-	return Boolean(group && typeof group.allow === "boolean");
-}
-function hasLegacyZalouserGroupAllowAliases(value) {
-	const groups = asNullableRecord(value);
-	return Boolean(groups && Object.values(groups).some((group) => hasLegacyZalouserGroupAllowAlias(group)));
-}
-function normalizeZalouserGroupAllowAliases(params) {
-	let changed = false;
-	const nextGroups = { ...params.groups };
-	for (const [groupId, groupValue] of Object.entries(params.groups)) {
-		const group = asNullableRecord(groupValue);
-		if (!group || typeof group.allow !== "boolean") continue;
-		const nextGroup = { ...group };
-		if (typeof nextGroup.enabled !== "boolean") nextGroup.enabled = group.allow;
-		delete nextGroup.allow;
-		nextGroups[groupId] = nextGroup;
-		changed = true;
-		params.changes.push(`Moved ${params.pathPrefix}.${groupId}.allow → ${params.pathPrefix}.${groupId}.enabled (${String(nextGroup.enabled)}).`);
-	}
-	return {
-		groups: nextGroups,
-		changed
-	};
-}
-function normalizeZalouserEntry(params) {
-	const groups = asNullableRecord(params.entry.groups);
-	if (!groups) return {
-		entry: params.entry,
-		changed: false
-	};
-	const normalized = normalizeZalouserGroupAllowAliases({
-		groups,
-		pathPrefix: `${params.pathPrefix}.groups`,
-		changes: params.changes
-	});
-	return normalized.changed ? {
-		entry: {
-			...params.entry,
-			groups: normalized.groups
-		},
-		changed: true
-	} : {
-		entry: params.entry,
-		changed: false
-	};
-}
+const groupAllowMigration = defineKeyMoveMigration({
+	scope: ["groups", "*"],
+	from: ["allow"],
+	to: ["enabled"],
+	sourceOwn: false,
+	match: (value) => typeof value === "boolean",
+	targetIsSet: (value) => typeof value === "boolean",
+	movedMessage: ({ sourcePath, targetPath, mappedValue }) => `Moved ${sourcePath} → ${targetPath} (${String(mappedValue)}).`,
+	existingMessage: ({ sourcePath, targetPath, targetValue }) => `Moved ${sourcePath} → ${targetPath} (${String(targetValue)}).`
+});
 const legacyConfigRules = [{
 	path: [
 		"channels",
@@ -56,7 +17,7 @@ const legacyConfigRules = [{
 		"groups"
 	],
 	message: "channels.zalouser.groups.<id>.allow is legacy; use channels.zalouser.groups.<id>.enabled instead. Run \"openclaw doctor --fix\".",
-	match: hasLegacyZalouserGroupAllowAliases
+	match: (value) => groupAllowMigration.hasLegacy({ groups: value })
 }, {
 	path: [
 		"channels",
@@ -64,13 +25,13 @@ const legacyConfigRules = [{
 		"accounts"
 	],
 	message: "channels.zalouser.accounts.<id>.groups.<id>.allow is legacy; use channels.zalouser.accounts.<id>.groups.<id>.enabled instead. Run \"openclaw doctor --fix\".",
-	match: (value) => hasLegacyAccountStreamingAliases(value, (account) => hasLegacyZalouserGroupAllowAliases(asNullableRecord(account)?.groups))
+	match: (value) => hasLegacyAccountStreamingAliases(value, groupAllowMigration.hasLegacy)
 }];
 function normalizeCompatibilityConfig(params) {
 	return normalizeChannelConfigEntries({
 		cfg: params.cfg,
 		channelId: "zalouser",
-		normalizeEntry: normalizeZalouserEntry
+		normalizeEntry: groupAllowMigration.normalize
 	});
 }
 //#endregion

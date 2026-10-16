@@ -1,4 +1,3 @@
-// Tailscale status helpers parse and validate status payloads from Tailscale.
 import { z } from "zod";
 import { safeParseJsonWithSchema } from "../utils/zod-parse.js";
 
@@ -45,17 +44,17 @@ const TailscaleServeConfigSchema = z.object({
   AllowFunnel: z.record(z.string(), z.boolean()).optional(),
 });
 
-function parsePossiblyNoisyStatus(raw: string): z.infer<typeof TailscaleStatusSchema> | null {
+function parsePossiblyNoisyStatus<T>(schema: z.ZodType<T>, raw: string): T | null {
   const start = raw.indexOf("{");
   const end = raw.lastIndexOf("}");
   if (start === -1 || end <= start) {
     return null;
   }
-  return safeParseJsonWithSchema(TailscaleStatusSchema, raw.slice(start, end + 1));
+  return safeParseJsonWithSchema(schema, raw.slice(start, end + 1));
 }
 
 function extractTailnetHostFromStatusJson(raw: string): string | null {
-  const parsed = parsePossiblyNoisyStatus(raw);
+  const parsed = parsePossiblyNoisyStatus(TailscaleStatusSchema, raw);
   const dns = parsed?.Self?.DNSName;
   if (dns && dns.length > 0) {
     return dns.replace(/\.$/, "");
@@ -94,12 +93,7 @@ export function extractTailscaleServeGatewayUrls(
   gatewayPort: number,
   forAdoption = false,
 ): string[] | null {
-  const start = raw.indexOf("{");
-  const end = raw.lastIndexOf("}");
-  const config =
-    end > start && start >= 0
-      ? safeParseJsonWithSchema(TailscaleServeConfigSchema, raw.slice(start, end + 1))
-      : null;
+  const config = parsePossiblyNoisyStatus(TailscaleServeConfigSchema, raw);
   if (!config) {
     return null;
   }
@@ -137,6 +131,30 @@ type TailscaleServeGatewayInspection =
   | { status: "ok"; urls: string[] }
   | { status: "unavailable" }
   | { status: "invalid" };
+
+/** Reads backend state without changing connectivity or Serve configuration. */
+export async function inspectTailscaleBackendStateWithRunner(
+  runCommandWithTimeout: TailscaleStatusCommandRunner,
+): Promise<{ status: "ok"; state: string } | { status: "unavailable" | "invalid" }> {
+  let invalid = false;
+  const schema = z.object({ BackendState: z.string().min(1) });
+  for (const candidate of TAILSCALE_STATUS_COMMAND_CANDIDATES) {
+    try {
+      const result = await runCommandWithTimeout([candidate, "status", "--json"], {
+        timeoutMs: 5000,
+      });
+      // Logged-out backends can report valid status JSON with a nonzero exit.
+      const parsed = parsePossiblyNoisyStatus(schema, result.stdout);
+      if (parsed) {
+        return { status: "ok", state: parsed.BackendState };
+      }
+      invalid ||= result.code === 0;
+    } catch {
+      continue;
+    }
+  }
+  return { status: invalid ? "invalid" : "unavailable" };
+}
 
 /** Inspects persistent Serve routes without collapsing malformed output into route absence. */
 export async function inspectTailscaleServeGatewayUrlsWithRunner(

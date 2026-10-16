@@ -25,11 +25,11 @@ function isMoonshotK3NativeVideoRoute(route) {
 	return route.provider === "moonshot" && route.modelId === "kimi-k3" && route.api === "openai-completions" && isNativeMoonshotBaseUrl(route.baseUrl);
 }
 function isMoonshotAlwaysThinkingModelId(modelId) {
-	return modelId.trim().toLowerCase() in ALWAYS_THINKING_PROFILES;
+	return Object.hasOwn(ALWAYS_THINKING_PROFILES, modelId.trim().toLowerCase());
 }
 function resolveThinkingProfile(context) {
 	const modelId = context.modelId.trim().toLowerCase();
-	const profile = ALWAYS_THINKING_PROFILES[modelId];
+	const profile = Object.hasOwn(ALWAYS_THINKING_PROFILES, modelId) ? ALWAYS_THINKING_PROFILES[modelId] : void 0;
 	if (profile) return {
 		levels: [profile],
 		defaultLevel: profile.id,

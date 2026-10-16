@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function computerRunOwner(e){return JSON.stringify([`agent`,e.operationalRunInstance.instanceId,e.operationalRunInstance.runId,e.lifecycleGeneration,e.claimId])}var t=e((()=>{}));export{t as n,computerRunOwner as t};

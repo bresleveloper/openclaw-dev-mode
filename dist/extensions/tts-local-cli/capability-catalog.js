@@ -24,8 +24,7 @@ function asStringArray(value) {
 function normalizeOutputFormat(value) {
 	if (typeof value !== "string") return "mp3";
 	const lower = value.toLowerCase().trim();
-	if (VALID_OUTPUT_FORMATS.includes(lower)) return lower;
-	return "mp3";
+	return VALID_OUTPUT_FORMATS.find((format) => format === lower) ?? "mp3";
 }
 function resolveCliProviderConfig(rawConfig) {
 	const providers = asOptionalRecord(rawConfig.providers);
@@ -81,19 +80,9 @@ function parseCommand(cmdStr) {
 	};
 }
 function findAudioFile(dir, baseName) {
-	const files = readdirSync(dir);
-	for (const file of files) {
-		const ext = path.extname(file).toLowerCase();
-		if (AUDIO_EXTENSIONS.has(ext) && (file.startsWith(baseName) || file.includes(baseName))) return path.join(dir, file);
-	}
-	for (const file of files) {
-		const ext = path.extname(file).toLowerCase();
-		if (AUDIO_EXTENSIONS.has(ext)) return path.join(dir, file);
-	}
-	return null;
-}
-function detectFormatFromExtension(filePath) {
-	return path.extname(filePath).toLowerCase() === ".m4a" ? "m4a" : null;
+	const files = readdirSync(dir).filter((file) => AUDIO_EXTENSIONS.has(path.extname(file).toLowerCase()));
+	const file = files.find((candidate) => candidate.includes(baseName)) ?? files[0];
+	return file === void 0 ? null : path.join(dir, file);
 }
 function hasMpegFrameHeader(buffer, offset) {
 	const mpegHeader = buffer[offset + 1] ?? 0;
@@ -123,9 +112,6 @@ function detectAudioFormat(buffer) {
 	if (hasMpegFrameHeader(buffer, 0) || prefix.startsWith("ID3") && hasId3v2MpegFrame(buffer)) return "mp3";
 	return prefix.startsWith("OggS") ? "ogg" : null;
 }
-function getFileExt(format) {
-	return `.${format}`;
-}
 async function readAudioFile(filePath) {
 	const { readRegularFileSync } = await import("openclaw/plugin-sdk/security-runtime");
 	return readRegularFileSync({
@@ -136,10 +122,9 @@ async function readAudioFile(filePath) {
 async function runCli(params) {
 	const cleanText = stripEmojis(params.text);
 	if (!cleanText) throw new Error("CLI TTS: text is empty after removing emojis");
-	const outputExt = getFileExt(params.config.outputFormat);
 	const ctx = {
 		Text: cleanText,
-		OutputPath: path.join(params.outputDir, `${params.filePrefix}${outputExt}`),
+		OutputPath: path.join(params.outputDir, `${params.filePrefix}.${params.config.outputFormat}`),
 		OutputDir: params.outputDir,
 		OutputBase: params.filePrefix
 	};
@@ -170,7 +155,7 @@ async function runCli(params) {
 	const audioFile = findAudioFile(params.outputDir, params.filePrefix);
 	if (audioFile) {
 		const buffer = await readAudioFile(audioFile);
-		const format = detectAudioFormat(buffer) ?? detectFormatFromExtension(audioFile);
+		const format = detectAudioFormat(buffer) ?? (path.extname(audioFile).toLowerCase() === ".m4a" ? "m4a" : null);
 		if (!format) throw new Error(`CLI TTS: unknown format for ${audioFile}`);
 		return {
 			buffer,
@@ -191,52 +176,59 @@ async function runCli(params) {
 	if (result.termination === "error") throw new Error(`CLI TTS failed: ${result.error?.message ?? result.termination}`);
 	throw new Error("CLI TTS produced no output");
 }
-async function runFfmpegToBuffer(params) {
-	const outputPath = path.join(params.outputDir, params.outputFileName);
-	const { runFfmpeg } = await import("openclaw/plugin-sdk/media-runtime");
-	const { writeExternalFileWithinRoot } = await import("openclaw/plugin-sdk/security-runtime");
-	await writeExternalFileWithinRoot({
-		rootDir: params.outputDir,
-		path: params.outputFileName,
-		write: async (tempPath) => {
-			await runFfmpeg([...params.args, tempPath]);
-		}
-	});
-	return readAudioFile(outputPath);
-}
 async function convertAudio(inputPath, outputDir, target) {
-	const outputFileName = `converted${getFileExt(target)}`;
+	const outputFileName = target === "pcm" ? "telephony.pcm" : `converted.${target}`;
 	const args = [
 		"-y",
 		"-i",
 		inputPath
 	];
-	if (target === "opus") args.push("-c:a", "libopus", "-b:a", "64k", "-f", "opus");
+	if (target === "pcm") args.push("-c:a", "pcm_s16le", "-ar", "16000", "-ac", "1", "-f", "s16le");
+	else if (target === "opus") args.push("-c:a", "libopus", "-b:a", "64k", "-f", "opus");
 	else if (target === "wav") args.push("-c:a", "pcm_s16le", "-f", "wav");
 	else args.push("-c:a", "libmp3lame", "-b:a", "128k", "-f", "mp3");
-	return await runFfmpegToBuffer({
-		args,
-		outputDir,
-		outputFileName
+	const { runFfmpeg } = await import("openclaw/plugin-sdk/media-runtime");
+	const { writeExternalFileWithinRoot } = await import("openclaw/plugin-sdk/security-runtime");
+	await writeExternalFileWithinRoot({
+		rootDir: outputDir,
+		path: outputFileName,
+		write: async (tempPath) => {
+			await runFfmpeg([...args, tempPath]);
+		}
 	});
+	return readAudioFile(path.join(outputDir, outputFileName));
 }
-async function convertToRawPcm(inputPath, outputDir) {
-	return await runFfmpegToBuffer({
-		args: [
-			"-y",
-			"-i",
-			inputPath,
-			"-c:a",
-			"pcm_s16le",
-			"-ar",
-			"16000",
-			"-ac",
-			"1",
-			"-f",
-			"s16le"
-		],
-		outputDir,
-		outputFileName: "telephony.pcm"
+async function synthesizeCli(req, target) {
+	const { resolvePreferredOpenClawTmpDir, withTempWorkspace } = await import("openclaw/plugin-sdk/temp-path");
+	const { createSubsystemLogger } = await import("openclaw/plugin-sdk/runtime-env");
+	const log = createSubsystemLogger("tts-local-cli");
+	const config = getConfig(req.providerConfig, req.timeoutMs);
+	if (!config) throw new Error("CLI TTS not configured");
+	const telephony = target === "telephony";
+	log.debug(`${telephony ? "synthesizeTelephony" : "synthesize"}: text=${truncateUtf16Safe(req.text, 50)}...`);
+	return await withTempWorkspace({
+		rootDir: resolvePreferredOpenClawTmpDir(),
+		prefix: "openclaw-cli-tts-"
+	}, async (temp) => {
+		const result = await runCli({
+			config,
+			text: req.text,
+			outputDir: temp.dir,
+			filePrefix: telephony ? "telephony" : "speech"
+		});
+		if (!telephony) log.debug(`synthesize: format=${result.actualFormat}, size=${result.buffer.length}`);
+		const format = telephony ? "pcm" : target === "voice-note" ? "opus" : config.outputFormat;
+		let audioBuffer = result.buffer;
+		if (result.actualFormat !== format) {
+			const inputName = `input.${result.actualFormat}`;
+			const inputFile = result.audioPath ?? path.join(temp.dir, inputName);
+			if (!result.audioPath) await temp.write(inputName, result.buffer);
+			audioBuffer = await convertAudio(inputFile, temp.dir, format);
+		}
+		return {
+			audioBuffer,
+			outputFormat: format
+		};
 	});
 }
 function buildCliSpeechProvider() {
@@ -253,67 +245,18 @@ function buildCliSpeechProvider() {
 			return getConfig(ctx.providerConfig) !== null;
 		},
 		async synthesize(req) {
-			const { resolvePreferredOpenClawTmpDir, withTempWorkspace } = await import("openclaw/plugin-sdk/temp-path");
-			const { createSubsystemLogger } = await import("openclaw/plugin-sdk/runtime-env");
-			const log = createSubsystemLogger("tts-local-cli");
-			const config = getConfig(req.providerConfig, req.timeoutMs);
-			if (!config) throw new Error("CLI TTS not configured");
-			log.debug(`synthesize: text=${truncateUtf16Safe(req.text, 50)}...`);
-			return await withTempWorkspace({
-				rootDir: resolvePreferredOpenClawTmpDir(),
-				prefix: "openclaw-cli-tts-"
-			}, async (temp) => {
-				const tempDir = temp.dir;
-				const result = await runCli({
-					config,
-					text: req.text,
-					outputDir: tempDir,
-					filePrefix: "speech"
-				});
-				log.debug(`synthesize: format=${result.actualFormat}, size=${result.buffer.length}`);
-				const format = req.target === "voice-note" ? "opus" : config.outputFormat;
-				let buffer = result.buffer;
-				if (result.actualFormat !== format) {
-					const inputName = `input${getFileExt(result.actualFormat)}`;
-					const inputFile = result.audioPath ?? path.join(tempDir, inputName);
-					if (!result.audioPath) await temp.write(inputName, result.buffer);
-					buffer = await convertAudio(inputFile, tempDir, format);
-				}
-				const fileExtension = format === "opus" ? ".ogg" : `.${format}`;
-				return {
-					audioBuffer: buffer,
-					outputFormat: format,
-					fileExtension,
-					voiceCompatible: req.target === "voice-note" && format === "opus"
-				};
-			});
+			const result = await synthesizeCli(req, req.target === "voice-note" ? "voice-note" : "audio-file");
+			return {
+				...result,
+				fileExtension: result.outputFormat === "opus" ? ".ogg" : `.${result.outputFormat}`,
+				voiceCompatible: req.target === "voice-note" && result.outputFormat === "opus"
+			};
 		},
 		async synthesizeTelephony(req) {
-			const { resolvePreferredOpenClawTmpDir, withTempWorkspace } = await import("openclaw/plugin-sdk/temp-path");
-			const { createSubsystemLogger } = await import("openclaw/plugin-sdk/runtime-env");
-			const log = createSubsystemLogger("tts-local-cli");
-			const config = getConfig(req.providerConfig, req.timeoutMs);
-			if (!config) throw new Error("CLI TTS not configured");
-			log.debug(`synthesizeTelephony: text=${truncateUtf16Safe(req.text, 50)}...`);
-			return await withTempWorkspace({
-				rootDir: resolvePreferredOpenClawTmpDir(),
-				prefix: "openclaw-cli-tts-"
-			}, async (temp) => {
-				const tempDir = temp.dir;
-				const result = await runCli({
-					config,
-					text: req.text,
-					outputDir: tempDir,
-					filePrefix: "telephony"
-				});
-				const inputFile = result.audioPath ?? path.join(tempDir, `input${getFileExt(result.actualFormat)}`);
-				if (!result.audioPath) await temp.write(`input${getFileExt(result.actualFormat)}`, result.buffer);
-				return {
-					audioBuffer: await convertToRawPcm(inputFile, tempDir),
-					outputFormat: "pcm",
-					sampleRate: 16e3
-				};
-			});
+			return {
+				...await synthesizeCli(req, "telephony"),
+				sampleRate: 16e3
+			};
 		}
 	};
 }

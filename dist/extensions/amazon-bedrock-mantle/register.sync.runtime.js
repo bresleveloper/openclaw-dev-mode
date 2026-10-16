@@ -51,14 +51,8 @@ function registerBedrockMantlePlugin(api) {
 			})
 		},
 		resolveConfigApiKey: ({ env }) => resolveMantleBearerToken(env) ? "env:AWS_BEARER_TOKEN_BEDROCK" : void 0,
-		prepareRuntimeAuth: async ({ apiKey, env }) => await resolveMantleRuntimeBearerToken({
-			apiKey,
-			env
-		}),
-		normalizeResolvedModel: ({ modelId, model }) => normalizeMantleResolvedModel({
-			modelId,
-			model
-		}),
+		prepareRuntimeAuth: resolveMantleRuntimeBearerToken,
+		normalizeResolvedModel: normalizeMantleResolvedModel,
 		supportsSystemPromptCacheBoundary: true,
 		createStreamFn: ({ model }) => model.api === "anthropic-messages" ? createMantleAnthropicStreamFn() : void 0,
 		matchesContextOverflowError: ({ errorMessage }) => /context_length_exceeded|max.*tokens.*exceeded/i.test(errorMessage),

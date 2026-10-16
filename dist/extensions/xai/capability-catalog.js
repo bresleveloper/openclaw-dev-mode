@@ -1,5 +1,5 @@
-import { D as serializeXaiRealtimeToolResult, d as createXaiRealtimeVoiceProviderMetadata, m as normalizeXaiRealtimeTranscriptionProviderConfig, s as assertXaiRealtimeVoiceRequestSupported, u as createXaiRealtimeTranscriptionProviderMetadata } from "./.setup/capability-provider-metadata-factory-VkSZouOh.mjs";
-import { n as createXaiSpeechProviderMetadata } from "./.setup/speech-provider-metadata-factory-D8wVBGbN.mjs";
+import { D as serializeXaiRealtimeToolResult, d as createXaiRealtimeVoiceProviderMetadata, m as normalizeXaiRealtimeTranscriptionProviderConfig, s as assertXaiRealtimeVoiceRequestSupported, u as createXaiRealtimeTranscriptionProviderMetadata } from "./.setup/capability-provider-metadata-factory-Hx0z45WX.mjs";
+import { n as createXaiSpeechProviderMetadata } from "./.setup/speech-provider-metadata-factory-x6gUxkXG.mjs";
 import { createLazyRuntimeModule } from "openclaw/plugin-sdk/lazy-runtime";
 import { createRealtimeVoiceAudioQueue } from "openclaw/plugin-sdk/realtime-voice-audio-queue";
 import { createLazyRealtimeVoiceBridgeLifecycle } from "openclaw/plugin-sdk/realtime-voice-provider";
@@ -8,7 +8,7 @@ const MAX_LAZY_REALTIME_VOICE_USER_MESSAGES = 128;
 const MAX_LAZY_REALTIME_VOICE_USER_MESSAGE_BYTES = 262144;
 const MAX_LAZY_REALTIME_VOICE_TOOL_RESULTS = 128;
 const MAX_LAZY_REALTIME_VOICE_TOOL_RESULT_BYTES = 262144;
-const loadXaiRealtimeVoiceProvider = createLazyRuntimeModule(async () => (await import("./.setup/realtime-voice-provider-CBr1zGV2.mjs")).buildXaiRealtimeVoiceProvider());
+const loadXaiRealtimeVoiceProvider = createLazyRuntimeModule(async () => (await import("./.setup/realtime-voice-provider-C4hLNnm4.mjs")).buildXaiRealtimeVoiceProvider());
 function createLazyXaiRealtimeVoiceBridge(req) {
 	assertXaiRealtimeVoiceRequestSupported(req);
 	let acceptsInput = false;
@@ -46,7 +46,6 @@ function createLazyXaiRealtimeVoiceBridge(req) {
 		return next;
 	};
 	const flushPendingInput = async (loadedBridge, isCurrent) => {
-		if (!isCurrent()) return;
 		while (true) {
 			if (!isCurrent()) return;
 			const operation = pendingOperations.shift();
@@ -186,10 +185,10 @@ function createLazyXaiRealtimeVoiceBridge(req) {
 //#endregion
 //#region extensions/xai/lazy-capability-provider-factories.ts
 const MAX_LAZY_REALTIME_TRANSCRIPTION_AUDIO_BYTES = 2097152;
-createLazyRuntimeModule(async () => (await import("./.setup/image-generation-provider-CXwoIarx.mjs")).buildXaiImageGenerationProvider());
-createLazyRuntimeModule(async () => (await import("./.setup/stt-Ch4Gl8So.mjs")).buildXaiMediaUnderstandingProvider());
-const loadXaiSpeechProvider = createLazyRuntimeModule(async () => (await import("./.setup/speech-provider-DPWxWWd7.mjs")).buildXaiSpeechProvider());
-createLazyRuntimeModule(async () => (await import("./.setup/video-generation-provider-iNIZbEz8.mjs")).buildXaiVideoGenerationProvider());
+createLazyRuntimeModule(async () => (await import("./.setup/image-generation-provider-D68QbrsN.mjs")).buildXaiImageGenerationProvider());
+createLazyRuntimeModule(async () => (await import("./.setup/stt-CptCc3n8.mjs")).buildXaiMediaUnderstandingProvider());
+const loadXaiSpeechProvider = createLazyRuntimeModule(async () => (await import("./.setup/speech-provider-Cmw15TPZ.mjs")).buildXaiSpeechProvider());
+createLazyRuntimeModule(async () => (await import("./.setup/video-generation-provider-BZ82gTl6.mjs")).buildXaiVideoGenerationProvider());
 function createPendingTranscriptionAudioQueue() {
 	let chunks = [];
 	let head = 0;
@@ -298,26 +297,14 @@ function createLazyXaiRealtimeTranscriptionSession(req, loadXaiRealtimeTranscrip
 function createLazyXaiSpeechProvider(context) {
 	return {
 		...createXaiSpeechProviderMetadata(context),
-		listVoices: async (req) => {
-			const provider = await loadXaiSpeechProvider();
-			if (!provider.listVoices) throw new Error("xAI speech provider missing listVoices");
-			return await provider.listVoices(req);
-		},
+		listVoices: async (req) => (await loadXaiSpeechProvider()).listVoices(req),
 		synthesize: async (req) => await (await loadXaiSpeechProvider()).synthesize(req),
-		streamSynthesize: async (req) => {
-			const provider = await loadXaiSpeechProvider();
-			if (!provider.streamSynthesize) throw new Error("xAI speech provider missing streamSynthesize");
-			return await provider.streamSynthesize(req);
-		},
-		synthesizeTelephony: async (req) => {
-			const provider = await loadXaiSpeechProvider();
-			if (!provider.synthesizeTelephony) throw new Error("xAI speech provider missing synthesizeTelephony");
-			return await provider.synthesizeTelephony(req);
-		}
+		streamSynthesize: async (req) => (await loadXaiSpeechProvider()).streamSynthesize(req),
+		synthesizeTelephony: async (req) => (await loadXaiSpeechProvider()).synthesizeTelephony(req)
 	};
 }
 function createLazyXaiRealtimeTranscriptionProvider(context) {
-	const loadProvider = createLazyRuntimeModule(async () => (await import("./.setup/realtime-transcription-provider-factory-BZjLjURr.mjs")).buildXaiRealtimeTranscriptionProvider(context));
+	const loadProvider = createLazyRuntimeModule(async () => (await import("./.setup/realtime-transcription-provider-factory-BP-eTbJx.mjs")).buildXaiRealtimeTranscriptionProvider(context));
 	return {
 		...createXaiRealtimeTranscriptionProviderMetadata(context),
 		createSession: (req) => {

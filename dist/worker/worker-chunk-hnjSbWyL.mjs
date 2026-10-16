@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{createHash as t}from"node:crypto";function nodeWorkerGatewayNamespace(e){return`gateway-${t(`sha256`).update(e).digest(`hex`).slice(0,32)}`}var n=e((()=>{}));export{nodeWorkerGatewayNamespace as n,n as t};

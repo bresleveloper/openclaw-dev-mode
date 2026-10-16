@@ -1,2 +1,4 @@
-import { t as pruneMapToMaxSize } from "../map-size-Cxg6PuCO.js";
-export { pruneMapToMaxSize };
+//#region src/infra/map-size.d.ts
+/** Prunes a Map in insertion order until it fits the requested maximum size. */
+export declare function pruneMapToMaxSize<K, V>(map: Map<K, V>, maxSize: number): void;
+//#endregion

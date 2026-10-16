@@ -9,7 +9,11 @@
     "configRepair": true,
     "stateMigrations": [
       {
-        "id": "telegram-legacy-state"
+        "id": "telegram-update-offsets",
+        "phase": "after-session-repair"
+      },
+      {
+        "id": "telegram-json-ingress-spool"
       }
     ]
   },
@@ -679,6 +683,9 @@
                 "systemPrompt": {
                   "type": "string"
                 },
+                "requireMentionInBotThreads": {
+                  "type": "boolean"
+                },
                 "ingest": {
                   "type": "boolean"
                 },
@@ -702,6 +709,9 @@
                     "type": "object",
                     "properties": {
                       "requireMention": {
+                        "type": "boolean"
+                      },
+                      "requireMentionInBotThreads": {
                         "type": "boolean"
                       },
                       "ingest": {
@@ -1089,15 +1099,31 @@
             "description": "Local webhook route path served by the gateway listener. Defaults to /telegram-webhook.",
             "type": "string"
           },
-          "webhookHost": {
-            "description": "Local bind host for the webhook listener. Defaults to 127.0.0.1; keep loopback unless you intentionally expose direct ingress.",
-            "type": "string"
-          },
-          "webhookPort": {
-            "description": "Local bind port for the webhook listener. Defaults to 8787; set to 0 to let the OS assign an ephemeral port.",
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 9007199254740991
+          "legacyWebhook": {
+            "description": "Explicit webhook forwarding endpoint. Doctor pins existing proxy endpoints once; remove the pin after moving the proxy to the Gateway, or set false to disable inherited forwarding.",
+            "anyOf": [
+              {
+                "type": "boolean",
+                "const": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "port": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  "host": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "port"
+                ],
+                "additionalProperties": false
+              }
+            ]
           },
           "webhookCertPath": {
             "description": "Path to the self-signed certificate (PEM) to upload to Telegram during webhook registration. Required for self-signed certs (direct IP or no domain).",
@@ -1879,6 +1905,9 @@
                       "systemPrompt": {
                         "type": "string"
                       },
+                      "requireMentionInBotThreads": {
+                        "type": "boolean"
+                      },
                       "ingest": {
                         "type": "boolean"
                       },
@@ -1902,6 +1931,9 @@
                           "type": "object",
                           "properties": {
                             "requireMention": {
+                              "type": "boolean"
+                            },
+                            "requireMentionInBotThreads": {
                               "type": "boolean"
                             },
                             "ingest": {
@@ -2289,15 +2321,31 @@
                   "description": "Local webhook route path served by the gateway listener. Defaults to /telegram-webhook.",
                   "type": "string"
                 },
-                "webhookHost": {
-                  "description": "Local bind host for the webhook listener. Defaults to 127.0.0.1; keep loopback unless you intentionally expose direct ingress.",
-                  "type": "string"
-                },
-                "webhookPort": {
-                  "description": "Local bind port for the webhook listener. Defaults to 8787; set to 0 to let the OS assign an ephemeral port.",
-                  "type": "integer",
-                  "minimum": 0,
-                  "maximum": 9007199254740991
+                "legacyWebhook": {
+                  "description": "Explicit webhook forwarding endpoint. Doctor pins existing proxy endpoints once; remove the pin after moving the proxy to the Gateway, or set false to disable inherited forwarding.",
+                  "anyOf": [
+                    {
+                      "type": "boolean",
+                      "const": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "port": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 65535
+                        },
+                        "host": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "port"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
                 },
                 "webhookCertPath": {
                   "description": "Path to the self-signed certificate (PEM) to upload to Telegram during webhook registration. Required for self-signed certs (direct IP or no domain).",
@@ -2458,6 +2506,22 @@
         },
         "accounts.*.dms.*.historyLimit": {
           "help": "Automatic observed-DM context uses a default of 10 and a maximum of 200 messages; 0 disables that extra context. The JSON integer maximum selects the 10-message default. Session transcript trimming separately counts user turns, where 0 means no trimming. The observed-message cap does not rewrite saved values."
+        },
+        "groups.*.requireMentionInBotThreads": {
+          "label": "Telegram Bot Topic Mention Requirement",
+          "help": "Override mention gating in forum topics created by this bot. False allows unmentioned messages; true requires a mention even for replies to the bot. Topic settings override group settings. Omit to preserve existing behavior. Unknown or evicted topic ownership keeps the normal policy. Telegram privacy mode must allow ordinary group messages; sender and visible-reply policies still apply."
+        },
+        "groups.*.topics.*.requireMentionInBotThreads": {
+          "label": "Telegram Bot Topic Mention Requirement",
+          "help": "Override mention gating in forum topics created by this bot. False allows unmentioned messages; true requires a mention even for replies to the bot. Topic settings override group settings. Omit to preserve existing behavior. Unknown or evicted topic ownership keeps the normal policy. Telegram privacy mode must allow ordinary group messages; sender and visible-reply policies still apply."
+        },
+        "accounts.*.groups.*.requireMentionInBotThreads": {
+          "label": "Telegram Bot Topic Mention Requirement",
+          "help": "Override mention gating in forum topics created by this bot. False allows unmentioned messages; true requires a mention even for replies to the bot. Topic settings override group settings. Omit to preserve existing behavior. Unknown or evicted topic ownership keeps the normal policy. Telegram privacy mode must allow ordinary group messages; sender and visible-reply policies still apply."
+        },
+        "accounts.*.groups.*.topics.*.requireMentionInBotThreads": {
+          "label": "Telegram Bot Topic Mention Requirement",
+          "help": "Override mention gating in forum topics created by this bot. False allows unmentioned messages; true requires a mention even for replies to the bot. Topic settings override group settings. Omit to preserve existing behavior. Unknown or evicted topic ownership keeps the normal policy. Telegram privacy mode must allow ordinary group messages; sender and visible-reply policies still apply."
         },
         "": {
           "label": "Telegram",
@@ -2653,11 +2717,11 @@
         },
         "threadBindings.spawnSessions": {
           "label": "Telegram Thread-Bound Session Spawn",
-          "help": "Allow sessions_spawn(thread=true) and ACP thread spawns to auto-bind Telegram current conversations when supported."
+          "help": "Allow /acp spawn --thread to bind Telegram topics when supported. Agent sessions_spawn(thread=true) never binds a Telegram conversation; it needs a channel that opens a separate thread."
         },
         "threadBindings.defaultSpawnContext": {
           "label": "Telegram Thread Spawn Context",
-          "help": "Default native subagent context for thread-bound spawns. \"fork\" starts from the requester transcript; \"isolated\" starts clean. Default: \"fork\"."
+          "help": "Default native subagent context for thread-bound spawns. \"fork\" starts from the requester transcript; \"isolated\" starts clean. Default: \"fork\". Telegram cannot host agent-spawned thread sessions, so this has no effect for Telegram requests."
         }
       }
     }

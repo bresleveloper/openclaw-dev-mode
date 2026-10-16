@@ -1,4 +1,4 @@
-import { S as QWEN_STANDARD_GLOBAL_BASE_URL } from "./.setup/models-DIZ7f-Lx.mjs";
+import { S as QWEN_STANDARD_GLOBAL_BASE_URL } from "./.setup/models-NTrSBQ85.mjs";
 import { describeOpenAiCompatibleVideo } from "openclaw/plugin-sdk/media-understanding";
 //#region extensions/qwen/media-understanding-provider.ts
 const DEFAULT_QWEN_MEDIA_MODEL = "qwen3.6-plus";

@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function isBlockedObjectKey(e){return t.has(e)}var t,n=e((()=>{t=/* @__PURE__ */ new Set([`__proto__`,`prototype`,`constructor`])}));export{isBlockedObjectKey as n,n as t};

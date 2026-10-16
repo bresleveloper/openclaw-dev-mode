@@ -1,38 +1,26 @@
-import { C as parseStrictNonNegativeInteger, w as parseStrictPositiveInteger } from "../../number-coercion-CLj0HTDM.mjs";
-import { r as createLazyRuntimeModule } from "../../lazy-runtime-BPNHa36e.mjs";
-import { t as formatDocsLink } from "../../links-B3qXeqz-.mjs";
+import { C as parseStrictNonNegativeInteger, w as parseStrictPositiveInteger } from "../../number-coercion-CuVhdCBs.mjs";
+import { r as createLazyRuntimeModule } from "../../lazy-runtime-CJrzFzqU.mjs";
 import { r as theme } from "../../theme-DzaUZY4q.mjs";
-import "../../number-runtime-CGwowceO.mjs";
-import { t as formatHelpExamples } from "../../help-format-Ctl5AOqy.mjs";
-import "../../memory-core-host-runtime-cli-BQv5v98E.mjs";
-import { p as configureMemoryCoreDreamingState } from "../../dreaming-state-DJfKblhZ.mjs";
-import { n as DEFAULT_PROMOTION_MIN_SCORE, r as DEFAULT_PROMOTION_MIN_UNIQUE_QUERIES, t as DEFAULT_PROMOTION_MIN_RECALL_COUNT } from "../../short-term-promotion-types-CF6lUGQN.mjs";
+import { t as formatDocsLink } from "../../links-4Bgsoz0M.mjs";
+import "../../number-runtime-CgyXj1A5.mjs";
+import { n as formatHelpExamples } from "../../help-format-xds_bDSp.mjs";
+import "../../memory-core-host-runtime-cli-CTGVqXVK.mjs";
+import { f as configureMemoryCoreDreamingState } from "../../dreaming-state-BHlTqX1G.mjs";
+import { n as DEFAULT_PROMOTION_MIN_SCORE, r as DEFAULT_PROMOTION_MIN_UNIQUE_QUERIES, t as DEFAULT_PROMOTION_MIN_RECALL_COUNT } from "../../short-term-promotion-types-DYEsoz46.mjs";
 //#region extensions/memory-core/src/cli.ts
-const loadMemoryCliRuntime = createLazyRuntimeModule(() => import("../../cli.runtime-BfR0h7mP.mjs"));
+const loadMemoryCliRuntime = createLazyRuntimeModule(() => import("../../cli.runtime-DFMzN1Jh.mjs"));
 const DECIMAL_NUMBER_RE = /^[+-]?(?:\d+(?:\.\d+)?|\.\d+)$/;
 const DEFAULT_SESSION_BACKFILL_LIMIT_DAYS = 92;
-function invalidCliArgument(message) {
-	const error = new Error(message);
-	error.name = "InvalidArgumentError";
-	error.code = "commander.invalidArgument";
-	error.exitCode = 1;
-	return error;
-}
-function parseMemoryCliNumberOption(value, flag) {
-	const trimmed = value.trim();
-	const parsed = DECIMAL_NUMBER_RE.test(trimmed) ? Number(trimmed) : NaN;
-	if (!Number.isFinite(parsed)) throw invalidCliArgument(`${flag} must be a finite number.`);
-	return parsed;
-}
-function parseMemoryCliPositiveIntegerOption(value, flag) {
-	const parsed = parseStrictPositiveInteger(value);
-	if (parsed === void 0) throw invalidCliArgument(`${flag} must be a positive integer.`);
-	return parsed;
-}
-function parseMemoryCliNonNegativeIntegerOption(value, flag) {
-	const parsed = parseStrictNonNegativeInteger(value);
-	if (parsed === void 0) throw invalidCliArgument(`${flag} must be a non-negative integer.`);
-	return parsed;
+function memoryCliNumberOption(flag, kind) {
+	return (value) => {
+		const parsed = kind === "positive integer" ? parseStrictPositiveInteger(value) : kind === "non-negative integer" ? parseStrictNonNegativeInteger(value) : DECIMAL_NUMBER_RE.test(value.trim()) ? Number(value.trim()) : void 0;
+		if (parsed === void 0 || !Number.isFinite(parsed)) throw Object.assign(/* @__PURE__ */ new Error(`${flag} must be a ${kind}.`), {
+			name: "InvalidArgumentError",
+			code: "commander.invalidArgument",
+			exitCode: 1
+		});
+		return parsed;
+	};
 }
 function collectMemoryCliValues(value, previous) {
 	return [...previous, value];
@@ -65,7 +53,7 @@ function registerMemoryCli(program, hostOptions) {
 	memory.command("reset").description("Clear the derived memory index and embedding cache without deleting sessions").option("--agent <id>", "Agent id (default: all configured agents)").option("--yes", "Skip confirmation", false).action(async (opts) => {
 		await (await loadMemoryCliRuntime()).runMemoryReset(opts);
 	});
-	memory.command("search").description("Search memory files").argument("[query]", "Search query").option("--query <text>", "Search query (alternative to positional argument)").option("--agent <id>", "Agent id (default: default agent)").option("--max-results <n>", "Max results", (value) => parseMemoryCliPositiveIntegerOption(value, "--max-results")).option("--min-score <n>", "Minimum score", (value) => parseMemoryCliNumberOption(value, "--min-score")).option("--json", "Print JSON").action(async (queryArg, opts) => {
+	memory.command("search").description("Search memory files").argument("[query]", "Search query").option("--query <text>", "Search query (alternative to positional argument)").option("--agent <id>", "Agent id (default: default agent)").option("--max-results <n>", "Max results", memoryCliNumberOption("--max-results", "positive integer")).option("--min-score <n>", "Minimum score", memoryCliNumberOption("--min-score", "finite number")).option("--json", "Print JSON").action(async (queryArg, opts) => {
 		const query = opts.query ?? queryArg;
 		if (!query) throw new Error("Missing search query. Provide a positional query or use --query <text>.");
 		await (await loadMemoryCliRuntime()).runMemorySearch(query, opts, hostOptions);
@@ -74,7 +62,7 @@ function registerMemoryCli(program, hostOptions) {
 		if (!opts.session?.length && !opts.hookSource?.length && !opts.participant?.length) throw new Error("Memory forget requires --session <id-or-key>, --hook-source <source>, or --participant <actor-id>.");
 		await (await loadMemoryCliRuntime()).runMemoryForget(opts);
 	});
-	memory.command("promote").description("Rank short-term recalls and optionally append top entries to MEMORY.md").option("--agent <id>", "Agent id (default: default agent)").option("--limit <n>", "Max candidates", (value) => parseMemoryCliPositiveIntegerOption(value, "--limit")).option("--min-score <n>", `Minimum weighted score (default: ${DEFAULT_PROMOTION_MIN_SCORE})`, (value) => parseMemoryCliNumberOption(value, "--min-score")).option("--min-recall-count <n>", `Minimum recall count (default: ${DEFAULT_PROMOTION_MIN_RECALL_COUNT})`, (value) => parseMemoryCliNonNegativeIntegerOption(value, "--min-recall-count")).option("--min-unique-queries <n>", `Minimum distinct query count (default: ${DEFAULT_PROMOTION_MIN_UNIQUE_QUERIES})`, (value) => parseMemoryCliNonNegativeIntegerOption(value, "--min-unique-queries")).option("--apply", "Append selected candidates to MEMORY.md", false).option("--include-promoted", "Include already promoted candidates", false).option("--json", "Print JSON").action(async (opts) => {
+	memory.command("promote").description("Rank short-term recalls and optionally append top entries to MEMORY.md").option("--agent <id>", "Agent id (default: default agent)").option("--limit <n>", "Max candidates", memoryCliNumberOption("--limit", "positive integer")).option("--min-score <n>", `Minimum weighted score (default: ${DEFAULT_PROMOTION_MIN_SCORE})`, memoryCliNumberOption("--min-score", "finite number")).option("--min-recall-count <n>", `Minimum recall count (default: ${DEFAULT_PROMOTION_MIN_RECALL_COUNT})`, memoryCliNumberOption("--min-recall-count", "non-negative integer")).option("--min-unique-queries <n>", `Minimum distinct query count (default: ${DEFAULT_PROMOTION_MIN_UNIQUE_QUERIES})`, memoryCliNumberOption("--min-unique-queries", "non-negative integer")).option("--apply", "Append selected candidates to MEMORY.md", false).option("--include-promoted", "Include already promoted candidates", false).option("--json", "Print JSON").action(async (opts) => {
 		await (await loadMemoryCliRuntime()).runMemoryPromote(opts, hostOptions);
 	});
 	memory.command("promote-explain").description("Explain a specific promotion candidate and its score breakdown").argument("<selector>", "Candidate key, path fragment, or snippet fragment").option("--agent <id>", "Agent id (default: default agent)").option("--include-promoted", "Include already promoted candidates", false).option("--json", "Print JSON").action(async (selectorArg, opts) => {
@@ -88,7 +76,7 @@ function registerMemoryCli(program, hostOptions) {
 	memory.command("rem-backfill").description("Write grounded historical REM summaries into DREAMS.md for UI review").option("--agent <id>", "Agent id (default: default agent)").option("--path <file-or-dir>", "Historical daily memory file(s) or directory").option("--rollback", "Remove previously written grounded REM backfill entries", false).option("--stage-short-term", "Also seed grounded durable candidates into the short-term promotion store", false).option("--rollback-short-term", "Remove previously seeded grounded short-term candidates", false).option("--json", "Print JSON").action(async (opts) => {
 		await (await loadMemoryCliRuntime()).runMemoryRemBackfill(opts, hostOptions);
 	});
-	memory.command("session-backfill").description("Distill retained session history into staged memory candidates").option("--agent <id>", "Agent id (default: default agent)").option("--from <YYYY-MM-DD>", "Oldest transcript day to include").option("--to <YYYY-MM-DD>", "Newest transcript day to include").option("--limit-days <n>", `Maximum unprocessed days (default: ${DEFAULT_SESSION_BACKFILL_LIMIT_DAYS})`, (value) => parseMemoryCliPositiveIntegerOption(value, "--limit-days"), DEFAULT_SESSION_BACKFILL_LIMIT_DAYS).option("--rem", "Write grounded per-day REM previews to DREAMS.md", false).option("--apply", "Stage candidates and write DREAMS.md diary entries", false).option("--rollback", "Remove all grounded backfill candidates and shared backfill diary entries", false).option("--archive-files <path...>", "Also inspect foreign transcript archive files conservatively").option("--json", "Print JSON").action(async (opts) => {
+	memory.command("session-backfill").description("Distill retained session history into staged memory candidates").option("--agent <id>", "Agent id (default: default agent)").option("--from <YYYY-MM-DD>", "Oldest transcript day to include").option("--to <YYYY-MM-DD>", "Newest transcript day to include").option("--limit-days <n>", `Maximum unprocessed days (default: ${DEFAULT_SESSION_BACKFILL_LIMIT_DAYS})`, memoryCliNumberOption("--limit-days", "positive integer"), DEFAULT_SESSION_BACKFILL_LIMIT_DAYS).option("--rem", "Write grounded per-day REM previews to DREAMS.md", false).option("--apply", "Stage candidates and write DREAMS.md diary entries", false).option("--rollback", "Remove all grounded backfill candidates and shared backfill diary entries", false).option("--archive-files <path...>", "Also inspect foreign transcript archive files conservatively").option("--json", "Print JSON").action(async (opts) => {
 		await (await loadMemoryCliRuntime()).runMemorySessionBackfill(opts, hostOptions);
 	});
 	memory.action(() => {

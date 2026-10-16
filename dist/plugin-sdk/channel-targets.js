@@ -1,7 +1,7 @@
-import { o as normalizeLowercaseStringOrEmpty } from "../string-coerce-CIXf7egm.mjs";
-import { t as normalizeAnyChannelId } from "../registry-normalize-X0yNhfFZ.mjs";
-import { a as resolveChannelEntryMatchWithFallback, i as resolveChannelEntryMatch, n as buildChannelKeyCandidates, o as resolveChannelMatchConfig, r as normalizeChannelSlug, s as resolveNestedAllowlistDecision, t as applyChannelMatchMeta } from "../channel-config-BvG_KKK1.mjs";
-import { a as resolveServicePrefixedAllowTarget, c as resolveServicePrefixedTarget, i as parseChatTargetPrefixesOrThrow, o as resolveServicePrefixedChatTarget, r as parseChatAllowTargetPrefixes, s as resolveServicePrefixedOrChatAllowTarget, t as createAllowedChatSenderMatcher } from "../chat-target-prefixes-CRP4fqrl.mjs";
+import { o as normalizeLowercaseStringOrEmpty } from "../string-coerce-1VuiLaaR.mjs";
+import { t as normalizeAnyChannelId } from "../registry-normalize-BvpWSO2L.mjs";
+import { a as resolveChannelEntryMatchWithFallback, i as resolveChannelEntryMatch, n as buildChannelKeyCandidates, o as resolveChannelMatchConfig, r as normalizeChannelSlug, s as resolveNestedAllowlistDecision, t as applyChannelMatchMeta } from "../channel-config-BiYf6grh.mjs";
+import { a as resolveServicePrefixedAllowTarget, c as resolveServicePrefixedTarget, i as parseChatTargetPrefixesOrThrow, o as resolveServicePrefixedChatTarget, r as parseChatAllowTargetPrefixes, s as resolveServicePrefixedOrChatAllowTarget, t as createAllowedChatSenderMatcher } from "../chat-target-prefixes-C7_cZj_-.mjs";
 import { n as resolveTargetsWithOptionalToken, t as buildUnresolvedTargetResults } from "../target-resolvers-C4bHUKEV.mjs";
 //#region src/channels/targets.ts
 /**
@@ -60,18 +60,11 @@ function parseAtUserTarget(params) {
 }
 /** Tries mention, explicit prefixes, then @user shorthand in deterministic order. */
 function parseMentionPrefixOrAtUserTarget(params) {
-	const mentionTarget = parseTargetMention({
+	return parseTargetMention({
 		raw: params.raw,
 		mentionPattern: params.mentionPattern,
 		kind: "user"
-	});
-	if (mentionTarget) return mentionTarget;
-	const prefixedTarget = parseTargetPrefixes({
-		raw: params.raw,
-		prefixes: params.prefixes
-	});
-	if (prefixedTarget) return prefixedTarget;
-	return parseAtUserTarget({
+	}) ?? parseTargetPrefixes(params) ?? parseAtUserTarget({
 		raw: params.raw,
 		pattern: params.atUserPattern,
 		errorMessage: params.atUserErrorMessage

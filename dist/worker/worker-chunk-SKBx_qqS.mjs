@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{i as t}from"./worker-chunk-kGcVsHch.mjs";import{i as n}from"./worker-chunk-G7ID2FQm.mjs";function normalizeProfileEmail(e){let t=e.trim().toLowerCase();if(!t)throw TypeError(`email must not be empty`);return t}var r=e((()=>{n(),t()}));export{normalizeProfileEmail as n,r as t};

@@ -1,15 +1,15 @@
-import { i as asOptionalObjectRecord } from "../../../record-coerce-DItp3I4t.mjs";
-import { i as getNodeSqliteKysely, n as executeSqliteQuerySync, r as executeSqliteQueryTakeFirstSync, s as prepareSqliteQuerySync } from "../../../kysely-sync-Bn6Qrpbz.mjs";
-import { r as enableNodeSqliteKyselyStatementCache } from "../../../kysely-sync-cache-state-CFxglP-_.mjs";
-import { t as openNodeSqliteDatabase } from "../../../node-sqlite-BO6jRFcG.mjs";
-import { o as runSqliteImmediateTransactionSync } from "../../../sqlite-transaction-DKSXLQhb.mjs";
-import { t as configureSqliteConnectionPragmas } from "../../../sqlite-wal-BzoPsBh0.mjs";
-import { t as migrateSqliteSchemaToStrict } from "../../../sqlite-strict-DxDkCm9i.mjs";
-import "../../../string-coerce-runtime-C_MKhRVt.mjs";
-import "../../../sqlite-worker-runtime-BV5P9OQ4.mjs";
+import { i as asOptionalObjectRecord } from "../../../record-coerce-TIsquoVR.mjs";
+import { a as getNodeSqliteKysely, c as prepareSqliteQuerySync, i as executeSqliteQueryTakeFirstSync, r as executeSqliteQuerySync } from "../../../kysely-sync-K7ftY-g4.mjs";
+import { r as enableNodeSqliteKyselyStatementCache } from "../../../kysely-sync-cache-state-eUau8Jaa.mjs";
+import { t as openNodeSqliteDatabase } from "../../../node-sqlite-XIcwmOrl.mjs";
+import { a as runSqliteImmediateTransactionSync } from "../../../sqlite-transaction-DsZ3X6nD.mjs";
+import { t as configureSqliteConnectionPragmas } from "../../../sqlite-wal-DUSYRhyv.mjs";
+import { t as migrateSqliteSchemaToStrict } from "../../../sqlite-strict-CYeSH78z.mjs";
+import "../../../string-coerce-runtime-50qKeWeL.mjs";
+import "../../../sqlite-worker-runtime-BFi6Nryt.mjs";
 import { t as expectDefined } from "../../../expect-runtime-CJBt0Gq2.mjs";
-import "../../../plugin-state-runtime-BxOzg-qH.mjs";
-import { i as pickKeyframeId } from "../../../analyze-8ysrnznv.mjs";
+import "../../../plugin-state-runtime-CD-7t-B7.mjs";
+import { i as pickKeyframeId } from "../../../analyze-BRtMrrch.mjs";
 import { chmodSync, mkdirSync, rmSync, rmdirSync } from "node:fs";
 import path from "node:path";
 //#region extensions/logbook/src/store-frame-queries.ts
@@ -51,7 +51,8 @@ CREATE TABLE IF NOT EXISTS batches (
   created_ms INTEGER NOT NULL,
   updated_ms INTEGER NOT NULL
 ) STRICT;
-CREATE INDEX IF NOT EXISTS idx_logbook_batches_day ON batches (day, start_ms);
+CREATE INDEX IF NOT EXISTS idx_logbook_batches_pending ON batches (start_ms, id) WHERE status = 'pending';
+DROP INDEX IF EXISTS idx_logbook_batches_day;
 CREATE TABLE IF NOT EXISTS frames (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   captured_at_ms INTEGER NOT NULL,
@@ -197,6 +198,15 @@ var LogbookDatabaseStore = class {
 			this.query = getNodeSqliteKysely(db);
 			const { framesQuery, sampledBatchFrames } = createLogbookFrameQueries(db, this.query);
 			this.framesQuery = framesQuery;
+			this.frameMetadataQuery = framesQuery.clearSelect().select([
+				"id",
+				"captured_at_ms",
+				"screen_index",
+				"width",
+				"height",
+				"byte_size",
+				"idle"
+			]);
 			this.batchesQuery = this.query.selectFrom("batches").select([
 				"id",
 				"day",
@@ -288,7 +298,8 @@ var LogbookDatabaseStore = class {
 			throw error;
 		}
 	}
-	close() {
+	async close() {
+		await this.walMaintenance.stop();
 		try {
 			this.walMaintenance.close();
 		} finally {
@@ -307,15 +318,7 @@ var LogbookDatabaseStore = class {
 		} : null;
 	}
 	unbatchedActiveFrames(limit) {
-		return executeSqliteQuerySync(this.db, this.framesQuery.clearSelect().select([
-			"id",
-			"captured_at_ms",
-			"screen_index",
-			"width",
-			"height",
-			"byte_size",
-			"idle"
-		]).where("batch_id", "is", null).where("idle", "=", 0).limit(limit)).rows.map((row) => ({
+		return executeSqliteQuerySync(this.db, this.frameMetadataQuery.where("batch_id", "is", null).where("idle", "=", 0).limit(limit)).rows.map((row) => ({
 			id: row.id,
 			capturedAtMs: row.captured_at_ms
 		}));
@@ -329,15 +332,7 @@ var LogbookDatabaseStore = class {
 		return row ? toFrame(row) : null;
 	}
 	framesInRange(startMs, endMs) {
-		return executeSqliteQuerySync(this.db, this.framesQuery.clearSelect().select([
-			"id",
-			"captured_at_ms",
-			"screen_index",
-			"width",
-			"height",
-			"byte_size",
-			"idle"
-		]).where("captured_at_ms", ">=", startMs).where("captured_at_ms", "<", endMs)).rows.map((row) => ({
+		return executeSqliteQuerySync(this.db, this.frameMetadataQuery.where("captured_at_ms", ">=", startMs).where("captured_at_ms", "<", endMs)).rows.map((row) => ({
 			id: row.id,
 			capturedAtMs: row.captured_at_ms,
 			idle: row.idle === 1
@@ -392,9 +387,6 @@ var LogbookDatabaseStore = class {
 		const row = executeSqliteQueryTakeFirstSync(this.db, this.batchesQuery.where("status", "=", "pending").orderBy("start_ms", "asc").orderBy("id", "asc").limit(1));
 		return row ? toBatch(row) : null;
 	}
-	batchFrames(batchId) {
-		return executeSqliteQuerySync(this.db, this.framesQuery.where("batch_id", "=", batchId)).rows.map(toFrame);
-	}
 	sampledBatchFrames(batchId) {
 		return this.statements.sampledBatchFrames(batchId).rows.map(toFrame);
 	}
@@ -439,15 +431,7 @@ var LogbookDatabaseStore = class {
 	replaceCardsInWindow(day, startMs, endMs, drafts, selectKeyframes = false) {
 		const now = Date.now();
 		runSqliteImmediateTransactionSync(this.db, () => {
-			const frames = selectKeyframes ? executeSqliteQuerySync(this.db, this.framesQuery.clearSelect().select([
-				"id",
-				"captured_at_ms",
-				"screen_index",
-				"width",
-				"height",
-				"byte_size",
-				"idle"
-			]).where("captured_at_ms", ">=", startMs).where("captured_at_ms", "<", endMs)).rows.map((row) => ({
+			const frames = selectKeyframes ? executeSqliteQuerySync(this.db, this.frameMetadataQuery.where("captured_at_ms", ">=", startMs).where("captured_at_ms", "<", endMs)).rows.map((row) => ({
 				id: row.id,
 				capturedAtMs: row.captured_at_ms
 			})) : void 0;
@@ -580,7 +564,6 @@ function createSqliteWorkerBackend(input, context) {
 				case "resetRunningBatches": return store.resetRunningBatches();
 				case "resetErrorBatches": return store.resetErrorBatches();
 				case "nextPendingBatch": return store.nextPendingBatch();
-				case "batchFrames": return store.batchFrames(command.input.batchId);
 				case "sampledBatchFrames": return store.sampledBatchFrames(command.input.batchId);
 				case "replaceObservations": return store.replaceObservations(command.input.batchId, command.input.day, command.input.segments);
 				case "observationsInRange": return store.observationsInRange(command.input.day, command.input.startMs, command.input.endMs, command.input.tailLimit);

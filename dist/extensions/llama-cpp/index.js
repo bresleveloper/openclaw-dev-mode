@@ -1,12 +1,13 @@
-import { C as resolveLlamaCppDataDir, D as resolveLlamaCppSyntheticApiKey, E as resolveLlamaCppModelSource, S as resolveLegacyLlamaCppModelCacheDir, T as resolveLlamaCppModelCacheDir, _ as LLAMA_CPP_PROVIDER_ID, a as DEFAULT_LLAMA_CPP_EMBEDDING_MODEL, b as resolveCachedLlamaCppModelPath, c as DEFAULT_LLAMA_CPP_EMBEDDING_MODEL_SHA256, d as DEFAULT_LLAMA_CPP_MODEL_ID, f as DEFAULT_LLAMA_CPP_MODEL_REVISION, g as LLAMA_CPP_DEFAULT_PORT, h as DEFAULT_LLAMA_CPP_MODEL_URI, i as DEFAULT_LLAMA_CPP_EMBEDDING_CACHE_FILE, l as DEFAULT_LLAMA_CPP_EMBEDDING_MODEL_SIZE_BYTES, m as DEFAULT_LLAMA_CPP_MODEL_SIZE_BYTES, n as resolveManagedLlamaCppProviderConfig, o as DEFAULT_LLAMA_CPP_EMBEDDING_MODEL_ID, p as DEFAULT_LLAMA_CPP_MODEL_SHA256, r as DEFAULT_LLAMA_CPP_CONTEXT_SIZE, s as DEFAULT_LLAMA_CPP_EMBEDDING_MODEL_REVISION, u as DEFAULT_LLAMA_CPP_MODEL_CACHE_FILE, v as LLAMA_CPP_PROVIDER_LABEL, w as resolveLlamaCppEmbeddingModel, x as resolveHomePath, y as buildLlamaCppProviderConfig } from "./.setup/managed-provider-config-BYvyYdAs.mjs";
+import { C as resolveCachedLlamaCppModelPath, D as resolveLlamaCppEmbeddingModel, E as resolveLlamaCppDataDir, O as resolveLlamaCppModelCacheDir, S as buildLlamaCppProviderConfig, T as resolveLegacyLlamaCppModelCacheDir, _ as LLAMA_CPP_DEFAULT_PORT, a as DEFAULT_LLAMA_CPP_EMBEDDING_CONTEXT_SIZE, b as LLAMA_CPP_PROVIDER_LABEL, c as DEFAULT_LLAMA_CPP_EMBEDDING_MODEL_REVISION, d as DEFAULT_LLAMA_CPP_MODEL_CACHE_FILE, f as DEFAULT_LLAMA_CPP_MODEL_ID, g as DEFAULT_LLAMA_CPP_MODEL_URI, h as DEFAULT_LLAMA_CPP_MODEL_SIZE_BYTES, i as DEFAULT_LLAMA_CPP_EMBEDDING_CACHE_FILE, k as resolveLlamaCppModelSource, l as DEFAULT_LLAMA_CPP_EMBEDDING_MODEL_SHA256, m as DEFAULT_LLAMA_CPP_MODEL_SHA256, n as resolveManagedLlamaCppProviderConfig, o as DEFAULT_LLAMA_CPP_EMBEDDING_MODEL, p as DEFAULT_LLAMA_CPP_MODEL_REVISION, s as DEFAULT_LLAMA_CPP_EMBEDDING_MODEL_ID, u as DEFAULT_LLAMA_CPP_EMBEDDING_MODEL_SIZE_BYTES, v as LLAMA_CPP_LOCAL_AUTH_MARKER, w as resolveHomePath, x as buildLlamaCppModel, y as LLAMA_CPP_PROVIDER_ID } from "./.setup/managed-provider-config-D0abOkC_.mjs";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import path from "node:path";
 import { getEmbeddingProvider } from "openclaw/plugin-sdk/embedding-providers";
 import os from "node:os";
-import { asBoolean, asOptionalRecord, asPositiveSafeInteger, isRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
+import { asOptionalRecord, asPositiveSafeInteger, isRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import net from "node:net";
+import { createAsyncLock } from "openclaw/plugin-sdk/async-lock-runtime";
 import { readProviderJsonResponse, readProviderTextResponse } from "openclaw/plugin-sdk/provider-http";
 import { fetchWithSsrFGuard, ssrfPolicyFromHttpBaseUrlAllowedOrigin } from "openclaw/plugin-sdk/ssrf-runtime";
 import { fetchConfiguredLocalOriginWithSsrFGuard } from "openclaw/plugin-sdk/ssrf-runtime-internal";
@@ -19,7 +20,7 @@ import { CUSTOM_LOCAL_AUTH_MARKER, applyAuthProfileConfig, buildApiKeyCredential
 import { buildProviderToolCompatFamilyHooks } from "openclaw/plugin-sdk/provider-tools";
 import { removeAuthProfileConfig, removeProviderAuthProfilesWithLock, resolveApiKeyForProvider } from "openclaw/plugin-sdk/provider-auth-runtime";
 import { resolveConfiguredSecretInputString } from "openclaw/plugin-sdk/secret-input-runtime";
-import * as liveCatalogRuntime from "openclaw/plugin-sdk/provider-catalog-live-runtime";
+import { LiveModelCatalogHttpError, runLiveProviderCatalog } from "openclaw/plugin-sdk/provider-catalog-live-runtime";
 import { getCachedLiveCatalogValue } from "openclaw/plugin-sdk/provider-catalog-shared";
 import { SELF_HOSTED_DEFAULT_CONTEXT_WINDOW, SELF_HOSTED_DEFAULT_COST, SELF_HOSTED_DEFAULT_MAX_TOKENS, applyProviderDefaultModel, discoverOpenAICompatibleLocalModels } from "openclaw/plugin-sdk/provider-setup";
 import { selectPreferredLocalModelId } from "openclaw/plugin-sdk/provider-model-shared";
@@ -34,6 +35,47 @@ const CUDA_ARCHIVE_LIMITS = {
 	maxArchiveBytes: 400 * MEBIBYTE$1,
 	maxExtractedBytes: 600 * MEBIBYTE$1,
 	maxEntryBytes: 521 * MEBIBYTE$1
+};
+const WINDOWS_X64_VC_RUNTIME = {
+	archive: "vc-redist",
+	name: "VC_redist.x64.exe",
+	url: "https://download.visualstudio.microsoft.com/download/pr/ebdab8e5-1d7b-4d9f-a11b-cbb1720c3b12/843068991DAAA1F73AD9F6239BCE4D0F6A07A51F18C37EA2A867E9BECA71295C/VC_redist.x64.exe",
+	sha256: "843068991daaa1f73ad9f6239bce4d0f6a07a51f18c37ea2a867e9beca71295c",
+	size: 18731856,
+	containerOffset: 63e4,
+	containerSize: 18091661,
+	nestedCabinet: "a4",
+	files: [
+		{
+			source: "msvcp140.dll_amd64",
+			target: "msvcp140.dll"
+		},
+		{
+			source: "vcruntime140.dll_amd64",
+			target: "vcruntime140.dll"
+		},
+		{
+			source: "vcruntime140_1.dll_amd64",
+			target: "vcruntime140_1.dll"
+		}
+	]
+};
+const WINDOWS_ARM64_VC_RUNTIME = {
+	archive: "vc-redist",
+	name: "VC_redist.arm64.exe",
+	url: "https://download.visualstudio.microsoft.com/download/pr/ece44298-3977-4f73-ab91-c13fe79cfea8/B70EF586669A620A0A30A1156969C05C6A3831DC8F8BC992DA75779D2A92F944/VC_redist.arm64.exe",
+	sha256: "b70ef586669a620a0a30a1156969c05c6a3831dc8f8bc992da75779d2a92f944",
+	size: 11870816,
+	containerOffset: 684112,
+	containerSize: 11176508,
+	nestedCabinet: "a1",
+	files: [{
+		source: "msvcp140.dll_arm64",
+		target: "msvcp140.dll"
+	}, {
+		source: "vcruntime140.dll_arm64",
+		target: "vcruntime140.dll"
+	}]
 };
 const MACOS_ALIASES = [
 	["libggml-rpc.0.23.0.dylib", ["libggml-rpc.0.dylib", "libggml-rpc.dylib"]],
@@ -124,7 +166,7 @@ const LLAMA_SERVER_ASSETS = [
 				...CUDA_ARCHIVE_LIMITS,
 				maxEntries: 3
 			}
-		}]
+		}, WINDOWS_X64_VC_RUNTIME]
 	},
 	{
 		platform: "win32",
@@ -135,7 +177,8 @@ const LLAMA_SERVER_ASSETS = [
 		name: `llama-${LLAMA_SERVER_RELEASE}-bin-win-cpu-arm64.zip`,
 		sha256: "c1058fe5764a687275c8d20d6bbc1454e787cdbb8ebb8c37a2f959f2b144dc77",
 		executable: "llama-server.exe",
-		regularFileAliases: []
+		regularFileAliases: [],
+		dependencies: [WINDOWS_ARM64_VC_RUNTIME]
 	},
 	{
 		platform: "win32",
@@ -146,7 +189,8 @@ const LLAMA_SERVER_ASSETS = [
 		name: `llama-${LLAMA_SERVER_RELEASE}-bin-win-cpu-x64.zip`,
 		sha256: "9df3158ed228a641a4b127942d7f459f24c9e13f04682659d05c00c80099b6b5",
 		executable: "llama-server.exe",
-		regularFileAliases: []
+		regularFileAliases: [],
+		dependencies: [WINDOWS_X64_VC_RUNTIME]
 	}
 ];
 function selectLlamaServerAsset(platform = process.platform, arch = process.arch, acceleration) {
@@ -181,7 +225,7 @@ const LLAMA_ARCHIVE_LIMITS = {
 	maxMetaEntryBytes: MEBIBYTE
 };
 const MAX_ALIAS_BYTES = 512 * MEBIBYTE;
-function assertManifestBasename(filename) {
+function assertManifestBasename$1(filename) {
 	if (!filename || filename === "." || filename === ".." || /[\\/]/u.test(filename) || path.basename(filename) !== filename) throw new Error(`invalid llama-server archive manifest filename: ${filename}`);
 	return filename;
 }
@@ -192,23 +236,23 @@ function resolveArchiveRoot(destDir, archiveRoot) {
 	if (parts.some((part) => !part || part === "." || part === "..")) throw new Error(`invalid llama-server archive root: ${archiveRoot}`);
 	return path.join(destDir, ...parts);
 }
-async function assertRegularFile(filePath, label) {
+async function assertRegularFile$1(filePath, label) {
 	const stat = await fs.lstat(filePath).catch(() => void 0);
 	if (!stat?.isFile() || stat.nlink > 1) throw new Error(`llama-server archive does not contain regular ${label}`);
 	return stat;
 }
 async function materializeAssetAliases(params) {
-	const claimedNames = new Set(params.requiredFiles.map(assertManifestBasename));
-	for (const file of claimedNames) await assertRegularFile(path.join(params.rootDir, file), `file ${file}`);
+	const claimedNames = new Set(params.requiredFiles.map(assertManifestBasename$1));
+	for (const file of claimedNames) await assertRegularFile$1(path.join(params.rootDir, file), `file ${file}`);
 	let copiedBytes = 0;
 	for (const [rawSource, rawAliases] of params.asset.regularFileAliases) {
-		const source = assertManifestBasename(rawSource);
+		const source = assertManifestBasename$1(rawSource);
 		if (claimedNames.has(source)) throw new Error(`duplicate llama-server archive manifest filename: ${source}`);
 		claimedNames.add(source);
 		const sourcePath = path.join(params.rootDir, source);
-		const sourceStat = await assertRegularFile(sourcePath, `alias source ${source}`);
+		const sourceStat = await assertRegularFile$1(sourcePath, `alias source ${source}`);
 		for (const rawAlias of rawAliases) {
-			const alias = assertManifestBasename(rawAlias);
+			const alias = assertManifestBasename$1(rawAlias);
 			if (claimedNames.has(alias)) throw new Error(`duplicate llama-server archive manifest filename: ${alias}`);
 			claimedNames.add(alias);
 			copiedBytes += sourceStat.size;
@@ -216,7 +260,7 @@ async function materializeAssetAliases(params) {
 			const aliasPath = path.join(params.rootDir, alias);
 			await fs.copyFile(sourcePath, aliasPath, constants.COPYFILE_EXCL);
 			await fs.chmod(aliasPath, sourceStat.mode & 511);
-			if ((await assertRegularFile(aliasPath, `alias ${alias}`)).size !== sourceStat.size) throw new Error(`llama-server archive alias copy is incomplete: ${alias}`);
+			if ((await assertRegularFile$1(aliasPath, `alias ${alias}`)).size !== sourceStat.size) throw new Error(`llama-server archive alias copy is incomplete: ${alias}`);
 		}
 	}
 }
@@ -264,6 +308,118 @@ async function extractLlamaServerDependencyArchive(params) {
 	});
 }
 //#endregion
+//#region extensions/llama-cpp/src/llama-server-vc-runtime.ts
+const CAB_HEADER_SIZE = 12;
+const COPY_BUFFER_SIZE = 1048576;
+const EXPAND_TIMEOUT_MS = 6e4;
+function assertManifestBasename(filename) {
+	if (!filename || filename === "." || filename === ".." || /[\\/]/u.test(filename) || path.basename(filename) !== filename) throw new Error(`invalid Visual C++ runtime manifest filename: ${filename}`);
+	return filename;
+}
+async function writeFully(handle, buffer, length) {
+	let offset = 0;
+	while (offset < length) {
+		const result = await handle.write(buffer, offset, length - offset);
+		if (result.bytesWritten <= 0) throw new Error("Visual C++ runtime container copy made no progress");
+		offset += result.bytesWritten;
+	}
+}
+async function extractPinnedContainer(params) {
+	const source = await fs.open(params.bundlePath, "r");
+	try {
+		const stat = await source.stat();
+		if (!stat.isFile() || stat.size !== params.asset.size) throw new Error(`Visual C++ runtime bundle size mismatch: expected ${params.asset.size}, got ${stat.size}`);
+		if (params.asset.containerOffset < 0 || params.asset.containerSize < CAB_HEADER_SIZE || params.asset.containerOffset + params.asset.containerSize > stat.size) throw new Error("invalid Visual C++ runtime container bounds");
+		const header = Buffer.alloc(CAB_HEADER_SIZE);
+		if ((await source.read(header, 0, header.length, params.asset.containerOffset)).bytesRead !== header.length || header.subarray(0, 4).toString("ascii") !== "MSCF" || header.readUInt32LE(8) !== params.asset.containerSize) throw new Error("Visual C++ runtime bundle does not contain the pinned cabinet");
+		const target = await fs.open(params.containerPath, "wx", 384);
+		try {
+			const buffer = Buffer.allocUnsafe(Math.min(COPY_BUFFER_SIZE, params.asset.containerSize));
+			let copied = 0;
+			while (copied < params.asset.containerSize) {
+				params.signal?.throwIfAborted();
+				const requested = Math.min(buffer.length, params.asset.containerSize - copied);
+				const result = await source.read(buffer, 0, requested, params.asset.containerOffset + copied);
+				if (result.bytesRead <= 0) throw new Error("Visual C++ runtime container ended before its pinned size");
+				await writeFully(target, buffer, result.bytesRead);
+				copied += result.bytesRead;
+			}
+		} finally {
+			await target.close();
+		}
+	} finally {
+		await source.close();
+	}
+}
+function resolveExpandCommand() {
+	const systemRoot = process.env.SystemRoot;
+	if (!systemRoot || !path.win32.isAbsolute(systemRoot)) throw new Error("SystemRoot is unavailable; cannot extract the Visual C++ runtime");
+	return path.win32.join(systemRoot, "System32", "expand.exe");
+}
+async function runExpand(command, args, signal) {
+	await new Promise((resolve, reject) => {
+		execFile(command, args, {
+			timeout: EXPAND_TIMEOUT_MS,
+			signal,
+			windowsHide: true
+		}, (error, _stdout, stderr) => {
+			if (error) {
+				const detail = stderr.trim();
+				reject(new Error(`Failed to extract the Visual C++ runtime${detail ? `: ${detail}` : ""}`, { cause: error }));
+			} else resolve();
+		});
+	});
+}
+async function assertRegularFile(filePath, label) {
+	const stat = await fs.lstat(filePath).catch(() => void 0);
+	if (!stat?.isFile() || stat.nlink > 1) throw new Error(`Visual C++ runtime does not contain regular file ${label}`);
+}
+/** Extracts the pinned Microsoft redistributable DLLs without installing machine-wide state. */
+async function extractWindowsVcRuntime(params) {
+	const nestedCabinet = assertManifestBasename(params.asset.nestedCabinet);
+	const files = params.asset.files.map(({ source, target }) => ({
+		source: assertManifestBasename(source),
+		target: assertManifestBasename(target)
+	}));
+	if (new Set(files.map((file) => file.target)).size !== files.length) throw new Error("duplicate Visual C++ runtime target filename");
+	const expandCommand = resolveExpandCommand();
+	const containerPath = path.join(params.destDir, "bundle.cab");
+	const nestedDir = path.join(params.destDir, "nested");
+	const filesDir = path.join(params.destDir, "files");
+	await Promise.all([
+		fs.mkdir(params.destDir, { recursive: true }),
+		fs.mkdir(nestedDir, { recursive: true }),
+		fs.mkdir(filesDir, { recursive: true })
+	]);
+	await extractPinnedContainer({
+		asset: params.asset,
+		bundlePath: params.bundlePath,
+		containerPath,
+		signal: params.signal
+	});
+	await runExpand(expandCommand, [
+		`-F:${nestedCabinet}`,
+		containerPath,
+		nestedDir
+	], params.signal);
+	const nestedPath = path.join(nestedDir, nestedCabinet);
+	await assertRegularFile(nestedPath, nestedCabinet);
+	for (const file of files) {
+		params.signal?.throwIfAborted();
+		await runExpand(expandCommand, [
+			`-F:${file.source}`,
+			nestedPath,
+			filesDir
+		], params.signal);
+		const sourcePath = path.join(filesDir, file.source);
+		await assertRegularFile(sourcePath, file.source);
+		const targetPath = path.join(params.destDir, file.target);
+		await fs.copyFile(sourcePath, targetPath, constants.COPYFILE_EXCL);
+		await assertRegularFile(targetPath, file.target);
+	}
+	return params.destDir;
+}
+//#endregion
 //#region extensions/llama-cpp/src/llama-server-install.ts
 const DOWNLOAD_TIMEOUT_MS = 18e5;
 const VERSION_TIMEOUT_MS = 15e3;
@@ -278,16 +434,33 @@ function compareVersion(left, right) {
 	}
 	return 0;
 }
+/** The verified build cannot run on this host; rerunning setup cannot change that. */
+var UnsupportedLlamaServerHostError = class extends Error {
+	constructor(..._args) {
+		super(..._args);
+		this.name = "UnsupportedLlamaServerHostError";
+	}
+};
 function assertSupportedLinuxRuntime(asset) {
 	if (asset.platform !== "linux") return;
 	const header = asOptionalRecord(asOptionalRecord(process.report?.getReport())?.header);
 	const glibc = typeof header?.glibcVersionRuntime === "string" ? header.glibcVersionRuntime : "";
-	if (!glibc) throw new Error("The verified Ubuntu llama-server build requires glibc and cannot run on musl/Alpine. Install llama-server manually for this host and configure its absolute path.");
+	if (!glibc) throw new UnsupportedLlamaServerHostError("The verified Ubuntu llama-server build requires glibc and cannot run on musl/Alpine. Install llama-server manually for this host and configure its absolute path.");
 	const minimum = asset.arch === "arm64" ? "2.38" : "2.34";
-	if (compareVersion(glibc, minimum) < 0) throw new Error(`The verified llama-server build requires glibc ${minimum}+ on Linux ${asset.arch}; this host has ${glibc}. Install a compatible llama-server manually and configure its absolute path.`);
+	if (compareVersion(glibc, minimum) < 0) throw new UnsupportedLlamaServerHostError(`The verified llama-server build requires glibc ${minimum}+ on Linux ${asset.arch}; this host has ${glibc}. Install a compatible llama-server manually and configure its absolute path.`);
+}
+const MACOS_MINIMUM = "13.3";
+async function assertSupportedMacosRuntime(asset, signal, cause) {
+	if (asset.platform !== "darwin") return;
+	const version = await runServerCommand("/usr/bin/sw_vers", ["-productVersion"], signal).catch(() => {
+		signal?.throwIfAborted();
+		return "";
+	});
+	if (!/^\d+\.\d+(?:\.\d+)?$/u.test(version) || compareVersion(version, MACOS_MINIMUM) >= 0) return;
+	throw new UnsupportedLlamaServerHostError(`The verified llama-server ${LLAMA_SERVER_RELEASE} build requires macOS ${MACOS_MINIMUM}+; this Mac runs macOS ${version}. Build llama-server for this Mac and set models.providers.llama-cpp.localService.command to its absolute path, or use a remote model or embedding provider.`, cause === void 0 ? void 0 : { cause });
 }
 function assetUrl(asset) {
-	return `https://github.com/ggml-org/llama.cpp/releases/download/${LLAMA_SERVER_RELEASE}/${asset.name}`;
+	return asset.url ?? `https://github.com/ggml-org/llama.cpp/releases/download/b10809/${asset.name}`;
 }
 const verifiedFiles = /* @__PURE__ */ new Map();
 const VERIFIED_FILE_LIMIT = 16;
@@ -413,34 +586,78 @@ async function runServerCommand(command, args, signal, timeoutMs = VERSION_TIMEO
 function formatRuntimeDependencyError(error) {
 	const detail = error instanceof Error ? error.message : String(error);
 	if (process.platform === "linux") return new Error(`The verified llama-server build could not start. Install the OpenMP runtime (for example libgomp1 on Debian/Ubuntu or libgomp on Fedora), then rerun llama.cpp setup. Detail: ${detail}`, { cause: error });
-	if (process.platform === "win32") return new Error(`The verified llama-server build could not start. Install the Microsoft Visual C++ 2015-2022 Redistributable, then rerun llama.cpp setup. Detail: ${detail}`, { cause: error });
+	if (process.platform === "win32") return new Error(`The verified llama-server build could not start with its app-local Visual C++ runtime. Rerun llama.cpp setup to reinstall it, or configure a compatible llama-server manually. Detail: ${detail}`, { cause: error });
 	return new Error(`The verified llama-server build could not start: ${detail}`, { cause: error });
 }
-async function validateInstalledServer(command, asset, signal, versionTimeoutMs = VERSION_TIMEOUT_MS) {
-	let version;
+async function queryServerVersion(command, signal, versionTimeoutMs = VERSION_TIMEOUT_MS) {
 	try {
-		version = await runServerCommand(command, ["--version"], signal, versionTimeoutMs);
+		return await runServerCommand(command, ["--version"], signal, versionTimeoutMs);
 	} catch (error) {
 		signal?.throwIfAborted();
 		throw formatRuntimeDependencyError(error);
 	}
+}
+function validateServerVersionOutput(command, version) {
 	const match = (version.split(/\r?\n/u, 1)[0]?.trim() ?? "").match(/^version: .+ \(build (\d+), commit ([a-f\d]{9})\)$/u);
 	const build = match?.[1] ? Number(match[1]) : void 0;
 	const commit = match?.[2];
 	if (build !== 10809 || commit !== "5266f24da75dc449bd56cbed7addb9c8e4a6a73e".slice(0, 9)) throw new Error(`Unexpected llama-server build at ${command}: expected ${LLAMA_SERVER_RELEASE} (${LLAMA_SERVER_COMMIT.slice(0, 9)}), got ${version || "no version output"}`);
+}
+async function validateCudaServer(command, asset, signal) {
 	if (asset.backend === "cuda") {
 		const devices = await runServerCommand(command, ["--list-devices"], signal);
 		if (!/^\s*CUDA\d+: .+\(\d+ MiB, \d+ MiB free\)$/mu.test(devices)) throw new Error("The verified llama-server could not initialize an NVIDIA CUDA device. Update the NVIDIA driver and rerun setup, or configure a compatible llama-server manually. CPU fallback was not activated.");
 	}
+}
+async function validateInstalledServer(command, asset, signal, versionTimeoutMs = VERSION_TIMEOUT_MS) {
+	validateServerVersionOutput(command, await queryServerVersion(command, signal, versionTimeoutMs));
+	await validateCudaServer(command, asset, signal);
+}
+async function stageLlamaServerDependency(params) {
+	const { dependency, extractDir, extractedRoot, index, options } = params;
+	options.signal?.throwIfAborted();
+	const dependencyArchive = path.join(extractDir, dependency.name);
+	await downloadVerifiedFile({
+		url: assetUrl(dependency),
+		destination: dependencyArchive,
+		expectedSha256: dependency.sha256,
+		expectedSize: dependency.archive === "vc-redist" ? dependency.size : void 0,
+		signal: options.signal,
+		onProgress: options.onProgress
+	});
+	const dependencyExtractDir = path.join(extractDir, `dependency-${index}`);
+	await fs.mkdir(dependencyExtractDir);
+	const dependencyRoot = dependency.archive === "vc-redist" ? await extractWindowsVcRuntime({
+		bundlePath: dependencyArchive,
+		destDir: dependencyExtractDir,
+		asset: dependency,
+		signal: options.signal
+	}) : await extractLlamaServerDependencyArchive({
+		archivePath: dependencyArchive,
+		destDir: dependencyExtractDir,
+		asset: dependency
+	});
+	for (const file of dependencyFiles(dependency)) await fs.copyFile(path.join(dependencyRoot, file), path.join(extractedRoot, file), fs$1.constants.COPYFILE_EXCL);
+}
+function formatVcRuntimeFallbackError(startupError, fallbackError) {
+	const startupDetail = startupError instanceof Error ? startupError.message : String(startupError);
+	const fallbackDetail = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+	return new Error(`The extracted llama-server could not start with the installed Windows runtime, and its app-local Visual C++ runtime fallback did not restore it. Initial startup detail: ${startupDetail} Fallback detail: ${fallbackDetail}`, { cause: fallbackError });
 }
 async function installLlamaServer(asset, options) {
 	options.signal?.throwIfAborted();
 	assertSupportedLinuxRuntime(asset);
 	const { installDir, command } = resolveManagedLlamaServerPaths(asset);
 	if (await fs.stat(command).then((stat) => stat.isFile()).catch(() => false)) {
-		await validateInstalledServer(command, asset, options.signal);
+		try {
+			await validateInstalledServer(command, asset, options.signal);
+		} catch (error) {
+			await assertSupportedMacosRuntime(asset, options.signal, error);
+			throw error;
+		}
 		return command;
 	}
+	await assertSupportedMacosRuntime(asset, options.signal);
 	const dataDir = resolveLlamaCppDataDir();
 	const archivePath = path.join(dataDir, `.download-${randomUUID()}-${asset.name}`);
 	const extractDir = path.join(dataDir, `.extract-${randomUUID()}`);
@@ -461,28 +678,49 @@ async function installLlamaServer(asset, options) {
 			asset
 		});
 		const extractedRoot = path.dirname(extractedCommand);
-		for (const [index, dependency] of (asset.dependencies ?? []).entries()) {
-			options.signal?.throwIfAborted();
-			const dependencyArchive = path.join(extractDir, dependency.name);
-			await downloadVerifiedFile({
-				url: assetUrl(dependency),
-				destination: dependencyArchive,
-				expectedSha256: dependency.sha256,
-				signal: options.signal,
-				onProgress: options.onProgress
-			});
-			const dependencyExtractDir = path.join(extractDir, `dependency-${index}`);
-			await fs.mkdir(dependencyExtractDir);
-			const dependencyRoot = await extractLlamaServerDependencyArchive({
-				archivePath: dependencyArchive,
-				destDir: dependencyExtractDir,
-				asset: dependency
-			});
-			for (const file of dependency.files) await fs.copyFile(path.join(dependencyRoot, file), path.join(extractedRoot, file), fs$1.constants.COPYFILE_EXCL);
-		}
+		const dependencies = asset.dependencies ?? [];
+		const windowsRuntimeDependencies = [];
+		for (const [index, dependency] of dependencies.entries()) if (dependency.archive === "vc-redist") windowsRuntimeDependencies.push({
+			dependency,
+			index
+		});
+		else await stageLlamaServerDependency({
+			dependency,
+			index,
+			extractDir,
+			extractedRoot,
+			options
+		});
 		options.signal?.throwIfAborted();
 		await fs.chmod(extractedCommand, 493);
-		await validateInstalledServer(extractedCommand, asset, options.signal, FRESH_VERSION_TIMEOUT_MS);
+		if (windowsRuntimeDependencies.length > 0) {
+			let version;
+			try {
+				version = await queryServerVersion(extractedCommand, options.signal, FRESH_VERSION_TIMEOUT_MS);
+			} catch (startupError) {
+				options.signal?.throwIfAborted();
+				try {
+					for (const { dependency, index } of windowsRuntimeDependencies) await stageLlamaServerDependency({
+						dependency,
+						index,
+						extractDir,
+						extractedRoot,
+						options
+					});
+				} catch (stagingError) {
+					options.signal?.throwIfAborted();
+					throw formatVcRuntimeFallbackError(startupError, stagingError);
+				}
+				try {
+					version = await queryServerVersion(extractedCommand, options.signal, FRESH_VERSION_TIMEOUT_MS);
+				} catch (retryError) {
+					options.signal?.throwIfAborted();
+					throw formatVcRuntimeFallbackError(startupError, retryError);
+				}
+			}
+			validateServerVersionOutput(extractedCommand, version);
+			await validateCudaServer(extractedCommand, asset, options.signal);
+		} else await validateInstalledServer(extractedCommand, asset, options.signal, FRESH_VERSION_TIMEOUT_MS);
 		await fs.mkdir(path.dirname(installDir), { recursive: true });
 		options.signal?.throwIfAborted();
 		await fs.rm(installDir, {
@@ -498,6 +736,9 @@ async function installLlamaServer(asset, options) {
 			force: true
 		})]);
 	}
+}
+function dependencyFiles(dependency) {
+	return dependency.archive === "vc-redist" ? dependency.files.map((file) => file.target) : dependency.files;
 }
 async function ensureLlamaServerInstalled(options = {}) {
 	options.signal?.throwIfAborted();
@@ -521,7 +762,6 @@ async function ensureLlamaServerInstalled(options = {}) {
 }
 //#endregion
 //#region extensions/llama-cpp/src/llama-server-preset.ts
-const LLAMA_CPP_EMBEDDING_UBATCH_SIZE = 2048;
 function assertIniValue(value, label) {
 	if (/\r|\n/u.test(value)) throw new Error(`${label} cannot contain a newline`);
 	return value;
@@ -553,14 +793,26 @@ const PRESET_KEY_ALIASES = {
 	ub: "ubatch-size",
 	LLAMA_ARG_UBATCH: "ubatch-size",
 	embeddings: "embedding",
-	LLAMA_ARG_EMBEDDINGS: "embedding"
+	LLAMA_ARG_EMBEDDINGS: "embedding",
+	np: "parallel",
+	LLAMA_ARG_N_PARALLEL: "parallel",
+	LLAMA_ARG_KV_UNIFIED_PER_SLOT: "kv-unified-per-slot"
 };
+const PRESET_SETTING_PATTERN = /(?<![^\r\n])([a-zA-Z_][a-zA-Z0-9_.-]*)([ \t]*=[ \t]*)([^\r\n]*?)([ \t]*(?:[;#][^\r\n]*)?)(\r\n|\n|\r|(?![\s\S]))/g;
+function readSettingKeys(section) {
+	return new Set([...(section ?? "").matchAll(PRESET_SETTING_PATTERN)].map(([, key = ""]) => PRESET_KEY_ALIASES[key] ?? key));
+}
+function readServiceSettingKeys(service) {
+	const caseInsensitiveEnv = process.platform === "win32";
+	const keys = [...Object.entries(service?.env ?? {}).filter(([, value]) => value !== void 0).map(([key]) => caseInsensitiveEnv ? key.toUpperCase() : key).filter((key) => key.startsWith("LLAMA_ARG_")), ...(service?.args ?? []).filter((arg) => arg.startsWith("-")).map((arg) => arg.startsWith("--") ? arg.slice(2).replaceAll("_", "-") : arg.slice(1))];
+	return new Set(keys.map((key) => PRESET_KEY_ALIASES[key] ?? key));
+}
 function updateModelSection(sections, id, values, newline) {
 	assertIniValue(id, "llama.cpp model id");
 	if (id.includes("]")) throw new Error("llama.cpp model ids cannot contain ]");
 	const name = [...sections.keys()].filter((candidate) => normalizePresetName(candidate) === normalizePresetName(id)).toSorted((left, right) => Buffer.compare(Buffer.from(left), Buffer.from(right))).at(-1) ?? id;
 	const pending = new Set(Object.keys(values));
-	let contents = (sections.get(name) ?? `[${id}]${newline}`).replace(/(?<![^\r\n])([a-zA-Z_][a-zA-Z0-9_.-]*)([ \t]*=[ \t]*)([^\r\n]*?)([ \t]*(?:[;#][^\r\n]*)?)(\r\n|\n|\r|(?![\s\S]))/g, (line, key, separator, _value, comment, ending) => {
+	let contents = (sections.get(name) ?? `[${id}]${newline}`).replace(PRESET_SETTING_PATTERN, (line, key, separator, _value, comment, ending) => {
 		const canonical = PRESET_KEY_ALIASES[key] ?? key;
 		if (!Object.hasOwn(values, canonical)) return line;
 		pending.delete(canonical);
@@ -582,11 +834,22 @@ function buildLlamaServerPreset(existing, params) {
 	}, newline);
 	const embeddingPath = params.embeddingModelPath ?? (!sections.has("embeddinggemma-300m-qat-q8_0") ? params.defaultEmbeddingModelPath : void 0);
 	if (embeddingPath) {
-		const isDefault = params.embeddingModelPath ? params.embeddingModelIsDefault : true;
+		const configured = /* @__PURE__ */ new Set([
+			...readSettingKeys(sections.get(DEFAULT_LLAMA_CPP_EMBEDDING_MODEL_ID)),
+			...readSettingKeys(sections.get("*")),
+			...readServiceSettingKeys(params.serviceSettings)
+		]);
+		const defaults = {
+			parallel: "1",
+			"ctx-size": String(DEFAULT_LLAMA_CPP_EMBEDDING_CONTEXT_SIZE),
+			"ubatch-size": String(DEFAULT_LLAMA_CPP_EMBEDDING_CONTEXT_SIZE)
+		};
+		if (configured.has("parallel") || configured.has("kv-unified-per-slot")) delete defaults["ctx-size"];
+		for (const key of configured) delete defaults[key];
 		updateModelSection(sections, DEFAULT_LLAMA_CPP_EMBEDDING_MODEL_ID, {
 			model: assertIniValue(embeddingPath, "llama.cpp embedding model path"),
-			...isDefault ? { "ubatch-size": String(LLAMA_CPP_EMBEDDING_UBATCH_SIZE) } : {},
-			embedding: "true"
+			embedding: "true",
+			...defaults
 		}, newline);
 	}
 	const embeddingSection = sections.get(DEFAULT_LLAMA_CPP_EMBEDDING_MODEL_ID);
@@ -728,31 +991,10 @@ const GIB = 1024 ** 3;
 function modelRecipe(params) {
 	const source = params.source ?? `hf:${params.repository}/${params.file}#${params.revision}`;
 	return {
-		model: {
-			id: params.id,
-			name: params.name,
-			api: "openai-completions",
-			reasoning: params.reasoning ?? false,
-			input: ["text"],
-			cost: {
-				input: 0,
-				output: 0,
-				cacheRead: 0,
-				cacheWrite: 0
-			},
-			contextWindow: DEFAULT_LLAMA_CPP_CONTEXT_SIZE,
-			contextTokens: DEFAULT_LLAMA_CPP_CONTEXT_SIZE,
-			maxTokens: params.maxTokens ?? 2048,
-			params: {
-				modelPath: source,
-				contextSize: DEFAULT_LLAMA_CPP_CONTEXT_SIZE
-			},
-			compat: {
-				supportsTools: true,
-				supportsUsageInStreaming: true,
-				toolSchemaProfile: "llamacpp"
-			}
-		},
+		model: buildLlamaCppModel({
+			...params,
+			source
+		}),
 		sizeBytes: params.sizeBytes,
 		memoryBytes: params.memoryGiB * GIB,
 		minimumSystemMemoryBytes: params.minimumSystemGiB * GIB,
@@ -918,9 +1160,9 @@ const modelPromises = /* @__PURE__ */ new Map();
 const resolvedModelArtifacts = /* @__PURE__ */ new Map();
 const presetState = {
 	appliedRevisions: /* @__PURE__ */ new Map(),
-	desiredRevisions: /* @__PURE__ */ new Map(),
-	transition: Promise.resolve()
+	desiredRevisions: /* @__PURE__ */ new Map()
 };
+const runPresetTransition = createAsyncLock();
 const LLAMA_CPP_PRESET_RELOAD_TIMEOUT_MS = 15e3;
 function parseHuggingFaceSource(source) {
 	const [pathPart, revisionPart] = source.replace(/^(?:hf|huggingface):(?:\/\/)?/iu, "").split("#", 2);
@@ -1091,11 +1333,6 @@ async function writePreset(presetPath, contents) {
 		await fs.rm(temporary, { force: true });
 	}
 }
-async function runPresetTransition(run) {
-	const pending = presetState.transition.catch(() => void 0).then(run);
-	presetState.transition = pending;
-	await pending;
-}
 async function updatePreset(presetPath, params) {
 	await runPresetTransition(async () => {
 		const existing = await fs.readFile(presetPath, "utf8").catch((error) => {
@@ -1172,9 +1409,15 @@ async function prepareManagedLlamaServer(params) {
 	await updatePreset(presetPath, {
 		chatModel: params.chatModel,
 		configuredChatModelIds: params.configuredChatModelIds,
-		embeddingModelIsDefault: params.embeddingModelIsDefault,
 		embeddingModelPath: params.embeddingModelPath,
 		defaultEmbeddingModelPath: params.defaultEmbeddingModelPath,
+		serviceSettings: params.isolated ? { env: process.env } : {
+			args: params.localService?.args,
+			env: {
+				...process.env,
+				...params.localService?.env
+			}
+		},
 		reconcileOrigin: params.isolated ? void 0 : reconcileOrigin
 	});
 	params.signal?.throwIfAborted();
@@ -1289,11 +1532,8 @@ async function inspectLlamaServerRuntime(params) {
 //#endregion
 //#region extensions/llama-cpp/src/embedding-provider.ts
 const LOCAL_EMBEDDING_RUNTIME_FACTS = Symbol.for("openclaw.localEmbeddingRuntimeFacts");
-function readLocalOptions(options) {
-	return options.local ?? {};
-}
 function readIdentityLocalOptions(options) {
-	const local = readLocalOptions(options);
+	const local = options.local ?? {};
 	const provider = options.config.models?.providers?.[LLAMA_CPP_PROVIDER_ID];
 	return provider?.localService ? {
 		...local,
@@ -1309,39 +1549,30 @@ function createCacheKeyData(model, dimensions) {
 }
 function resolveModelIdentity(local, dimensions) {
 	const embeddingModel = resolveLlamaCppEmbeddingModel(local);
-	const configuredCacheDir = embeddingModel.cacheDir;
-	const currentDefaultPath = path.resolve(configuredCacheDir, DEFAULT_LLAMA_CPP_EMBEDDING_CACHE_FILE);
-	const legacyDefaultPath = path.resolve(resolveLegacyLlamaCppModelCacheDir(), DEFAULT_LLAMA_CPP_EMBEDDING_CACHE_FILE);
-	if (!embeddingModel.isDefault) return {
-		model: embeddingModel.source,
-		cacheKeyData: createCacheKeyData(embeddingModel.source, dimensions),
-		aliases: []
-	};
-	const aliases = /* @__PURE__ */ new Set([
-		currentDefaultPath,
-		legacyDefaultPath,
-		DEFAULT_LLAMA_CPP_EMBEDDING_CACHE_FILE
-	]);
-	if (embeddingModel.source !== "hf:ggml-org/embeddinggemma-300m-qat-q8_0-GGUF/embeddinggemma-300m-qat-Q8_0.gguf") aliases.add(embeddingModel.source);
+	const model = embeddingModel.isDefault ? DEFAULT_LLAMA_CPP_EMBEDDING_MODEL : embeddingModel.source;
+	const aliases = /* @__PURE__ */ new Set();
+	if (embeddingModel.isDefault) {
+		aliases.add(path.resolve(embeddingModel.cacheDir, DEFAULT_LLAMA_CPP_EMBEDDING_CACHE_FILE));
+		aliases.add(path.resolve(resolveLegacyLlamaCppModelCacheDir(), DEFAULT_LLAMA_CPP_EMBEDDING_CACHE_FILE));
+		aliases.add(DEFAULT_LLAMA_CPP_EMBEDDING_CACHE_FILE);
+		if (embeddingModel.source !== model) aliases.add(embeddingModel.source);
+	}
 	return {
-		model: DEFAULT_LLAMA_CPP_EMBEDDING_MODEL,
-		cacheKeyData: createCacheKeyData(DEFAULT_LLAMA_CPP_EMBEDDING_MODEL, dimensions),
-		aliases: [...aliases].map((model) => ({
-			model,
-			cacheKeyData: createCacheKeyData(model, dimensions)
+		model,
+		cacheKeyData: createCacheKeyData(model, dimensions),
+		aliases: [...aliases].map((alias) => ({
+			model: alias,
+			cacheKeyData: createCacheKeyData(alias, dimensions)
 		}))
 	};
-}
-function resolveConfiguredProvider(options) {
-	return resolveManagedLlamaCppProviderConfig(options.config);
 }
 function resolveProviderPort(provider) {
 	const port = Number(new URL(provider.baseUrl ?? "").port);
 	if (!Number.isInteger(port) || port <= 0) throw new Error("Managed llama.cpp provider baseUrl must include a loopback port.");
 	return port;
 }
-async function prepareEmbeddingServer(options, embeddingSource, embeddingModelIsDefault) {
-	const provider = resolveConfiguredProvider(options);
+async function prepareEmbeddingServer(options, embeddingSource) {
+	const provider = resolveManagedLlamaCppProviderConfig(options.config);
 	const embeddingModelPath = await ensureLlamaCppModel({
 		source: embeddingSource,
 		cacheDir: resolveLlamaCppModelCacheDir(provider),
@@ -1350,7 +1581,6 @@ async function prepareEmbeddingServer(options, embeddingSource, embeddingModelIs
 	await prepareManagedLlamaServer({
 		chatModel: { mode: "preserve" },
 		configuredChatModelIds: provider.models.map((model) => model.id),
-		embeddingModelIsDefault,
 		embeddingModelPath,
 		port: resolveProviderPort(provider),
 		reconcileBaseUrl: provider.baseUrl,
@@ -1380,7 +1610,7 @@ function wrapProvider(params) {
 		id: "local",
 		model: params.canonicalModel,
 		dimensions: params.provider.dimensions,
-		maxInputTokens: params.provider.maxInputTokens,
+		maxInputTokens: params.provider.maxInputTokens ?? 2044,
 		embed: async (input, callOptions) => await withFacts(async () => await params.provider.embed(input, callOptions)),
 		embedBatch: async (inputs, callOptions) => await withFacts(async () => await params.provider.embedBatch(inputs, callOptions)),
 		close: params.provider.close
@@ -1403,7 +1633,7 @@ const llamaCppEmbeddingProviderAdapter = {
 		const local = readIdentityLocalOptions(options);
 		const embeddingModel = resolveLlamaCppEmbeddingModel(local);
 		const identity = resolveModelIdentity(local, options.dimensions);
-		await prepareEmbeddingServer(options, embeddingModel.source, embeddingModel.isDefault);
+		await prepareEmbeddingServer(options, embeddingModel.source);
 		const genericAdapter = getEmbeddingProvider("openai-compatible", options.config);
 		if (!genericAdapter) throw new Error("OpenAI-compatible embedding transport is unavailable.");
 		const acquireLocalService = options.acquireLocalService;
@@ -1422,7 +1652,7 @@ const llamaCppEmbeddingProviderAdapter = {
 			provider: wrapProvider({
 				provider: result.provider,
 				canonicalModel: identity.model,
-				baseUrl: resolveConfiguredProvider(options).baseUrl ?? ""
+				baseUrl: resolveManagedLlamaCppProviderConfig(options.config).baseUrl ?? ""
 			}),
 			runtime: {
 				id: "local",
@@ -1443,7 +1673,7 @@ function hasLlamaServerAuthorizationHeader(headers) {
 }
 function shouldUseLlamaServerSyntheticAuth(providerConfig) {
 	const apiKey = normalizeOptionalSecretInput(providerConfig?.apiKey)?.trim();
-	return !(hasConfiguredSecretInput(providerConfig?.apiKey) && apiKey !== resolveLlamaCppSyntheticApiKey() && apiKey !== CUSTOM_LOCAL_AUTH_MARKER);
+	return !(hasConfiguredSecretInput(providerConfig?.apiKey) && apiKey !== "llama-cpp-local" && apiKey !== CUSTOM_LOCAL_AUTH_MARKER);
 }
 async function resolveLlamaServerProviderHeaders(params) {
 	const headers = asOptionalRecord(params.headers);
@@ -1483,14 +1713,10 @@ const LLAMA_SERVER_DEFAULT_ORIGIN = "http://127.0.0.1:8080";
 const LLAMA_SERVER_DEFAULT_API_KEY_ENV_VAR = "LLAMA_SERVER_API_KEY";
 //#endregion
 //#region extensions/llama-cpp/src/external-server/endpoint.ts
-function toFetchableBaseUrl(value) {
-	if (/^[a-z][a-z\d+.-]*:\/\//iu.test(value)) return value;
-	return `http://${value}`;
-}
 /** Resolves the server origin and its OpenAI-compatible `/v1` inference base. */
 function resolveLlamaServerEndpoint(configuredBaseUrl) {
 	const configured = configuredBaseUrl?.trim() || "http://127.0.0.1:8080";
-	const parsed = new URL(toFetchableBaseUrl(configured));
+	const parsed = new URL(/^[a-z][a-z\d+.-]*:\/\//iu.test(configured) ? configured : `http://${configured}`);
 	if (parsed.protocol !== "http:" && parsed.protocol !== "https:") throw new TypeError(`Unsupported llama-server protocol: ${parsed.protocol}`);
 	if (parsed.username || parsed.password) throw new TypeError("llama-server base URL must not contain credentials");
 	parsed.pathname = parsed.pathname.replace(/\/+$/u, "").replace(/\/v1$/iu, "") || "/";
@@ -1543,18 +1769,16 @@ function resolveInput(row, props) {
 }
 function buildCompat(props) {
 	const caps = props?.chat_template_caps;
-	const supportsTools = asBoolean(caps?.supports_tool_calls) === true;
-	const supportsTypedContent = asBoolean(caps?.supports_typed_content) === true;
 	return {
 		supportsStore: false,
 		supportsDeveloperRole: false,
-		supportsReasoningEffort: asBoolean(caps?.supports_reasoning_effort) === true,
+		supportsReasoningEffort: caps?.supports_reasoning_effort === true,
 		supportsTemperature: true,
 		supportsUsageInStreaming: true,
-		supportsTools,
+		supportsTools: caps?.supports_tool_calls === true,
 		supportsStrictMode: false,
 		supportsJsonSchemaResponseFormat: true,
-		requiresStringContent: !supportsTypedContent,
+		requiresStringContent: caps?.supports_typed_content !== true,
 		maxTokensField: "max_tokens"
 	};
 }
@@ -1580,26 +1804,18 @@ function mapLlamaServerModel(row, props) {
 		failed: row.status?.failed === true
 	};
 }
-/** Keeps explicit rows first and appends models discovered from the server. */
-function mergeLlamaServerModels(params) {
-	const explicit = Array.isArray(params.explicitModels) ? params.explicitModels : [];
-	const merged = [...explicit];
-	const seen = new Set(explicit.map((model) => model.id));
+function buildLlamaServerProviderConfig(params) {
+	const models = Array.isArray(params.configured?.models) ? [...params.configured.models] : [];
+	const seen = new Set(models.map((model) => model.id));
 	for (const discovered of params.discoveredModels) {
 		if (seen.has(discovered.config.id)) continue;
 		seen.add(discovered.config.id);
-		merged.push(discovered.config);
+		models.push(discovered.config);
 	}
-	return merged;
-}
-function buildLlamaServerProviderConfig(params) {
 	return normalizeLlamaServerProviderConfig({
 		...params.configured,
 		baseUrl: params.configured?.baseUrl ?? "http://127.0.0.1:8080",
-		models: mergeLlamaServerModels({
-			explicitModels: params.configured?.models,
-			discoveredModels: params.discoveredModels
-		})
+		models
 	});
 }
 //#endregion
@@ -1648,36 +1864,6 @@ async function discoverLlamaServer(params) {
 }
 //#endregion
 //#region extensions/llama-cpp/src/external-server/provider.ts
-const liveCatalogSdk = liveCatalogRuntime;
-async function runLlamaServerCatalog(params) {
-	if (liveCatalogSdk.runLiveProviderCatalog) return await liveCatalogSdk.runLiveProviderCatalog(params);
-	const identity = {
-		provider: params.providerId,
-		...params.profileId ? { profileId: params.profileId } : {}
-	};
-	try {
-		const result = await params.run();
-		return result ? {
-			...result,
-			outcomes: [...result.outcomes ?? [], {
-				...identity,
-				status: "ready"
-			}]
-		} : result;
-	} catch (error) {
-		return {
-			providers: {},
-			outcomes: [error instanceof liveCatalogRuntime.LiveModelCatalogHttpError && (error.status === 401 || error.status === 403) ? {
-				...identity,
-				status: "auth-rejected",
-				rejectionScope: "catalog"
-			} : {
-				...identity,
-				status: "unavailable"
-			}]
-		};
-	}
-}
 /** Discovers external llama-server models for provider runtime resolution. */
 async function discoverLlamaServerProvider(ctx) {
 	const configured = ctx.config.models?.providers?.[LLAMA_CPP_PROVIDER_ID];
@@ -1689,7 +1875,7 @@ async function discoverLlamaServerProvider(ctx) {
 	});
 	const authApiKey = auth.discoveryApiKey ?? auth.apiKey;
 	const apiKey = hasLlamaServerAuthorizationHeader(headers) || authApiKey && isNonSecretApiKeyMarker(authApiKey) ? void 0 : authApiKey;
-	return await runLlamaServerCatalog({
+	return await runLiveProviderCatalog({
 		providerId: LLAMA_CPP_PROVIDER_ID,
 		profileId: apiKey ? auth.profileId : void 0,
 		run: async () => {
@@ -1701,7 +1887,7 @@ async function discoverLlamaServerProvider(ctx) {
 			});
 			if (discovery.kind !== "success") {
 				if (!configured && !apiKey && !headers) return null;
-				throw discovery.kind === "http-error" ? new liveCatalogRuntime.LiveModelCatalogHttpError(LLAMA_CPP_PROVIDER_ID, discovery.status) : discovery.error;
+				throw discovery.kind === "http-error" ? new LiveModelCatalogHttpError(LLAMA_CPP_PROVIDER_ID, discovery.status) : discovery.error;
 			}
 			return { provider: buildLlamaServerProviderConfig({
 				configured,
@@ -1878,15 +2064,6 @@ async function discoverForSetup(ctx) {
 		return null;
 	}
 }
-async function discoverWithAccess(params) {
-	return await discoverLlamaServer({
-		baseUrl: params.baseUrl,
-		apiKey: params.apiKey,
-		headers: params.headers,
-		signal: params.signal,
-		cacheTtlMs: 0
-	});
-}
 /** Read-only discovery for the guided local-provider setup ladder. */
 async function detectLlamaServerSetup(ctx) {
 	const discovery = await discoverForSetup(ctx);
@@ -1921,7 +2098,15 @@ async function runLlamaServerSetup(ctx) {
 		message: `${LLAMA_CPP_PROVIDER_LABEL} URL`,
 		initialValue: defaultOrigin,
 		placeholder: LLAMA_SERVER_DEFAULT_ORIGIN,
-		validate: (value) => value?.trim() ? void 0 : "Required"
+		validate: (value) => {
+			if (!value?.trim()) return "Required";
+			try {
+				resolveLlamaServerEndpoint(value);
+				return;
+			} catch {
+				return "Enter a valid HTTP or HTTPS URL without embedded credentials (e.g. http://localhost:8080).";
+			}
+		}
 	}));
 	const endpointChanged = Boolean(existing?.localService) || hasEndpointChanged(existing, endpoint.inferenceBaseUrl);
 	const resolvedHeaders = endpointChanged ? void 0 : await resolveLlamaServerProviderHeaders({
@@ -1971,11 +2156,12 @@ async function runLlamaServerSetup(ctx) {
 			};
 		}
 	}
-	const discovery = await discoverWithAccess({
+	const discovery = await discoverLlamaServer({
 		baseUrl: endpoint.inferenceBaseUrl,
 		apiKey,
 		headers,
-		signal: ctx.signal
+		signal: ctx.signal,
+		cacheTtlMs: 0
 	});
 	if (discovery.kind !== "success") throw new Error(describeDiscoveryFailure(discovery));
 	const modelId = selectSetupModelId(discovery);
@@ -2031,10 +2217,11 @@ async function validateNonInteractiveDiscovery(ctx) {
 			credential: resolvedApiKey
 		};
 	} else persistence = { kind: "remove" };
-	const discovery = await discoverWithAccess({
+	const discovery = await discoverLlamaServer({
 		baseUrl,
 		apiKey,
-		headers
+		headers,
+		cacheTtlMs: 0
 	});
 	if (discovery.kind !== "success") {
 		ctx.runtime.error(describeDiscoveryFailure(discovery));
@@ -2065,9 +2252,7 @@ async function configureLlamaServerNonInteractive(ctx) {
 	if (!validated) return null;
 	const providerConfig = buildExistingProviderConfig({
 		config: ctx.config,
-		discovery: validated.discovery,
-		resetEndpoint: validated.resetEndpoint,
-		persistence: validated.persistence
+		...validated
 	});
 	let config = {
 		...ctx.config,
@@ -2350,6 +2535,11 @@ async function runLlamaCppSetup(ctx) {
 	if (!plan) return { profiles: [] };
 	const progress = ctx.prompter.progress("Preparing managed llama.cpp server…");
 	try {
+		await ensureLlamaServerInstalled({
+			asset,
+			signal: ctx.signal,
+			onProgress: (status) => progress.update(formatDownloadProgress("llama.cpp runtime", status))
+		});
 		let chatModel;
 		if (plan.kind === "chat") {
 			const chatModelPath = plan.cachedPath ?? await ensureLlamaCppModel({
@@ -2379,7 +2569,6 @@ async function runLlamaCppSetup(ctx) {
 		const managed = await prepareManagedLlamaServer({
 			chatModel,
 			configuredChatModelIds: plan.kind === "chat" ? plan.candidate.provider.models.map((model) => model.id) : [],
-			embeddingModelIsDefault: embeddingModel.isDefault,
 			embeddingModelPath,
 			asset,
 			isolated: true,
@@ -2400,7 +2589,7 @@ async function runLlamaCppSetup(ctx) {
 	} catch (error) {
 		progress.stop("llama.cpp setup failed");
 		const detail = error instanceof Error ? error.message : String(error);
-		throw new Error(`Managed llama.cpp setup failed. Run openclaw doctor, fix the reported runtime or model issue, then retry. ${detail}`, { cause: error });
+		throw new Error(error instanceof UnsupportedLlamaServerHostError ? `Managed llama.cpp setup is unavailable on this host. ${detail}` : `Managed llama.cpp setup failed. Run openclaw doctor, fix the reported runtime or model issue, then retry. ${detail}`, { cause: error });
 	}
 }
 //#endregion
@@ -2464,7 +2653,7 @@ function registerLlamaCppProvider(api) {
 			},
 			run: runLlamaServerSetup,
 			validateNonInteractive: validateLlamaServerNonInteractive,
-			runNonInteractive: async (ctx) => await configureLlamaServerNonInteractive(ctx)
+			runNonInteractive: configureLlamaServerNonInteractive
 		}],
 		catalog: {
 			order: "late",
@@ -2481,11 +2670,11 @@ function registerLlamaCppProvider(api) {
 			run: async () => ({ provider: buildLlamaCppProviderConfig() })
 		},
 		resolveSyntheticAuth: ({ providerConfig }) => providerConfig?.localService || shouldUseLlamaServerSyntheticAuth(providerConfig) ? {
-			apiKey: resolveLlamaCppSyntheticApiKey(),
+			apiKey: LLAMA_CPP_LOCAL_AUTH_MARKER,
 			source: providerConfig?.localService ? "managed local llama.cpp server" : hasLlamaServerAuthorizationHeader(providerConfig?.headers) ? "models.providers.llama-cpp.headers.Authorization" : "models.providers.llama-cpp (synthetic local key)",
 			mode: "api-key"
 		} : void 0,
-		shouldDeferSyntheticProfileAuth: ({ resolvedApiKey }) => resolvedApiKey?.trim() === resolveLlamaCppSyntheticApiKey() || resolvedApiKey?.trim() === CUSTOM_LOCAL_AUTH_MARKER,
+		shouldDeferSyntheticProfileAuth: ({ resolvedApiKey }) => resolvedApiKey?.trim() === "llama-cpp-local" || resolvedApiKey?.trim() === CUSTOM_LOCAL_AUTH_MARKER,
 		normalizeConfig: ({ providerConfig }) => providerConfig.localService ? providerConfig : normalizeLlamaServerProviderConfig(providerConfig),
 		prepareDynamicModel: async (ctx) => ctx.config?.models?.providers?.["llama-cpp"]?.localService ? void 0 : await prepareLlamaServerDynamicModel(ctx),
 		reconcileLocalService: reconcileManagedLlamaServer,

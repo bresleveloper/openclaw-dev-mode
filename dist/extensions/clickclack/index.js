@@ -1,4 +1,4 @@
-import { t as registerClickClackDiscussions } from "./.setup/runtime-api-A9r1b12d.mjs";
+import { t as registerClickClackDiscussions } from "./.setup/runtime-api-Dm_MQHNq.mjs";
 import { defineBundledChannelEntry } from "openclaw/plugin-sdk/channel-entry-contract";
 //#region extensions/clickclack/index.ts
 /**

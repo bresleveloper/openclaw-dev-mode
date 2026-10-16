@@ -1,9 +1,6 @@
 //#region extensions/cloudflare-ai-gateway/models.ts
-/** Provider id used in model refs and auth profiles. */
 const CLOUDFLARE_AI_GATEWAY_PROVIDER_ID = "cloudflare-ai-gateway";
-/** Default Cloudflare AI Gateway model id exposed by the bundled provider. */
 const CLOUDFLARE_AI_GATEWAY_DEFAULT_MODEL_ID = "claude-sonnet-4-6";
-/** Fully-qualified default model ref used by onboarding. */
 const CLOUDFLARE_AI_GATEWAY_DEFAULT_MODEL_REF = `${CLOUDFLARE_AI_GATEWAY_PROVIDER_ID}/${CLOUDFLARE_AI_GATEWAY_DEFAULT_MODEL_ID}`;
 const CLOUDFLARE_AI_GATEWAY_DEFAULT_CONTEXT_WINDOW = 2e5;
 const CLOUDFLARE_AI_GATEWAY_DEFAULT_MAX_TOKENS = 64e3;

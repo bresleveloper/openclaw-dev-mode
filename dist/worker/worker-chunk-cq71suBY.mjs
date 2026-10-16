@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{a as t,t as n}from"./worker-chunk-C9wC4bov.mjs";async function compactEmbeddedAgentSessionOnDemand(e){let{compactEmbeddedAgentSessionDirect:t}=await r.load();return t(e)}var r;e((()=>{t(),r=n(()=>import(`./worker-chunk-DHDyo30-.mjs`))}))();export{compactEmbeddedAgentSessionOnDemand};

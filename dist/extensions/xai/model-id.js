@@ -1,2 +1,2 @@
-import { n as isXaiXhighModelId, r as normalizeXaiModelId, t as isXaiFrontierModelId } from "../../model-id-BpefGMul.mjs";
-export { isXaiFrontierModelId, isXaiXhighModelId, normalizeXaiModelId };
+import { i as normalizeXaiModelId, n as isXaiGrokReleaseAtLeast, r as isXaiXhighModelId, t as isXaiFrontierModelId } from "../../model-id-BCpLVsfx.mjs";
+export { isXaiFrontierModelId, isXaiGrokReleaseAtLeast, isXaiXhighModelId, normalizeXaiModelId };

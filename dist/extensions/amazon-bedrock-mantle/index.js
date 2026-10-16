@@ -9,9 +9,7 @@ var amazon_bedrock_mantle_default = definePluginEntry({
 	id: "amazon-bedrock-mantle",
 	name: "Amazon Bedrock Mantle Provider",
 	description: "Bundled Amazon Bedrock Mantle (OpenAI-compatible) provider plugin",
-	register(api) {
-		registerBedrockMantlePlugin(api);
-	}
+	register: registerBedrockMantlePlugin
 });
 //#endregion
 export { amazon_bedrock_mantle_default as default };

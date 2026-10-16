@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function resolveGatewayStartupTiming(){let e=process.platform===`win32`;return{deadlineMs:e?9e4:45e3,probeTimeoutMs:e?15e3:1e4}}var t=e((()=>{}));export{resolveGatewayStartupTiming as n,t};

@@ -142,9 +142,6 @@ function isResolvedVideo(props) {
 * Event dispatched when an input component's validation state is updated.
 */
 var A2UIValidationEvent = class A2UIValidationEvent extends CustomEvent {
-	static {
-		this.EVENT_NAME = "a2ui-validation-input";
-	}
 	constructor(detail, eventInitDict) {
 		super(A2UIValidationEvent.EVENT_NAME, {
 			bubbles: true,
@@ -157,6 +154,7 @@ var A2UIValidationEvent = class A2UIValidationEvent extends CustomEvent {
 		});
 	}
 };
+A2UIValidationEvent.EVENT_NAME = "a2ui-validation-input";
 var util;
 (function(util) {
 	util.assertEqual = (_) => {};
@@ -4086,9 +4084,6 @@ var A2uiStateError = class extends A2uiError {
 * hierarchical model of UI surfaces.
 */
 var A2uiMessageProcessor = class A2uiMessageProcessor {
-	static {
-		this.DEFAULT_SURFACE_ID = "@default";
-	}
 	constructor(opts = {
 		mapCtor: Map,
 		arrayCtor: Array,
@@ -4496,6 +4491,7 @@ var A2uiMessageProcessor = class A2uiMessageProcessor {
 		return value;
 	}
 };
+A2uiMessageProcessor.DEFAULT_SURFACE_ID = "@default";
 const opacityBehavior = `
   &:not([disabled]) {
     cursor: pointer;
@@ -12372,6 +12368,7 @@ var OpenClawA2UIHost = class extends i$7 {
 	pendingAction = null;
 	toast = null;
 	#statusListener = null;
+	#actionListener = (evt) => this.#handleA2UIAction(evt);
 	static styles = i$10`
     :host {
       display: block;
@@ -12489,22 +12486,20 @@ var OpenClawA2UIHost = class extends i$7 {
 			reset: () => this.reset(),
 			getSurfaces: () => Array.from(this.#processor.getSurfaces().keys())
 		};
-		this.addEventListener("a2uiaction", (evt) => this.#handleA2UIAction(evt));
+		this.addEventListener("a2uiaction", this.#actionListener);
 		this.#statusListener = (evt) => this.#handleActionStatus(evt);
-		for (const eventName of ["openclaw:a2ui-action-status"]) globalThis.addEventListener(eventName, this.#statusListener);
+		globalThis.addEventListener("openclaw:a2ui-action-status", this.#statusListener);
 		this.#syncSurfaces();
 		const bootMessages = globalThis.openclawA2UIBoot?.messages;
 		if (Array.isArray(bootMessages)) this.applyMessages(bootMessages);
 	}
 	disconnectedCallback() {
 		super.disconnectedCallback();
+		this.removeEventListener("a2uiaction", this.#actionListener);
 		if (this.#statusListener) {
-			for (const eventName of ["openclaw:a2ui-action-status"]) globalThis.removeEventListener(eventName, this.#statusListener);
+			globalThis.removeEventListener("openclaw:a2ui-action-status", this.#statusListener);
 			this.#statusListener = null;
 		}
-	}
-	#makeActionId() {
-		return createSecureActionId();
 	}
 	#setToast(text, kind = "ok", timeoutMs = 1400) {
 		const toast = {
@@ -12582,7 +12577,7 @@ var OpenClawA2UIHost = class extends i$7 {
 				continue;
 			}
 		}
-		const actionId = this.#makeActionId();
+		const actionId = createSecureActionId();
 		if (!actionId) {
 			this.#setToast("Secure action identifiers unavailable", "error", 4500);
 			return;

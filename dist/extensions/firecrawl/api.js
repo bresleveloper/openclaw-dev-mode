@@ -1,4 +1,4 @@
-import { n as runFirecrawlScrape } from "./.setup/firecrawl-client-hBjAoE8s.mjs";
+import { n as runFirecrawlScrape } from "./.setup/firecrawl-client-Bqyr6x90.mjs";
 import { readStringValue } from "openclaw/plugin-sdk/string-coerce-runtime";
 //#region extensions/firecrawl/api.ts
 async function fetchFirecrawlContent(params) {

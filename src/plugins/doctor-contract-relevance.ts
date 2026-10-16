@@ -3,6 +3,9 @@ import { parseProviderModelRef } from "@openclaw/model-catalog-core/model-catalo
 import { normalizeProviderId } from "@openclaw/model-catalog-core/provider-id";
 import { asNullableRecord } from "@openclaw/normalization-core/record-coerce";
 import { isChannelConfigMetadataKey } from "../channels/config-metadata.js";
+import type { PluginManifestRegistry } from "./manifest-registry.types.js";
+
+type PluginManifestRegistryRecord = PluginManifestRegistry["plugins"][number];
 
 function hasLegacyElevenLabsTalkFields(raw: unknown): boolean {
   const talk = asNullableRecord(asNullableRecord(raw)?.talk);
@@ -135,15 +138,8 @@ export function collectRelevantDoctorPluginIdsForTouchedPaths(params: {
       }
       continue;
     }
-    if (first === "plugins") {
-      if (second !== "entries" || !third) {
-        return collectRelevantDoctorPluginIds(params.raw);
-      }
-      ids.add(third);
-      continue;
-    }
-    if (first === "models") {
-      if (second !== "providers" || !third) {
+    if (first === "plugins" || first === "models") {
+      if (second !== (first === "plugins" ? "entries" : "providers") || !third) {
         return collectRelevantDoctorPluginIds(params.raw);
       }
       ids.add(third);
@@ -159,4 +155,45 @@ export function collectRelevantDoctorPluginIdsForTouchedPaths(params: {
   }
 
   return [...ids].toSorted();
+}
+
+function hasScopedProviderAuthAlias(
+  record: PluginManifestRegistryRecord,
+  scopedProviderIds: ReadonlySet<string>,
+): boolean {
+  return Object.entries(record.providerAuthAliases ?? {}).some(([rawAlias, rawTarget]) => {
+    if (typeof rawTarget !== "string") {
+      return false;
+    }
+    const target = normalizeProviderId(rawTarget);
+    return (
+      scopedProviderIds.has(normalizeProviderId(rawAlias)) &&
+      target !== "" &&
+      record.providers.some((providerId) => normalizeProviderId(providerId) === target)
+    );
+  });
+}
+
+export function filterPluginDoctorRecordsByScope(
+  records: readonly PluginManifestRegistryRecord[],
+  pluginIds?: readonly string[],
+  deferredPluginIds?: ReadonlySet<string>,
+): PluginManifestRegistryRecord[] {
+  const scopedPluginIds = pluginIds ? new Set(pluginIds) : null;
+  const scopedProviderIds = pluginIds
+    ? new Set(pluginIds.map(normalizeProviderId).filter(Boolean))
+    : null;
+  return records.filter(
+    (record) =>
+      !deferredPluginIds?.has(record.id) &&
+      !(
+        scopedPluginIds &&
+        !scopedPluginIds.has(record.id) &&
+        !(record.packageName && scopedPluginIds.has(record.packageName)) &&
+        !record.legacyPluginIds?.some((pluginId) => scopedPluginIds.has(pluginId)) &&
+        !record.channels.some((channelId) => scopedPluginIds.has(channelId)) &&
+        !record.providers.some((providerId) => scopedPluginIds.has(providerId)) &&
+        !(scopedProviderIds && hasScopedProviderAuthAlias(record, scopedProviderIds))
+      ),
+  );
 }

@@ -1,20 +1,26 @@
-import { i as resolveGlobalSingleton } from "../../global-singleton-Dc_stLtU.mjs";
-import { c as isRecord, t as asNonArrayRecord } from "../../record-coerce-DItp3I4t.mjs";
-import { x as isCronSessionKey } from "../../session-key-CBvmC8zz.mjs";
+import { g as readStringValue } from "../../string-coerce-1VuiLaaR.mjs";
+import { j as resolveIntegerOption } from "../../number-coercion-CuVhdCBs.mjs";
+import { a as resolveGlobalSingleton } from "../../global-singleton-0m-JziJW.mjs";
+import { c as isRecord, o as asRecord, t as asNonArrayRecord } from "../../record-coerce-TIsquoVR.mjs";
+import { b as redactToolPayloadText } from "../../redact-DJ8j6ADa.mjs";
+import { r as isIncognitoSessionKey } from "../../session-key-CmZ4o9-l.mjs";
+import { S as isCronSessionKey, l as resolveAgentIdFromSessionKey } from "../../session-key-C09ow4h0.mjs";
+import "../../string-coerce-runtime-50qKeWeL.mjs";
+import "../../security-runtime-CpTHQYW2.mjs";
 import { t as safeEqualSecret } from "../../secret-equal-DRsL8lKD.mjs";
+import "../../session-key-runtime-CgEY8jLa.mjs";
 import { t as jsonResult } from "../../tool-results-BCM3fdVS.mjs";
-import { h as readToolStringParam } from "../../common-XfKigJno.mjs";
-import "../../string-coerce-runtime-C_MKhRVt.mjs";
-import "../../routing-gwrpgNm_.mjs";
-import { t as definePluginEntry } from "../../plugin-entry-BOulgRcx.mjs";
-import "../../core-BY-df94Z.mjs";
-import "../../security-runtime-ByyEMO4I.mjs";
-import "../../global-singleton-D_6N_QHn.mjs";
-import "../../api-CR-OE8tb.mjs";
-import { d as WORKBOARD_STATUSES, m as redactClaimToken } from "../../src-CMxcJXXp.mjs";
-import { _ as resolveWorkboardAgentWorkspace, a as workboardCardMatchesLifecycleLink, c as cardRunId, d as isWorkboardWorktreeCleanupCandidate, f as WORKBOARD_TOOL_NAMES, g as resolveCommandWorkboardWorkspaceAccess, h as resolveAgentWorkboardWorkspaceRuntime, i as WorkboardStore, l as cardSessionKey, m as guardWorkboardToolsForWorkspaceAccess, n as registerWorkboardStoreLifecycle, o as workboardCardSessionLookupKey, p as canonicalizeWorkboardWorkspaceAccess, r as dispatchAndStartWorkboardCards, s as cardBoardId, t as registerWorkboardGatewayMethods, u as cleanupWorkboardCardWorktree } from "../../runtime-api-BspYHj6x.mjs";
-import "../../store-constants-DPYot7MP.mjs";
-import { n as resolveWorkboardSqliteWorkerModuleUrl } from "../../sqlite-store-paths-DMRV7j8G.mjs";
+import { m as readToolStringParam } from "../../common-Dyxcwsy8.mjs";
+import "../../number-runtime-CgyXj1A5.mjs";
+import "../../routing-CEr1aXk1.mjs";
+import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
+import "../../core-xGEFuUaI.mjs";
+import "../../logging-core-LMmGpAHM.mjs";
+import "../../global-singleton-yHEs_vfD.mjs";
+import "../../api-Dw-2Dcz5.mjs";
+import { d as WORKBOARD_STATUSES, h as redactDispatchResult, m as redactClaimToken } from "../../src-C_j7E0TD.mjs";
+import { _ as resolveAgentWorkboardWorkspaceRuntime, a as WorkboardStore, c as cardBoardId, d as cleanupWorkboardCardWorktree, f as isWorkboardWorktreeCleanupCandidate, g as guardWorkboardToolsForWorkspaceAccess, h as canonicalizeWorkboardWorkspaceAccess, i as dispatchAndStartWorkboardCards, l as cardRunId, m as WORKBOARD_SESSIONS_BOARD_TOOL_NAMES, n as registerWorkboardStoreLifecycle, o as workboardCardMatchesLifecycleLink, p as WORKBOARD_CARD_TOOL_NAMES, r as resolveWorkboardSqliteWorkerModuleUrl, s as workboardCardSessionLookupKey, t as registerWorkboardGatewayMethods, u as cardSessionKey, v as resolveCommandWorkboardWorkspaceAccess, y as resolveWorkboardAgentWorkspace } from "../../runtime-api-B44EJAFL.mjs";
+import "../../sqlite-store-errors-ClY8dC8v.mjs";
 import { t as resolveWorkboardCardByIdOrPrefix } from "../../card-lookup-BoXKYGHH.mjs";
 import { Type } from "typebox";
 //#region extensions/workboard/src/automation-nudge.ts
@@ -27,7 +33,6 @@ function clearPendingBoardNudges(state) {
 function getWorkboardAutomationNudgeState() {
 	return resolveGlobalSingleton(WORKBOARD_AUTOMATION_NUDGE_STATE_KEY, () => ({ pendingByBoard: /* @__PURE__ */ new Map() }), (state) => {
 		state.owner = void 0;
-		state.logger = void 0;
 		clearPendingBoardNudges(state);
 	});
 }
@@ -36,31 +41,30 @@ function isCronOriginSession(sessionKey) {
 	return normalized?.startsWith("cron:") === true || isCronSessionKey(normalized);
 }
 function createWorkboardAutomationNudgeService(params) {
-	const serviceOwner = {};
+	let serviceOwner;
 	const nudgeBoard = async (boardId, jobId, owner) => {
 		const state = getWorkboardAutomationNudgeState();
-		if (state.owner !== owner || !state.logger || state.pendingByBoard.has(boardId)) return;
+		if (state.owner !== owner || state.pendingByBoard.has(boardId)) return;
 		if (state.pendingByBoard.size >= 2e3) {
-			state.logger.warn(`workboard automation nudge skipped for board ${boardId}: debounce map full`);
+			owner.logger.warn(`workboard automation nudge skipped for board ${boardId}: debounce map full`);
 			return;
 		}
 		const pending = {};
 		const expiresAt = Date.now() + WORKBOARD_AUTOMATION_NUDGE_DEBOUNCE_MS;
 		state.pendingByBoard.set(boardId, pending);
 		try {
-			const result = await params.gateway.request("cron.run", {
-				id: jobId,
-				mode: "if-enabled"
-			}, { scopes: ["operator.admin"] });
-			if (isRecord(result) && result.ran === false) {
-				const reason = typeof result.reason === "string" ? result.reason : "not-run";
-				state.logger.warn(`workboard automation nudge skipped for board ${boardId}: job ${jobId} ${reason}`);
+			const enqueueRun = owner.getCron?.()?.enqueueRun;
+			if (!enqueueRun) throw new Error("Workboard automation scheduler is unavailable");
+			const result = await enqueueRun(jobId, "if-enabled");
+			if (!result.ok || "ran" in result && !result.ran) {
+				const reason = "reason" in result ? result.reason : "not-run";
+				owner.logger.warn(`workboard automation nudge skipped for board ${boardId}: job ${jobId} ${reason}`);
 				return;
 			}
-			const runId = isRecord(result) && typeof result.runId === "string" ? result.runId : void 0;
-			state.logger.info(`workboard automation nudge requested for board ${boardId}: job ${jobId}${runId ? ` run ${runId}` : ""}`);
+			const runId = "runId" in result ? result.runId : void 0;
+			owner.logger.info(`workboard automation nudge requested for board ${boardId}: job ${jobId}${runId ? ` run ${runId}` : ""}`);
 		} catch (error) {
-			if (state.owner === owner) state.logger?.warn(`workboard automation nudge failed for board ${boardId}: ${String(error)}`);
+			if (state.owner === owner) owner.logger.warn(`workboard automation nudge failed for board ${boardId}: ${String(error)}`);
 		} finally {
 			if (state.owner === owner && state.pendingByBoard.get(boardId) === pending) {
 				pending.timer = setTimeout(() => {
@@ -75,20 +79,21 @@ function createWorkboardAutomationNudgeService(params) {
 		start(ctx) {
 			const state = getWorkboardAutomationNudgeState();
 			clearPendingBoardNudges(state);
-			state.owner = serviceOwner;
-			state.logger = ctx.logger;
+			state.owner = serviceOwner = {
+				logger: ctx.logger,
+				getCron: ctx.getCron
+			};
 		},
 		stop() {
 			const state = getWorkboardAutomationNudgeState();
 			if (state.owner !== serviceOwner) return;
-			state.owner = void 0;
-			state.logger = void 0;
+			state.owner = serviceOwner = void 0;
 			clearPendingBoardNudges(state);
 		},
 		async nudge(input) {
 			const state = getWorkboardAutomationNudgeState();
 			const owner = state.owner;
-			if (!owner || !state.logger || isCronOriginSession(input.sessionKey) || input.cards.length === 0) return;
+			if (!owner || isCronOriginSession(input.sessionKey) || input.cards.length === 0) return;
 			try {
 				const automationByBoard = new Map((await params.store.listBoards()).boards.flatMap((board) => board.automationJobId ? [[board.id, board.automationJobId]] : []));
 				const boardIds = new Set(input.cards.map((card) => cardBoardId(card)));
@@ -97,7 +102,7 @@ function createWorkboardAutomationNudgeService(params) {
 					return jobId ? [nudgeBoard(boardId, jobId, owner)] : [];
 				}));
 			} catch (error) {
-				if (state.owner === owner) state.logger?.warn(`workboard automation nudge failed: ${String(error)}`);
+				if (state.owner === owner) owner.logger.warn(`workboard automation nudge failed: ${String(error)}`);
 			}
 		}
 	};
@@ -162,9 +167,6 @@ function createWorkboardChangeEventService(store) {
 //#region extensions/workboard/src/command.ts
 const ADMIN_SCOPE = "operator.admin";
 const WRITE_SCOPE = "operator.write";
-function splitArgs(input) {
-	return (input ?? "").trim().split(/\s+/).filter(Boolean);
-}
 function formatCardLine(card) {
 	const boardId = card.metadata?.automation?.boardId ?? "default";
 	const agent = card.agentId ? ` @${card.agentId}` : "";
@@ -185,26 +187,16 @@ function formatCardDetails(card) {
 	if (card.notes) lines.push("", card.notes);
 	return lines.join("\n");
 }
-function normalizeTitle(tokens) {
-	return tokens.join(" ").trim();
-}
-function isWorkboardStatus(value) {
-	return WORKBOARD_STATUSES.includes(value);
-}
-function canMutateWorkboard(params) {
-	const scopes = params.gatewayClientScopes;
-	if (scopes) return scopes.includes(ADMIN_SCOPE) || scopes.includes(WRITE_SCOPE);
-	return params.senderIsOwner === true;
-}
 function requireWriteAccess(params) {
-	if (canMutateWorkboard(params)) return;
+	const scopes = params.gatewayClientScopes;
+	if (scopes ? scopes.includes(ADMIN_SCOPE) || scopes.includes(WRITE_SCOPE) : params.senderIsOwner === true) return;
 	return {
 		text: `This command requires gateway scope: ${WRITE_SCOPE}.`,
 		isError: true
 	};
 }
 async function handleWorkboardCommand(params) {
-	const [action = "list", ...rest] = splitArgs(params.args);
+	const [action = "list", ...rest] = (params.args ?? "").trim().split(/\s+/).filter(Boolean);
 	if (action === "help") return { text: [
 		"/workboard list",
 		"/workboard show <card-id>",
@@ -229,10 +221,12 @@ async function handleWorkboardCommand(params) {
 			isError: true
 		};
 	}
-	if (action === "create") {
+	if (action === "create" || action === "move" || action === "dispatch") {
 		const accessError = requireWriteAccess(params);
 		if (accessError) return accessError;
-		const title = normalizeTitle(rest);
+	}
+	if (action === "create") {
+		const title = rest.join(" ").trim();
 		if (!title) return {
 			text: "Usage: /workboard create <title>",
 			isError: true
@@ -245,8 +239,6 @@ async function handleWorkboardCommand(params) {
 		return { text: `Created ${card.id.slice(0, 8)} ${card.title}` };
 	}
 	if (action === "move") {
-		const accessError = requireWriteAccess(params);
-		if (accessError) return accessError;
 		const id = rest[0];
 		const statusIndex = rest.indexOf("--status");
 		const status = statusIndex >= 0 ? rest[statusIndex + 1] : void 0;
@@ -254,7 +246,7 @@ async function handleWorkboardCommand(params) {
 			text: "Usage: /workboard move <card-id> --status <status>",
 			isError: true
 		};
-		if (!isWorkboardStatus(status)) return {
+		if (!WORKBOARD_STATUSES.includes(status)) return {
 			text: `status must be one of: ${WORKBOARD_STATUSES.join(", ")}.`,
 			isError: true
 		};
@@ -267,8 +259,6 @@ async function handleWorkboardCommand(params) {
 		return { text: formatCardLine(await params.store.move(card.id, status, void 0, void 0, { assertOwnerCurrent: params.assertOwnerCurrent })) };
 	}
 	if (action === "dispatch") {
-		const accessError = requireWriteAccess(params);
-		if (accessError) return accessError;
 		const workspaceAccess = params.workspaceAccess ?? { unrestricted: true };
 		const result = await dispatchAndStartWorkboardCards({
 			store: params.store,
@@ -654,8 +644,319 @@ function createWorkboardLifecycleService(params) {
 	};
 }
 //#endregion
+//#region extensions/workboard/src/sessions-board-rules.ts
+function sessionMatchesColumn(facts, column) {
+	if (!column.match) return false;
+	return (Array.isArray(column.match) ? column.match : [column.match]).some((match) => (match.health === void 0 || facts.observerDigest !== void 0 && match.health.includes(facts.observerDigest.health)) && (match.run === void 0 || match.run.includes(facts.run)) && (match.archived === void 0 || match.archived === facts.archived) && (match.pullRequest === void 0 || !facts.pullRequestsUnavailable && (facts.pullRequests.length === 0 ? match.pullRequest.includes("none") : facts.pullRequests.some((pr) => match.pullRequest?.includes(pr.state)))));
+}
+function sessionsBoardFallback(board) {
+	const column = board.sessions.columns.find((entry) => entry.fallback);
+	if (!column) throw new Error("Sessions board requires a fallback column.");
+	return column;
+}
+//#endregion
+//#region extensions/workboard/src/sessions-board.ts
+const FACTS_BATCH_SIZE = 40;
+function activeState() {
+	return resolveGlobalSingleton(Symbol.for("openclaw.workboard.sessionsBoardService"), () => ({}), (state) => {
+		state.owner?.cancel();
+		state.owner = void 0;
+	});
+}
+/** Uses the existing Gateway session-list owner in the invoking caller's scope. */
+async function listSessions(gateway, board, view) {
+	const sessions = /* @__PURE__ */ new Map();
+	let people;
+	let offset = 0;
+	for (;;) {
+		const payload = await gateway.request("sessions.list", {
+			limit: 1e3,
+			offset,
+			configuredAgentsOnly: true,
+			includeGlobal: false,
+			includeUnknown: false,
+			archived: board.sessions.scope?.includeArchived ? "all" : false,
+			sortBy: "activity",
+			activeMinutes: Math.max(1, Math.ceil((board.sessions.scope?.maxAgeHours ?? 72) * 60)),
+			...board.sessions.scope?.agentIds?.length === 1 ? { agentId: board.sessions.scope.agentIds[0] } : {},
+			...view
+		}, { scopes: ["operator.read"] });
+		if (!isRecord(payload) || !Array.isArray(payload.sessions)) throw new Error("sessions.list returned an invalid Sessions board roster.");
+		if (offset === 0 && view?.includePeople) people = payload.people;
+		for (const session of payload.sessions) if (isRecord(session) && typeof session.key === "string" && typeof session.sessionId === "string" && session.visibility !== "draft" && session.incognito !== true && !isIncognitoSessionKey(session.key)) sessions.set(session.key, {
+			key: session.key,
+			sessionId: session.sessionId,
+			agentId: resolveAgentIdFromSessionKey(session.key),
+			label: typeof session.label === "string" ? session.label : void 0,
+			derivedTitle: typeof session.derivedTitle === "string" ? session.derivedTitle : void 0,
+			run: "idle",
+			pullRequests: [],
+			pullRequestsUnavailable: true,
+			archived: session.archived === true,
+			lastActivityAt: typeof session.lastActivityAt === "number" ? session.lastActivityAt : typeof session.updatedAt === "number" ? session.updatedAt : Date.now()
+		});
+		if (payload.hasMore !== true) return {
+			sessions,
+			people
+		};
+		const next = payload.nextOffset;
+		if (typeof next !== "number" || !Number.isSafeInteger(next) || next <= offset) throw new Error("sessions.list returned an invalid Sessions board page cursor.");
+		offset = next;
+	}
+}
+function inScope(facts, board, now) {
+	const scope = board.sessions.scope;
+	return facts.key !== board.sessions.agentSessionKey && (!scope?.agentIds?.length || scope.agentIds.includes(facts.agentId)) && (scope?.includeArchived === true || !facts.archived) && facts.lastActivityAt >= now - (scope?.maxAgeHours ?? 72) * 36e5;
+}
+function createOwner(params, context, isCurrent) {
+	const cache = /* @__PURE__ */ new Map();
+	const refreshes = /* @__PURE__ */ new Map();
+	const reads = /* @__PURE__ */ new Map();
+	const now = params.now ?? Date.now;
+	let stopped = false;
+	let hasRead = false;
+	let factsFailureLogged = false;
+	let timer;
+	const assertCurrent = () => {
+		if (stopped || !isCurrent()) throw new Error("Sessions board service is no longer active.");
+	};
+	const interactiveAuthority = (caller) => () => {
+		assertCurrent();
+		caller?.assertCurrent();
+	};
+	const unsubscribe = params.gateway.subscribeSessionChanges(({ sessionKey }) => {
+		const previous = cache.get(sessionKey);
+		if (stopped || !hasRead) return;
+		if (previous) cache.set(sessionKey, {
+			...previous,
+			dirty: true
+		});
+		if (timer) return;
+		timer = setTimeout(() => {
+			timer = void 0;
+			if (!stopped && isCurrent()) params.store.announceChangeEpoch();
+		}, 5e3);
+		timer.unref?.();
+	});
+	const read = async (id, view, caller) => {
+		const assertReadCurrent = interactiveAuthority(caller);
+		assertReadCurrent();
+		const board = await params.store.getSessionsBoard(id);
+		hasRead = true;
+		const { sessions: roster, people } = await listSessions(params.gateway, board, view);
+		assertReadCurrent();
+		const unavailable = /* @__PURE__ */ new Set();
+		const reasons = /* @__PURE__ */ new Set();
+		const omitted = /* @__PURE__ */ new Set();
+		while (refreshes.has(id)) {
+			await refreshes.get(id)?.catch(() => {});
+			assertReadCurrent();
+		}
+		const missing = [...roster.values()].filter((row) => {
+			const cached = cache.get(row.key);
+			return row.key !== board.sessions.agentSessionKey && (!cached || cached.sessionId !== row.sessionId || cached.dirty);
+		});
+		const refresh = async () => {
+			for (let offset = 0; offset < missing.length; offset += FACTS_BATCH_SIZE) {
+				const batch = missing.slice(offset, offset + FACTS_BATCH_SIZE);
+				for (const row of batch) if (cache.get(row.key)?.sessionId !== row.sessionId) cache.set(row.key, {
+					sessionId: row.sessionId,
+					dirty: true
+				});
+				const before = new Map(batch.map((row) => [row.key, cache.get(row.key)]));
+				try {
+					const result = await params.gateway.readSessionFacts({ sessionKeys: batch.map((row) => row.key) });
+					assertReadCurrent();
+					const returned = new Map(result.sessions.map((facts) => [facts.key, facts]));
+					for (const row of batch) {
+						const facts = returned.get(row.key);
+						if (!facts || facts.sessionId !== row.sessionId) {
+							omitted.add(row.key);
+							if (cache.get(row.key) === before.get(row.key)) cache.delete(row.key);
+						} else if (cache.get(row.key) === before.get(row.key)) cache.set(row.key, {
+							sessionId: facts.sessionId,
+							facts,
+							dirty: false
+						});
+					}
+				} catch (error) {
+					assertReadCurrent();
+					for (const row of batch) unavailable.add(row.key);
+					reasons.add(redactToolPayloadText(String(error)).replace(/\s+/g, " ").slice(0, 300));
+				}
+			}
+		};
+		if (missing.length) {
+			const computation = refresh();
+			refreshes.set(id, computation);
+			try {
+				await computation;
+			} finally {
+				if (refreshes.get(id) === computation) refreshes.delete(id);
+			}
+		}
+		const placements = new Map((await params.store.listSessionPlacements(id)).map((entry) => [entry.sessionKey, entry]));
+		assertReadCurrent();
+		const fallback = sessionsBoardFallback(board);
+		const sessions = [];
+		for (const row of roster.values()) {
+			if (omitted.has(row.key)) continue;
+			const cached = cache.get(row.key);
+			const known = cached?.sessionId === row.sessionId ? cached.facts : void 0;
+			const facts = known ?? row;
+			if (!inScope(facts, board, now())) continue;
+			const pin = placements.get(row.key);
+			const pinned = pin?.source === "operator" && board.sessions.columns.some((column) => column.id === pin.columnId);
+			const match = known ? board.sessions.columns.find((column) => sessionMatchesColumn(facts, column)) : void 0;
+			sessions.push({
+				...facts,
+				columnId: pinned ? pin.columnId : (match ?? fallback).id,
+				source: pinned ? "operator" : "state",
+				reason: pinned ? pin.reason : !known || !match && facts.pullRequestsUnavailable ? "facts-unavailable" : match ? "Matched column rules" : "fallback"
+			});
+		}
+		const warnings = [];
+		if (unavailable.size) {
+			const warning = `Session facts are unavailable for ${unavailable.size} sessions: ${[...reasons].join("; ")}. Showing the last known placement.`;
+			warnings.push(warning);
+			if (!factsFailureLogged) context.logger.warn(warning);
+			factsFailureLogged = true;
+		} else factsFailureLogged = false;
+		if (sessions.some((session) => session.pullRequestsUnavailable)) warnings.push("Some pull-request information is unavailable. The board updates when background facts are ready.");
+		return {
+			board,
+			columns: board.sessions.columns,
+			sessions,
+			...people !== void 0 ? { people } : {},
+			...warnings.length ? { warning: warnings.join(" ") } : {}
+		};
+	};
+	const cancel = () => {
+		stopped = true;
+		unsubscribe();
+		if (timer) clearTimeout(timer);
+		timer = void 0;
+		cache.clear();
+	};
+	return {
+		read(id, view, caller) {
+			if (caller) return read(id, view, caller);
+			const key = JSON.stringify([id, view]);
+			const pending = reads.get(key);
+			if (pending) return pending;
+			const computation = read(id, view).finally(() => {
+				if (reads.get(key) === computation) reads.delete(key);
+			});
+			reads.set(key, computation);
+			return computation;
+		},
+		cancel,
+		async stop() {
+			cancel();
+		},
+		async update(id, patch, caller) {
+			const assertWriteCurrent = interactiveAuthority(caller);
+			assertWriteCurrent();
+			return await params.store.updateSessionsBoard(id, patch, assertWriteCurrent);
+		},
+		async move(id, sessionKey, columnId, caller) {
+			const assertWriteCurrent = interactiveAuthority(caller);
+			assertWriteCurrent();
+			const board = await params.store.getSessionsBoard(id);
+			if (!board.sessions.columns.some((column) => column.id === columnId)) throw new Error("Unknown Sessions board column.");
+			const { sessions: visible } = await listSessions(params.gateway, board);
+			if (!visible.has(sessionKey)) throw new Error("Session is not available in this board's scope.");
+			if (!(await params.gateway.readSessionFacts({ sessionKeys: [sessionKey] })).sessions.find((entry) => entry.key === sessionKey && entry.sessionId === visible.get(sessionKey)?.sessionId && inScope(entry, board, now()))) throw new Error("Session is not available in this board's scope.");
+			const previous = (await params.store.listSessionPlacements(id)).find((entry) => entry.sessionKey === sessionKey);
+			if (!await params.store.writeSessionPlacement(id, {
+				sessionKey,
+				columnId,
+				source: "operator",
+				reason: "Moved by operator",
+				factsHash: "",
+				updatedAt: now(),
+				expectedUpdatedAt: previous?.updatedAt
+			}, {
+				expectedSpec: board.sessions,
+				assertCurrent: assertWriteCurrent
+			})) throw new Error("Sessions board changed. Refresh and retry the move.");
+			return await read(id, void 0, caller);
+		}
+	};
+}
+/** Prepared tool registries delegate to the one running plugin service. */
+function createWorkboardSessionsBoardService(params) {
+	let owned;
+	const current = () => {
+		const owner = activeState().owner;
+		if (!owner) throw new Error("Sessions board service is unavailable.");
+		return owner;
+	};
+	return {
+		id: "workboard-sessions-board",
+		async start(context) {
+			const state = activeState();
+			await state.owner?.stop();
+			state.owner = void 0;
+			const repaired = await params.store.repairSessionPlacements();
+			if (repaired.placements) context.logger.info(`Sessions board removed ${repaired.placements} non-operator placements.`);
+			if (repaired.boards) context.logger.info(`Sessions board updated default rules on ${repaired.boards} boards.`);
+			const owner = createOwner(params, context, () => activeState().owner === owner);
+			owned = state.owner = owner;
+		},
+		async stop() {
+			if (!owned) return;
+			const owner = owned;
+			owned = void 0;
+			if (activeState().owner === owner) activeState().owner = void 0;
+			await owner.stop();
+		},
+		read: (id, view, caller) => current().read(id, view, caller),
+		update: (id, patch, caller) => current().update(id, patch, caller),
+		move: (id, key, column, caller) => current().move(id, key, column, caller)
+	};
+}
+//#endregion
 //#region extensions/workboard/src/tools-card-mutations.ts
-const ClaimTokenFieldName = "token";
+function canMutateCard(card, ownerId, token) {
+	const claim = card.metadata?.claim;
+	return !claim || claim.ownerId === ownerId || safeEqualSecret(token, claim.token);
+}
+async function requireScopedCard(store, cardId, ownerId, token) {
+	const card = await store.get(cardId);
+	if (!card) throw new Error(`card not found: ${cardId}`);
+	if (!canMutateCard(card, ownerId, token)) throw new Error(`card is claimed by ${card.metadata?.claim?.ownerId ?? "another agent"}.`);
+	return card;
+}
+function redactedCardResult(card) {
+	return jsonResult({ card: redactClaimToken(card) });
+}
+function createWorkboardCardMutations(store, ownerId) {
+	const readParams = async (rawParams, requireClaim = false) => {
+		const record = asRecord(rawParams);
+		const id = readToolStringParam(record, "id", { required: true });
+		const token = readStringValue(record.token);
+		const card = await requireScopedCard(store, id, ownerId, token);
+		if (requireClaim && !card.metadata?.claim) throw new Error("card must be claimed before lifecycle completion.");
+		return {
+			record,
+			id,
+			scope: {
+				ownerId,
+				token
+			}
+		};
+	};
+	const cardMutation = (mutate, requireClaim = false) => async (_toolCallId, rawParams) => {
+		const { record, id, scope } = await readParams(rawParams, requireClaim);
+		return redactedCardResult(await mutate(id, record, scope));
+	};
+	return {
+		readScopedCardToolParams: (rawParams) => readParams(rawParams),
+		scopedCardMutation: (mutate) => cardMutation(mutate),
+		claimedCardMutation: (mutate) => cardMutation(mutate, true)
+	};
+}
 function cardIdField() {
 	return Type.String({ description: "Workboard card id." });
 }
@@ -665,21 +966,126 @@ function claimTokenField(description = "Claim token returned by workboard_claim.
 function strictObject(properties) {
 	return Type.Object(properties, { additionalProperties: false });
 }
-function createWorkboardMoveTool(params) {
-	return {
-		name: "workboard_move",
-		label: "Workboard Move",
-		description: "Move a Workboard card to another status. Claimed cards require matching claim scope.",
-		parameters: strictObject({
-			id: cardIdField(),
-			status: Type.Union(WORKBOARD_STATUSES.map((status) => Type.Literal(status)), { description: "Target Workboard status." }),
-			[ClaimTokenFieldName]: claimTokenField("Claim token for claimed cards.")
-		}),
-		execute: async (_toolCallId, rawParams) => {
-			const { record, id, scope } = await params.readScopedCardToolParams(rawParams);
-			return params.redactedCardResult(await params.store.move(id, record.status, void 0, scope));
-		}
+function workspaceField() {
+	return Type.Optional(strictObject({
+		kind: Type.String({ description: "scratch, dir, or worktree." }),
+		path: Type.Optional(Type.String({ description: "Absolute dir/worktree path." })),
+		branch: Type.Optional(Type.String({ description: "Suggested branch." }))
+	}));
+}
+//#endregion
+//#region extensions/workboard/src/tools-sessions-board.ts
+const boardIdField = Type.Optional(Type.String({ description: "Board id. May be omitted only when exactly one Sessions board exists." }));
+const matchRuleSchema = strictObject({
+	health: Type.Optional(Type.Array(Type.Union([
+		Type.Literal("on-track"),
+		Type.Literal("grinding"),
+		Type.Literal("stuck"),
+		Type.Literal("waiting-on-user"),
+		Type.Literal("wrapping-up"),
+		Type.Literal("done"),
+		Type.Literal("failed")
+	]))),
+	run: Type.Optional(Type.Array(Type.Union([
+		Type.Literal("active"),
+		Type.Literal("idle"),
+		Type.Literal("failed")
+	]))),
+	pullRequest: Type.Optional(Type.Array(Type.Union([
+		Type.Literal("none"),
+		Type.Literal("open"),
+		Type.Literal("draft"),
+		Type.Literal("merged"),
+		Type.Literal("closed")
+	]))),
+	archived: Type.Optional(Type.Boolean())
+});
+const columnSchema = strictObject({
+	id: Type.String({
+		minLength: 1,
+		maxLength: 48,
+		pattern: "^[a-z0-9][a-z0-9-]{0,47}$",
+		description: "Stable column id. Keep this id when renaming the label."
+	}),
+	label: Type.String({
+		minLength: 1,
+		maxLength: 60
+	}),
+	color: Type.Optional(Type.String({ description: "red, blue, green, yellow, purple, orange, pink, or cyan." })),
+	description: Type.String({
+		minLength: 1,
+		maxLength: 400,
+		description: "Description shown in the column tooltip."
+	}),
+	match: Type.Optional(Type.Union([matchRuleSchema, Type.Array(matchRuleSchema, { minItems: 1 })])),
+	fallback: Type.Optional(Type.Boolean({ description: "Exactly one column must be the unresolved-session fallback." }))
+});
+function createWorkboardSessionsBoardTools(params) {
+	const service = () => {
+		if (!params.sessionsBoard) throw new Error("Sessions board service is unavailable.");
+		return params.sessionsBoard;
 	};
+	const resolveBoardId = async (record) => {
+		if (record.boardId !== void 0) return readToolStringParam(record, "boardId", { required: true });
+		const boards = (await params.store.listBoards()).boards.filter((board) => board.kind === "sessions");
+		const board = boards[0];
+		if (boards.length === 1 && board) return board.id;
+		throw new Error(boards.length === 0 ? "No Sessions board exists. Create one with workboard_board_create and kind: \"sessions\"." : "boardId is required when more than one Sessions board exists. Use workboard_boards to choose one.");
+	};
+	const tools = [
+		{
+			name: "workboard_sessions_board_read",
+			label: "Sessions Board Read",
+			description: "Read a Sessions board and its session placements. Columns match Gateway-owned session status, observer health, and pull-request facts in order; operator pins take precedence. Card tools do not apply to Sessions boards.",
+			parameters: strictObject({ boardId: boardIdField }),
+			execute: async (_toolCallId, rawParams) => {
+				const record = asNonArrayRecord(rawParams);
+				return jsonResult(await service().read(await resolveBoardId(record), void 0, params.caller));
+			}
+		},
+		{
+			name: "workboard_sessions_board_update",
+			label: "Sessions Board Update",
+			description: "Edit a Sessions board's columns, match rules, or scope. columns replaces the full ordered list; preserve ids when renaming labels. All fields in each rule must match; a match array accepts any rule, and the first matching column wins. Exactly one fallback is required. Card tools do not apply to Sessions boards.",
+			parameters: strictObject({
+				boardId: boardIdField,
+				columns: Type.Optional(Type.Array(columnSchema, {
+					minItems: 2,
+					maxItems: 12
+				})),
+				scope: Type.Optional(strictObject({
+					agentIds: Type.Optional(Type.Array(Type.String({ minLength: 1 }))),
+					includeArchived: Type.Optional(Type.Boolean()),
+					maxAgeHours: Type.Optional(Type.Number({ exclusiveMinimum: 0 }))
+				}))
+			}),
+			execute: async (_toolCallId, rawParams) => {
+				const record = asNonArrayRecord(rawParams);
+				const boardId = await resolveBoardId(record);
+				const { boardId: _boardId, ...patch } = record;
+				return jsonResult({ board: await service().update(boardId, patch, params.caller) });
+			}
+		},
+		{
+			name: "workboard_sessions_board_move",
+			label: "Sessions Board Move",
+			description: "Pin a session in a Sessions board column. The pin overrides match rules while the column exists. Card tools do not apply to Sessions boards.",
+			parameters: strictObject({
+				boardId: boardIdField,
+				sessionKey: Type.String({ description: "Exact session key from the board read." }),
+				columnId: Type.String({ description: "Destination column id from the board read." })
+			}),
+			execute: async (_toolCallId, rawParams) => {
+				const record = asNonArrayRecord(rawParams);
+				return jsonResult(await service().move(await resolveBoardId(record), readToolStringParam(record, "sessionKey", { required: true }), readToolStringParam(record, "columnId", { required: true }), params.caller));
+			}
+		}
+	];
+	for (const tool of tools) {
+		const execute = tool.execute;
+		tool.execute = (...args) => params.store.runOperation(() => execute(...args));
+	}
+	return tools;
 }
 //#endregion
 //#region extensions/workboard/src/tools-orchestration.ts
@@ -691,7 +1097,8 @@ const ScopedClaimTokenField$1 = claimTokenField("Claim token for claimed cards."
 const OptionalNextStatusField = Type.Optional(Type.String({ description: "Optional next status." }));
 const OptionalOperatorNoteField = Type.Optional(Type.String({ description: "Optional operator note." }));
 function createWorkboardOrchestrationTools(params) {
-	const { store, ownerId, requireScopedCard, readScopedCardToolParams, readClaimedCardToolParams, runScopedCardMutation, redactedCardResult } = params;
+	const { store, ownerId } = params;
+	const { scopedCardMutation, claimedCardMutation } = createWorkboardCardMutations(store, ownerId);
 	return [
 		{
 			name: "workboard_boards",
@@ -703,9 +1110,10 @@ function createWorkboardOrchestrationTools(params) {
 		{
 			name: "workboard_board_create",
 			label: "Workboard Board Create",
-			description: "Create or update a Workboard board namespace with persisted SQLite metadata.",
+			description: "Create or update a Workboard board with persisted SQLite metadata. Choose kind sessions on creation for columns with rules over Gateway-owned session facts; card tools do not apply to Sessions boards. Board kind cannot change after creation.",
 			parameters: strictObject({
 				id: Type.String({ description: "Board id." }),
+				kind: Type.Optional(Type.Union([Type.Literal("cards"), Type.Literal("sessions")], { description: "Board kind, set only at creation. Default cards." })),
 				name: Type.Optional(Type.String({ description: "Display name." })),
 				description: Type.Optional(Type.String({ description: "Board description." })),
 				icon: Type.Optional(Type.String({ description: "Short icon or label." })),
@@ -715,11 +1123,7 @@ function createWorkboardOrchestrationTools(params) {
 					minLength: 1,
 					maxLength: 128
 				})),
-				defaultWorkspace: Type.Optional(strictObject({
-					kind: Type.String({ description: "scratch, dir, or worktree." }),
-					path: Type.Optional(Type.String({ description: "Absolute dir/worktree path." })),
-					branch: Type.Optional(Type.String({ description: "Suggested branch." }))
-				})),
+				defaultWorkspace: workspaceField(),
 				orchestration: Type.Optional(strictObject({
 					autoDecompose: Type.Optional(Type.Boolean({ description: "Mark ready triage cards for decomposition." })),
 					autoDecomposePerDispatch: Type.Optional(Type.Number({ description: "Maximum orchestration candidates per dispatch." })),
@@ -787,11 +1191,7 @@ function createWorkboardOrchestrationTools(params) {
 				boardId: Type.Optional(Type.String({ description: "Board id." })),
 				tenant: Type.Optional(Type.String({ description: "Tenant or routing namespace." })),
 				skills: Type.Optional(Type.Array(Type.String(), { description: "Suggested skills." })),
-				workspace: Type.Optional(strictObject({
-					kind: Type.String({ description: "scratch, dir, or worktree." }),
-					path: Type.Optional(Type.String({ description: "Absolute dir/worktree path." })),
-					branch: Type.Optional(Type.String({ description: "Suggested branch." }))
-				})),
+				workspace: workspaceField(),
 				maxRuntimeSeconds: Type.Optional(Type.Number({ description: "Runtime budget." })),
 				maxRetries: Type.Optional(Type.Number({ description: "Retry budget." })),
 				summary: Type.Optional(Type.String({ description: "Specification summary comment." })),
@@ -826,11 +1226,7 @@ function createWorkboardOrchestrationTools(params) {
 					boardId: Type.Optional(Type.String()),
 					tenant: Type.Optional(Type.String()),
 					skills: Type.Optional(Type.Array(Type.String())),
-					workspace: Type.Optional(strictObject({
-						kind: Type.String({ description: "scratch, dir, or worktree." }),
-						path: Type.Optional(Type.String({ description: "Absolute dir/worktree path." })),
-						branch: Type.Optional(Type.String({ description: "Suggested branch." }))
-					})),
+					workspace: workspaceField(),
 					maxRuntimeSeconds: Type.Optional(Type.Number()),
 					maxRetries: Type.Optional(Type.Number()),
 					idempotencyKey: Type.Optional(Type.String())
@@ -917,9 +1313,7 @@ function createWorkboardOrchestrationTools(params) {
 				force: Type.Optional(Type.Boolean({ description: "Bypass dependency or schedule holds." })),
 				reason: OptionalOperatorNoteField
 			}),
-			execute: async (_toolCallId, rawParams) => {
-				return runScopedCardMutation(rawParams, (id, record, scope) => store.promote(id, record, scope));
-			}
+			execute: scopedCardMutation((id, record, scope) => store.promote(id, record, scope))
 		},
 		{
 			name: "workboard_reassign",
@@ -933,9 +1327,7 @@ function createWorkboardOrchestrationTools(params) {
 				resetFailures: Type.Optional(Type.Boolean({ description: "Reset failure count." })),
 				reason: OptionalOperatorNoteField
 			}),
-			execute: async (_toolCallId, rawParams) => {
-				return runScopedCardMutation(rawParams, (id, record, scope) => store.reassign(id, record, scope));
-			}
+			execute: scopedCardMutation((id, record, scope) => store.reassign(id, record, scope))
 		},
 		{
 			name: "workboard_reclaim",
@@ -947,9 +1339,7 @@ function createWorkboardOrchestrationTools(params) {
 				status: OptionalNextStatusField,
 				reason: OptionalOperatorNoteField
 			}),
-			execute: async (_toolCallId, rawParams) => {
-				return runScopedCardMutation(rawParams, (id, record, scope) => store.reclaim(id, record, scope));
-			}
+			execute: scopedCardMutation((id, record, scope) => store.reclaim(id, record, scope))
 		},
 		{
 			name: "workboard_dispatch",
@@ -959,13 +1349,7 @@ function createWorkboardOrchestrationTools(params) {
 			execute: async (_toolCallId, rawParams) => {
 				const record = asNonArrayRecord(rawParams);
 				const result = await store.dispatch({ boardId: record.boardId });
-				return jsonResult({
-					...result,
-					promoted: result.promoted.map(redactClaimToken),
-					reclaimed: result.reclaimed.map(redactClaimToken),
-					blocked: result.blocked.map(redactClaimToken),
-					orchestrated: result.orchestrated.map(redactClaimToken)
-				});
+				return jsonResult(redactDispatchResult(result));
 			}
 		},
 		{
@@ -980,10 +1364,7 @@ function createWorkboardOrchestrationTools(params) {
 				runId: Type.Optional(Type.String({ description: "Linked run id." })),
 				token: ScopedClaimTokenField$1
 			}),
-			execute: async (_toolCallId, rawParams) => {
-				const { record, id, scope } = await readScopedCardToolParams(rawParams);
-				return redactedCardResult(await store.addWorkerLog(id, record, scope));
-			}
+			execute: scopedCardMutation((id, record, scope) => store.addWorkerLog(id, record, scope))
 		},
 		{
 			name: "workboard_protocol_violation",
@@ -996,22 +1377,14 @@ function createWorkboardOrchestrationTools(params) {
 				runId: Type.Optional(Type.String({ description: "Linked run id." })),
 				token: ScopedClaimTokenField$1
 			}),
-			execute: async (_toolCallId, rawParams) => {
-				const { record, id, scope } = await readClaimedCardToolParams(rawParams);
-				return redactedCardResult(await store.recordProtocolViolation(id, record, scope));
-			}
+			execute: claimedCardMutation((id, record, scope) => store.recordProtocolViolation(id, record, scope))
 		}
 	];
 }
 //#endregion
 //#region extensions/workboard/src/tools.ts
 function contextOwner(ctx) {
-	const record = ctx ?? {};
-	return typeof record.agentId === "string" && record.agentId || typeof record.sessionKey === "string" && record.sessionKey || typeof record.sessionId === "string" && record.sessionId || "agent";
-}
-function canMutateCard(card, ownerId, token) {
-	const claim = card.metadata?.claim;
-	return !claim || claim.ownerId === ownerId || safeEqualSecret(token, claim.token);
+	return ctx?.agentId || ctx?.sessionKey || ctx?.sessionId || "agent";
 }
 function readParentIds(value) {
 	if (value == null) return [];
@@ -1027,17 +1400,6 @@ function readParentIds(value) {
 		if (parents.length >= 20) break;
 	}
 	return parents;
-}
-async function requireScopedCard(store, cardId, ownerId, token) {
-	const card = await store.get(cardId);
-	if (!card) throw new Error(`card not found: ${cardId}`);
-	if (!canMutateCard(card, ownerId, token)) throw new Error(`card is claimed by ${card.metadata?.claim?.ownerId ?? "another agent"}.`);
-	return card;
-}
-async function requireClaimedCard(store, cardId, ownerId, token) {
-	const card = await requireScopedCard(store, cardId, ownerId, token);
-	if (!card.metadata?.claim) throw new Error("card must be claimed before lifecycle completion.");
-	return card;
 }
 function summarizeCard(card) {
 	return {
@@ -1061,24 +1423,6 @@ function summarizeCard(card) {
 		updatedAt: card.updatedAt
 	};
 }
-const ScopedClaimTokenField = claimTokenField("Claim token for claimed cards.");
-function readCardToolParams(rawParams, ownerId) {
-	const record = rawParams;
-	const id = readToolStringParam(record, "id", { required: true });
-	const token = record.token;
-	return {
-		record,
-		id,
-		token,
-		scope: {
-			ownerId,
-			token
-		}
-	};
-}
-function redactedCardResult(card) {
-	return jsonResult({ card: redactClaimToken(card) });
-}
 function redactedProofResult(card) {
 	const proofId = card.metadata?.proof?.at(-1)?.id;
 	if (!proofId) throw new Error("proof was not retained in card metadata.");
@@ -1087,6 +1431,7 @@ function redactedProofResult(card) {
 		proofId
 	});
 }
+const ScopedClaimTokenField = claimTokenField("Claim token for claimed cards.");
 const CardIdSchema = strictObject({
 	id: cardIdField(),
 	token: claimTokenField()
@@ -1094,22 +1439,7 @@ const CardIdSchema = strictObject({
 function createWorkboardTools(params) {
 	const { store } = params;
 	const ownerId = contextOwner(params.context);
-	const readScopedCardToolParams = async (rawParams) => {
-		const input = readCardToolParams(rawParams, ownerId);
-		await requireScopedCard(store, input.id, ownerId, input.token);
-		return input;
-	};
-	const readClaimedCardToolParams = async (rawParams) => {
-		const input = readCardToolParams(rawParams, ownerId);
-		await requireClaimedCard(store, input.id, ownerId, input.token);
-		return input;
-	};
-	const runCardMutation = async (rawParams, readParams, mutate) => {
-		const { record, id, scope } = await readParams(rawParams);
-		return redactedCardResult(await mutate(id, record, scope));
-	};
-	const runScopedCardMutation = (rawParams, mutate) => runCardMutation(rawParams, readScopedCardToolParams, mutate);
-	const runClaimedCardMutation = (rawParams, mutate) => runCardMutation(rawParams, readClaimedCardToolParams, mutate);
+	const { readScopedCardToolParams, scopedCardMutation, claimedCardMutation } = createWorkboardCardMutations(store, ownerId);
 	const tools = [
 		{
 			name: "workboard_list",
@@ -1131,7 +1461,10 @@ function createWorkboardTools(params) {
 				const agentId = typeof record.agentId === "string" ? record.agentId : void 0;
 				const tenant = typeof record.tenant === "string" ? record.tenant : void 0;
 				const boardId = typeof record.boardId === "string" ? record.boardId : void 0;
-				const limit = typeof record.limit === "number" && Number.isFinite(record.limit) ? Math.max(1, Math.min(200, Math.trunc(record.limit))) : 50;
+				const limit = resolveIntegerOption(record.limit, 50, {
+					min: 1,
+					max: 200
+				});
 				const cards = (await store.list({ boardId })).filter((card) => record.includeArchived === true || !card.metadata?.archivedAt).filter((card) => !status || card.status === status).filter((card) => !agentId || card.agentId === agentId).filter((card) => !tenant || card.metadata?.automation?.tenant === tenant).slice(0, limit).map(summarizeCard);
 				return jsonResult({ cards });
 			}
@@ -1139,7 +1472,7 @@ function createWorkboardTools(params) {
 		{
 			name: "workboard_create",
 			label: "Workboard Create",
-			description: "Create a Workboard card, optionally with parent dependencies, tenant, skills, workspace, and idempotency key.",
+			description: "Create a Workboard card, optionally with parent dependencies, tenant, skills, workspace, and idempotency key. Sessions boards do not hold cards; use workboard_sessions_board_read/update/move for them.",
 			parameters: strictObject({
 				title: Type.String({ description: "Card title." }),
 				notes: Type.Optional(Type.String({ description: "Card notes or acceptance criteria." })),
@@ -1154,11 +1487,7 @@ function createWorkboardTools(params) {
 				createdByCardId: Type.Optional(Type.String({ description: "Parent card that created this card." })),
 				idempotencyKey: Type.Optional(Type.String({ description: "Idempotent create key." })),
 				skills: Type.Optional(Type.Array(Type.String(), { description: "Suggested skills." })),
-				workspace: Type.Optional(strictObject({
-					kind: Type.String({ description: "scratch, dir, or worktree." }),
-					path: Type.Optional(Type.String({ description: "Absolute dir/worktree path." })),
-					branch: Type.Optional(Type.String({ description: "Suggested branch." }))
-				})),
+				workspace: workspaceField(),
 				maxRuntimeSeconds: Type.Optional(Type.Number({ description: "Run timeout seconds." })),
 				maxRetries: Type.Optional(Type.Number({ description: "Retry budget." })),
 				scheduledAt: Type.Optional(Type.Number({ description: "Unix epoch milliseconds." }))
@@ -1237,13 +1566,10 @@ function createWorkboardTools(params) {
 				token: claimTokenField(),
 				note: Type.Optional(Type.String({ description: "Optional compact progress note." }))
 			}),
-			execute: async (_toolCallId, rawParams) => {
-				const { record, id, scope } = await readScopedCardToolParams(rawParams);
-				return redactedCardResult(await store.heartbeat(id, {
-					...scope,
-					note: record.note
-				}));
-			}
+			execute: scopedCardMutation((id, record, scope) => store.heartbeat(id, {
+				...scope,
+				note: record.note
+			}))
 		},
 		{
 			name: "workboard_release",
@@ -1254,13 +1580,10 @@ function createWorkboardTools(params) {
 				token: claimTokenField(),
 				status: Type.Optional(Type.String({ description: "Optional next card status after release." }))
 			}),
-			execute: async (_toolCallId, rawParams) => {
-				const { record, id, scope } = await readScopedCardToolParams(rawParams);
-				return redactedCardResult(await store.releaseClaim(id, {
-					...scope,
-					status: record.status
-				}));
-			}
+			execute: scopedCardMutation((id, record, scope) => store.releaseClaim(id, {
+				...scope,
+				status: record.status
+			}))
 		},
 		{
 			name: "workboard_comment",
@@ -1271,10 +1594,7 @@ function createWorkboardTools(params) {
 				body: Type.String({ description: "Comment body." }),
 				token: ScopedClaimTokenField
 			}),
-			execute: async (_toolCallId, rawParams) => {
-				const { record, id, scope } = await readScopedCardToolParams(rawParams);
-				return redactedCardResult(await store.addComment(id, { body: record.body }, scope));
-			}
+			execute: scopedCardMutation((id, record, scope) => store.addComment(id, { body: record.body }, scope))
 		},
 		{
 			name: "workboard_proof",
@@ -1323,9 +1643,7 @@ function createWorkboardTools(params) {
 				}))),
 				createdCardIds: Type.Optional(Type.Array(Type.String(), { description: "Cards created during this run." }))
 			}),
-			execute: async (_toolCallId, rawParams) => {
-				return runClaimedCardMutation(rawParams, (id, record, scope) => store.complete(id, record, scope));
-			}
+			execute: claimedCardMutation((id, record, scope) => store.complete(id, record, scope))
 		},
 		{
 			name: "workboard_attachment_add",
@@ -1339,10 +1657,7 @@ function createWorkboardTools(params) {
 				note: Type.Optional(Type.String({ description: "Optional attachment note." })),
 				token: ScopedClaimTokenField
 			}),
-			execute: async (_toolCallId, rawParams) => {
-				const { record, id, scope } = await readScopedCardToolParams(rawParams);
-				return redactedCardResult(await store.addAttachment(id, record, scope));
-			}
+			execute: scopedCardMutation((id, record, scope) => store.addAttachment(id, record, scope, params.context?.assertInputCommitAllowed))
 		},
 		{
 			name: "workboard_attachment_read",
@@ -1365,11 +1680,10 @@ function createWorkboardTools(params) {
 				attachmentId: Type.String({ description: "Attachment id." }),
 				token: ScopedClaimTokenField
 			}),
-			execute: async (_toolCallId, rawParams) => {
-				const { record, id, scope } = await readScopedCardToolParams(rawParams);
+			execute: scopedCardMutation((id, record, scope) => {
 				const attachmentId = readToolStringParam(record, "attachmentId", { required: true });
-				return redactedCardResult(await store.deleteAttachment(id, attachmentId, scope));
-			}
+				return store.deleteAttachment(id, attachmentId, scope);
+			})
 		},
 		{
 			name: "workboard_block",
@@ -1380,33 +1694,29 @@ function createWorkboardTools(params) {
 				token: claimTokenField(),
 				reason: Type.Optional(Type.String({ description: "Blocker summary." }))
 			}),
-			execute: async (_toolCallId, rawParams) => {
-				return runClaimedCardMutation(rawParams, (id, record, scope) => store.block(id, record, scope));
-			}
+			execute: claimedCardMutation((id, record, scope) => store.block(id, record, scope))
 		},
 		{
 			name: "workboard_unblock",
 			label: "Workboard Unblock",
 			description: "Move a blocked Workboard card back to todo after adding enough context.",
 			parameters: CardIdSchema,
-			execute: async (_toolCallId, rawParams) => {
-				const { id, scope } = await readScopedCardToolParams(rawParams);
-				return redactedCardResult(await store.unblock(id, scope));
-			}
+			execute: scopedCardMutation((id, _record, scope) => store.unblock(id, scope))
 		},
-		createWorkboardMoveTool({
-			store,
-			readScopedCardToolParams,
-			redactedCardResult
-		}),
+		{
+			name: "workboard_move",
+			label: "Workboard Move",
+			description: "Move a Workboard card to another status. Claimed cards require matching claim scope.",
+			parameters: strictObject({
+				id: cardIdField(),
+				status: Type.Union(WORKBOARD_STATUSES.map((status) => Type.Literal(status)), { description: "Target Workboard status." }),
+				token: claimTokenField("Claim token for claimed cards.")
+			}),
+			execute: scopedCardMutation((id, record, scope) => store.move(id, record.status, void 0, scope))
+		},
 		...createWorkboardOrchestrationTools({
 			store,
-			ownerId,
-			requireScopedCard,
-			readScopedCardToolParams,
-			readClaimedCardToolParams,
-			runScopedCardMutation,
-			redactedCardResult
+			ownerId
 		})
 	];
 	for (const tool of tools) {
@@ -1429,11 +1739,13 @@ var workboard_default = definePluginEntry({
 		});
 		const changeEvents = createWorkboardChangeEventService(store);
 		resourceServices.push(changeEvents);
-		const automationNudge = createWorkboardAutomationNudgeService({
+		const automationNudge = createWorkboardAutomationNudgeService({ store });
+		resourceServices.push(automationNudge);
+		const sessionsBoard = createWorkboardSessionsBoardService({
 			store,
 			gateway: api.runtime.gateway
 		});
-		resourceServices.push(automationNudge);
+		resourceServices.push(sessionsBoard);
 		const lifecycleSync = createWorkboardLifecycleService({
 			store,
 			worktrees: api.runtime.worktrees,
@@ -1469,7 +1781,8 @@ var workboard_default = definePluginEntry({
 		});
 		registerWorkboardGatewayMethods({
 			api,
-			store
+			store,
+			sessionsBoard
 		});
 		registerWorkboardCommand({
 			api,
@@ -1477,6 +1790,7 @@ var workboard_default = definePluginEntry({
 		});
 		api.registerService(changeEvents);
 		api.registerService(automationNudge);
+		api.registerService(sessionsBoard);
 		api.registerService(lifecycleSync);
 		api.on("gateway_start", (_event, context) => lifecycleSync.onGatewayStart(context.abortSignal));
 		api.on("gateway_stop", () => lifecycleSync.onGatewayStop());
@@ -1497,7 +1811,7 @@ var workboard_default = definePluginEntry({
 			});
 		}));
 		api.registerCli(async ({ program }) => {
-			const { registerWorkboardCli } = await import("../../cli-B2t7puey.mjs");
+			const { registerWorkboardCli } = await import("../../cli-DbhB-iPY.mjs");
 			registerWorkboardCli({
 				program,
 				store
@@ -1511,9 +1825,17 @@ var workboard_default = definePluginEntry({
 			context,
 			store
 		}), context, api.runtime.sandbox.resolveWorkspaceAuthority), {
-			names: [...WORKBOARD_TOOL_NAMES],
+			names: [...WORKBOARD_CARD_TOOL_NAMES],
 			optional: true
 		});
+		api.registerTool({
+			contextVersion: 2,
+			create: (ctx) => createWorkboardSessionsBoardTools({
+				store,
+				sessionsBoard,
+				caller: { assertCurrent: ctx.assertInvocationCurrent }
+			})
+		}, { names: [...WORKBOARD_SESSIONS_BOARD_TOOL_NAMES] });
 	}
 });
 //#endregion

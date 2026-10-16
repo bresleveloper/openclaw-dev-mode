@@ -1,0 +1,2 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{STATUS_CODES as t}from"node:http";function rejectWebSocketUpgrade(e,n){let r=[`HTTP/1.1 ${n.status} ${n.reason??t[n.status]}`,`Connection: close`,...n.body?[`Content-Type: ${n.body.contentType}`,`Content-Length: ${Buffer.byteLength(n.body.text,`utf8`)}`]:[],...Object.entries(n.headers??{}).map(([e,t])=>`${e}: ${t}`),``,n.body?.text??``].join(`\r
+`);try{e.end(r,()=>e.destroy())}catch(t){throw e.destroy(),t}}var n=e((()=>{}));export{rejectWebSocketUpgrade as n,n as t};

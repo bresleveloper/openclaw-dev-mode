@@ -1,18 +1,17 @@
-import { D as resolveExpiresAtMsFromDurationMs } from "../../number-coercion-CLj0HTDM.mjs";
-import { t as formatCliCommand } from "../../command-format-DRYc0E-8.mjs";
-import { t as parseDurationMs } from "../../parse-duration-DBWI377R.mjs";
-import { p as listProfilesForProvider } from "../../order-BQhYF772.mjs";
-import { n as suggestOAuthProfileIdForLegacyDefault } from "../../repair-BcSbbkEG.mjs";
-import "../../number-runtime-CGwowceO.mjs";
-import { t as applyAuthProfileConfig } from "../../provider-auth-helpers-BC5ODME5.mjs";
-import "../../cli-runtime-BkyE6O-C.mjs";
-import "../../provider-auth-DFHjplgz.mjs";
-import { i as upsertAuthProfileWithLockOrThrowCompat } from "../../provider-auth-write-compat-oJ9QK9Ly.mjs";
-import { n as validateAnthropicSetupToken, t as buildTokenProfileId } from "../../provider-auth-token-FoqRrJeD.mjs";
-import "../../provider-auth-api-key-CVzt_KEx.mjs";
-import { t as buildAnthropicCliBackend } from "../../cli-backend-D99EGgJm.mjs";
-import { t as probeClaudeCliAuthStatus } from "../../cli-auth-seam-Bgklw1Tj.mjs";
-import { t as buildAnthropicCliMigrationResult } from "../../cli-migration-_5H1Fnz5.mjs";
+import { D as resolveExpiresAtMsFromDurationMs } from "../../number-coercion-CuVhdCBs.mjs";
+import { t as formatCliCommand } from "../../command-format-DwEdrDKL.mjs";
+import { t as parseDurationMs } from "../../parse-duration-C4JaJvt9.mjs";
+import { f as listProfilesForProvider } from "../../order-B7W96aON.mjs";
+import { n as suggestOAuthProfileIdForLegacyDefault } from "../../repair-CkThvU-e.mjs";
+import "../../number-runtime-CgyXj1A5.mjs";
+import { t as applyAuthProfileConfig } from "../../provider-auth-helpers-DYE6_4KQ.mjs";
+import "../../cli-runtime-DIoqxVK3.mjs";
+import "../../provider-auth-C3BBF7yn.mjs";
+import { i as upsertAuthProfileWithLockOrThrowCompat } from "../../provider-auth-write-compat-B5xygsJD.mjs";
+import { n as validateAnthropicSetupToken, t as buildTokenProfileId } from "../../provider-auth-token-Bn7OhxfC.mjs";
+import "../../provider-auth-api-key-uE6qOqkQ.mjs";
+import { t as probeClaudeCliAuthStatus } from "../../cli-auth-seam-D_p5Ffc_.mjs";
+import { t as buildAnthropicCliMigrationResult } from "../../cli-migration-BXeCHwq5.mjs";
 //#region extensions/anthropic/auth.runtime.ts
 /** Auth execution stays deferred until a setup or doctor hook is invoked. */
 const PROVIDER_ID = "anthropic";
@@ -23,7 +22,7 @@ const ANTHROPIC_SETUP_TOKEN_NOTE_LINES = [
 	`If you want a direct API billing path instead, use ${formatCliCommand("openclaw models auth login --provider anthropic --method api-key --set-default")} or ${formatCliCommand("openclaw models auth login --provider anthropic --method cli --set-default")}.`
 ];
 function normalizeAnthropicSetupTokenInput(value) {
-	return value.replaceAll(/\s+/g, "").trim();
+	return value.replaceAll(/\s+/g, "");
 }
 function resolveAnthropicSetupTokenProfileId(rawProfileId) {
 	if (typeof rawProfileId === "string") {
@@ -146,11 +145,11 @@ function buildAnthropicAuthDoctorHint(params) {
 	].join("\n");
 }
 async function runAnthropicCliMigration(ctx) {
-	if ((await probeClaudeCliAuthStatus(resolveAnthropicCliAuthProbe(ctx.env ?? process.env))).status !== "available") throw new Error(["Claude CLI is not authenticated on this host.", `Run ${formatCliCommand("claude auth login")} first, then re-run this setup.`].join("\n"));
+	if ((await probeClaudeCliAuthStatus({ env: ctx.env ?? process.env })).status !== "available") throw new Error(["Claude CLI is not authenticated on this host.", `Run ${formatCliCommand("claude auth login")} first, then re-run this setup.`].join("\n"));
 	return buildAnthropicCliMigrationResult(ctx.config);
 }
 async function runAnthropicCliMigrationNonInteractive(ctx) {
-	const authStatus = await probeClaudeCliAuthStatus(resolveAnthropicCliAuthProbe(process.env));
+	const authStatus = await probeClaudeCliAuthStatus();
 	if (authStatus.status !== "available") {
 		const error = authStatus.status === "unreadable" ? ["Auth choice \"anthropic-cli\" could not verify the installed Claude CLI login.", `Run ${formatCliCommand("claude auth status")}, then retry.`] : ["Auth choice \"anthropic-cli\" requires Claude CLI auth on this host.", `Run ${formatCliCommand("claude auth login")} first.`];
 		ctx.runtime.error(error.join("\n"));
@@ -179,18 +178,6 @@ async function runAnthropicCliMigrationNonInteractive(ctx) {
 				}
 			}
 		}
-	};
-}
-function resolveAnthropicCliAuthProbe(env) {
-	const backend = buildAnthropicCliBackend().config;
-	const probeEnv = {
-		...env,
-		...backend.env
-	};
-	for (const name of backend.clearEnv ?? []) delete probeEnv[name];
-	return {
-		command: backend.command,
-		env: probeEnv
 	};
 }
 //#endregion

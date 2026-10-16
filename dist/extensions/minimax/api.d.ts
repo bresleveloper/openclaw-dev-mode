@@ -1,6 +1,7 @@
-import { B as ModelDefinitionConfig, V as ModelProviderDeclarationConfig, z as OpenClawConfig } from "../../cli-backend.types-B-oosdMB.js";
-import "../../provider-model-shared-1AXTwF07.js";
-import "../../provider-onboard-D6EaEt89.js";
+import { c as ModelProviderDeclarationConfig, i as ModelDefinitionConfig, n as OpenClawConfig } from "../../types.openclaw-C-OasKBU.js";
+import "../../provider-onboard-D9ID6ldl.js";
+import "../../ssrf-runtime-0hwhAsr2.js";
+import "../../provider-catalog-live-runtime-DHZnwJmJ.js";
 //#region extensions/minimax/provider-catalog.d.ts
 export declare function buildMinimaxProvider(env?: NodeJS.ProcessEnv): ModelProviderDeclarationConfig;
 export declare function buildMinimaxPortalProvider(env?: NodeJS.ProcessEnv): ModelProviderDeclarationConfig;
@@ -45,8 +46,17 @@ export declare function buildMinimaxApiModelDefinition(modelId: string): Minimax
 //#region extensions/minimax/provider-models.d.ts
 export declare const MINIMAX_DEFAULT_MODEL_ID = "MiniMax-M3";
 export declare const MINIMAX_DEFAULT_MODEL_REF = "minimax/MiniMax-M3";
-export declare const MINIMAX_TEXT_MODEL_ORDER: readonly ["MiniMax-M3", "MiniMax-M2.7", "MiniMax-M2.7-highspeed"];
+export declare const MINIMAX_TEXT_MODEL_ORDER: readonly ["MiniMax-M3", "MiniMax-M3.1-Flash-Preview", "MiniMax-M2.7", "MiniMax-M2.7-highspeed"];
 export declare const MINIMAX_TEXT_MODEL_CATALOG: {
+  readonly "MiniMax-M3.1-Flash-Preview": {
+    readonly name: "MiniMax M3.1 Flash Preview";
+    readonly reasoning: true;
+    readonly input: readonly ["text", "image"];
+    readonly contextWindow: 1000000;
+    readonly compat: {
+      readonly codeMode: "preferred";
+    };
+  };
   readonly "MiniMax-M3": {
     readonly name: "MiniMax M3";
     readonly reasoning: true;

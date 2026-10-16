@@ -1,2 +1,2 @@
-import { r as synologyChatSetupWizard, t as synologyChatSetupAdapter } from "./.setup/setup-surface-CM5naMAR.mjs";
+import { r as synologyChatSetupWizard, t as synologyChatSetupAdapter } from "./.setup/setup-surface-DG53uVxc.mjs";
 export { synologyChatSetupAdapter, synologyChatSetupWizard };

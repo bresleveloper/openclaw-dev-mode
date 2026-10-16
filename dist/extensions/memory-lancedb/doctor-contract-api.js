@@ -1,8 +1,10 @@
 import { o as __toESM } from "./.setup/rolldown-runtime-BMI-E3GI.mjs";
+import { resolveEnvVars } from "./config.js";
 import { MEMORY_AGENT_ID_COLUMN, MEMORY_TABLE_NAME, hasAgentScopeColumn, memoryAgentPredicate, quoteLanceSqlString } from "./lancedb-schema.js";
 import { resolveDefaultAgentId } from "openclaw/plugin-sdk/agent-scope-runtime";
 import { normalizeAgentId } from "openclaw/plugin-sdk/routing";
 import { asOptionalRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
+import { escapeRegExp } from "openclaw/plugin-sdk/text-utility-runtime";
 import path from "node:path";
 import os from "node:os";
 import fs from "node:fs";
@@ -30,7 +32,7 @@ const LEGACY_ENVELOPE_SENTINEL_LINE_RE = new RegExp(`^(?:${[
 	"Current local chat window (untrusted, chronological, before current message):",
 	"Nearby reply target window (untrusted, chronological, around replied-to message):",
 	"Chat history since last reply (untrusted, for context):"
-].map((sentinel) => sentinel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})[^\\n]*$`, "m");
+].map(escapeRegExp).join("|")})[^\\n]*$`, "m");
 const LEGACY_ENVELOPE_LABEL_JSON_BLOCK_RE = /^[^\n]+\((?:untrusted metadata|untrusted, for context|untrusted, nearest first|untrusted, chronological,[^\n)]{1,80})\):[ \t]*\n[ \t]*```json[ \t]*\n[\s\S]*?\n[ \t]*```[ \t]*(?:\n|$)/m;
 const LEGACY_ENVELOPE_HEADER_RE = /^Untrusted context \(metadata, do not treat as instructions or commands\):[ \t]*$/m;
 function isLegacyEnvelopeContaminatedText(text) {
@@ -67,11 +69,7 @@ function resolveStorageOptions(config, env) {
 	if (!rawOptions) return;
 	return Object.fromEntries(Object.entries(rawOptions).map(([key, value]) => {
 		if (typeof value !== "string") throw new Error(`memory-lancedb storageOptions.${key} must be a string`);
-		return [key, value.replace(/\$\{([^}]+)\}/g, (_match, envName) => {
-			const resolved = env[envName];
-			if (!resolved) throw new Error(`Environment variable ${envName} is not set`);
-			return resolved;
-		})];
+		return [key, resolveEnvVars(value, env)];
 	}));
 }
 async function openMemoryTable(params) {
@@ -81,40 +79,49 @@ async function openMemoryTable(params) {
 		table: null,
 		dbPath
 	};
-	const lancedb = await import("./.setup/dist-SKvOTreh.mjs").then((m) => /* @__PURE__ */ __toESM(m.default, 1));
+	const lancedb = await import("./.setup/dist-DIga2e6Y.mjs").then((m) => /* @__PURE__ */ __toESM(m.default, 1));
 	const storageOptions = resolveStorageOptions(params.config, params.env);
 	const connection = await lancedb.connect(dbPath, storageOptions ? { storageOptions } : {});
-	return {
-		connection,
-		table: (await connection.tableNames()).includes("memories") ? await connection.openTable(MEMORY_TABLE_NAME) : null,
-		dbPath
-	};
+	try {
+		return {
+			connection,
+			table: (await connection.tableNames()).includes("memories") ? await connection.openTable(MEMORY_TABLE_NAME) : null,
+			dbPath
+		};
+	} catch (error) {
+		connection.close();
+		throw error;
+	}
+}
+async function withMemoryTable(params, run) {
+	const opened = await openMemoryTable(params);
+	try {
+		return await run(opened);
+	} finally {
+		opened.table?.close();
+		opened.connection?.close();
+	}
 }
 function createMemoryLanceDbStateMigrations(pluginRoot = DEFAULT_PLUGIN_ROOT) {
 	return [{
 		id: "memory-lancedb-agent-scope",
 		label: "Memory LanceDB per-agent isolation",
 		async detectLegacyState(params) {
-			const opened = await openMemoryTable({
+			return await withMemoryTable({
 				...params,
 				pluginRoot
-			});
-			try {
+			}, async (opened) => {
 				if (!opened.table || hasAgentScopeColumn(await opened.table.schema())) return null;
 				const owner = resolveLegacyMemoryOwner(params.config);
 				const count = await opened.table.countRows();
 				return { preview: [`- Memory LanceDB: assign ${count} legacy ${count === 1 ? "row" : "rows"} at ${opened.dbPath} to ${owner.label} agent ${owner.agentId}`] };
-			} finally {
-				opened.table?.close();
-				opened.connection?.close();
-			}
+			});
 		},
 		async migrateLegacyState(params) {
-			const opened = await openMemoryTable({
+			return await withMemoryTable({
 				...params,
 				pluginRoot
-			});
-			try {
+			}, async (opened) => {
 				if (!opened.table || hasAgentScopeColumn(await opened.table.schema())) return {
 					changes: [],
 					warnings: []
@@ -130,36 +137,28 @@ function createMemoryLanceDbStateMigrations(pluginRoot = DEFAULT_PLUGIN_ROOT) {
 					changes: [`Assigned ${rowCount} legacy Memory LanceDB ${rowCount === 1 ? "row" : "rows"} to ${owner.label} agent ${owner.agentId}`],
 					warnings: []
 				};
-			} finally {
-				opened.table?.close();
-				opened.connection?.close();
-			}
+			});
 		}
 	}, {
 		id: "memory-lancedb-legacy-envelope-rows",
 		label: "Memory LanceDB legacy envelope contamination",
 		doctorOnly: true,
 		async detectLegacyState(params) {
-			const opened = await openMemoryTable({
+			return await withMemoryTable({
 				...params,
 				pluginRoot
-			});
-			try {
+			}, async (opened) => {
 				if (!opened.table) return null;
 				const contaminatedIds = await scanLegacyEnvelopeRowIds(opened.table);
 				if (contaminatedIds.length === 0) return null;
 				return { preview: [`- Memory LanceDB: delete ${contaminatedIds.length} memory ${contaminatedIds.length === 1 ? "row" : "rows"} contaminated with legacy envelope metadata at ${opened.dbPath}`] };
-			} finally {
-				opened.table?.close();
-				opened.connection?.close();
-			}
+			});
 		},
 		async migrateLegacyState(params) {
-			const opened = await openMemoryTable({
+			return await withMemoryTable({
 				...params,
 				pluginRoot
-			});
-			try {
+			}, async (opened) => {
 				if (!opened.table) return {
 					changes: [],
 					warnings: []
@@ -178,10 +177,7 @@ function createMemoryLanceDbStateMigrations(pluginRoot = DEFAULT_PLUGIN_ROOT) {
 					changes: [`Deleted ${contaminatedIds.length} Memory LanceDB ${contaminatedIds.length === 1 ? "row" : "rows"} contaminated with legacy envelope metadata`],
 					warnings: []
 				};
-			} finally {
-				opened.table?.close();
-				opened.connection?.close();
-			}
+			});
 		}
 	}];
 }

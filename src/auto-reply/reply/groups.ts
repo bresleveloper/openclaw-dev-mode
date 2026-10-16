@@ -14,16 +14,12 @@ import type { PreparedReplyConversation } from "./prompt-session-context.js";
 
 const groupsRuntimeLoader = createLazyImportLoader(() => import("./groups.runtime.js"));
 
-function loadGroupsRuntime() {
-  return groupsRuntimeLoader.load();
-}
-
 async function resolveRuntimeChannelId(raw?: string | null): Promise<string | null> {
   const normalized = normalizeOptionalLowercaseString(raw);
   if (!normalized) {
     return null;
   }
-  const { getChannelPlugin, normalizeChannelId } = await loadGroupsRuntime();
+  const { getChannelPlugin, normalizeChannelId } = await groupsRuntimeLoader.load();
   try {
     if (getChannelPlugin(normalized)) {
       return normalized;
@@ -50,7 +46,7 @@ export async function resolveGroupRequireMention(params: {
   }
   const { groupId, groupChannel, groupSpace, accountId } = group;
   let requireMention: boolean | undefined;
-  const runtime = await loadGroupsRuntime();
+  const runtime = await groupsRuntimeLoader.load();
   try {
     requireMention = runtime.getChannelPlugin(channel)?.groups?.resolveRequireMention?.({
       cfg,
@@ -161,7 +157,7 @@ export function buildGroupChatContext(params: {
 }
 
 /** Builds system prompt context for direct conversations. */
-export function buildDirectChatContext(params: {
+function buildDirectChatContext(params: {
   sessionCtx: TemplateContext;
   sourceReplyDeliveryMode?: SourceReplyDeliveryMode;
 }): string {
@@ -182,6 +178,18 @@ export function buildDirectChatContext(params: {
     "Your replies are automatically sent to this conversation unless the current-turn context says final replies stay private.",
   );
   return lines.join(" ");
+}
+
+/** Selects the conversation guidance shared by incoming and continuation turns. */
+export function buildSourceConversationContext(
+  params: Parameters<typeof buildGroupChatContext>[0],
+): string {
+  const chatType = normalizeOptionalLowercaseString(params.sessionCtx.ChatType);
+  return chatType === "direct" || chatType === "dm"
+    ? buildDirectChatContext(params)
+    : chatType === "group" || chatType === "channel"
+      ? buildGroupChatContext(params)
+      : "";
 }
 
 /** Builds the channel-specific group intro injected into the system prompt. */

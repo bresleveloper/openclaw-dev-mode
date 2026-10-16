@@ -1,5 +1,6 @@
+import { isRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { join } from "node:path";
-import { parseFiniteNumber } from "openclaw/plugin-sdk/number-runtime";
+import { parseFiniteNumber, resolveOptionalIntegerOption } from "openclaw/plugin-sdk/number-runtime";
 import { homedir } from "node:os";
 //#region extensions/memory-lancedb/config.ts
 const MEMORY_CATEGORIES = [
@@ -34,9 +35,9 @@ function vectorDimsForModel(model) {
 	if (!dims) throw new Error(`Unsupported embedding model: ${model}`);
 	return dims;
 }
-function resolveEnvVars(value) {
+function resolveEnvVars(value, env = process.env) {
 	return value.replace(/\$\{([^}]+)\}/g, (_, envVar) => {
-		const envValue = process.env[envVar];
+		const envValue = env[envVar];
 		if (!envValue) throw new Error(`Environment variable ${envVar} is not set`);
 		return envValue;
 	});
@@ -46,13 +47,8 @@ function resolveEmbeddingModel(embedding, dimensions) {
 	if (dimensions === void 0) vectorDimsForModel(model);
 	return model;
 }
-function resolveFiniteIntegerConfig(value) {
-	if (typeof value !== "number") return;
-	const parsed = parseFiniteNumber(value);
-	return parsed === void 0 ? void 0 : Math.floor(parsed);
-}
 function resolveBoundedIntegerConfig(params) {
-	const resolved = resolveFiniteIntegerConfig(params.value) ?? params.fallback;
+	const resolved = resolveOptionalIntegerOption(params.value) ?? params.fallback;
 	if (resolved < params.min || resolved > params.max) throw new Error(`${params.label} must be between ${params.min} and ${params.max}`);
 	return resolved;
 }
@@ -63,7 +59,7 @@ function resolveEmbeddingDimensions(embedding) {
 	return dimensions;
 }
 const memoryConfigSchema = { parse(value) {
-	if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("memory config required");
+	if (!isRecord(value)) throw new Error("memory config required");
 	const cfg = value;
 	assertAllowedKeys(cfg, [
 		"embedding",
@@ -77,7 +73,7 @@ const memoryConfigSchema = { parse(value) {
 		"storageOptions"
 	], "memory config");
 	const embedding = cfg.embedding;
-	if (!embedding || typeof embedding !== "object" || Array.isArray(embedding)) throw new Error("embedding config required");
+	if (!isRecord(embedding)) throw new Error("embedding config required");
 	assertAllowedKeys(embedding, [...EMBEDDING_CONFIG_KEYS], "embedding config");
 	if (Object.keys(embedding).length === 0) throw new Error("embedding config must include at least one setting");
 	const dimensions = resolveEmbeddingDimensions(embedding);
@@ -110,13 +106,12 @@ const memoryConfigSchema = { parse(value) {
 		});
 		if (customTriggers.length > 50) throw new Error("customTriggers must include at most 50 entries");
 	}
-	const dreaming = cfg.dreaming === void 0 ? void 0 : cfg.dreaming && typeof cfg.dreaming === "object" && !Array.isArray(cfg.dreaming) ? cfg.dreaming : (() => {
-		throw new Error("dreaming config must be an object");
-	})();
+	const dreaming = cfg.dreaming;
+	if (dreaming !== void 0 && !isRecord(dreaming)) throw new Error("dreaming config must be an object");
 	let storageOptions;
 	const storageOpts = cfg.storageOptions;
 	if (storageOpts !== void 0 && storageOpts !== null) {
-		if (!storageOpts || typeof storageOpts !== "object" || Array.isArray(storageOpts)) throw new Error("storageOptions must be an object");
+		if (!isRecord(storageOpts)) throw new Error("storageOptions must be an object");
 		storageOptions = {};
 		for (const [key, valueLocal] of Object.entries(storageOpts)) {
 			if (typeof valueLocal !== "string") throw new Error(`storageOptions.${key} must be a string`);
@@ -142,4 +137,4 @@ const memoryConfigSchema = { parse(value) {
 	};
 } };
 //#endregion
-export { DEFAULT_CAPTURE_MAX_CHARS, DEFAULT_RECALL_MAX_CHARS, MEMORY_CATEGORIES, memoryConfigSchema, vectorDimsForModel };
+export { DEFAULT_CAPTURE_MAX_CHARS, DEFAULT_RECALL_MAX_CHARS, MEMORY_CATEGORIES, memoryConfigSchema, resolveEnvVars, vectorDimsForModel };

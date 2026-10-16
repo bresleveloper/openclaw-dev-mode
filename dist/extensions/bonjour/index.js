@@ -1,4 +1,4 @@
-import { t as definePluginEntry } from "../../plugin-entry-BOulgRcx.mjs";
+import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
 //#region extensions/bonjour/index.ts
 /**
 * Bonjour gateway-discovery plugin entry. It advertises the local gateway over
@@ -19,8 +19,8 @@ var bonjour_default = definePluginEntry({
 		api.registerGatewayDiscoveryService({
 			id: "bonjour",
 			advertise: async (ctx) => {
-				const [{ startGatewayBonjourAdvertiser }, { registerUncaughtExceptionHandler, registerUnhandledRejectionHandler }] = await Promise.all([import("../../advertiser-B-77ZFtR.mjs"), import("../../plugin-sdk/runtime.js")]);
-				return { stop: (await startGatewayBonjourAdvertiser({
+				const [{ startGatewayBonjourAdvertiser }, { registerUncaughtExceptionHandler, registerUnhandledRejectionHandler }] = await Promise.all([import("../../advertiser-C574HlKP.mjs"), import("../../plugin-sdk/runtime.js")]);
+				return await startGatewayBonjourAdvertiser({
 					instanceName: formatBonjourInstanceName(ctx.machineDisplayName),
 					gatewayPort: ctx.gatewayPort,
 					gatewayTlsEnabled: ctx.gatewayTlsEnabled,
@@ -34,7 +34,7 @@ var bonjour_default = definePluginEntry({
 					logger: api.logger,
 					registerUncaughtExceptionHandler,
 					registerUnhandledRejectionHandler
-				})).stop };
+				});
 			}
 		});
 	}

@@ -1,13 +1,13 @@
-import { D as resolveExpiresAtMsFromDurationMs, o as asDateTimestampMs } from "../number-coercion-CLj0HTDM.mjs";
-import { t as hasNonEmptyString } from "../string-coerce-CIXf7egm.mjs";
-import { o as resolveAgentEntry } from "../agent-scope-config-IQKOEtZ4.mjs";
-import { d as resolveExecModePolicy } from "../exec-approvals-core-BZ3ECkXD.mjs";
-import { n as createCorePluginStateSyncKeyedStore } from "../plugin-state-store-CgyXRuSI.mjs";
-import "../exec-approvals-BgZlQ2Qp.mjs";
-import { a as isPersistentSystemAgentOperation, i as formatSystemAgentPersistentPlan, o as parseSystemAgentOperation } from "../operations-parse-CQ52sADQ.mjs";
-import { t as listAgentRoles } from "../agent-roles-DYbzEdi7.mjs";
-import { t as executeSystemAgentOperation } from "../operations-BC5CrCZX.mjs";
-import { t as classifySystemAgentApprovalText } from "../operator-approval-B3sjswyY.mjs";
+import { t as hasNonEmptyString } from "../string-coerce-1VuiLaaR.mjs";
+import { D as resolveExpiresAtMsFromDurationMs, o as asDateTimestampMs } from "../number-coercion-CuVhdCBs.mjs";
+import { o as resolveAgentEntry } from "../agent-scope-config-CDYpzA0r.mjs";
+import { l as resolveExecModePolicy } from "../exec-approvals-core-s7tTQC_a.mjs";
+import { n as createCorePluginStateSyncKeyedStore } from "../plugin-state-store-yKq-W0-T.mjs";
+import "../exec-approvals-B1rZTeax.mjs";
+import { a as isPersistentSystemAgentOperation, i as formatSystemAgentPersistentPlan, o as parseSystemAgentOperation } from "../operations-parse-DRngeZgT.mjs";
+import { t as listAgentRoles } from "../agent-roles-DcAkXaUx.mjs";
+import { t as executeSystemAgentOperation } from "../operations-CnmxyhD5.mjs";
+import { t as classifySystemAgentApprovalText } from "../operator-approval-DGLxvePo.mjs";
 import { createHash } from "node:crypto";
 //#region src/system-agent/rescue-policy.ts
 function resolveScopedExecConfig(cfg, agentId) {
@@ -37,43 +37,31 @@ function resolveSystemAgentRescuePolicy(input) {
 	const sandboxActive = resolveScopedSandboxMode(input.cfg, input.agentId) !== "off";
 	const yolo = !sandboxActive && isYoloHostPosture(input.cfg, input.agentId);
 	const enabled = yolo;
-	if (sandboxActive) return {
+	const denied = {
 		allowed: false,
 		enabled,
 		ownerDmOnly,
 		pendingTtlMinutes,
 		yolo,
-		sandboxActive,
+		sandboxActive
+	};
+	if (sandboxActive) return {
+		...denied,
 		reason: "sandbox-active",
 		message: "OpenClaw rescue is blocked because OpenClaw sandboxing is active. Fix the install locally or disable sandboxing before using remote rescue."
 	};
 	if (!enabled) return {
-		allowed: false,
-		enabled,
-		ownerDmOnly,
-		pendingTtlMinutes,
-		yolo,
-		sandboxActive,
+		...denied,
 		reason: "disabled",
 		message: "OpenClaw rescue requires YOLO host posture with sandboxing off."
 	};
 	if (!input.senderIsOwner) return {
-		allowed: false,
-		enabled,
-		ownerDmOnly,
-		pendingTtlMinutes,
-		yolo,
-		sandboxActive,
+		...denied,
 		reason: "not-owner",
 		message: "OpenClaw rescue only accepts commands from an OpenClaw owner."
 	};
 	if (!input.isDirectMessage) return {
-		allowed: false,
-		enabled,
-		ownerDmOnly,
-		pendingTtlMinutes,
-		yolo,
-		sandboxActive,
+		...denied,
 		reason: "not-direct-message",
 		message: "OpenClaw rescue is restricted to owner DMs by default."
 	};
@@ -91,6 +79,41 @@ function resolveSystemAgentRescuePolicy(input) {
 const SYSTEM_AGENT_COMMAND = "/openclaw";
 const RESCUE_PENDING_NAMESPACE = "rescue-pending";
 const RESCUE_PENDING_MAX_ENTRIES = 1024;
+const RESCUE_OPERATION_FIELDS = /* @__PURE__ */ new Map([
+	["set-default-model", {
+		required: ["model"],
+		optional: ["agentId"]
+	}],
+	["config-set", { required: ["path", "value"] }],
+	["config-set-ref", {
+		required: [
+			"path",
+			"source",
+			"id"
+		],
+		optional: ["provider"]
+	}],
+	["setup", { optional: ["workspace", "model"] }],
+	["plugin-install", { required: ["spec"] }],
+	["create-agent", {
+		required: ["agentId"],
+		optional: [
+			"name",
+			"purpose",
+			"workspace",
+			"model",
+			"role"
+		]
+	}],
+	["create-team", { optional: [
+		"coordinatorId",
+		"prefix",
+		"workspaceRoot"
+	] }],
+	["gateway-start", {}],
+	["gateway-stop", {}],
+	["gateway-restart", {}]
+]);
 function createCaptureRuntime() {
 	const lines = [];
 	const push = (...args) => {
@@ -138,64 +161,21 @@ function openPendingStore(env) {
 function isPlainRecord(value) {
 	return value !== null && typeof value === "object" && !Array.isArray(value) && Object.getPrototypeOf(value) === Object.prototype;
 }
-function hasExactKeys(value, required, optional = []) {
-	const allowed = /* @__PURE__ */ new Set([...required, ...optional]);
-	return required.every((key) => Object.hasOwn(value, key)) && Object.keys(value).every((key) => allowed.has(key));
-}
-function hasOptionalString(value, key) {
-	return !Object.hasOwn(value, key) || hasNonEmptyString(value[key]);
+function hasOperationFields(value, required = [], optional = []) {
+	const allowed = /* @__PURE__ */ new Set([
+		"kind",
+		...required,
+		...optional
+	]);
+	return Object.hasOwn(value, "kind") && required.every((key) => Object.hasOwn(value, key) && hasNonEmptyString(value[key])) && optional.every((key) => key === "role" ? value.role === void 0 || listAgentRoles().some((role) => role === value.role) : !Object.hasOwn(value, key) || hasNonEmptyString(value[key])) && Object.keys(value).every((key) => allowed.has(key));
 }
 function parsePendingOperation(value) {
 	if (!isPlainRecord(value) || value.version !== 1 || !isPlainRecord(value.operation)) return null;
 	const operation = value.operation;
 	if (typeof operation.kind !== "string") return null;
-	switch (operation.kind) {
-		case "set-default-model":
-			if (!hasExactKeys(operation, ["kind", "model"]) || !hasNonEmptyString(operation.model)) return null;
-			break;
-		case "config-set":
-			if (!hasExactKeys(operation, [
-				"kind",
-				"path",
-				"value"
-			]) || !hasNonEmptyString(operation.path) || !hasNonEmptyString(operation.value)) return null;
-			break;
-		case "config-set-ref":
-			if (!hasExactKeys(operation, [
-				"kind",
-				"path",
-				"source",
-				"id"
-			], ["provider"]) || !hasNonEmptyString(operation.path) || operation.source !== "env" && operation.source !== "file" && operation.source !== "exec" && operation.source !== "store" || !hasNonEmptyString(operation.id) || !hasOptionalString(operation, "provider")) return null;
-			break;
-		case "setup":
-			if (!hasExactKeys(operation, ["kind"], ["workspace", "model"]) || !hasOptionalString(operation, "workspace") || !hasOptionalString(operation, "model")) return null;
-			break;
-		case "plugin-install":
-			if (!hasExactKeys(operation, ["kind", "spec"]) || !hasNonEmptyString(operation.spec)) return null;
-			break;
-		case "create-agent":
-			if (!hasExactKeys(operation, ["kind", "agentId"], [
-				"name",
-				"workspace",
-				"model",
-				"role"
-			]) || !hasNonEmptyString(operation.agentId) || !hasOptionalString(operation, "name") || operation.role !== void 0 && !listAgentRoles().some((role) => role === operation.role) || !hasOptionalString(operation, "workspace") || !hasOptionalString(operation, "model")) return null;
-			break;
-		case "create-team":
-			if (!hasExactKeys(operation, ["kind"], [
-				"coordinatorId",
-				"prefix",
-				"workspaceRoot"
-			]) || !hasOptionalString(operation, "coordinatorId") || !hasOptionalString(operation, "prefix") || !hasOptionalString(operation, "workspaceRoot")) return null;
-			break;
-		case "gateway-start":
-		case "gateway-stop":
-		case "gateway-restart":
-			if (!hasExactKeys(operation, ["kind"])) return null;
-			break;
-		default: return null;
-	}
+	const fields = RESCUE_OPERATION_FIELDS.get(operation.kind);
+	if (!fields || !hasOperationFields(operation, fields.required, fields.optional)) return null;
+	if (operation.kind === "config-set-ref" && operation.source !== "env" && operation.source !== "file" && operation.source !== "exec" && operation.source !== "store") return null;
 	return isPersistentSystemAgentOperation(operation) ? operation : null;
 }
 function buildAuditDetails(input) {
@@ -213,6 +193,7 @@ function formatPersistentPlan(operation) {
 function formatUnsupportedRemoteOperation(operation) {
 	if (operation.kind === "open-tui") return ["OpenClaw rescue cannot open the local TUI from a message channel.", "Use local `openclaw` for agent handoff, or ask for status, doctor, config, gateway, agents, or models."].join(" ");
 	if (operation.kind === "channel-setup") return ["OpenClaw rescue cannot host the interactive channel setup from a message channel.", "Run `openclaw setup` locally and say `connect " + operation.channel + "` instead."].join(" ");
+	if (operation.kind === "config-unset") return ["OpenClaw rescue cannot remove configuration settings.", "Ask your regular agent to remove the setting, or run `openclaw config unset <path>` locally."].join(" ");
 	if (operation.kind === "doctor-fix") return ["OpenClaw rescue cannot run doctor repairs from a message channel because they can change the inference route powering this session.", "On the machine running OpenClaw, with OpenClaw stopped, run `openclaw doctor --fix`."].join(" ");
 	if (operation.kind === "plugin-install") return ["OpenClaw rescue cannot install plugins from a message channel by default because plugin install downloads executable code.", "Use local `openclaw setup` or `openclaw plugins install` instead."].join(" ");
 	return null;

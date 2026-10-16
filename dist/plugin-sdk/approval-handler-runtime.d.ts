@@ -1,11 +1,11 @@
-import { r as OpenClawConfig } from "../types.openclaw-Ccmw-oTa.js";
-import { M as ExecApprovalResolved, _ as PluginApprovalResolved, n as ChannelApprovalKind, s as SystemAgentApprovalResolved, t as ApprovalRequestInput } from "../approval-types-DIxuby8L.js";
-import { r as ChannelApprovalCapability } from "../types.adapters-IC4-T9eq.js";
-import { A as ChannelApprovalNativeAdapter, C as ResolvedApprovalView, S as PluginApprovalResolvedView, T as ChannelNativeApprovalTransportSpec, _ as ExecApprovalResolvedView, a as ChannelApprovalNativeFinalAction, b as PluginApprovalExpiredView, c as ChannelApprovalNativePresentationAdapter, d as ChannelApprovalNativeTransportAdapter, f as ApprovalActionView, g as ExecApprovalPendingView, h as ExecApprovalExpiredView, i as ChannelApprovalNativeAvailabilityAdapter, l as ChannelApprovalNativeRuntimeAdapter, m as ApprovalViewModel, n as ApprovalResolved$1, o as ChannelApprovalNativeInteractionAdapter, p as ApprovalMetadataView, r as ChannelApprovalCapabilityHandlerContext, s as ChannelApprovalNativeObserveAdapter, t as ApprovalRequest$1, u as ChannelApprovalNativeRuntimeSpec, v as ExpiredApprovalView, w as ChannelNativeApprovalDeliveryCallbacks, x as PluginApprovalPendingView, y as PendingApprovalView } from "../approval-handler-runtime-types-CRr7HfI3.js";
-import "../exec-approvals-G-i4jWVS.js";
-import { t as resolveApprovalOverGateway } from "../approval-gateway-runtime-zcCb0-3W.js";
-import { n as createLazyChannelApprovalNativeRuntimeAdapter, t as CHANNEL_APPROVAL_NATIVE_RUNTIME_CONTEXT_CAPABILITY } from "../approval-handler-adapter-runtime-cag-AOcB.js";
-import { i as ExecApprovalChannelRuntime } from "../exec-approval-channel-runtime-TLg3aY2I.js";
+import { r as OpenClawConfig } from "../types.openclaw-DWWUw8hA.js";
+import { S as ExecApprovalResolved, c as SystemAgentApprovalResolved, n as ApprovalResolved$1, p as PluginApprovalResolved, r as ChannelApprovalKind, t as ApprovalRequestInput } from "../approval-types-DOLowId2.js";
+import { r as ChannelApprovalCapability } from "../types.adapters-Bo2TMZGx.js";
+import { C as ChannelNativeApprovalDeliveryCallbacks, S as ResolvedApprovalView, T as ChannelApprovalNativeAdapter, _ as ExpiredApprovalView, a as ChannelApprovalNativeInteractionAdapter, b as PluginApprovalPendingView, c as ChannelApprovalNativeRuntimeAdapter, d as ApprovalActionView, f as ApprovalMetadataView, g as ExecApprovalResolvedView, h as ExecApprovalPendingView, i as ChannelApprovalNativeFinalAction, l as ChannelApprovalNativeRuntimeSpec, m as ExecApprovalExpiredView, n as ChannelApprovalCapabilityHandlerContext, o as ChannelApprovalNativeObserveAdapter, p as ApprovalViewModel, r as ChannelApprovalNativeAvailabilityAdapter, s as ChannelApprovalNativePresentationAdapter, t as ApprovalRequest$1, u as ChannelApprovalNativeTransportAdapter, v as PendingApprovalView, w as ChannelNativeApprovalTransportSpec, x as PluginApprovalResolvedView, y as PluginApprovalExpiredView } from "../approval-handler-runtime-types-DDiXSqb1.js";
+import "../exec-approvals-DNGb8MUN.js";
+import { t as resolveApprovalOverGateway } from "../approval-gateway-runtime-BeglNVLf.js";
+import { n as createLazyChannelApprovalNativeRuntimeAdapter, t as CHANNEL_APPROVAL_NATIVE_RUNTIME_CONTEXT_CAPABILITY } from "../approval-handler-adapter-runtime-CiDDDfqz.js";
+import { t as ExecApprovalChannelRuntime } from "../exec-approval-channel-runtime-DMdF-Bg2.js";
 //#region src/infra/approval-handler-runtime.d.ts
 type ChannelApprovalHandler<TRequest extends ApprovalRequest$1 = ApprovalRequest$1, TResolved extends ApprovalResolved$1 = ApprovalResolved$1> = ExecApprovalChannelRuntime<TRequest, TResolved>;
 /** Adapts a strongly typed channel native approval spec into the erased runtime contract. */
@@ -33,7 +33,6 @@ type ChannelApprovalHandlerContentSpec<TPendingContent, TRequest extends Approva
     nowMs: number;
   }) => TPendingContent | Promise<TPendingContent>;
 };
-type ChannelApprovalHandlerTransportSpec<TPendingEntry, TPreparedTarget, TPendingContent, TRequest extends ApprovalRequest$1 = ApprovalRequest$1> = ChannelNativeApprovalTransportSpec<TPendingEntry, TPreparedTarget, TPendingContent, TRequest>;
 type ChannelApprovalHandlerLifecycleSpec<TPendingEntry, TPreparedTarget, TPendingContent, TRequest extends ApprovalRequest$1 = ApprovalRequest$1, TResolved extends ApprovalResolved$1 = ApprovalResolved$1> = ChannelNativeApprovalDeliveryCallbacks<TPendingEntry, TPreparedTarget, TPendingContent, TRequest> & {
   finalizeResolved: (params: {
     request: TRequest;
@@ -50,14 +49,14 @@ type ChannelApprovalHandlerLifecycleSpec<TPendingEntry, TPreparedTarget, TPendin
 type ChannelApprovalHandlerAdapter<TPendingEntry, TPreparedTarget, TPendingContent, TRequest extends ApprovalRequest$1 = ApprovalRequest$1, TResolved extends ApprovalResolved$1 = ApprovalResolved$1> = {
   runtime: ChannelApprovalHandlerRuntimeSpec<TRequest>;
   content: ChannelApprovalHandlerContentSpec<TPendingContent, TRequest>;
-  transport: ChannelApprovalHandlerTransportSpec<TPendingEntry, TPreparedTarget, TPendingContent, TRequest>;
+  transport: ChannelNativeApprovalTransportSpec<TPendingEntry, TPreparedTarget, TPendingContent, TRequest>;
   lifecycle: ChannelApprovalHandlerLifecycleSpec<TPendingEntry, TPreparedTarget, TPendingContent, TRequest, TResolved>;
 };
 /** Creates the shared approval handler runtime from channel-specific content and transport hooks. */
 export declare function createChannelApprovalHandler<TPendingEntry, TPreparedTarget, TPendingContent, TRequest extends ApprovalRequest$1 = ApprovalRequest$1, TResolved extends ApprovalResolved$1 = ApprovalResolved$1>(adapter: ChannelApprovalHandlerAdapter<TPendingEntry, TPreparedTarget, TPendingContent, TRequest, TResolved>): ChannelApprovalHandler<TRequest, TResolved>;
 /** Builds a shared approval handler from a plugin approval capability, or null when unsupported. */
 export declare function createChannelApprovalHandlerFromCapability(params: {
-  capability?: Pick<ChannelApprovalCapability, "native" | "nativeRuntime"> | null;
+  capability?: Pick<ChannelApprovalCapability, "native" | "nativeRuntime" | "supportsScopedPluginApprovalApprovers"> | null;
   label: string;
   clientDisplayName: string;
   channel: string;

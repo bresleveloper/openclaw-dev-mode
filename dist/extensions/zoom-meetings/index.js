@@ -1,9 +1,10 @@
-import { t as ZOOM_MEETINGS_CLI_METADATA } from "./.setup/cli-output-mode-DPg56N1-.mjs";
-import { n as zoomMeetingsInvalidRequest, r as zoomMeetingsConfig, t as ZoomMeetingsInvalidRequestError } from "./.setup/errors-DcrAT0wd.mjs";
+import { ZOOM_MEETINGS_CLI_METADATA } from "./cli-metadata.js";
 import { MeetingPlatformAdapter } from "openclaw/plugin-sdk/meeting-runtime";
-import { normalizeAgentId } from "openclaw/plugin-sdk/routing";
-import { Type } from "typebox";
-import { createMeetingBrowserAudioCaptureSource, createMeetingLeaveSource, createMeetingTranscriptSource } from "openclaw/plugin-sdk/meeting-page-script-runtime";
+import { addTimerTimeoutGraceMs } from "openclaw/plugin-sdk/number-runtime";
+import { REALTIME_VOICE_AGENT_CONSULT_TOOL_NAME } from "openclaw/plugin-sdk/realtime-voice";
+//#region extensions/zoom-meetings/src/errors.ts
+var ZoomMeetingsInvalidRequestError = class extends Error {};
+//#endregion
 //#region extensions/zoom-meetings/src/transports/zoom-meetings-selectors.ts
 const ZOOM_MEETING_SELECTORS = {
 	continueInBrowser: [],
@@ -90,19 +91,8 @@ const ZOOM_MEETING_SELECTORS = {
 };
 //#endregion
 //#region extensions/zoom-meetings/src/transports/zoom-meetings-status-call-source.ts
-function zoomMeetingStatusCallSource() {
-	return MeetingPlatformAdapter.createStatusCallSource({
-		platform: {
-			audioOutputElementIdPrefix: "openclaw-zoom-audio-output-",
-			displayName: "Zoom",
-			globals: {
-				audioOutputs: "__openclawZoomAudioOutputs",
-				captions: "__openclawZoomCaptions",
-				meeting: "__openclawZoomMeeting"
-			},
-			manualActionReasonPrefix: "zoom"
-		},
-		captionEnableSource: `if (!captionsFinalized && canMutateSession && inCall && !captionsEnabledNow) {
+const zoomMeetingStatusCall = {
+	captionEnableSource: `if (!captionsFinalized && canMutateSession && inCall && !captionsEnabledNow) {
       let captionButton = first(selectors.captions);
       if (!captionButton) {
         (first(selectors.moreActions) || findTextButton(/^more$/i))?.click?.();
@@ -139,62 +129,24 @@ function zoomMeetingStatusCallSource() {
         }
       }
     }`,
-		extraResultSource: "meetingEnded,"
-	});
-}
-//#endregion
-//#region extensions/zoom-meetings/src/transports/zoom-meetings-status-access-source.ts
-function zoomMeetingStatusAccessSource() {
-	return `  const passcodeInput = firstRaw(selectors.passcode);
-  const passcodeRequired = Boolean(passcodeInput) &&
-    /meeting passcode|enter (?:the )?passcode|invalid passcode|incorrect passcode/i.test(
-      pageText + " " + label(passcodeInput)
-    );
-  const captchaRequired = Boolean(firstRaw(selectors.captcha)) ||
-    /complete (?:the )?captcha|security check|verify (?:that )?you(?:'re| are) (?:a )?human/i.test(pageTextLower);
-  if (identityVerified && !inCall && passcodeRequired) {
-    controlManualAction = manualActionFor("zoom-passcode-required", "Enter the Zoom meeting passcode in the OpenClaw browser profile, then retry joining.");
-  } else if (identityVerified && !inCall && captchaRequired) {
-    controlManualAction = manualActionFor("zoom-captcha-required", "Complete Zoom's security check in the OpenClaw browser profile, then retry joining.");
-  }
-`;
-}
-//#endregion
-//#region extensions/zoom-meetings/src/transports/zoom-meetings-status-page-source.ts
-function zoomMeetingStatusPageSource() {
-	return `  const pageText = text(document.body);
-  const pageTextLower = pageText.toLowerCase();
-  const lobbyWaiting = Boolean(first(selectors.lobby)) ||
-    /host will let you in soon|waiting for the host to start|someone will let you in shortly|waiting for someone to let you in|when someone admits you|you.?re in the lobby|we.?ve let people in the meeting know you.?re waiting/i.test(pageTextLower);
-`;
-}
+	extraResultSource: "meetingEnded,"
+};
 //#endregion
 //#region extensions/zoom-meetings/src/transports/zoom-meetings-status-prejoin-source.ts
-function zoomMeetingStatusPreludeSource(params) {
-	return MeetingPlatformAdapter.createStatusPreludeSource(params, {
-		controlLookupSource: `const findTextButton = (pattern) => [...document.querySelectorAll("button")]
+const zoomMeetingStatusPrelude = {
+	controlLookupSource: `const findTextButton = (pattern) => [...document.querySelectorAll("button")]
     .find((button) => !button.disabled && pattern.test(label(button)));
   const findTextControl = (pattern) =>
     [...document.querySelectorAll('button, a, [role="button"]')]
       .find((control) => !control.disabled && pattern.test(label(control)));`,
-		lifecycleSource: `  const continueInBrowser = first(selectors.continueInBrowser) ||
+	lifecycleSource: (sources) => `  const continueInBrowser = first(selectors.continueInBrowser) ||
     findTextButton(/join from browser|continue on this browser|join on the web|use the web app|continue without the app/i);
   if (canMutateSession && identityVerifiedBeforeCall && continueInBrowser) {
     continueInBrowser.click();
     notes.push("Continued to the Zoom web client.");
     await waitForUi();
   }
-  const guestInput = first(selectors.guestName) || [...document.querySelectorAll("input")].find((input) =>
-    /enter your name|type your name|your name|display name/i.test(label(input) + " " + (input.placeholder || ""))
-  );
-  if (canMutateSession && identityVerifiedBeforeCall && autoJoin && guestInput && guestInput.value !== ${JSON.stringify(params.guestName)}) {
-    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
-    guestInput.focus();
-    if (setter) setter.call(guestInput, ${JSON.stringify(params.guestName)});
-    else guestInput.value = ${JSON.stringify(params.guestName)};
-    guestInput.dispatchEvent(new Event("input", { bubbles: true }));
-    guestInput.dispatchEvent(new Event("change", { bubbles: true }));
-  }
+${sources.guestName(true)}
   const leave = first(selectors.leave);
   let continueWithoutDevices = findTextControl(/\\bcontinue without (?:audio or video|microphone(?: and camera)?)\\b/i);
   let dismissedDevicePrompt = false;
@@ -231,7 +183,11 @@ function zoomMeetingStatusPreludeSource(params) {
       await waitForUi();
     }
   }
-  ${zoomMeetingStatusPageSource()}
+  const pageText = text(document.body);
+  const pageTextLower = pageText.toLowerCase();
+  const lobbyWaiting = Boolean(first(selectors.lobby)) ||
+    /host will let you in soon|waiting for the host to start|someone will let you in shortly|waiting for someone to let you in|when someone admits you|you.?re in the lobby|we.?ve let people in the meeting know you.?re waiting/i.test(pageTextLower);
+
   const devicesDisabled = Boolean(!allowMicrophone && (dismissedDevicePrompt || (priorMeeting?.identity === expectedIdentity && (!sessionId || priorMeeting?.sessionId === sessionId) && priorMeeting?.devicesDisabled === true)));
   // Zoom replaces the meeting URL after admission; retain only an adopted in-call control.
   // Lobby ownership remains durable because host admission has no bounded wait.
@@ -263,21 +219,7 @@ function zoomMeetingStatusPreludeSource(params) {
     inCallControlLossAgeMs < 5_000 &&
     !leave
   );
-  const identityPreservedInCall = Boolean(
-    !currentIdentity &&
-    priorMeeting?.identity === expectedIdentity &&
-    leave &&
-    leave.isConnected !== false &&
-    (
-      identityAdoptedInCall ||
-      identityRerenderedInCall ||
-      (
-        priorMeeting?.inCallControl === leave &&
-        priorMeeting?.inCallUrl === location.href
-      )
-    )
-  );
-  const identityVerified = identityVerifiedBeforeCall || identityPreservedInCall;
+${sources.preservedIdentity}
   const meetingEnded = Boolean(
     [...document.querySelectorAll(".zm-modal-body-title")].some((node) =>
       /meeting (?:has been ended by host|has ended)/i.test(text(node))
@@ -319,10 +261,27 @@ function zoomMeetingStatusPreludeSource(params) {
   }
   const microphone = first(selectors.microphone) || findTextButton(/mute|unmute|microphone/i);
   let microphoneState = identityVerified ? (toggleState(microphone, "microphone") || (devicesDisabled ? "off" : undefined)) : undefined;
+  const refreshMicrophoneState = async () => {
+    await waitForUi();
+    const currentMicrophone = first(selectors.microphone) || findTextButton(/mute|unmute|microphone/i);
+    microphoneState = toggleState(currentMicrophone, "microphone");
+  };
   const camera = first(selectors.camera) || findTextButton(/camera|video/i);
   let cameraState = identityVerified ? (toggleState(camera, "camera") || (devicesDisabled ? "off" : undefined)) : undefined;
   let controlManualAction;
-  ${zoomMeetingStatusAccessSource()}
+  const passcodeInput = firstRaw(selectors.passcode);
+  const passcodeRequired = Boolean(passcodeInput) &&
+    /meeting passcode|enter (?:the )?passcode|invalid passcode|incorrect passcode/i.test(
+      pageText + " " + label(passcodeInput)
+    );
+  const captchaRequired = Boolean(firstRaw(selectors.captcha)) ||
+    /complete (?:the )?captcha|security check|verify (?:that )?you(?:'re| are) (?:a )?human/i.test(pageTextLower);
+  if (identityVerified && !inCall && passcodeRequired) {
+    controlManualAction = manualActionFor("zoom-passcode-required", "Enter the Zoom meeting passcode in the OpenClaw browser profile, then retry joining.");
+  } else if (identityVerified && !inCall && captchaRequired) {
+    controlManualAction = manualActionFor("zoom-captcha-required", "Complete Zoom's security check in the OpenClaw browser profile, then retry joining.");
+  }
+
   if (
     canMutateSession &&
     identityVerified &&
@@ -353,115 +312,19 @@ function zoomMeetingStatusPreludeSource(params) {
   ) {
     controlManualAction = manualActionFor("zoom-camera-required", inCall ? "Turn the Zoom camera off and verify the in-call camera control shows it is off." : "Turn the Zoom camera off and verify the camera control shows it is off, then retry joining.");
   }
-  const { isVirtualAudioDevice, isVirtualAudioDeviceNode, microphoneDeviceRoots, selectedMicrophoneLabel } = meetingAudioInput;
-  let audioInputRouted;
-  let audioInputDeviceLabel;
-  let audioInputRouteError;
-  const ensureVirtualAudioInput = async () => {
-    const preparedInput = window.__openclawZoomMeeting;
+${sources.virtualAudioInput({
+		beforeEnumerationSource: `    const preparedInput = window.__openclawZoomMeeting;
     if (preparedInput?.identity === expectedIdentity && (!sessionId || preparedInput?.sessionId === sessionId)) {
       delete preparedInput.audioInputDeviceId;
     }
-    if (!navigator.mediaDevices?.enumerateDevices) return false;
-    try {
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const input = devices.find(
-        (device) => device.kind === "audioinput" && isVirtualAudioDevice(device.label)
-      );
-      if (!input?.deviceId) return false;
-      audioInputDeviceLabel = input.label || "Virtual audio device";
-      // Zoom hides the selected-device control after admission. Reopen the in-call audio
-      // options and verify the current selection before unmuting; installed devices alone
-      // do not prove which microphone Zoom is using.
-      let selected = Boolean(selectedMicrophoneLabel());
-      if (!selected && canMutateSession) {
-        const settings = first(selectors.deviceSettings);
-        if (settings) {
-          settings.click();
-          await waitForUi();
-        }
-        const { control } = microphoneDeviceRoots();
-        if (control?.tagName?.toLowerCase() === "select") {
-          const options = [...control.options];
-          const option = options.find(isVirtualAudioDeviceNode);
-          if (option) {
-            control.value = option.value;
-            control.dispatchEvent(new Event("change", { bubbles: true }));
-            await waitForUi();
-          }
-        } else if (control) {
-          clickable(control)?.click?.();
-          await waitForUi();
-        }
-        const choices = microphoneDeviceRoots().roots.flatMap((root) =>
-          selectors.audioDeviceOptions.flatMap((selector) => [
-            ...(root.querySelectorAll?.(selector) || []),
-          ])
-        );
-        const choice = choices.find(isVirtualAudioDeviceNode);
-        if (choice && choice.getAttribute?.("aria-selected") !== "true") {
-          clickable(choice)?.click?.();
-          await waitForUi();
-        }
-        selected = Boolean(selectedMicrophoneLabel());
-      }
-      return selected;
-    } catch (error) {
-      audioInputRouteError = error?.message || String(error);
-      return false;
-    }
-  };
-  if (identityVerified && !inCall && allowMicrophone && microphone) {
-    audioInputRouted = await ensureVirtualAudioInput();
-    if (!audioInputRouted) {
-      if (canMutateSession && microphoneState === "on") {
-        microphone.click();
-        await waitForUi();
-        const currentMicrophone = first(selectors.microphone) || findTextButton(/mute|unmute|microphone/i);
-        microphoneState = toggleState(currentMicrophone, "microphone");
-      }
-      notes.push("The virtual audio input will be selected from Zoom's in-call audio controls.");
-    } else if (canMutateSession && microphoneState === "off") {
-      microphone.click();
-      await waitForUi();
-      const currentMicrophone = first(selectors.microphone) || findTextButton(/mute|unmute|microphone/i);
-      microphoneState = toggleState(currentMicrophone, "microphone");
-      if (microphoneState === "on") {
-        notes.push("Unmuted the Zoom microphone after verifying the virtual audio input.");
-      }
-    }
-  } else if (canMutateSession && identityVerified && !allowMicrophone && microphoneState === "on") {
-      microphone.click();
-      await waitForUi();
-      const currentMicrophone = first(selectors.microphone) || findTextButton(/mute|unmute|microphone/i);
-      microphoneState = toggleState(currentMicrophone, "microphone");
-      if (microphoneState === "off") {
-        notes.push("Muted the Zoom microphone for observe-only mode.");
-      }
-  }
-  if (identityVerified && inCall && allowMicrophone) {
-    if (!selectedMicrophoneLabel() && canMutateSession && microphoneState === "on") {
-      microphone?.click();
-      await waitForUi();
-      const currentMicrophone = first(selectors.microphone) || findTextButton(/mute|unmute|microphone/i);
-      microphoneState = toggleState(currentMicrophone, "microphone");
-    }
-    audioInputRouted = await ensureVirtualAudioInput();
-    if (audioInputRouted && canMutateSession && microphoneState === "off") {
-      microphone?.click();
-      await waitForUi();
-      const currentMicrophone = first(selectors.microphone) || findTextButton(/mute|unmute|microphone/i);
-      microphoneState = toggleState(currentMicrophone, "microphone");
-    } else if (!audioInputRouted && canMutateSession && microphoneState === "on") {
-      microphone?.click();
-      await waitForUi();
-      const currentMicrophone = first(selectors.microphone) || findTextButton(/mute|unmute|microphone/i);
-      microphoneState = toggleState(currentMicrophone, "microphone");
-      if (microphoneState === "off") {
-        notes.push("Muted the Zoom microphone because the virtual audio input could not be reverified.");
-      }
-    }
-  }
+`,
+		selectionSource: `      let selected = Boolean(selectedMicrophoneLabel());`
+	})}
+${sources.prejoinMicrophone({
+		unroutedSource: `      notes.push("The virtual audio input will be selected from Zoom's in-call audio controls.");`,
+		muteInCall: true
+	})}
+${sources.inCallMicrophone}
   if (
     identityVerified &&
     (inCall || join) &&
@@ -471,60 +334,19 @@ function zoomMeetingStatusPreludeSource(params) {
   ) {
     controlManualAction = manualActionFor("zoom-microphone-required", inCall ? "Mute the Zoom microphone and verify it stays muted for observe-only mode." : "Mute the Zoom microphone and verify the microphone control shows it is off, then retry joining.");
   }`,
-		manualActionSource: `  const signInControl = first(selectors.signIn);
+	manualActionSource: (sources) => `  const signInControl = first(selectors.signIn);
   const tenantLoginRequired =
     /authorized attendees only|meeting is for authorized attendees|sign in to join|verify your email|enter the code sent to/i.test(pageTextLower);
   const loginRequired = tenantLoginRequired ||
     (Boolean(signInControl) && !guestInput && !join && /sign in to (?:join|continue)|sign in to your account/i.test(pageTextLower));
-  let microphonePermissionState;
-  if (allowMicrophone && navigator.permissions?.query) {
-    try {
-      microphonePermissionState = (await navigator.permissions.query({ name: "microphone" })).state;
-    } catch {}
-  }
-  const devicePermissionPrompt = !dismissedDevicePrompt && Boolean(
-    first(selectors.permissionPrompt) || continueWithoutDevices
-  );
-  // Zoom shows the same no-audio/video warning when only camera access is denied.
-  // A granted microphone plus the verified virtual audio input is sufficient for talk-back.
-  const permissionRequired = devicePermissionPrompt &&
-    (!allowMicrophone || microphonePermissionState !== "granted");
-  let manualAction;
-  if (committedOwnerConflict && !canMutateSession) {
-    manualAction = manualActionFor("zoom-session-conflict", "This Zoom tab is owned by another active meeting session.");
-  } else if (!inCall && loginRequired) {
-    manualAction = manualActionFor("zoom-login-required", tenantLoginRequired ? "This Zoom tenant requires sign-in or email verification. Complete it in the OpenClaw browser profile, then retry." : "Sign in to Zoom in the OpenClaw browser profile, then retry the meeting join.");
-  } else if (!inCall && lobbyWaiting) {
-    manualAction = manualActionFor("zoom-admission-required", "Admit the OpenClaw guest from the Zoom lobby, then retry speech.");
-  } else if (!inCall && permissionRequired) {
-    manualAction = manualActionFor("zoom-permission-required", allowMicrophone ? "Allow microphone permission for Zoom in the OpenClaw browser profile, then retry." : "Dismiss the Zoom device-permission prompt or continue without devices, then retry.");
-  } else if (controlManualAction) {
-    manualAction = controlManualAction;
-  }
-  let clickedJoin = false;
-  if (canMutateSession && identityVerified && autoJoin && !inCall && join && !join.disabled && !manualAction) {
-    join.click();
-    clickedJoin = true;
-    notes.push("Clicked the Zoom guest join button.");
-  }`,
-		platform: {
-			displayName: "Zoom",
-			globals: {
-				audioOutputs: "__openclawZoomAudioOutputs",
-				captionArchive: "__openclawZoomCaptionArchive",
-				captions: "__openclawZoomCaptions",
-				meeting: "__openclawZoomMeeting"
-			},
-			manualActionReasonPrefix: "zoom"
-		},
-		setupSource: `const topDocument = globalThis.document;
+${sources.manualActions({ inCallControls: true })}`,
+	setupSource: `const topDocument = globalThis.document;
   const document = topDocument.querySelector("#webclient")?.contentDocument || topDocument;
   const pageWindow = document.defaultView || globalThis;
   const HTMLInputElement = pageWindow.HTMLInputElement || globalThis.HTMLInputElement;
   const Event = pageWindow.Event || globalThis.Event;
   const MutationObserver = pageWindow.MutationObserver || globalThis.MutationObserver;`
-	});
-}
+};
 //#endregion
 //#region extensions/zoom-meetings/src/transports/zoom-meetings-urls.ts
 function isZoomHostname(hostname) {
@@ -532,20 +354,16 @@ function isZoomHostname(hostname) {
 }
 function parseZoomMeetingIdentity(url) {
 	if (!url) return;
-	try {
-		const parsed = new URL(url);
-		if (parsed.protocol !== "https:" || parsed.port || parsed.username || parsed.password || !isZoomHostname(parsed.hostname.toLowerCase())) return;
-		const invitation = parsed.pathname.match(/^\/j\/(\d{9,11})\/?$/);
-		const webClient = parsed.hostname.toLowerCase() === "app.zoom.us" ? parsed.pathname.match(/^\/wc\/(\d{9,11})\/join\/?$/) : void 0;
-		const meetingId = invitation?.[1] ?? webClient?.[1];
-		return meetingId ? {
-			kind: invitation ? "invitation" : "web-client",
-			meetingId,
-			passcode: parsed.searchParams.get("pwd") || void 0
-		} : void 0;
-	} catch {
-		return;
-	}
+	const parsed = URL.parse(url);
+	if (!parsed || parsed.protocol !== "https:" || parsed.port || parsed.username || parsed.password || !isZoomHostname(parsed.hostname.toLowerCase())) return;
+	const invitation = parsed.pathname.match(/^\/j\/(\d{9,11})\/?$/);
+	const webClient = parsed.hostname.toLowerCase() === "app.zoom.us" ? parsed.pathname.match(/^\/wc\/(\d{9,11})\/join\/?$/) : void 0;
+	const meetingId = invitation?.[1] ?? webClient?.[1];
+	return meetingId ? {
+		kind: invitation ? "invitation" : "web-client",
+		meetingId,
+		passcode: parsed.searchParams.get("pwd") || void 0
+	} : void 0;
 }
 function normalizeZoomMeetingUrl(input) {
 	if (typeof input !== "string" || !input.trim()) throw new Error("Zoom meeting URL is required");
@@ -577,29 +395,11 @@ function isRecoverableZoomMeetingTab(tab, url) {
 		return tabIdentity.kind !== "invitation" || requestedIdentity.kind !== "invitation" ? true : tabIdentity.passcode === requestedIdentity.passcode;
 	}
 	if (normalizeZoomMeetingUrlForReuse(tab.url)) return true;
-	try {
-		return isZoomHostname(new URL(tab.url ?? "").hostname.toLowerCase()) && /sign in|verification|zoom/i.test(tab.title ?? "");
-	} catch {
-		return false;
-	}
+	const hostname = URL.parse(tab.url ?? "")?.hostname.toLowerCase();
+	return Boolean(hostname && isZoomHostname(hostname) && /sign in|verification|zoom/i.test(tab.title ?? ""));
 }
 //#endregion
 //#region extensions/zoom-meetings/src/transports/zoom-meetings-page-scripts.ts
-function zoomMeetingAudioCaptureScript(params) {
-	return createMeetingBrowserAudioCaptureSource({
-		...params,
-		audioOutputsGlobal: "__openclawZoomAudioOutputs",
-		ownershipSource: `
-      ${pageIdentityFunctionSource()}
-      const expectedIdentity = ${JSON.stringify(normalizeZoomMeetingUrlForReuse(params.meetingUrl))};
-      const state = window.__openclawZoomMeeting;
-      return Boolean(expectedIdentity && state?.sessionId === sessionId &&
-        state.identity === expectedIdentity && !state.leavePending &&
-        (meetingIdentity(location.href) === expectedIdentity ||
-          (state.inCallUrl === location.href && state.inCallControl?.isConnected)));
-    `
-	});
-}
 function pageIdentityFunctionSource() {
 	return `const meetingIdentity = (rawUrl) => {
     try {
@@ -644,37 +444,25 @@ function zoomMeetingToggleStateFunctionSource() {
     return undefined;
   }`;
 }
-function zoomMeetingStatusScript(params) {
-	const selectors = JSON.stringify(ZOOM_MEETING_SELECTORS);
-	const expectedIdentity = normalizeZoomMeetingUrlForReuse(params.meetingUrl);
-	const toggleStateFunction = zoomMeetingToggleStateFunctionSource();
-	return zoomMeetingStatusPreludeSource({
-		...params,
-		expectedIdentity,
-		pageIdentitySource: pageIdentityFunctionSource(),
-		selectors,
-		toggleStateFunction
-	}) + zoomMeetingStatusCallSource();
-}
-function zoomMeetingTranscriptScript(meetingUrl, meetingSessionId, finalize) {
-	const expectedIdentity = normalizeZoomMeetingUrlForReuse(meetingUrl);
-	return createMeetingTranscriptSource({
-		expectedIdentity,
-		finalize,
+const zoomMeetingPageScripts = MeetingPlatformAdapter.createPageScripts({
+	platform: {
+		audioOutputElementIdPrefix: "openclaw-zoom-audio-output-",
+		manualActionReasonPrefix: "zoom",
+		displayName: "Zoom",
 		globals: {
+			audioOutputs: "__openclawZoomAudioOutputs",
 			captionArchive: "__openclawZoomCaptionArchive",
 			captions: "__openclawZoomCaptions",
 			meeting: "__openclawZoomMeeting"
-		},
-		meetingSessionId,
-		pageIdentitySource: pageIdentityFunctionSource(),
-		platformDisplayName: "Zoom"
-	});
-}
-function zoomMeetingLeaveScript(params) {
-	const selectors = JSON.stringify(ZOOM_MEETING_SELECTORS);
-	const expectedIdentity = normalizeZoomMeetingUrlForReuse(params.meetingUrl);
-	return createMeetingLeaveSource({
+		}
+	},
+	normalizeUrl: normalizeZoomMeetingUrlForReuse,
+	pageIdentitySource: pageIdentityFunctionSource,
+	selectors: ZOOM_MEETING_SELECTORS,
+	toggleStateFunction: zoomMeetingToggleStateFunctionSource,
+	statusPrelude: zoomMeetingStatusPrelude,
+	statusCall: zoomMeetingStatusCall,
+	leave: {
 		controlSource: `const first = (list) => {
     for (const selector of list) {
       const node = document.querySelector(selector);
@@ -703,19 +491,7 @@ function zoomMeetingLeaveScript(params) {
 		departedMarkerSource: "(postCall || webClientHome)",
 		documentSetupSource: `const topDocument = globalThis.document;
   const document = topDocument.querySelector("#webclient")?.contentDocument || topDocument;`,
-		expectedIdentity,
-		leaveInitiated: params.leaveInitiated,
-		meetingSessionId: params.meetingSessionId,
 		meetingStateSource: "sessionId: expectedSessionId || state?.sessionId,",
-		pageIdentitySource: pageIdentityFunctionSource(),
-		platform: {
-			displayName: "Zoom",
-			globals: {
-				audioOutputs: "__openclawZoomAudioOutputs",
-				meeting: "__openclawZoomMeeting"
-			}
-		},
-		selectors,
 		sessionMatchSource: `const sessionAdoptedFromUrl = Boolean(
     enforceSessionOwnership &&
     !state?.sessionId &&
@@ -725,33 +501,12 @@ function zoomMeetingLeaveScript(params) {
   const sessionMatched = !enforceSessionOwnership ||
     state?.sessionId === expectedSessionId ||
     sessionAdoptedFromUrl;`
-	});
-}
-//#endregion
-//#region extensions/zoom-meetings/src/transports/zoom-meetings-platform-constants.ts
-const ZOOM_MEETINGS_NODE_COMMAND = "zoommeetings.chrome";
-const ZOOM_MEETINGS_BROWSER_NODE_ADAPTER = {
-	displayName: "Zoom meetings",
-	nodeCommandName: ZOOM_MEETINGS_NODE_COMMAND,
-	nodeConfigPath: "plugins.entries.zoom-meetings.config.chromeNode.node"
-};
+	}
+});
 //#endregion
 //#region extensions/zoom-meetings/src/transports/zoom-meetings-platform-adapter.ts
 function zoomMeetingOrigin(meetingUrl) {
 	return normalizeZoomMeetingUrlForReuse(meetingUrl) ? "https://app.zoom.us" : void 0;
-}
-function classifyManualActionReason(reason) {
-	switch (reason) {
-		case "zoom-login-required": return "login-required";
-		case "zoom-admission-required":
-		case "zoom-passcode-required":
-		case "zoom-captcha-required": return "admission-required";
-		case "zoom-permission-required": return "permission-required";
-		case "zoom-audio-choice-required": return "audio-choice-required";
-		case "zoom-session-conflict": return "session-conflict";
-		case "browser-control-unavailable": return "browser-control-unavailable";
-		default: return "custom";
-	}
 }
 const ZOOM_MEETINGS_PLATFORM_ADAPTER = MeetingPlatformAdapter.create({
 	id: "zoom-meetings",
@@ -776,7 +531,7 @@ const ZOOM_MEETINGS_PLATFORM_ADAPTER = MeetingPlatformAdapter.create({
 		idPrefix: "zoom_meeting",
 		participantIdentity: (transport) => transport === "chrome-node" ? "Zoom guest in Chrome on a paired node" : "Zoom guest in the OpenClaw Chrome profile"
 	},
-	nodeCommandName: ZOOM_MEETINGS_NODE_COMMAND,
+	nodeCommandName: "zoommeetings.chrome",
 	nodeConfigPath: "plugins.entries.zoom-meetings.config.chromeNode.node",
 	urls: {
 		validateAndNormalize: normalizeZoomMeetingUrl,
@@ -788,128 +543,38 @@ const ZOOM_MEETINGS_PLATFORM_ADAPTER = MeetingPlatformAdapter.create({
 		isRecoverableTab: isRecoverableZoomMeetingTab,
 		localeAction: () => void 0
 	},
-	browser: {
-		buildAudioCaptureScript: zoomMeetingAudioCaptureScript,
-		allowsMicrophone: MeetingPlatformAdapter.isTalkBackMode,
-		buildStatusJoinScript: (params) => zoomMeetingStatusScript({
-			allowMicrophone: MeetingPlatformAdapter.isTalkBackMode(params.mode),
-			allowSessionAdoption: params.allowSessionAdoption,
-			autoJoin: params.autoJoin,
-			captureCaptions: params.captureCaptions,
-			guestName: params.guestName,
-			meetingSessionId: params.meetingSessionId || void 0,
-			meetingUrl: params.url,
-			readOnly: params.readOnly,
-			waitForInCallMs: params.waitForInCallMs
-		}),
-		shouldRetryJoinStatus: (health) => health.inCall === true && (health.manualAction?.reason === "zoom-audio-choice-required" && health.audioInputRouted === true && health.audioOutputRouteRetryable === true || health.manualAction === void 0 && health.captionCaptureRequested === true && health.captioning !== true),
-		browserControlUnavailable: () => ({
-			category: "browser-control-unavailable",
-			reason: "browser-control-unavailable",
-			message: "Open the OpenClaw browser profile, finish the Zoom sign-in, admission, or permission prompt, then retry."
-		}),
-		buildLeaveScript: (meetingUrl) => zoomMeetingLeaveScript({
-			leaveInitiated: false,
-			meetingSessionId: "",
-			meetingUrl
-		}),
-		buildSessionLeaveScript: zoomMeetingLeaveScript,
-		captions: {
-			enabled: () => true,
-			buildTranscriptScript: ({ finalize, meetingSessionId, meetingUrl }) => zoomMeetingTranscriptScript(meetingUrl, meetingSessionId, finalize)
-		},
-		permissions: ({ allowMicrophone, meetingUrl }) => {
-			const origin = zoomMeetingOrigin(meetingUrl);
-			return allowMicrophone && origin ? {
-				origin,
-				permissions: ["audioCapture"],
-				optionalPermissions: ["speakerSelection"]
-			} : void 0;
-		}
-	},
-	parsing: {
-		classifyManualActionReason,
+	...MeetingPlatformAdapter.createBrowserAdapterOptions({
 		displayName: "Zoom",
-		invalidTranscriptMessage: "Zoom transcript payload is invalid.",
-		malformedStatusMessage: "Zoom browser status JSON is malformed.",
-		malformedTranscriptMessage: "Zoom transcript JSON is malformed.",
+		manualActionReasonPrefix: "zoom",
+		admissionReasons: ["zoom-passcode-required", "zoom-captcha-required"],
+		retryCaptions: true,
+		unavailableMessage: "Open the OpenClaw browser profile, finish the Zoom sign-in, admission, or permission prompt, then retry.",
+		origin: zoomMeetingOrigin,
+		scripts: zoomMeetingPageScripts,
 		statusFields: (parsed) => ({ meetingEnded: typeof parsed.meetingEnded === "boolean" ? parsed.meetingEnded : void 0 })
-	}
+	})
 });
 //#endregion
-//#region extensions/zoom-meetings/src/node-host.ts
-const handleZoomMeetingsNodeHostCommand = MeetingPlatformAdapter.createPluginNodeHostHandler({
+//#region extensions/zoom-meetings/index.ts
+const zoomMeetingsPlugin = MeetingPlatformAdapter.defineBrowserMeetingPlugin({
 	platform: ZOOM_MEETINGS_PLATFORM_ADAPTER,
-	browserPageName: "Zoom",
-	meetingLabel: "Zoom meeting",
-	defaultAudioInputCommand: zoomMeetingsConfig.defaultAudioInputCommand,
-	defaultAudioOutputCommand: zoomMeetingsConfig.defaultAudioOutputCommand,
-	sharePrerequisiteDeadline: true
-});
-//#endregion
-//#region extensions/zoom-meetings/src/node-invoke-policy.ts
-function createZoomMeetingsNodeInvokePolicy(config) {
-	return MeetingPlatformAdapter.createPluginNodeInvokePolicy(config, {
-		deniedCode: "ZOOM_MEETINGS_NODE_POLICY_DENIED",
-		platform: ZOOM_MEETINGS_PLATFORM_ADAPTER
-	});
-}
-//#endregion
-//#region extensions/zoom-meetings/src/runtime-probes.ts
-const probes = MeetingPlatformAdapter.createRuntimeProbes({
-	defaultSpeechMessage: "Say exactly: Zoom speech test complete.",
-	invalidRequest: zoomMeetingsInvalidRequest,
-	resolveTimeoutMs: (input, fallback) => MeetingPlatformAdapter.resolveProbeTimeoutMs(input, fallback, zoomMeetingsInvalidRequest),
-	shouldWaitForListening: (session) => Boolean(session.chrome?.browserTab?.targetId),
-	talkBackMode: MeetingPlatformAdapter.isTalkBackMode
-});
-const testZoomMeetingListening = probes.testListening;
-const testZoomMeetingSpeech = probes.testSpeech;
-//#endregion
-//#region extensions/zoom-meetings/src/transports/chrome.ts
-const chromeTransport = MeetingPlatformAdapter.createPluginChromeTransport({
-	meetingLabel: "Zoom meeting",
-	platform: ZOOM_MEETINGS_PLATFORM_ADAPTER,
-	preserveTrackedBrowserOnEngineFailure: true,
-	runtime: MeetingPlatformAdapter.createChromeRuntimeBindings()
-});
-const assertZoomMeetingsAudioAvailable = chromeTransport.assertAudioDeviceAvailable;
-const launchZoomMeetingInChrome = chromeTransport.launchInChrome;
-const launchZoomMeetingOnNode = chromeTransport.launchOnNode;
-const leaveZoomMeetingInBrowser = chromeTransport.leaveInBrowser;
-const readZoomMeetingTranscript = chromeTransport.readTranscript;
-const recoverCurrentZoomMeetingTab = chromeTransport.recoverCurrentTab;
-//#endregion
-//#region extensions/zoom-meetings/src/runtime-setup.ts
-const getZoomMeetingsSetupStatus = MeetingPlatformAdapter.createRuntimeSetup({
-	assertAudioDeviceAvailable: assertZoomMeetingsAudioAvailable,
-	captionsMessage: (mode) => mode === "transcribe" ? "Zoom live-caption capture is enabled and ready" : "Caption scraping is not used by talk-back modes",
-	connectedNodeMessage: (node) => `Connected Zoom meeting node ready: ${node}`,
-	guestJoinCheck: (config) => {
-		const ok = Boolean(config.chrome.guestName && config.chrome.autoJoin && (config.chrome.launch || config.chrome.reuseExistingTab));
-		return {
-			ok,
-			message: ok ? "Guest name, auto-join, and a Chrome launch or reuse path are configured" : "Set chrome.guestName, chrome.autoJoin, and either chrome.launch or chrome.reuseExistingTab for unattended guest joins"
-		};
+	labels: {
+		meeting: "Zoom meeting",
+		participant: "Zoom guest",
+		brand: "Zoom",
+		microphone: "Zoom",
+		browserPage: "Zoom"
 	},
-	missingNodeIdMessage: "Connected Zoom meetings node did not include a node id.",
-	nodeAdapter: ZOOM_MEETINGS_BROWSER_NODE_ADAPTER
-});
-//#endregion
-//#region extensions/zoom-meetings/src/runtime.ts
-const ZoomMeetingsRuntime = MeetingPlatformAdapter.createRuntimeFacade({
-	platform: ZOOM_MEETINGS_PLATFORM_ADAPTER,
-	transport: {
-		launchInChrome: launchZoomMeetingInChrome,
-		launchOnNode: launchZoomMeetingOnNode,
-		leaveInBrowser: leaveZoomMeetingInBrowser,
-		readTranscript: readZoomMeetingTranscript,
-		recoverCurrentTab: recoverCurrentZoomMeetingTab
+	config: {
+		defaultRealtimeInstructions: `You are joining a private Zoom meeting as an OpenClaw voice transport. Keep spoken replies brief and natural. In agent mode, wait for OpenClaw consult results and speak them exactly. In bidi mode, answer directly and call ${REALTIME_VOICE_AGENT_CONSULT_TOOL_NAME} for deeper reasoning, current information, or tools.`,
+		resolveGatewayOperationTimeoutMs: (config) => Math.max(6e4, addTimerTimeoutGraceMs(config.chrome.joinTimeoutMs, config.chrome.waitForInCallMs + config.chrome.joinTimeoutMs + 3e4) ?? 1)
 	},
-	probes: {
-		setupStatus: getZoomMeetingsSetupStatus,
-		testListening: testZoomMeetingListening,
-		testSpeech: testZoomMeetingSpeech
+	InvalidRequestError: ZoomMeetingsInvalidRequestError,
+	toolUrlDescription: "Zoom meeting URL",
+	transcriptSource: {
+		id: "zoom",
+		aliases: ["zoom-meetings"],
+		providerName: "Zoom"
 	},
 	hooks: {
 		normalizeJoinRequest: (request, context) => {
@@ -977,89 +642,30 @@ const ZoomMeetingsRuntime = MeetingPlatformAdapter.createRuntimeFacade({
 			session.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
 		}
 	},
-	messages: {
-		browserReadinessFailed: (error) => `Zoom browser readiness refresh failed: ${error}`,
-		durableTranscripts: {
-			providerId: "zoom",
-			providerName: "Zoom"
+	browserReadinessFailed: (error) => `Zoom browser readiness refresh failed: ${error}`,
+	microphoneMutedReason: "zoom-microphone-muted",
+	setup: {
+		captionsMessage: (mode) => mode === "transcribe" ? "Zoom live-caption capture is enabled and ready" : "Caption scraping is not used by talk-back modes",
+		connectedNodeMessage: (node) => `Connected Zoom meeting node ready: ${node}`,
+		guestJoinCheck: (config) => {
+			const ok = Boolean(config.chrome.guestName && config.chrome.autoJoin && (config.chrome.launch || config.chrome.reuseExistingTab));
+			return {
+				ok,
+				message: ok ? "Guest name, auto-join, and a Chrome launch or reuse path are configured" : "Set chrome.guestName, chrome.autoJoin, and either chrome.launch or chrome.reuseExistingTab for unattended guest joins"
+			};
 		},
-		joined: {
-			local: "Zoom guest joined in local Chrome with realtime audio through the native virtual-audio backend.",
-			node: "Zoom guest joined in Chrome on the selected node with realtime audio through the node bridge.",
-			transcribe: "Zoom guest joined observe-only with live-caption transcript capture.",
-			waiting: "Zoom guest join is waiting for the browser to become ready before starting realtime audio."
-		},
-		leaveFailed: (error) => `Browser control could not leave the Zoom meeting tab: ${error}`,
-		noTrackedTab: "No tracked Zoom meeting tab; leave the browser meeting manually if it is still active.",
-		sharedTab: "Kept the shared Zoom meeting tab open for another active session.",
-		sessionRuntime: {
-			previousBrowserLeaveFailed: "Could not leave the previous Zoom meeting tab before reassignment.",
-			reassignedSessionNote: "Ended before the same Zoom meeting tab was reassigned to another agent.",
-			reusedSessionNote: "Reused existing active Zoom meeting session.",
-			replacementBrowserLeaveFailed: "Could not leave the previous Zoom meeting tab before reassignment.",
-			speechBlockedFallback: "Realtime speech blocked until Zoom is ready.",
-			speech: {
-				audioBridgeUnavailable: "Realtime speech requires an active Chrome audio bridge.",
-				browserUnverified: "Zoom browser state has not been verified yet.",
-				microphoneMuted: "Turn on the OpenClaw Zoom microphone before asking OpenClaw to speak.",
-				microphoneMutedReason: "zoom-microphone-muted",
-				notInCall: "Zoom has not reported that the browser guest is in the call.",
-				notInCallReason: "not-in-call",
-				browserUnverifiedReason: "browser-unverified",
-				audioBridgeUnavailableReason: "audio-bridge-unavailable"
-			}
-		}
-	}
-});
-//#endregion
-//#region extensions/zoom-meetings/index.ts
-var zoom_meetings_default = MeetingPlatformAdapter.createPluginShellEntry({
-	platform: ZOOM_MEETINGS_PLATFORM_ADAPTER,
-	browserGuestLabel: "Zoom meeting",
-	configSchema: zoomMeetingsConfig.configSchema,
-	invalidRequest: zoomMeetingsInvalidRequest,
-	isInvalidRequest: (error) => error instanceof ZoomMeetingsInvalidRequestError,
-	toolParameters: Type.Object({
-		action: Type.String({ enum: [
-			"join",
-			"leave",
-			"status",
-			"transcript",
-			"speak"
-		] }),
-		url: Type.Optional(Type.String({ description: "Zoom meeting URL" })),
-		transport: Type.Optional(Type.String({ enum: ["chrome", "chrome-node"] })),
-		mode: Type.Optional(Type.String({ enum: [
-			"agent",
-			"bidi",
-			"transcribe"
-		] })),
-		sessionId: Type.Optional(Type.String({ description: "Zoom meeting session ID" })),
-		sinceIndex: Type.Optional(Type.Integer({
-			minimum: 0,
-			description: "Resume transcript from this index"
-		})),
-		message: Type.Optional(Type.String({ description: "Instructions to speak" }))
-	}),
-	resolveGatewayTimeoutMs: zoomMeetingsConfig.resolveGatewayOperationTimeoutMs,
-	normalizeRequesterSessionKey: (value, trustedOwner) => trustedOwner && typeof value === "string" && value.trim() ? value.trim() : void 0,
-	normalizeToolAgentId: (agentId) => normalizeAgentId(agentId),
-	resolveToolRuntime: async (api) => {
-		if (!await api.runtime.gateway.isAvailable()) throw new Error("Zoom meeting tools require a Gateway-hosted agent run.");
-		return api.runtime;
+		missingNodeIdMessage: "Connected Zoom meetings node did not include a node id."
 	},
-	transcriptSource: {
-		id: "zoom",
-		aliases: ["zoom-meetings"]
-	},
-	runtime: ZoomMeetingsRuntime,
-	nodeHandler: handleZoomMeetingsNodeHostCommand,
-	createNodePolicy: createZoomMeetingsNodeInvokePolicy,
-	registerNodeWhen: (config) => config.enabled,
+	defaultSpeechMessage: "Say exactly: Zoom speech test complete.",
+	shouldWaitForListening: (session) => Boolean(session.chrome?.browserTab?.targetId),
+	sharePrerequisiteDeadline: true,
+	preserveTrackedBrowserOnEngineFailure: true,
+	nodePolicyDeniedCode: "ZOOM_MEETINGS_NODE_POLICY_DENIED",
 	cli: {
 		descriptor: ZOOM_MEETINGS_CLI_METADATA.descriptor,
-		load: async () => (await import("./.setup/cli-CYes3qso.mjs")).registerZoomMeetingsCli
+		joinDescription: "join a Zoom meeting as a guest"
 	}
 });
+var zoom_meetings_default = zoomMeetingsPlugin.plugin;
 //#endregion
-export { zoom_meetings_default as default };
+export { zoom_meetings_default as default, zoomMeetingsPlugin };

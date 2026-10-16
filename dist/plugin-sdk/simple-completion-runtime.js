@@ -1,14 +1,14 @@
-import { r as getLegacyPluginSdkResourceHost } from "../legacy-sdk-resource-host-Bm9V3G-F.mjs";
+import { i as getLegacyPluginSdkResourceHost } from "../legacy-sdk-resource-host-DC4n8Jcn.mjs";
 import { t as bindModelCompletionOwner } from "../model-runtime-binding-DgnrsJj9.mjs";
-import { s as extractEmbeddedAssistantText } from "../embedded-agent-utils-C9EyRsVl.mjs";
-import { t as completeWithPreparedSimpleCompletionModel } from "../simple-completion-execution-CdHAl-8U.mjs";
-import { t as runHostPreparedIsolatedCompletion } from "../host-prepared-isolated-completion-9EQtNNTF.mjs";
+import { s as extractEmbeddedAssistantText } from "../embedded-agent-utils-BYhIvAvm.mjs";
+import { t as completeWithPreparedSimpleCompletionModel } from "../simple-completion-execution-CKCoGGJC.mjs";
+import { t as runHostPreparedIsolatedCompletion } from "../host-prepared-isolated-completion-17sH33e_.mjs";
 //#region src/plugin-sdk/simple-completion-runtime.ts
 /** Preparation owns model/auth discovery; prepared execution must not cold-load it. */
 const prepareSimpleCompletionModelForAgent = async (params) => {
 	const host = getLegacyPluginSdkResourceHost();
 	return await host.track(async () => {
-		const { acquireSimpleCompletionModelForAgent } = await import("../simple-completion-runtime-hszurbDB.mjs");
+		const { acquireSimpleCompletionModelForAgent } = await import("../simple-completion-runtime-COZWob9G.mjs");
 		host.assertOpen();
 		const acquired = await acquireSimpleCompletionModelForAgent(params);
 		if ("error" in acquired) return acquired;

@@ -7,7 +7,10 @@ import {
   resolveAgentWorkspaceDir,
   resolveSessionAgentId,
 } from "../../agents/agent-scope.js";
-import type { PreparedReplyDispatchRuntime } from "../../agents/prepared-model-runtime.types.js";
+import type {
+  PreparedModelRuntimeLease,
+  PreparedReplyDispatchRuntime,
+} from "../../agents/prepared-model-runtime.types.js";
 import { normalizeExplicitSessionKey } from "../../config/sessions/explicit-session-key-normalization.js";
 import {
   deriveInboundMessageHookContext,
@@ -43,7 +46,6 @@ import {
 import { createShouldEmitVerboseProgress } from "./dispatch-from-config.harness-defaults.js";
 import { createDispatchReplyOperationCoordinator } from "./dispatch-from-config.lifecycle.js";
 import { createFinalizationAwareTtsPayloadApplier } from "./dispatch-from-config.payloads.js";
-import { extendPreparedDispatchState } from "./dispatch-from-config.phase-state.js";
 import {
   loadPreparedModelRuntime,
   loadRuntimePlugins,
@@ -69,6 +71,7 @@ export async function gatherDispatchRequest(
   params: DispatchFromConfigParams,
   messageAuditTerminal: InboundMessageAuditTerminalRecorder | undefined,
   allowActiveQueueResolution = false,
+  onRuntimeLease?: (lease: PreparedModelRuntimeLease) => void,
 ) {
   const ctx = isFinalizedInboundContext(params.ctx)
     ? params.ctx
@@ -169,6 +172,9 @@ export async function gatherDispatchRequest(
     messageId,
     sessionKey,
     sessionId: lifecycleSessionId,
+    // The target agent ingests the prompt for this turn even when a command
+    // retargets execution to another session's agent.
+    agentId: targetAgentId,
     source: "dispatch",
     processingReason: "message_start",
     startedAtMs: startTime,
@@ -199,13 +205,18 @@ export async function gatherDispatchRequest(
     });
     messageAuditTerminal?.note(outcome, opts);
     if (diagnosticsEnabled) {
-      replyHotPathTiming.logIfSlow({
-        channel,
-        messageId,
-        sessionKey,
-        outcome,
-        reason: opts?.reason,
-      });
+      replyHotPathTiming.logIfSlow(
+        {
+          channel,
+          messageId,
+          runId: params.replyOptions?.runId,
+          sessionId: lifecycleSessionId,
+          sessionKey,
+          outcome,
+          reason: opts?.reason,
+        },
+        { beforeReplyResolver: agentDispatchStartedAt === 0 },
+      );
     }
     messageLifecycle.markProcessed(outcome, opts);
   };
@@ -228,7 +239,13 @@ export async function gatherDispatchRequest(
       return;
     }
     agentDispatchStartedAt = Date.now();
-    replyHotPathTiming.logPreparationIfSlow({ channel, messageId, sessionKey });
+    replyHotPathTiming.logPreparationIfSlow({
+      channel,
+      messageId,
+      runId: params.replyOptions?.runId,
+      sessionId: lifecycleSessionId,
+      sessionKey,
+    });
     logMessageDispatchStarted({
       channel,
       sessionKey: acpDispatchSessionKey,
@@ -237,11 +254,8 @@ export async function gatherDispatchRequest(
   };
 
   const recordAgentDispatchCompleted = (
-    outcome: "completed" | "skipped" | "error",
-    opts?: {
-      reason?: string;
-      error?: string;
-    },
+    outcome: DispatchProcessedOutcome,
+    opts?: DispatchProcessedOptions,
   ) => {
     if (!diagnosticsEnabled || agentDispatchStartedAt <= 0) {
       return;
@@ -255,14 +269,6 @@ export async function gatherDispatchRequest(
       reason: opts?.reason,
       error: opts?.error,
     });
-  };
-
-  const markProcessing = () => {
-    messageLifecycle.markProcessing();
-  };
-
-  const markIdle = (reason: string) => {
-    messageLifecycle.markIdle(reason);
   };
 
   const markInboundDedupeReplayUnsafe = () => {
@@ -418,6 +424,7 @@ export async function gatherDispatchRequest(
         const { loadPublishedGatewayReplyDispatchRuntime } = await loadPreparedModelRuntime();
         return await loadPublishedGatewayReplyDispatchRuntime({
           agentId: preparedReplyDispatchAgentId,
+          onRuntimeLease,
           abortSignal: params.replyOptions?.abortSignal,
         });
       },
@@ -465,7 +472,6 @@ export async function gatherDispatchRequest(
       });
     }));
   const hookRunner = getGlobalHookRunner();
-  // Extract message context for hooks (plugin and internal)
   const timestamp =
     typeof ctx.Timestamp === "number" && Number.isFinite(ctx.Timestamp) ? ctx.Timestamp : undefined;
   const messageIdForHook =
@@ -539,7 +545,7 @@ export async function gatherDispatchRequest(
       originalMediaTypes: hookContext.mediaTypes,
     };
   };
-  const nextState = extendPreparedDispatchState(state, {
+  const nextState = Object.assign(state, {
     ctx,
     cfg,
     dispatcher,
@@ -548,8 +554,8 @@ export async function gatherDispatchRequest(
     recordProcessed,
     recordAgentDispatchStarted,
     recordAgentDispatchCompleted,
-    markProcessing,
-    markIdle,
+    markProcessing: () => messageLifecycle.markProcessing(),
+    markIdle: (reason: string) => messageLifecycle.markIdle(reason),
     markInboundDedupeReplayUnsafe,
     acpDispatchSessionKey,
     dispatchKind,

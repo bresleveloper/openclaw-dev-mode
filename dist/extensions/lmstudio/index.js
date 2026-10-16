@@ -1,51 +1,38 @@
-import { d as asPositiveSafeInteger } from "../../number-coercion-CLj0HTDM.mjs";
-import { o as asRecord } from "../../record-coerce-DItp3I4t.mjs";
-import { y as uniqueStrings } from "../../string-normalization-_gRhJUDw.mjs";
-import { t as createSubsystemLogger } from "../../subsystem-DleLyu58.mjs";
-import { y as ssrfPolicyFromHttpBaseUrlAllowedHostname } from "../../ssrf-BQRtcdBp.mjs";
-import { t as normalizeOptionalSecretInput } from "../../normalize-secret-input-Df_qhWv_.mjs";
-import { n as CUSTOM_LOCAL_AUTH_MARKER } from "../../model-auth-markers-BfYDKFYI.mjs";
-import "../../llm-BI78BuOT.mjs";
-import "../../string-coerce-runtime-C_MKhRVt.mjs";
-import { i as streamSimple } from "../../stream-DzMUOyCR.mjs";
-import { f as createPlainTextToolCallCompatWrapper, u as createOpenAICompatibleCompletionsThinkingOffWrapper } from "../../provider-stream-shared-CZk4xL-L.mjs";
-import { t as definePluginEntry } from "../../plugin-entry-BOulgRcx.mjs";
-import "../../ssrf-runtime-Darh53Ay.mjs";
-import "../../logging-core-DinLJN7p.mjs";
-import "../../provider-auth-DFHjplgz.mjs";
-import { r as buildProviderToolCompatFamilyHooks } from "../../provider-tools-BDV45rRZ.mjs";
-import { B as LMSTUDIO_PROVIDER_LABEL, S as normalizeLmstudioProviderConfig, b as normalizeLmstudioConfiguredCatalogEntries, d as resolveLmstudioRuntimeApiKey, g as shouldUseLmstudioSyntheticAuth, i as prepareLmstudioModelForInference, k as LMSTUDIO_DEFAULT_API_KEY_ENV_VAR, l as resolveLmstudioProviderHeaders, w as resolveLmstudioInferenceBase, z as LMSTUDIO_PROVIDER_ID } from "../../models.fetch-CcA4TSSi.mjs";
-import { t as lmstudioMemoryEmbeddingProviderAdapter } from "../../memory-embedding-adapter-BqdFGti8.mjs";
+import { d as asPositiveSafeInteger } from "../../number-coercion-CuVhdCBs.mjs";
+import { n as createLazyRuntimeMethodBinder, r as createLazyRuntimeModule } from "../../lazy-runtime-CJrzFzqU.mjs";
+import { c as isRecord, o as asRecord } from "../../record-coerce-TIsquoVR.mjs";
+import { n as filterStringEntries, y as uniqueStrings } from "../../string-normalization-CECOqf64.mjs";
+import { t as createSubsystemLogger } from "../../subsystem-I-uqdx4f.mjs";
+import "../../llm--QylqK5V.mjs";
+import { h as ssrfPolicyFromHttpBaseUrlAllowedHostname } from "../../ssrf-v45DW-yR.mjs";
+import { t as normalizeOptionalSecretInput } from "../../normalize-secret-input-DBJvdk-L.mjs";
+import { n as CUSTOM_LOCAL_AUTH_MARKER } from "../../model-auth-markers-Cuz_bq6T.mjs";
+import "../../string-coerce-runtime-50qKeWeL.mjs";
+import { i as streamSimple } from "../../stream-4ZQq1Iyd.mjs";
+import { d as createOpenAICompatibleCompletionsThinkingOffWrapper, p as createPlainTextToolCallCompatWrapper } from "../../provider-stream-shared-D8q3R1a-.mjs";
+import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
+import "../../ssrf-runtime-BzkFo_VJ.mjs";
+import "../../logging-core-LMmGpAHM.mjs";
+import "../../provider-auth-C3BBF7yn.mjs";
+import { r as buildProviderToolCompatFamilyHooks } from "../../provider-tools-DajrfQK1.mjs";
+import { A as LMSTUDIO_DEFAULT_API_KEY_ENV_VAR, B as LMSTUDIO_PROVIDER_ID, S as normalizeLmstudioProviderConfig, V as LMSTUDIO_PROVIDER_LABEL, b as normalizeLmstudioConfiguredCatalogEntries, d as resolveLmstudioRuntimeApiKey, g as shouldUseLmstudioSyntheticAuth, i as prepareLmstudioModelForInference, l as resolveLmstudioProviderHeaders, w as resolveLmstudioInferenceBase } from "../../models.fetch-CSolZJOV.mjs";
+import { t as lmstudioMemoryEmbeddingProviderAdapter } from "../../memory-embedding-adapter-BZKbJzsu.mjs";
 //#region extensions/lmstudio/src/stream.ts
 const log = createSubsystemLogger("extensions/lmstudio/stream");
 const preloadInFlight = /* @__PURE__ */ new Map();
 const preloadCooldown = /* @__PURE__ */ new Map();
 const PRELOAD_BACKOFF_BASE_MS = 5e3;
 const PRELOAD_BACKOFF_MAX_MS = 3e5;
-function computePreloadBackoffMs(consecutiveFailures) {
-	const exponent = Math.max(0, consecutiveFailures - 1);
-	const raw = PRELOAD_BACKOFF_BASE_MS * 2 ** exponent;
-	return Math.min(PRELOAD_BACKOFF_MAX_MS, raw);
-}
-function recordPreloadSuccess(preloadKey) {
-	preloadCooldown.delete(preloadKey);
-}
 function recordPreloadFailure(preloadKey, now, resolvedModelKey) {
 	const existing = preloadCooldown.get(preloadKey);
 	const consecutiveFailures = (existing?.consecutiveFailures ?? 0) + 1;
 	const persistedResolvedModelKey = resolvedModelKey ?? existing?.resolvedModelKey;
 	const entry = {
 		consecutiveFailures,
-		untilMs: now + computePreloadBackoffMs(consecutiveFailures),
+		untilMs: now + Math.min(PRELOAD_BACKOFF_MAX_MS, PRELOAD_BACKOFF_BASE_MS * 2 ** Math.max(0, consecutiveFailures - 1)),
 		...persistedResolvedModelKey ? { resolvedModelKey: persistedResolvedModelKey } : {}
 	};
 	preloadCooldown.set(preloadKey, entry);
-	return entry;
-}
-function isPreloadCoolingDown(preloadKey, now) {
-	const entry = preloadCooldown.get(preloadKey);
-	if (!entry) return;
-	if (entry.untilMs <= now) return;
 	return entry;
 }
 function normalizeLmstudioModelKey(modelId) {
@@ -53,23 +40,9 @@ function normalizeLmstudioModelKey(modelId) {
 	if (trimmed.toLowerCase().startsWith("lmstudio/")) return trimmed.slice(9).trim();
 	return trimmed;
 }
-function resolveRequestedContextLength(model) {
-	const contextTokens = asPositiveSafeInteger(model.contextTokens);
-	if (contextTokens !== void 0) return contextTokens;
-	const contextWindow = asPositiveSafeInteger(model.contextWindow);
-	if (contextWindow !== void 0) return contextWindow;
-}
-function resolveModelHeaders(model) {
-	if (!model.headers || typeof model.headers !== "object" || Array.isArray(model.headers)) return;
-	return model.headers;
-}
-function shouldPreloadLmstudioModels(value) {
-	const providerConfig = asRecord(value);
-	return asRecord(providerConfig.params).preload !== false;
-}
 function withLmstudioUsageCompat(model) {
 	const compat = model.compat && typeof model.compat === "object" ? model.compat : {};
-	const unsupportedToolSchemaKeywords = "unsupportedToolSchemaKeywords" in compat && Array.isArray(compat.unsupportedToolSchemaKeywords) ? compat.unsupportedToolSchemaKeywords.filter((keyword) => typeof keyword === "string") : [];
+	const unsupportedToolSchemaKeywords = "unsupportedToolSchemaKeywords" in compat ? filterStringEntries(compat.unsupportedToolSchemaKeywords) : [];
 	const normalizedCompat = {
 		...compat,
 		supportsUsageInStreaming: true,
@@ -78,13 +51,6 @@ function withLmstudioUsageCompat(model) {
 	return {
 		...model,
 		compat: normalizedCompat
-	};
-}
-function withLmstudioResolvedModelKey(model, resolvedModelKey) {
-	if (!resolvedModelKey || model.id === resolvedModelKey) return model;
-	return {
-		...model,
-		id: resolvedModelKey
 	};
 }
 function resolveLmstudioModelKeyFromError(error) {
@@ -97,9 +63,6 @@ function resolveLmstudioModelKeyFromError(error) {
 		if (resolvedModelKey) return resolvedModelKey;
 		current = record.cause;
 	}
-}
-function createPreloadKey(params) {
-	return `${params.baseUrl}::${params.modelKey}::${params.requestedContextLength ?? "default"}`;
 }
 function toLmstudioPreloadError(reason, message) {
 	return reason instanceof Error ? reason : new Error(message, { cause: reason });
@@ -152,16 +115,13 @@ function wrapLmstudioInferencePreload(ctx) {
 		if (!modelKey) return underlying(model, context, options);
 		options?.signal?.throwIfAborted();
 		const providerConfig = ctx.config?.models?.providers?.[LMSTUDIO_PROVIDER_ID];
-		if (!shouldPreloadLmstudioModels(providerConfig)) return streamWithThinkingLevel(withLmstudioUsageCompat(model), context, options);
+		if (asRecord(providerConfig?.params).preload === false) return streamWithThinkingLevel(withLmstudioUsageCompat(model), context, options);
 		const providerBaseUrl = providerConfig?.baseUrl;
 		const resolvedBaseUrl = resolveLmstudioInferenceBase(typeof model.baseUrl === "string" ? model.baseUrl : providerBaseUrl);
-		const requestedContextLength = resolveRequestedContextLength(model);
-		const preloadKey = createPreloadKey({
-			baseUrl: resolvedBaseUrl,
-			modelKey,
-			requestedContextLength
-		});
-		const cooldownEntry = isPreloadCoolingDown(preloadKey, Date.now());
+		const requestedContextLength = asPositiveSafeInteger(model.contextTokens) ?? asPositiveSafeInteger(model.contextWindow);
+		const preloadKey = `${resolvedBaseUrl}::${modelKey}::${requestedContextLength ?? "default"}`;
+		const cooldown = preloadCooldown.get(preloadKey);
+		const cooldownEntry = cooldown && cooldown.untilMs > Date.now() ? cooldown : void 0;
 		const preloadPromise = preloadInFlight.get(preloadKey) ?? (cooldownEntry ? void 0 : (() => {
 			const created = ensureLmstudioModelLoadedBestEffort({
 				baseUrl: resolvedBaseUrl,
@@ -169,9 +129,9 @@ function wrapLmstudioInferencePreload(ctx) {
 				requestedContextLength,
 				options,
 				ctx,
-				modelHeaders: resolveModelHeaders(model)
+				modelHeaders: isRecord(model.headers) ? model.headers : void 0
 			}).then((preparedModel) => {
-				recordPreloadSuccess(preloadKey);
+				preloadCooldown.delete(preloadKey);
 				return preparedModel;
 			}, (error) => {
 				const resolvedModelKey = resolveLmstudioModelKeyFromError(error);
@@ -207,9 +167,13 @@ function wrapLmstudioInferencePreload(ctx) {
 				preparedModel = resolvedModelKey ? { modelKey: resolvedModelKey } : void 0;
 				log.debug(`LM Studio inference preload for "${modelKey}" skipped while backoff active (${cooldownEntry.consecutiveFailures} prior failures)`);
 			}
-			const streamModel = withLmstudioResolvedModelKey(model, preparedModel?.modelKey);
+			const modelId = preparedModel?.modelKey;
+			const streamModel = modelId && modelId !== model.id ? {
+				...model,
+				id: modelId
+			} : model;
 			const instanceId = preparedModel?.instanceId;
-			const stream = streamWithThinkingLevel(withLmstudioUsageCompat(streamModel), context, instanceId ? {
+			return await streamWithThinkingLevel(withLmstudioUsageCompat(streamModel), context, instanceId ? {
 				...options,
 				async onPayload(payload, payloadModel) {
 					asRecord(payload).model = instanceId;
@@ -218,32 +182,23 @@ function wrapLmstudioInferencePreload(ctx) {
 					return replacement;
 				}
 			} : options);
-			return stream instanceof Promise ? await stream : stream;
 		})();
 	};
 }
 //#endregion
 //#region extensions/lmstudio/index.ts
 const PROVIDER_ID = "lmstudio";
+const loadSetup = createLazyRuntimeModule(() => import("../../setup-0QkZaN11.mjs"));
+const setupMethod = createLazyRuntimeMethodBinder(loadSetup);
 function resolveLmstudioAugmentedCatalogEntries(config) {
-	if (!config) return [];
-	return normalizeLmstudioConfiguredCatalogEntries(config.models?.providers?.lmstudio?.models).map((entry) => ({
+	return normalizeLmstudioConfiguredCatalogEntries(config?.models?.providers?.lmstudio?.models).map((entry) => Object.assign({}, entry, {
 		provider: PROVIDER_ID,
-		id: entry.id,
 		name: entry.name ?? entry.id,
 		compat: {
 			...entry.compat,
 			supportsUsageInStreaming: true
-		},
-		contextWindow: entry.contextWindow,
-		contextTokens: entry.contextTokens,
-		reasoning: entry.reasoning,
-		input: entry.input
+		}
 	}));
-}
-/** Lazily loads setup helpers so provider wiring stays lightweight at startup. */
-async function loadProviderSetup() {
-	return await import("../../setup-CmzoquZn.mjs");
 }
 var lmstudio_default = definePluginEntry({
 	id: PROVIDER_ID,
@@ -262,11 +217,9 @@ var lmstudio_default = definePluginEntry({
 				hint: "Connect to a running LM Studio server and use an already loaded model",
 				kind: "custom",
 				appGuidedSetup: {
-					detectAvailability: async (ctx) => {
-						return await (await loadProviderSetup()).detectAppGuidedLmstudioAvailability(ctx);
-					},
+					detectAvailability: setupMethod((setup) => setup.detectAppGuidedLmstudioAvailability),
 					detect: async (ctx) => {
-						const result = await (await loadProviderSetup()).prepareAppGuidedLmstudioSetup(ctx);
+						const result = await (await loadSetup()).prepareAppGuidedLmstudioSetup(ctx);
 						if (!result?.defaultModel) return null;
 						const provider = result.configPatch?.models?.providers?.[PROVIDER_ID];
 						return {
@@ -274,12 +227,10 @@ var lmstudio_default = definePluginEntry({
 							detail: `${result.defaultModel.slice(`${PROVIDER_ID}/`.length)} at ${provider?.baseUrl ?? "LM Studio"}`
 						};
 					},
-					prepare: async (ctx) => {
-						return await (await loadProviderSetup()).prepareAppGuidedLmstudioSetup(ctx);
-					}
+					prepare: setupMethod((setup) => setup.prepareAppGuidedLmstudioSetup)
 				},
 				run: async (ctx) => {
-					const providerSetup = await loadProviderSetup();
+					const providerSetup = await loadSetup();
 					const suppliedApiKey = ctx.opts?.tokenProvider === PROVIDER_ID ? normalizeOptionalSecretInput(ctx.opts.token) : void 0;
 					return await providerSetup.promptAndConfigureLmstudioInteractive({
 						config: ctx.config,
@@ -296,17 +247,13 @@ var lmstudio_default = definePluginEntry({
 						} : {}
 					});
 				},
-				validateNonInteractive: async (ctx) => {
-					return await (await loadProviderSetup()).validateLmstudioNonInteractive(ctx);
-				},
-				runNonInteractive: async (ctx) => {
-					return await (await loadProviderSetup()).configureLmstudioNonInteractive(ctx);
-				}
+				validateNonInteractive: setupMethod((setup) => setup.validateLmstudioNonInteractive),
+				runNonInteractive: setupMethod((setup) => setup.configureLmstudioNonInteractive)
 			}],
 			catalog: {
 				order: "late",
 				run: async (ctx) => {
-					return await (await loadProviderSetup()).discoverLmstudioProvider(ctx, { discoveryMode: "strict" });
+					return await (await loadSetup()).discoverLmstudioProvider(ctx, { discoveryMode: "strict" });
 				}
 			},
 			resolveSyntheticAuth: ({ providerConfig }) => {
@@ -319,9 +266,7 @@ var lmstudio_default = definePluginEntry({
 			},
 			shouldDeferSyntheticProfileAuth: ({ resolvedApiKey }) => resolvedApiKey?.trim() === "lmstudio-local" || resolvedApiKey?.trim() === "custom-local",
 			normalizeConfig: ({ providerConfig }) => normalizeLmstudioProviderConfig(providerConfig),
-			prepareDynamicModel: async (ctx) => {
-				return await (await loadProviderSetup()).prepareLmstudioDynamicModel(ctx);
-			},
+			prepareDynamicModel: setupMethod((setup) => setup.prepareLmstudioDynamicModel),
 			augmentModelCatalog: (ctx) => resolveLmstudioAugmentedCatalogEntries(ctx.config),
 			wrapStreamFn: wrapLmstudioInferencePreload,
 			...buildProviderToolCompatFamilyHooks("llamacpp-gbnf"),

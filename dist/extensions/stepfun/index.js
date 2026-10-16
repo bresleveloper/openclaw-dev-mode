@@ -3,7 +3,7 @@ import { applyStepFunPlanConfig, applyStepFunPlanConfigCn, applyStepFunStandardC
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import { createProviderApiKeyAuthMethod } from "openclaw/plugin-sdk/provider-auth-api-key";
 import { buildOpenAICompatibleLiveProviderCatalog } from "openclaw/plugin-sdk/provider-catalog-live-runtime";
-import { normalizeLowercaseStringOrEmpty } from "openclaw/plugin-sdk/string-coerce-runtime";
+import { normalizeLowercaseStringOrEmpty, normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
 //#region extensions/stepfun/index.ts
 const STEPFUN_SURFACES = {
 	standard: {
@@ -38,29 +38,18 @@ const STEPFUN_SURFACES = {
 	}
 };
 function trimExplicitBaseUrl(ctx, providerId) {
-	const explicitProvider = ctx.config.models?.providers?.[providerId];
-	return (typeof explicitProvider?.baseUrl === "string" ? explicitProvider.baseUrl.trim() : "") || void 0;
+	return normalizeOptionalString(ctx.config.models?.providers?.[providerId]?.baseUrl);
 }
 function inferRegionFromBaseUrl(baseUrl) {
 	if (!baseUrl) return;
-	try {
-		const host = normalizeLowercaseStringOrEmpty(new URL(baseUrl).hostname);
-		if (host === "api.stepfun.com") return "cn";
-		if (host === "api.stepfun.ai") return "intl";
-	} catch {
-		return;
-	}
+	const host = normalizeLowercaseStringOrEmpty(URL.parse(baseUrl)?.hostname);
+	if (host === "api.stepfun.com") return "cn";
+	if (host === "api.stepfun.ai") return "intl";
 }
 function inferRegionFromProfileId(profileId) {
 	if (!profileId) return;
 	if (profileId.includes(":cn")) return "cn";
 	if (profileId.includes(":intl")) return "intl";
-}
-function inferRegionFromEnv(env) {
-	if (env.STEPFUN_API_KEY?.trim()) return "intl";
-}
-function inferRegionFromExplicitBaseUrls(ctx) {
-	return inferRegionFromBaseUrl(trimExplicitBaseUrl(ctx, "stepfun")) ?? inferRegionFromBaseUrl(trimExplicitBaseUrl(ctx, "stepfun-plan"));
 }
 async function resolveStepFunCatalog(ctx, params) {
 	const profileAuth = ctx.resolveProviderAuth(params.providerId);
@@ -68,7 +57,7 @@ async function resolveStepFunCatalog(ctx, params) {
 	const apiKey = auth.apiKey;
 	if (!apiKey) return null;
 	const explicitBaseUrl = trimExplicitBaseUrl(ctx, params.providerId);
-	const region = inferRegionFromBaseUrl(explicitBaseUrl) ?? inferRegionFromExplicitBaseUrls(ctx) ?? inferRegionFromProfileId(auth.profileId) ?? inferRegionFromEnv(ctx.env);
+	const region = inferRegionFromBaseUrl(explicitBaseUrl) ?? inferRegionFromBaseUrl(trimExplicitBaseUrl(ctx, "stepfun")) ?? inferRegionFromBaseUrl(trimExplicitBaseUrl(ctx, "stepfun-plan")) ?? inferRegionFromProfileId(auth.profileId);
 	const provider = STEPFUN_SURFACES[params.surface];
 	const baseUrl = explicitBaseUrl ?? provider.baseUrls[region ?? "intl"];
 	const providerConfig = provider.buildProvider(baseUrl);
@@ -80,9 +69,6 @@ async function resolveStepFunCatalog(ctx, params) {
 		discoveryApiKey: auth.discoveryApiKey,
 		profileId: auth.profileId
 	});
-}
-function resolveProfileIds(region) {
-	return region === "cn" ? ["stepfun:cn", "stepfun-plan:cn"] : ["stepfun:intl", "stepfun-plan:intl"];
 }
 function createStepFunApiKeyMethod(surface, region) {
 	const provider = STEPFUN_SURFACES[surface];
@@ -98,7 +84,7 @@ function createStepFunApiKeyMethod(surface, region) {
 		flagName: "--stepfun-api-key",
 		envVar: "STEPFUN_API_KEY",
 		promptMessage: `Enter StepFun API key for ${region === "cn" ? "China" : "global"} endpoints`,
-		profileIds: resolveProfileIds(region),
+		profileIds: [`stepfun:${region}`, `stepfun-plan:${region}`],
 		allowProfile: false,
 		defaultModel: provider.defaultModel,
 		preserveExistingPrimary: true,

@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{n as t,r as n}from"./worker-chunk-CxTYO89b.mjs";function isChannelStartupSuppressedByEnvironment(e=process.env){return n(e.OPENCLAW_SKIP_CHANNELS)||n(e.OPENCLAW_SKIP_PROVIDERS)}var r=e((()=>{t()}));export{isChannelStartupSuppressedByEnvironment as n,r as t};

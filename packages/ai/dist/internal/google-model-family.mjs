@@ -1,4 +1,4 @@
-import { n as normalizeLowercaseStringOrEmpty } from "../string-coerce-fsri9iCu.mjs";
+import { n as normalizeLowercaseStringOrEmpty } from "../string-coerce-CtgOVOSv.mjs";
 //#region packages/ai/src/internal/google-model-family.ts
 function isGoogleGemini3ProModel(modelId) {
 	const normalized = normalizeLowercaseStringOrEmpty(modelId);

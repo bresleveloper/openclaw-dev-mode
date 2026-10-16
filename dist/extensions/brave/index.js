@@ -1,4 +1,4 @@
-import { t as createBraveWebSearchProvider } from "./.setup/brave-web-search-provider-DEK9TtrN.mjs";
+import { t as createBraveWebSearchProvider } from "./.setup/brave-web-search-provider-BMkqethI.mjs";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 //#region extensions/brave/index.ts
 /**

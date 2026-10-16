@@ -4,7 +4,7 @@ let node_url = require("node:url");
 var setup_entry_default = (0, openclaw_plugin_sdk_channel_entry_contract.defineBundledChannelSetupEntry)({
 	importMetaUrl: require("url").pathToFileURL(__filename).href,
 	plugin: {
-		specifier: (0, node_url.fileURLToPath)(new URL(".setup/setup-plugin-api-DpiaA8z1.cjs", require("url").pathToFileURL(__filename).href).href),
+		specifier: (0, node_url.fileURLToPath)(new URL(".setup/setup-plugin-api-B0OFG32J.cjs", require("url").pathToFileURL(__filename).href).href),
 		exportName: "msteamsSetupPlugin"
 	},
 	secrets: {

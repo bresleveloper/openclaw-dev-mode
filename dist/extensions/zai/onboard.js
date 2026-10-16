@@ -1,4 +1,4 @@
-import { c as buildZaiCatalogModels, o as ZAI_DEFAULT_MODEL_ID, r as ZAI_CODING_DEFAULT_MODEL_ID, u as resolveZaiBaseUrl } from "./.setup/model-definitions-GiWvkL3t.mjs";
+import { c as buildZaiCatalogModels, o as ZAI_DEFAULT_MODEL_ID, r as ZAI_CODING_DEFAULT_MODEL_ID, u as resolveZaiBaseUrl } from "./.setup/model-definitions-DjGQ-3Uy.mjs";
 import { normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { applyProviderConfigWithModelCatalogPreset, applyProviderConnectionConfig } from "openclaw/plugin-sdk/provider-onboard";
 //#region extensions/zai/onboard.ts
@@ -14,7 +14,7 @@ function resolveZaiModelId(params) {
 	const baseUrl = normalizeOptionalString(params?.baseUrl)?.replace(/\/+$/, "");
 	return params?.endpoint?.startsWith("coding-") || baseUrl === "https://api.z.ai/api/coding/paas/v4" || baseUrl === "https://open.bigmodel.cn/api/coding/paas/v4" ? ZAI_CODING_DEFAULT_MODEL_ID : ZAI_DEFAULT_MODEL_ID;
 }
-function applyZaiPreset(cfg, params, primaryModelRef, applyPreset = applyProviderConfigWithModelCatalogPreset) {
+function applyZaiPreset(cfg, params, setPrimaryModel = false, applyPreset = applyProviderConfigWithModelCatalogPreset) {
 	const baseUrl = resolveZaiPresetBaseUrl(cfg, params?.endpoint);
 	const modelRef = `zai/${resolveZaiModelId({
 		...params,
@@ -29,29 +29,20 @@ function applyZaiPreset(cfg, params, primaryModelRef, applyPreset = applyProvide
 			modelRef,
 			alias: "GLM"
 		}],
-		primaryModelRef
+		primaryModelRef: setPrimaryModel ? modelRef : void 0
 	});
 }
 function applyZaiProviderConfig(cfg, params) {
 	return applyZaiPreset(cfg, params);
 }
 function applyZaiConfig(cfg, params) {
-	const baseUrl = resolveZaiPresetBaseUrl(cfg, params?.endpoint);
-	const modelId = resolveZaiModelId({
-		...params,
-		baseUrl
-	});
-	return applyZaiPreset(cfg, params, modelId === ZAI_DEFAULT_MODEL_ID ? ZAI_DEFAULT_MODEL_REF : `zai/${modelId}`);
+	return applyZaiPreset(cfg, params, true);
 }
 function applyZaiProviderConnectionConfig(cfg, params) {
-	return applyZaiPreset(cfg, params, void 0, applyProviderConnectionConfig);
+	return applyZaiPreset(cfg, params, false, applyProviderConnectionConfig);
 }
 function applyZaiConnectionConfig(cfg, params) {
-	const baseUrl = resolveZaiPresetBaseUrl(cfg, params?.endpoint);
-	return applyZaiPreset(cfg, params, `zai/${resolveZaiModelId({
-		...params,
-		baseUrl
-	})}`, applyProviderConnectionConfig);
+	return applyZaiPreset(cfg, params, true, applyProviderConnectionConfig);
 }
 //#endregion
 export { ZAI_DEFAULT_MODEL_REF, applyZaiConfig, applyZaiConnectionConfig, applyZaiProviderConfig, applyZaiProviderConnectionConfig, resolveZaiModelId };

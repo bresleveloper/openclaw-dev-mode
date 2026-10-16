@@ -6,7 +6,7 @@ import {
 } from "../../commands/doctor-session-sqlite-recovery-inventory.js";
 import { retireSessionSqliteRecovery } from "../../commands/doctor-session-sqlite-retirement.js";
 import { readSourceConfigBestEffort } from "../../config/io.js";
-import { defaultRuntime, writeRuntimeJson } from "../../runtime.js";
+import { defaultRuntime, ExitError, writeRuntimeJson } from "../../runtime.js";
 
 function renderCleanup(report: RecoveryCleanupReport): void {
   defaultRuntime.log(`Recovery cleanup: ${report.stateDir}`);
@@ -38,8 +38,10 @@ export async function updateCleanupCommand(options: {
 }): Promise<void> {
   let report: RecoveryCleanupReport | undefined;
   try {
-    const readConfig = () => readSourceConfigBestEffort();
-    report = inspectSessionSqliteRecovery({ cfg: await readConfig(), env: process.env });
+    report = inspectSessionSqliteRecovery({
+      cfg: await readSourceConfigBestEffort(),
+      env: process.env,
+    });
     if (!options.dryRun) {
       if (report.artifacts.length === 0 && !options.yes) {
         report.status = "complete";
@@ -49,7 +51,7 @@ export async function updateCleanupCommand(options: {
         report = await retireSessionSqliteRecovery({
           env: process.env,
           preview: report,
-          readConfig,
+          readConfig: readSourceConfigBestEffort,
           confirm: async (verified) => {
             if (options.yes || verified.artifacts.length === 0) {
               return true;
@@ -79,6 +81,10 @@ export async function updateCleanupCommand(options: {
       defaultRuntime.exit(1);
     }
   } catch (error) {
+    // Refusal and blocked outcomes were already rendered above.
+    if (error instanceof ExitError) {
+      throw error;
+    }
     if (options.json) {
       writeRuntimeJson(defaultRuntime, { ...report, status: "blocked", error: String(error) });
     } else {

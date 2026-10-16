@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{o as t,t as n}from"./worker-chunk-Cm_DJxSl.mjs";import{n as r,r as i}from"./worker-chunk-D6AJtDpW.mjs";async function inspectReadOnlyChannelAccount(e){let t=r(e.channelId)?.config.inspectAccount??n(e.channelId);return t?await t(e.cfg,e.accountId):null}var a=e((()=>{t(),i()}));export{inspectReadOnlyChannelAccount as n,a as t};

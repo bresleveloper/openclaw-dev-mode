@@ -1,11 +1,6 @@
-import { t as definePluginEntry } from "../../plugin-entry-BOulgRcx.mjs";
-import { i as registerBrowserPlugin, n as browserPluginReload, r as browserSecurityAuditCollectors, t as browserPluginNodeHostCommands } from "../../plugin-registration-BIfq_ELK.mjs";
+import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
+import { i as registerBrowserPlugin, n as browserPluginReload, r as browserSecurityAuditCollectors, t as browserPluginNodeHostCommands } from "../../plugin-registration-1tWPqiCP.mjs";
 //#region extensions/browser/index.ts
-/**
-* Browser plugin entry. It wires the browser tool, gateway request handler,
-* node-host command, services, reload policy, and security audit collectors.
-*/
-/** Main Browser plugin entry for runtime registration. */
 var browser_default = definePluginEntry({
 	id: "browser",
 	name: "Browser",

@@ -1,13 +1,2 @@
-import { t as definePluginEntry } from "../../plugin-entry-BOulgRcx.mjs";
-import { t as registerOcPathCli } from "../../cli-registration-CLsQwGuT.mjs";
-//#region extensions/oc-path/index.ts
-var oc_path_default = definePluginEntry({
-	id: "oc-path",
-	name: "OC Path",
-	description: "Adds the openclaw path CLI for oc:// workspace file addressing.",
-	register(api) {
-		registerOcPathCli(api);
-	}
-});
-//#endregion
+import { t as oc_path_default } from "../../oc-path-CLt6VTmu.mjs";
 export { oc_path_default as default };

@@ -16,16 +16,7 @@
         "id": "matrix-inbound-dedupe-to-claimable-dedupe"
       },
       {
-        "id": "matrix-storage-meta-json-to-plugin-state"
-      },
-      {
         "id": "matrix-sync-cache-json-to-plugin-state"
-      },
-      {
-        "id": "matrix-recovery-key-json-to-plugin-state"
-      },
-      {
-        "id": "matrix-legacy-crypto-migration-json-to-plugin-state"
       }
     ]
   },
@@ -87,6 +78,9 @@
               "type": "object",
               "properties": {
                 "joinIntro": {
+                  "type": "boolean"
+                },
+                "requireMentionInBotThreads": {
                   "type": "boolean"
                 },
                 "accessToken": {
@@ -594,6 +588,9 @@
               "allowlist"
             ]
           },
+          "requireMentionInBotThreads": {
+            "type": "boolean"
+          },
           "mentionPatterns": {
             "type": "object",
             "properties": {
@@ -984,6 +981,9 @@
                 "systemPrompt": {
                   "type": "string"
                 },
+                "requireMentionInBotThreads": {
+                  "type": "boolean"
+                },
                 "account": {
                   "type": "string"
                 },
@@ -1083,6 +1083,9 @@
                 "systemPrompt": {
                   "type": "string"
                 },
+                "requireMentionInBotThreads": {
+                  "type": "boolean"
+                },
                 "account": {
                   "type": "string"
                 },
@@ -1170,6 +1173,18 @@
       "label": "Matrix",
       "description": "open protocol; install the plugin to enable.",
       "uiHints": {
+        "requireMentionInBotThreads": {
+          "label": "Mention in Bot Threads",
+          "help": "Require a mention in threads rooted in this bot's own Matrix events. Set false to accept unmentioned follow-ups; omit to preserve the room's existing mention behavior."
+        },
+        "rooms.*.requireMentionInBotThreads": {
+          "label": "Mention in Bot Threads",
+          "help": "Override the account's bot-created thread mention policy for this Matrix room. Exact room entries replace wildcard room settings."
+        },
+        "groups.*.requireMentionInBotThreads": {
+          "label": "Mention in Bot Threads",
+          "help": "Override the account's bot-created thread mention policy for this Matrix room. Exact room entries replace wildcard room settings."
+        },
         "joinIntro": {
           "label": "Matrix Group Join Introduction",
           "help": "Post one brief introduction when the bot joins an allowed group room (default: true). Account settings override the channel-wide setting."

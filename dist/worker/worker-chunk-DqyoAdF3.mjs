@@ -1,0 +1,3 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{n as t,t as n}from"./worker-chunk-DG8Xglej.mjs";function formatInvalidConfigRecoveryHint(){return[`Run "${n(`openclaw doctor --fix`)}" to repair, then retry.`,`If startup is still blocked, inspect the adjacent .bak backup before restoring it manually.`].join(`
+`)}function formatPluginPackagingRuntimeOutputRecoveryHint(){return[`This is a plugin packaging issue, not a local config problem.`,`Update or reinstall the plugin after the publisher ships compiled JavaScript, or disable/uninstall the plugin until then.`].join(`
+`)}var r=e((()=>{t()}));export{formatPluginPackagingRuntimeOutputRecoveryHint as n,r,formatInvalidConfigRecoveryHint as t};

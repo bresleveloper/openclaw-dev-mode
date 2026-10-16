@@ -16,6 +16,11 @@ reports that Doctor finished with plugin load errors. When an updater invokes
 Doctor, the same failures remain recorded warnings so an otherwise safe update
 can continue; rerun Doctor after resolving the reported cause.
 
+The CLI drains its shared-state database workers before exiting. Scripted callers
+must still check the process exit status: `Doctor complete.` records completion
+of the checks, but a subsequent crash remains a failed candidate-Doctor step
+during an update.
+
 ## Postures
 
 Doctor supports these postures:
@@ -112,7 +117,7 @@ The updater uses this repair path before accepting the installed target.
 
 Update-time Doctor runs startup-required repairs before optional inspections.
 On large fleets it can defer auth and model diagnostics, plugin inspection,
-skills and workspace metadata, session-snapshot cleanup, and advisory lint to
+skills and workspace metadata, session-snapshot inspection, and advisory lint to
 reserve time for required repairs and update validation. Each deferred check
 appears as an `update-inspection-deferred` warning in Doctor output and the
 update outcome, with the reason and remaining inspection allowance. A deferred

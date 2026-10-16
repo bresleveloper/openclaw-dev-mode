@@ -1,13 +1,6 @@
 import { DEFAULT_COMFY_MODEL, isComfyCapabilityConfigured, runComfyWorkflow } from "./workflow-runtime.js";
 //#region extensions/comfy/music-generation-provider.ts
 const COMFY_MAX_INPUT_IMAGES = 1;
-function toGeneratedTrack(asset) {
-	return {
-		buffer: asset.buffer,
-		mimeType: asset.mimeType,
-		fileName: asset.fileName
-	};
-}
 function resolveInputImage(inputImage) {
 	if (!inputImage) return;
 	if (!inputImage.buffer) throw new Error("Comfy music generation requires loaded reference image bytes.");
@@ -38,22 +31,19 @@ function buildComfyMusicGenerationProvider() {
 		async generateMusic(req) {
 			if ((req.inputImages?.length ?? 0) > COMFY_MAX_INPUT_IMAGES) throw new Error(`Comfy music generation supports at most ${COMFY_MAX_INPUT_IMAGES} reference image.`);
 			const result = await runComfyWorkflow({
-				cfg: req.cfg,
-				agentDir: req.agentDir,
-				authStore: req.authStore,
-				prompt: req.prompt,
-				model: req.model,
-				timeoutMs: req.timeoutMs,
+				...req,
 				capability: "music",
-				outputKinds: ["audio"],
 				inputImage: resolveInputImage(req.inputImages?.[0])
 			});
 			return {
-				tracks: result.assets.map(toGeneratedTrack),
+				tracks: result.assets.map(({ buffer, mimeType, fileName }) => ({
+					buffer,
+					mimeType,
+					fileName
+				})),
 				model: result.model,
 				metadata: {
-					promptId: result.promptId,
-					outputNodeIds: result.outputNodeIds,
+					...result.metadata,
 					inputImageCount: req.inputImages?.length ?? 0
 				}
 			};

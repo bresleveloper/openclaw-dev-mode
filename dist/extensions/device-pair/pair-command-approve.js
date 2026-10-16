@@ -1,8 +1,8 @@
-import { l as normalizeOptionalString, o as normalizeLowercaseStringOrEmpty } from "../../string-coerce-CIXf7egm.mjs";
-import "../../string-coerce-runtime-C_MKhRVt.mjs";
-import { n as approveDevicePairing } from "../../device-pairing-approval-6orhFPdN.mjs";
-import "../../api-BL5uQ2nO.mjs";
-import { r as formatPendingRequests } from "../../notify-7st1j3-u.mjs";
+import { l as normalizeOptionalString, o as normalizeLowercaseStringOrEmpty } from "../../string-coerce-1VuiLaaR.mjs";
+import "../../string-coerce-runtime-50qKeWeL.mjs";
+import { n as approveDevicePairing } from "../../device-pairing-approval-DyoNg7Fe.mjs";
+import "../../api-Jg0Xdehf.mjs";
+import { n as formatPendingRequests } from "../../notify-fisumnKG.mjs";
 //#region extensions/device-pair/pair-command-approve.ts
 function buildMultiplePendingApprovalReply(pending) {
 	return { text: `${formatPendingRequests(pending)}\n\nMultiple pending requests found. Approve one explicitly:
@@ -29,9 +29,6 @@ function formatApprovedPairingReply(approved) {
 	const platform = normalizeOptionalString(approved.device.platform);
 	return { text: `✅ Paired ${label}${platform ? ` (${platform})` : ""}.` };
 }
-function formatForbiddenPairingRequirement(approved) {
-	return approved.scope ?? approved.role ?? "additional approval";
-}
 async function approvePendingPairingRequest(params) {
 	const assertCurrent = params.assertCurrent;
 	const isApprovalCurrent = assertCurrent ? () => {
@@ -43,7 +40,7 @@ async function approvePendingPairingRequest(params) {
 		...isApprovalCurrent ? { isApprovalCurrent } : {}
 	});
 	if (!approved) return { text: "Pairing request not found." };
-	if (approved.status === "forbidden") return { text: `⚠️ This command requires ${formatForbiddenPairingRequirement(approved)} to approve this pairing request.` };
+	if (approved.status === "forbidden") return { text: `⚠️ This command requires ${approved.scope ?? approved.role ?? "additional approval"} to approve this pairing request.` };
 	return formatApprovedPairingReply(approved);
 }
 //#endregion

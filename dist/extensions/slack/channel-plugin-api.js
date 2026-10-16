@@ -1,2 +1,2 @@
-import { t as slackPlugin } from "./.setup/channel-CErYZ5zw.mjs";
+import { t as slackPlugin } from "./.setup/channel-DgKSu8Iv.mjs";
 export { slackPlugin };

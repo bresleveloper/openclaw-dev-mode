@@ -1,30 +1,34 @@
-import { a as asOptionalRecord } from "../../record-coerce-DItp3I4t.mjs";
+import { a as asOptionalRecord } from "../../record-coerce-TIsquoVR.mjs";
 import { r as truncateUtf16Safe } from "../../utf16-slice-D_ngcYKd.mjs";
-import { r as resolveAgentConfig } from "../../agent-scope-config-IQKOEtZ4.mjs";
-import "../../defaults-BbU4k6fu.mjs";
-import "../../string-coerce-runtime-C_MKhRVt.mjs";
-import "../../text-utility-runtime-D7I29NA0.mjs";
-import "../../agent-scope-runtime-OY7yRyJL.mjs";
-import { a as buildProviderReplayFamilyHooks } from "../../provider-model-shared-CvgLZp0K.mjs";
-import { h as runLiveProviderCatalog } from "../../provider-catalog-live-runtime-BprkJHe2.mjs";
-import { t as defineSingleProviderPluginEntry } from "../../provider-entry-DP2O-chg.mjs";
-import { l as getOpenRouterModelCapabilities, u as loadOpenRouterModelCapabilities } from "../../provider-stream-CULwxeVL.mjs";
-import "../../provider-stream-family-Cvdl8EZI.mjs";
-import { a as resolveOpenRouterApiBaseUrl, i as normalizeOpenRouterBaseUrl, n as buildOpenrouterProvider, r as isOpenRouterProxyReasoningUnsupportedModel, t as buildOpenrouterLiveProvider } from "../../provider-catalog-CfaYWYyk.mjs";
-import { t as buildOpenRouterImageGenerationProvider } from "../../image-generation-provider-DBTDfrlO.mjs";
-import { t as openrouterMediaUnderstandingProvider } from "../../media-understanding-provider-D7EnnL33.mjs";
-import { i as normalizeOpenRouterModelFamilyId, n as isOpenRouterMistralModelId, r as normalizeOpenRouterApiModelId } from "../../models-DFeYq0pM.mjs";
-import { t as buildOpenRouterMusicGenerationProvider } from "../../music-generation-provider-Dyy-xxvG.mjs";
-import { n as applyOpenrouterConfig, t as OPENROUTER_DEFAULT_MODEL_REF } from "../../onboard-CoEH85EE.mjs";
-import { t as createOpenRouterOAuthAuthMethod } from "../../oauth-DLHEbU0n.mjs";
+import { n as findNormalizedProviderValue } from "../../provider-id-D1VImdKk.mjs";
+import { r as resolveAgentConfig } from "../../agent-scope-config-CDYpzA0r.mjs";
+import "../../defaults-Jag53zwP.mjs";
+import "../../string-coerce-runtime-50qKeWeL.mjs";
+import "../../text-utility-runtime-BDs7x8Fk.mjs";
+import { o as buildPassthroughGeminiSanitizingReplayPolicy } from "../../provider-replay-helpers-Da6bKlcZ.mjs";
+import "../../agent-scope-runtime-DMJYuX7c.mjs";
+import "../../provider-model-shared-BZZnLgoM.mjs";
+import "../../provider-auth-C3BBF7yn.mjs";
+import { h as runLiveProviderCatalog } from "../../provider-catalog-live-runtime-NaavztHY.mjs";
+import { t as defineSingleProviderPluginEntry } from "../../provider-entry-B2Tqqb69.mjs";
+import { a as loadOpenRouterModelCapabilities, i as getOpenRouterModelCapabilities, r as getLoadedOpenRouterModelCapabilities } from "../../provider-stream-CPGCn_Ra.mjs";
+import "../../provider-stream-family-B6dW08sH.mjs";
+import "../../provider-defaults-ilQX6q3J.mjs";
+import { a as resolveOpenRouterApiBaseUrl, i as normalizeOpenRouterBaseUrl, n as buildOpenrouterProvider, r as isOpenRouterProxyReasoningUnsupportedModel, t as buildOpenrouterLiveProvider } from "../../provider-catalog-CtJ2DVzZ.mjs";
+import { t as buildOpenRouterImageGenerationProvider } from "../../image-generation-provider-D4jrvAH_.mjs";
+import { t as openrouterMediaUnderstandingProvider } from "../../media-understanding-provider-C0QWVNAq.mjs";
+import { i as normalizeOpenRouterModelFamilyId, n as isOpenRouterMistralModelId, r as normalizeOpenRouterApiModelId } from "../../models-DNvPaErb.mjs";
+import { t as buildOpenRouterMusicGenerationProvider } from "../../music-generation-provider-DF-gTgrb.mjs";
+import { n as applyOpenrouterConfig, t as OPENROUTER_DEFAULT_MODEL_REF } from "../../onboard-BcQl47iL.mjs";
+import { t as createOpenRouterOAuthAuthMethod } from "../../oauth-cGnustqc.mjs";
 import { t as resolveOpenRouterExtraParamsForTransport } from "../../provider-routing-BKidv0ix.mjs";
-import { t as buildOpenRouterSpeechProvider } from "../../speech-provider-DMMM7mTn.mjs";
-import { t as wrapOpenRouterProviderStream } from "../../stream-DwAxHfm3.mjs";
-import { t as resolveOpenRouterThinkingProfile } from "../../thinking-policy-aSZFQbVe.mjs";
-import { n as normalizeOpenRouterToolSchemas, t as inspectOpenRouterToolSchemas } from "../../tool-schemas-DnxGaP2G.mjs";
-import { t as fetchOpenRouterUsage } from "../../usage-DlOY4HKM.mjs";
-import { t as listOpenRouterVideoModelCatalog } from "../../video-model-catalog-BFlJKZCZ.mjs";
-import { t as buildOpenRouterVideoGenerationProvider } from "../../video-generation-provider-CVQKH89d.mjs";
+import { t as buildOpenRouterSpeechProvider } from "../../speech-provider-Ce2-GXtb.mjs";
+import { t as wrapOpenRouterProviderStream } from "../../stream-UaGN5FHI.mjs";
+import { t as resolveOpenRouterThinkingProfile } from "../../thinking-policy-OmaHqPE4.mjs";
+import { n as normalizeOpenRouterToolSchemas, t as inspectOpenRouterToolSchemas } from "../../tool-schemas-B6dWwdXz.mjs";
+import { t as fetchOpenRouterUsage } from "../../usage-D2B7e4l5.mjs";
+import { t as listOpenRouterVideoModelCatalog } from "../../video-model-catalog-ChjmsaA6.mjs";
+import { t as buildOpenRouterVideoGenerationProvider } from "../../video-generation-provider-BEVCAtwo.mjs";
 //#region extensions/openrouter/openclaw.plugin.json
 var openclaw_plugin_default = {
 	id: "openrouter",
@@ -36,7 +40,8 @@ var openclaw_plugin_default = {
 	modelCatalog: { "discovery": { "openrouter": "runtime" } },
 	modelIdNormalization: { "providers": { "openrouter": { "prefixWhenBare": "openrouter" } } },
 	modelPricing: { "providers": { "openrouter": {
-		"openRouter": { "passthroughProviderModel": true },
+		"openRouter": { "provider": "openrouter" },
+		"modelsDev": false,
 		"liteLLM": false
 	} } },
 	providerEndpoints: [{
@@ -106,6 +111,22 @@ const OPENROUTER_DEFAULT_MAX_TOKENS = 8192;
 const OPENROUTER_FUSION_MODEL_ID = "openrouter/fusion";
 const OPENROUTER_CACHE_TTL_MODEL_FAMILY = /^(?:anthropic|deepseek|moonshot(?:ai)?|z-?ai)\//;
 const MAX_PROMPT_MODEL_ID_DISPLAY_CHARS = 256;
+function isOpenRouterCatalogRoute(route) {
+	return (route.api == null || route.api === "openai-completions") && (route.baseUrl == null || route.baseUrl === "https://openrouter.ai/api/v1");
+}
+function withOpenRouterCatalogThinking(ctx) {
+	if (ctx.thinkingLevelMap || ctx.compat?.supportsReasoningEffort !== void 0 || ctx.compat?.supportedReasoningEfforts !== void 0 || !isOpenRouterCatalogRoute(ctx)) return ctx;
+	const capabilities = getLoadedOpenRouterModelCapabilities(normalizeOpenRouterApiModelId(ctx.modelId) ?? ctx.modelId);
+	if (!capabilities?.compat && !capabilities?.thinkingLevelMap) return ctx;
+	return {
+		...ctx,
+		compat: {
+			...capabilities.compat,
+			...ctx.compat
+		},
+		...capabilities.thinkingLevelMap ? { thinkingLevelMap: capabilities.thinkingLevelMap } : {}
+	};
+}
 function normalizeOpenRouterResolvedModel(model) {
 	const normalizedBaseUrl = normalizeOpenRouterBaseUrl(model.baseUrl);
 	const normalizedId = normalizeOpenRouterApiModelId(model.id);
@@ -120,10 +141,7 @@ function normalizeOpenRouterResolvedModel(model) {
 }
 function sanitizePromptModelId(value) {
 	if (typeof value !== "string") return;
-	return truncateUtf16Safe(Array.from(value).filter((char) => {
-		const codePoint = char.codePointAt(0) ?? 0;
-		return codePoint > 31 && (codePoint < 127 || codePoint > 159) && codePoint !== 8232 && codePoint !== 8233;
-	}).join("").trim(), MAX_PROMPT_MODEL_ID_DISPLAY_CHARS) || void 0;
+	return truncateUtf16Safe(value.replace(/[\p{Cc}\u2028\u2029]/gu, "").trim(), MAX_PROMPT_MODEL_ID_DISPLAY_CHARS) || void 0;
 }
 function openRouterModelConfigKey(modelId) {
 	const providerPrefix = `${PROVIDER_ID}/`;
@@ -152,29 +170,20 @@ function findConfiguredOpenRouterModelParams(ctx) {
 		if (provider === PROVIDER_ID && candidateModelId.trim().toLowerCase() === normalizedModelId.trim().toLowerCase()) return asOptionalRecord(entry.params);
 	}
 }
-function findConfiguredOpenRouterAgentParams(ctx) {
-	if (!ctx.agentId) return;
-	return asOptionalRecord(resolveAgentConfig(ctx.config ?? {}, ctx.agentId)?.params);
-}
-function resolveMergedOpenRouterPromptParams(ctx) {
-	const merged = {
+function resolveFusionExtraBody(ctx) {
+	const params = {
 		...asOptionalRecord(ctx.config?.agents?.defaults?.params),
 		...findConfiguredOpenRouterModelParams(ctx),
-		...findConfiguredOpenRouterAgentParams(ctx)
+		...ctx.agentId ? asOptionalRecord(resolveAgentConfig(ctx.config ?? {}, ctx.agentId)?.params) : {}
 	};
-	return Object.keys(merged).length > 0 ? merged : void 0;
-}
-function resolveFusionExtraBody(ctx) {
-	const params = resolveMergedOpenRouterPromptParams(ctx);
-	const rawExtraBody = params && Object.hasOwn(params, "extra_body") ? params.extra_body : params?.extraBody;
-	return asOptionalRecord(rawExtraBody);
+	if (Object.keys(params).length === 0) return;
+	return asOptionalRecord(Object.hasOwn(params, "extra_body") ? params.extra_body : params.extraBody);
 }
 function resolveOpenRouterFusionPromptContribution(ctx) {
 	if ((normalizeOpenRouterApiModelId(ctx.modelId) ?? ctx.modelId) !== OPENROUTER_FUSION_MODEL_ID) return;
 	const extraBody = resolveFusionExtraBody(ctx);
 	const fusionPlugin = Array.isArray(extraBody?.plugins) ? extraBody.plugins.map(asOptionalRecord).find((plugin) => plugin?.id === "fusion") : void 0;
-	if (!fusionPlugin) return;
-	if (fusionPlugin.enabled === false) return;
+	if (!fusionPlugin || fusionPlugin.enabled === false) return;
 	const analysisModels = Array.isArray(fusionPlugin.analysis_models) ? fusionPlugin.analysis_models.map(sanitizePromptModelId).filter((model) => Boolean(model)) : [];
 	const finalModel = sanitizePromptModelId(fusionPlugin.model);
 	const lines = [
@@ -217,17 +226,6 @@ var openrouter_default = defineSingleProviderPluginEntry({
 				maxTokens: capabilities?.maxTokens ?? OPENROUTER_DEFAULT_MAX_TOKENS
 			};
 		}
-		const passthroughGeminiReplayHooks = buildProviderReplayFamilyHooks({ family: "passthrough-gemini" });
-		const passthroughReplayHook = passthroughGeminiReplayHooks.buildReplayPolicy;
-		function buildOpenRouterReplayPolicy(ctx) {
-			const base = passthroughReplayHook?.(ctx) ?? {};
-			if (isOpenRouterMistralModelId(ctx.modelId)) return {
-				...base,
-				sanitizeToolCallIds: true,
-				toolCallIdMode: "strict9"
-			};
-			return base;
-		}
 		return {
 			label: "OpenRouter",
 			docsPath: "/providers/models",
@@ -257,7 +255,16 @@ var openrouter_default = defineSingleProviderPluginEntry({
 				},
 				staticRun: async () => ({ provider: buildOpenrouterProvider() })
 			},
-			resolveDynamicModel: (ctx) => buildDynamicOpenRouterModel(ctx),
+			resolveDynamicModel: buildDynamicOpenRouterModel,
+			preferRuntimeResolvedModel: (ctx) => {
+				const configuredProvider = findNormalizedProviderValue(ctx.config?.models?.providers, PROVIDER_ID);
+				const requestedId = normalizeOpenRouterApiModelId(ctx.modelId) ?? ctx.modelId;
+				const configuredModel = configuredProvider?.models?.find((model) => (normalizeOpenRouterApiModelId(model.id) ?? model.id) === requestedId);
+				return configuredModel !== void 0 && isOpenRouterCatalogRoute({
+					api: configuredModel.api ?? configuredProvider?.api,
+					baseUrl: configuredModel.baseUrl ?? configuredProvider?.baseUrl
+				});
+			},
 			prepareDynamicModel: async (ctx) => {
 				await loadOpenRouterModelCapabilities(normalizeOpenRouterApiModelId(ctx.modelId) ?? ctx.modelId);
 			},
@@ -281,12 +288,17 @@ var openrouter_default = defineSingleProviderPluginEntry({
 				if (/\b(?:api\s+key\s+budget|key)\s+limit\s*(?:exceeded|reached|hit)\b/i.test(errorMessage)) return "billing";
 				return /provider returned error/i.test(errorMessage) ? "timeout" : void 0;
 			},
-			...passthroughGeminiReplayHooks,
-			buildReplayPolicy: buildOpenRouterReplayPolicy,
+			buildReplayPolicy: ({ modelId }) => ({
+				...buildPassthroughGeminiSanitizingReplayPolicy(modelId),
+				...isOpenRouterMistralModelId(modelId) ? {
+					sanitizeToolCallIds: true,
+					toolCallIdMode: "strict9"
+				} : {}
+			}),
 			normalizeToolSchemas: normalizeOpenRouterToolSchemas,
 			inspectToolSchemas: inspectOpenRouterToolSchemas,
 			resolveReasoningOutputMode: () => "native",
-			resolveThinkingProfile: (ctx) => resolveOpenRouterThinkingProfile(ctx.modelId, ctx),
+			resolveThinkingProfile: (ctx) => resolveOpenRouterThinkingProfile(ctx.modelId, withOpenRouterCatalogThinking(ctx)),
 			isModernModelRef: () => true,
 			resolveSystemPromptContribution: resolveOpenRouterFusionPromptContribution,
 			extraParamsForTransport: resolveOpenRouterExtraParamsForTransport,

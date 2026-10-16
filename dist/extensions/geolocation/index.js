@@ -1,23 +1,26 @@
 import { a as __require, t as __commonJSMin } from "../../rolldown-runtime-Dr7-SnC6.mjs";
-import { a as asOptionalRecord } from "../../record-coerce-DItp3I4t.mjs";
-import { l as normalizeOptionalString } from "../../string-coerce-CIXf7egm.mjs";
-import { i as getPluginRuntimeGatewayRequestScope } from "../../gateway-request-scope-BLBH-Gpf.mjs";
-import { p as tempFile } from "../../fs-safe-advanced-CJC-NYf3.mjs";
-import { E as resolveStateDir } from "../../paths-DehQwyE0.mjs";
-import { t as _usingCtx } from "../../usingCtx-CoYZqMqE.mjs";
-import { l as isPrivateOrLoopbackHost } from "../../net-DU4aWKLv.mjs";
-import "../../string-coerce-runtime-C_MKhRVt.mjs";
+import { l as normalizeOptionalString } from "../../string-coerce-1VuiLaaR.mjs";
+import { u as asPositiveFiniteNumber } from "../../number-coercion-CuVhdCBs.mjs";
+import { t as coerceErrorMessage } from "../../error-coercion-CvJK4lmH.mjs";
+import { a as asOptionalRecord } from "../../record-coerce-TIsquoVR.mjs";
+import { r as resolveStateDir } from "../../state-dir-BHJORNly.mjs";
+import { t as _usingCtx } from "../../usingCtx-DwOBYOJf.mjs";
+import { a as getPluginRuntimeGatewayRequestScope } from "../../gateway-request-scope-BSmCVVpP.mjs";
+import { l as isPrivateOrLoopbackHost } from "../../net-C6WEu3pd.mjs";
+import "../../error-runtime-BmospGvZ.mjs";
+import "../../string-coerce-runtime-50qKeWeL.mjs";
+import { d as tempFile } from "../../file-access-runtime-BMp89X4Y.mjs";
 import { t as readByteStreamWithLimit } from "../../read-byte-stream-with-limit-CNew-qG0.mjs";
-import "../../response-limit-runtime-Wtkm2X7a.mjs";
-import { t as definePluginEntry } from "../../plugin-entry-BOulgRcx.mjs";
-import "../../file-access-runtime-CWjkXCju.mjs";
-import "../../ssrf-runtime-Darh53Ay.mjs";
-import "../../plugin-runtime-BzN5G15j.mjs";
-import "../../state-paths-Bk2vDLZh.mjs";
-import { promisify } from "node:util";
+import "../../response-limit-runtime-CpfmMF5T.mjs";
+import "../../number-runtime-CgyXj1A5.mjs";
+import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
+import "../../ssrf-runtime-BzkFo_VJ.mjs";
+import "../../plugin-runtime-C3Ot0aFc.mjs";
+import "../../state-paths-Dd9pLEOI.mjs";
 import path from "node:path";
 import fs from "node:fs/promises";
 import net from "node:net";
+import { promisify } from "node:util";
 import { createHash } from "node:crypto";
 import { gunzip } from "node:zlib";
 //#region extensions/geolocation/src/config.ts
@@ -25,12 +28,9 @@ const DEFAULT_DATABASE_URL = "https://download.db-ip.com/free/dbip-city-lite-{yy
 const DEFAULT_ATTRIBUTION_TEXT = "IP Geolocation by DB-IP";
 const DEFAULT_ATTRIBUTION_URL = "https://db-ip.com";
 const DEFAULT_REFRESH_DAYS = 30;
-function positiveRefreshDays(value) {
-	return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : void 0;
-}
 function resolveGeolocationSettings(pluginConfig) {
 	const config = asOptionalRecord(pluginConfig);
-	const refreshDays = positiveRefreshDays(config?.refreshDays) ?? DEFAULT_REFRESH_DAYS;
+	const refreshDays = asPositiveFiniteNumber(config?.refreshDays) ?? DEFAULT_REFRESH_DAYS;
 	return {
 		databaseUrl: normalizeOptionalString(config?.databaseUrl) ?? DEFAULT_DATABASE_URL,
 		attribution: {
@@ -1333,12 +1333,12 @@ async function downloadDatabase(deps, target) {
 				await _usingCtx$1.d();
 			}
 		} catch (err) {
-			deps.logger?.warn(`geolocation: could not cache the downloaded database, serving it from memory: ${err instanceof Error ? err.message : String(err)}`);
+			deps.logger?.warn(`geolocation: could not cache the downloaded database, serving it from memory: ${coerceErrorMessage(err)}`);
 		}
 		deps.logger?.info(`geolocation: downloaded ${body.byteLength} bytes from ${url}`);
 		return reader;
 	} catch (err) {
-		failures.push(`${url} -> ${err instanceof Error ? err.message : String(err)}`);
+		failures.push(`${url} -> ${coerceErrorMessage(err)}`);
 	}
 	throw new Error(`geolocation database download failed: ${failures.join("; ")}`);
 }
@@ -1357,7 +1357,7 @@ function createGeolocationDatabaseStore(deps) {
 		else if (age > deps.settings.refreshMs) try {
 			downloaded = await downloadDatabase(deps, target);
 		} catch (err) {
-			deps.logger?.warn(`geolocation: refresh failed, serving the cached database: ${err instanceof Error ? err.message : String(err)}`);
+			deps.logger?.warn(`geolocation: refresh failed, serving the cached database: ${coerceErrorMessage(err)}`);
 		}
 		const reader = downloaded ?? new import_lib.Reader(await fs.readFile(target));
 		opened = {
@@ -1379,7 +1379,109 @@ function createGeolocationDatabaseStore(deps) {
 	};
 }
 //#endregion
+//#region extensions/geolocation/src/gateway-methods.ts
+function registerGeolocationGatewayMethods(api, lookup) {
+	api.registerGatewayMethod("geolocation.lookup", async (options) => {
+		const { params, respond } = options;
+		if (Object.keys(params).some((key) => key !== "ips") || !Array.isArray(params.ips) || params.ips.length > 200 || !params.ips.every((ip) => typeof ip === "string" && net.isIP(ip) !== 0)) {
+			const { ErrorCodes, errorShape } = await import("../../plugin-sdk/gateway-runtime.js");
+			respond(false, void 0, errorShape(ErrorCodes.INVALID_REQUEST, "ips must contain at most 200 IPv4 or IPv6 addresses"));
+			return;
+		}
+		const assertCurrent = () => {
+			options.signal?.throwIfAborted();
+			if (options.client?.invalidated || options.hasCurrentClientAuthority?.() === false) throw new Error("Gateway requester authority changed");
+			options.sessionMutationCommitGuard?.();
+			options.sessionMutationAuthorization?.assertCurrent();
+		};
+		const results = await lookup([...new Set(params.ips)], assertCurrent);
+		assertCurrent();
+		respond(true, { results });
+	}, {
+		scope: "operator.read",
+		profileAccess: "independent"
+	});
+}
+//#endregion
+//#region extensions/geolocation/src/lookup-route.ts
+function sendJson(res, status, body) {
+	const payload = JSON.stringify(body);
+	res.writeHead(status, {
+		"content-type": "application/json; charset=utf-8",
+		"content-length": Buffer.byteLength(payload)
+	});
+	res.end(payload);
+}
+function createGeolocationLookupHandler(lookup) {
+	return async (req, res) => {
+		const url = new URL(req.url ?? "/", "http://localhost");
+		if (!url.pathname.endsWith("/lookup")) return false;
+		const ip = url.searchParams.get("ip")?.trim() ?? "";
+		if (!net.isIP(ip)) {
+			sendJson(res, 400, { error: "ip must be a valid IPv4 or IPv6 address" });
+			return true;
+		}
+		const scope = getPluginRuntimeGatewayRequestScope();
+		const result = await lookup(ip, async () => {
+			await scope?.revalidate?.();
+		});
+		if (result.status === "unavailable") sendJson(res, 503, { error: "geolocation database unavailable" });
+		else {
+			const { ip: _ip, status, ...location } = result;
+			sendJson(res, 200, {
+				found: status === "found",
+				...location
+			});
+		}
+		return true;
+	};
+}
+//#endregion
 //#region extensions/geolocation/src/lookup.ts
+function createGeolocationLookup(deps) {
+	async function lookup(input, assertCurrent) {
+		const ips = typeof input === "string" ? [input] : input;
+		await assertCurrent();
+		let database;
+		if (ips.some((ip) => !isPrivateOrLoopbackHost(ip))) try {
+			database = await deps.loadDatabase();
+		} catch (error) {
+			deps.logger?.warn(`geolocation: lookup unavailable: ${coerceErrorMessage(error)}`);
+		}
+		await assertCurrent();
+		const lookupAddress = (ip) => {
+			const attribution = deps.settings.attribution;
+			if (isPrivateOrLoopbackHost(ip)) return {
+				ip,
+				status: "not-found",
+				attribution
+			};
+			if (!database) return {
+				ip,
+				status: "unavailable",
+				attribution
+			};
+			try {
+				const location = projectGeolocationRecord(database.lookup(ip));
+				return {
+					ip,
+					status: location ? "found" : "not-found",
+					...location,
+					attribution
+				};
+			} catch (error) {
+				deps.logger?.warn(`geolocation: lookup unavailable: ${coerceErrorMessage(error)}`);
+				return {
+					ip,
+					status: "unavailable",
+					attribution
+				};
+			}
+		};
+		return typeof input === "string" ? lookupAddress(input) : input.map(lookupAddress);
+	}
+	return lookup;
+}
 function englishName(names) {
 	const value = names?.en?.trim();
 	return value ? value : void 0;
@@ -1399,51 +1501,9 @@ function projectGeolocationRecord(record) {
 	return Object.keys(result).length > 0 ? result : void 0;
 }
 //#endregion
-//#region extensions/geolocation/src/lookup-route.ts
-function sendJson(res, status, body) {
-	const payload = JSON.stringify(body);
-	res.writeHead(status, {
-		"content-type": "application/json; charset=utf-8",
-		"content-length": Buffer.byteLength(payload)
-	});
-	res.end(payload);
-}
-function createGeolocationLookupHandler(deps) {
-	return async (req, res) => {
-		const url = new URL(req.url ?? "/", "http://localhost");
-		if (!url.pathname.endsWith("/lookup")) return false;
-		const ip = url.searchParams.get("ip")?.trim() ?? "";
-		if (!net.isIP(ip)) {
-			sendJson(res, 400, { error: "ip must be a valid IPv4 or IPv6 address" });
-			return true;
-		}
-		if (isPrivateOrLoopbackHost(ip)) {
-			sendJson(res, 200, {
-				found: false,
-				attribution: deps.settings.attribution
-			});
-			return true;
-		}
-		await getPluginRuntimeGatewayRequestScope()?.revalidate?.();
-		try {
-			const location = projectGeolocationRecord((await deps.loadDatabase()).lookup(ip));
-			sendJson(res, 200, {
-				found: Boolean(location),
-				...location,
-				attribution: deps.settings.attribution
-			});
-		} catch (err) {
-			const message = err instanceof Error ? err.message : String(err);
-			deps.logger?.warn(`geolocation: lookup unavailable: ${message}`);
-			sendJson(res, 503, { error: "geolocation database unavailable" });
-		}
-		return true;
-	};
-}
-//#endregion
 //#region extensions/geolocation/index.ts
 /**
-* Geolocation plugin entry. It exposes one authenticated lookup route and keeps
+* Geolocation plugin entry. It exposes authenticated lookups and keeps
 * the database download lazy, so an install that nobody queries costs nothing.
 */
 var geolocation_default = definePluginEntry({
@@ -1459,15 +1519,17 @@ var geolocation_default = definePluginEntry({
 			fetchImpl: fetch,
 			logger: api.logger
 		});
+		const lookup = createGeolocationLookup({
+			loadDatabase: () => store.load(),
+			settings,
+			logger: api.logger
+		});
+		registerGeolocationGatewayMethods(api, lookup);
 		api.registerHttpRoute({
 			path: "/plugins/geolocation",
 			auth: "gateway",
 			match: "prefix",
-			handler: createGeolocationLookupHandler({
-				loadDatabase: () => store.load(),
-				settings,
-				logger: api.logger
-			})
+			handler: createGeolocationLookupHandler(lookup)
 		});
 	}
 });

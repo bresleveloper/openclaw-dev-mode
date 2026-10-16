@@ -1,19 +1,20 @@
-import { l as resolveFaceTimeConfig, n as ensureCaptureBinary, r as ensureHelperArtifacts, s as installFaceTimeDriver, t as runFaceTimeSetup, u as validateFaceTimeConfig } from "./.setup/setup-DUgC9yE7.mjs";
+import { l as resolveFaceTimeConfig, n as ensureCaptureBinary, r as ensureHelperArtifacts, s as installFaceTimeDriver, t as runFaceTimeSetup, u as validateFaceTimeConfig } from "./.setup/setup-zO6FazjC.mjs";
 import { formatErrorMessage } from "openclaw/plugin-sdk/error-runtime";
 import { REALTIME_VOICE_AGENT_CONSULT_SENDER_AUTH_VERSION, REALTIME_VOICE_AGENT_CONSULT_TOOL_NAME, REALTIME_VOICE_AUDIO_FORMAT_PCM16_24KHZ, buildRealtimeVoiceAgentCancelProviderResult, buildRealtimeVoiceAgentConsultPolicyInstructions, buildRealtimeVoiceAgentConsultWorkingResponse, consultRealtimeVoiceAgent, createRealtimeVoiceBridgeSession, createTalkSessionController, getRealtimeVoiceProvider, recordRealtimeVoiceTranscript, recordTalkObservabilityEvent, resolveConfiguredRealtimeVoiceProvider, resolveRealtimeVoiceAgentConsultTools, resolveRealtimeVoiceAgentConsultToolsAllow } from "openclaw/plugin-sdk/realtime-voice";
-import { asBoolean, asRecord, normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
+import { asBoolean, asFiniteNumber, asRecord, normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { resolve } from "node:path";
 import { constants, existsSync } from "node:fs";
 import { access } from "node:fs/promises";
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
+import { sleep, sleepWithAbort } from "openclaw/plugin-sdk/runtime-env";
 import { createDeferred } from "openclaw/plugin-sdk/extension-shared";
 import net from "node:net";
-import { sleepWithAbort } from "openclaw/plugin-sdk/runtime-env";
 import { spawn } from "node:child_process";
 import { resolveDefaultAgentId } from "openclaw/plugin-sdk/agent-runtime";
 import { parseAgentSessionKey, resolveAgentIdFromSessionKey } from "openclaw/plugin-sdk/routing";
 import { resolveConfiguredSecretInputString } from "openclaw/plugin-sdk/secret-input-runtime";
-import { resolveRealtimeBootstrapContextInstructions } from "openclaw/plugin-sdk/realtime-bootstrap-context";
+import { resolveRealtimeVoiceAgentContextInstructions } from "openclaw/plugin-sdk/realtime-bootstrap-context";
+import { raceWithTimeout } from "openclaw/plugin-sdk/time-runtime";
 //#region extensions/facetime/src/call-events.ts
 const TU_CALL_STATUS = {
 	outgoingCreated: 0,
@@ -22,8 +23,11 @@ const TU_CALL_STATUS = {
 	incomingRinging: 4
 };
 function readFiniteNumber(value) {
-	const number = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
-	return Number.isFinite(number) ? number : void 0;
+	return asFiniteNumber(typeof value === "string" ? Number(value) : value);
+}
+function readInteger(value) {
+	const number = readFiniteNumber(value);
+	return Number.isInteger(number) ? number : void 0;
 }
 function normalizeCallTransport(value) {
 	const transport = asRecord(value);
@@ -85,8 +89,7 @@ function collectHandleCandidates(value, candidates = [], seen = /* @__PURE__ */ 
 	if (!value || typeof value !== "object" || seen.has(value)) return candidates;
 	seen.add(value);
 	const record = asRecord(value);
-	for (const [key, nested] of Object.entries(record)) if (handleValueKeys.has(key)) collectHandleCandidates(nested, candidates, seen);
-	else if (nested && typeof nested === "object") collectHandleCandidates(nested, candidates, seen);
+	for (const [key, nested] of Object.entries(record)) if (handleValueKeys.has(key) || nested && typeof nested === "object") collectHandleCandidates(nested, candidates, seen);
 	return candidates;
 }
 function normalizeFaceTimeHandleCandidates(value) {
@@ -107,10 +110,8 @@ function normalizeFaceTimeCallEvent(value) {
 	const proxyIdentifier = normalizeOptionalString(data.proxy_identifier);
 	const conversationUUID = normalizeOptionalString(data.conversation_uuid);
 	const conversationGroupUUID = normalizeOptionalString(data.conversation_group_uuid);
-	const conversationAVMode = typeof data.conversation_av_mode === "number" ? data.conversation_av_mode : typeof data.conversation_av_mode === "string" ? Number(data.conversation_av_mode) : void 0;
-	const conversationResolvedAVMode = typeof data.conversation_resolved_audio_video_mode === "number" ? data.conversation_resolved_audio_video_mode : typeof data.conversation_resolved_audio_video_mode === "string" ? Number(data.conversation_resolved_audio_video_mode) : void 0;
-	const status = typeof data.call_status === "number" ? data.call_status : typeof data.call_status === "string" ? Number(data.call_status) : void 0;
-	if (!callUUID || !Number.isInteger(status)) return;
+	const status = readInteger(data.call_status);
+	if (!callUUID || status === void 0) return;
 	return {
 		event: "ft-call-status-changed",
 		data: {
@@ -122,8 +123,8 @@ function normalizeFaceTimeCallEvent(value) {
 			conversation_group_uuid: conversationGroupUUID,
 			conversation_audio_enabled: data.conversation_audio_enabled === true,
 			conversation_video_enabled: data.conversation_video_enabled === true,
-			conversation_av_mode: Number.isInteger(conversationAVMode) ? conversationAVMode : void 0,
-			conversation_resolved_audio_video_mode: Number.isInteger(conversationResolvedAVMode) ? conversationResolvedAVMode : void 0,
+			conversation_av_mode: readInteger(data.conversation_av_mode),
+			conversation_resolved_audio_video_mode: readInteger(data.conversation_resolved_audio_video_mode),
 			is_outgoing: data.is_outgoing === true,
 			has_ended: data.has_ended === true,
 			is_sending_audio: data.is_sending_audio === true,
@@ -147,7 +148,7 @@ function resolveAuthorizedFaceTimeOwner(params) {
 	};
 }
 function isVerifiedFaceTimeTransport(event) {
-	return isVerifiedFaceTimeTransportEvidence(event.data.transport);
+	return event.data.transport?.kind === "facetime";
 }
 function isVerifiedFaceTimeTransportEvidence(value) {
 	return normalizeCallTransport(value).kind === "facetime";
@@ -180,7 +181,6 @@ var FaceTimeCallInstance = class {
 	#carrierClosure;
 	#commandTail;
 	constructor(canonicalId, phase) {
-		this.canonicalId = canonicalId;
 		this.lifecycleAbort = new AbortController();
 		this.aliases = /* @__PURE__ */ new Set();
 		this.generation = 1;
@@ -192,12 +192,6 @@ var FaceTimeCallInstance = class {
 		this.carrierMode = phase === "ringing" ? "ringing" : "muted";
 		this.aliases.add(normalizeCallIdentity(canonicalId));
 	}
-	get identity() {
-		return {
-			canonical: this.canonicalId,
-			aliases: this.aliases
-		};
-	}
 	captureGeneration() {
 		return this.generation;
 	}
@@ -207,10 +201,8 @@ var FaceTimeCallInstance = class {
 	}
 	async runCarrierCommand(params) {
 		const previous = this.#commandTail;
-		let release = () => {};
-		this.#commandTail = new Promise((resolve) => {
-			release = resolve;
-		});
+		const { promise, resolve: release } = createDeferred();
+		this.#commandTail = promise;
 		await previous;
 		try {
 			this.assertCurrent(params.generation, params.allowClosing);
@@ -278,18 +270,15 @@ var FaceTimeCallRegistry = class {
 		return (this.#active && this.#active.phase !== "closed" ? [this.#active] : [])[Symbol.iterator]();
 	}
 	get(identity) {
-		return this.resolve(identity);
+		return this.#aliases.get(normalizeCallIdentity(identity));
 	}
 	has(identity) {
-		return this.resolve(identity) !== void 0;
+		return this.get(identity) !== void 0;
 	}
 	create(call) {
 		if (this.#active && this.#active.phase !== "closed") throw new Error("another FaceTime call lifecycle is already active");
 		this.#active = call;
 		for (const alias of call.aliases) this.#aliases.set(alias, call);
-	}
-	resolve(identity) {
-		return this.#aliases.get(normalizeCallIdentity(identity));
 	}
 	retainAlias(call, identity) {
 		if (this.#active !== call || call.phase === "closed") throw new Error("cannot retain an alias for an inactive FaceTime call");
@@ -352,10 +341,8 @@ function requireCompleteTopology(result) {
 function projectFaceTimeNativeAction(action, result) {
 	const present = requireCompleteTopology(result).filter((entry) => entry.outcome !== "absent");
 	if (present.length === 0) throw new FaceTimeHelperAmbiguousError(`FaceTime ${action} carrier owner is missing`, result);
-	if (action === "unmute" && present.every((observed) => observed.muted === false && observed.is_uplink_muted === false && typeof observed.conversation_audio_error !== "string")) return { status: "media-active" };
-	if (action === "answer" && present.every((observed) => observed.outcome === "answered-muted" && observed.muted === true && observed.is_uplink_muted === true)) return { status: "answered-muted" };
-	if (action === "safe-mute" && present.every((observed) => observed.downlink_muted === true && observed.muted === true && observed.is_uplink_muted === true)) return { status: "safe-muted" };
-	if (action === "activate" && present.every((observed) => observed.muted === false && observed.is_uplink_muted === false && observed.is_sending_audio === true && observed.is_sending_transmission === true && typeof observed.conversation_audio_error !== "string")) return { status: "media-active" };
+	if ((action === "unmute" || action === "activate") && present.every((observed) => observed.muted === false && observed.is_uplink_muted === false && typeof observed.conversation_audio_error !== "string" && (action === "unmute" || observed.is_sending_audio === true && observed.is_sending_transmission === true))) return { status: "media-active" };
+	if ((action === "answer" || action === "safe-mute") && present.every((observed) => observed.muted === true && observed.is_uplink_muted === true && (action === "answer" ? observed.outcome === "answered-muted" : observed.downlink_muted === true))) return { status: action === "answer" ? "answered-muted" : "safe-muted" };
 	if (action === "terminate" && present.every((observed) => observed.outcome === "termination-requested")) return { status: "termination-requested" };
 	throw new FaceTimeHelperActionError(`FaceTime ${action} postcondition was not observed`);
 }
@@ -400,12 +387,10 @@ var FaceTimeHelperSocketServer = class {
 	#socketAuthSessions = /* @__PURE__ */ new Map();
 	#authDeadlineTimers = /* @__PURE__ */ new Map();
 	#pending = /* @__PURE__ */ new Map();
-	#logger;
 	#started = false;
 	#connectionGeneration = 0;
 	constructor(params) {
 		this.params = params;
-		this.#logger = params.logger;
 		this.#server = net.createServer((socket) => this.#handleSocket(socket));
 	}
 	async start() {
@@ -519,7 +504,7 @@ var FaceTimeHelperSocketServer = class {
 			}
 		});
 		socket.on("error", (error) => {
-			this.#logger.debug?.(`[facetime] helper socket error: ${formatErrorMessage(error)}`);
+			this.params.logger.debug?.(`[facetime] helper socket error: ${formatErrorMessage(error)}`);
 		});
 		socket.on("close", () => {
 			const disconnectedBundle = this.#socketPeers.get(socket)?.bundleIdentifier;
@@ -541,7 +526,7 @@ var FaceTimeHelperSocketServer = class {
 		try {
 			parsed = JSON.parse(line);
 		} catch (error) {
-			this.#logger.debug?.(`[facetime] rejected invalid helper JSON: ${formatErrorMessage(error)}`);
+			this.params.logger.debug?.(`[facetime] rejected invalid helper JSON: ${formatErrorMessage(error)}`);
 			socket.destroy();
 			return;
 		}
@@ -556,7 +541,7 @@ var FaceTimeHelperSocketServer = class {
 		}
 		const payload = this.#consumeHelperEnvelope(socket, record);
 		if (!payload) {
-			this.#logger.warn?.("[facetime] rejected unauthenticated or replayed helper message");
+			this.params.logger.warn?.("[facetime] rejected unauthenticated or replayed helper message");
 			socket.destroy();
 			return;
 		}
@@ -569,14 +554,12 @@ var FaceTimeHelperSocketServer = class {
 			return;
 		}
 		const transactionId = typeof payload.transactionId === "string" ? payload.transactionId : "";
-		if (transactionId && this.#pending.has(transactionId)) {
-			const pending = this.#pending.get(transactionId);
+		const pending = transactionId ? this.#pending.get(transactionId) : void 0;
+		if (pending) {
 			this.#pending.delete(transactionId);
-			if (pending) {
-				clearTimeout(pending.timeout);
-				if (typeof payload.error === "string" && payload.error) pending.reject(payload.ambiguous === true ? new FaceTimeHelperAmbiguousError(payload.error, payload) : new FaceTimeHelperActionError(payload.error));
-				else pending.resolve(payload);
-			}
+			clearTimeout(pending.timeout);
+			if (typeof payload.error === "string" && payload.error) pending.reject(payload.ambiguous === true ? new FaceTimeHelperAmbiguousError(payload.error, payload) : new FaceTimeHelperActionError(payload.error));
+			else pending.resolve(payload);
 			return;
 		}
 		const peer = this.#socketPeers.get(socket);
@@ -618,8 +601,6 @@ var FaceTimeHelperSocketServer = class {
 			bundleIdentifier,
 			processId,
 			processStartedAtMs,
-			clientNonce,
-			serverNonce,
 			connectionEpoch,
 			connectionKey: helperHmac(this.params.ipcKey, `session\n${context}`)
 		};
@@ -706,7 +687,6 @@ var FaceTimeHelperSocketServer = class {
 		if (Buffer.byteLength(envelope) > MAX_FRAME_BYTES) throw new FaceTimeHelperActionError("FaceTime helper message exceeds the frame limit");
 		session.outgoingSequence = sequence;
 		socket.write(`${envelope}\r\n`);
-		return envelope;
 	}
 	async #sendAction(action, data) {
 		const socket = [...this.#sockets].find((candidate) => !candidate.destroyed && FACETIME_DIAL_HELPER_BUNDLES.has(this.#socketPeers.get(candidate)?.bundleIdentifier ?? ""));
@@ -728,10 +708,7 @@ var FaceTimeHelperSocketServer = class {
 			helperPeer: peers[index]
 		}] : []);
 		if (fulfilled.length > 0) {
-			const fulfilledProcessIds = new Set(fulfilled.flatMap((result) => {
-				const peer = result.helperPeer;
-				return peer && typeof peer === "object" && "processId" in peer ? [peer.processId] : [];
-			}));
+			const fulfilledProcessIds = new Set(fulfilled.flatMap(({ helperPeer }) => helperPeer ? [helperPeer.processId] : []));
 			return {
 				helpersContacted: sockets.length,
 				topologyGeneration: this.#connectionGeneration,
@@ -780,10 +757,6 @@ const TARGET_BUNDLES = {
 const TARGET_APP_PATHS = {
 	FaceTime: "/System/Applications/FaceTime.app",
 	Phone: "/System/Applications/Phone.app"
-};
-const TARGET_EXECUTABLES = {
-	FaceTime: "/System/Applications/FaceTime.app/Contents/MacOS/FaceTime",
-	Phone: "/System/Applications/Phone.app/Contents/MacOS/Phone"
 };
 const FACETIME_HELPER_TARGETS = ["FaceTime", "Phone"];
 const DEFAULT_RETRY_DELAYS_MS = [
@@ -859,19 +832,14 @@ var FaceTimeHelperSupervisor = class {
 		const target = targetForBundle(bundleIdentifier);
 		const state = target ? this.#states.get(target) : void 0;
 		if (!target || !state) return;
-		const staleProcessId = processId > 0 ? processId : void 0;
 		const wasStale = state.stale;
-		if (state.stale && state.staleProcessId === staleProcessId) return;
+		if (state.stale && state.staleProcessId === processId) return;
 		state.connected = false;
 		state.stale = true;
-		state.staleProcessId = staleProcessId;
+		state.staleProcessId = processId;
 		state.lastError = `Restart ${target} to load the updated OpenClaw helper`;
 		if (!wasStale) this.params.logger.warn(`[facetime] ${state.lastError}`);
-		if (processId > 0) this.#scheduleStaleProcessCheck(target, processId);
-		else {
-			this.#cancelTimer(target);
-			this.#resolveLegacyStaleProcess(target);
-		}
+		this.#scheduleStaleProcessCheck(target, processId);
 	}
 	status() {
 		this.#refreshConnections();
@@ -929,30 +897,6 @@ var FaceTimeHelperSupervisor = class {
 		}, 2e3);
 		timer.unref?.();
 		this.#timers.set(target, timer);
-	}
-	async #resolveLegacyStaleProcess(target) {
-		const state = this.#states.get(target);
-		if (!this.#started || !state?.stale || state.staleProcessId !== void 0) return;
-		try {
-			const result = await this.params.runCommandWithTimeout([
-				"/usr/bin/pgrep",
-				"-f",
-				TARGET_EXECUTABLES[target]
-			], { timeoutMs: 5e3 });
-			const processId = Number.parseInt(result.stdout.trim().split(/\s+/u)[0] ?? "", 10);
-			if (result.code === 0 && Number.isSafeInteger(processId) && processId > 0) {
-				state.staleProcessId = processId;
-				this.#scheduleStaleProcessCheck(target, processId);
-				return;
-			}
-		} catch (error) {
-			this.params.logger.debug?.(`[facetime] failed to resolve stale ${target} helper process: ${formatErrorMessage(error)}`);
-		}
-		if (this.#started && state.stale && state.staleProcessId === void 0) {
-			state.stale = false;
-			state.lastError = void 0;
-			this.#schedule(target, 0);
-		}
 	}
 	#enqueueInjection(target) {
 		const state = this.#states.get(target);
@@ -1087,10 +1031,7 @@ function resolveFaceTimeDialResult(params) {
 }
 function doesFaceTimeCallMatchPendingDial(params) {
 	if (params.event.data.dial_id) return params.event.data.dial_id === params.pending.dialID;
-	if (params.pending.callUUID) {
-		const eventCallUUID = params.event.data.call_uuid;
-		return typeof eventCallUUID === "string" && doesPendingFaceTimeDialHaveCallUUID(params.pending, eventCallUUID);
-	}
+	if (params.pending.callUUID) return doesPendingFaceTimeDialHaveCallUUID(params.pending, params.event.data.call_uuid);
 	if (params.pending.proxyIdentifier) return params.event.data.proxy_identifier === params.pending.proxyIdentifier;
 	return params.event.data.dial_id === params.pending.dialID;
 }
@@ -1292,18 +1233,14 @@ async function terminateProcess(proc, signal = "SIGTERM") {
 	} catch {
 		return;
 	}
-	await Promise.race([exitedPromise, new Promise((resolve) => {
-		setTimeout(resolve, 500).unref?.();
-	})]);
+	await Promise.race([exitedPromise, sleepWithAbort(500, void 0, { ref: false })]);
 	if (!exited && signal !== "SIGKILL") {
 		try {
 			proc.kill("SIGKILL");
 		} catch {
 			return;
 		}
-		await Promise.race([exitedPromise, new Promise((resolve) => {
-			setTimeout(resolve, 500).unref?.();
-		})]);
+		await Promise.race([exitedPromise, sleepWithAbort(500, void 0, { ref: false })]);
 	}
 }
 function startFaceTimeAudioPump(params) {
@@ -1329,26 +1266,18 @@ function startFaceTimeAudioPump(params) {
 	let routeReadySettled = false;
 	let routeReadyTimer;
 	let captureStderr = "";
-	let resolveCaptureReady = () => {};
-	let rejectCaptureReady = (_error) => {};
-	const captureReadyPromise = new Promise((resolve, reject) => {
-		resolveCaptureReady = resolve;
-		rejectCaptureReady = reject;
-	});
-	let resolveRouteReady = () => {};
-	let rejectRouteReady = (_error) => {};
-	const routeReadyPromise = new Promise((resolve, reject) => {
-		resolveRouteReady = resolve;
-		rejectRouteReady = reject;
-	});
+	const captureReady = createDeferred();
+	const routeReady = createDeferred();
+	const captureReadyPromise = captureReady.promise;
+	const routeReadyPromise = routeReady.promise;
 	captureReadyPromise.catch(() => {});
 	routeReadyPromise.catch(() => {});
 	const settleCaptureReady = (error) => {
 		if (captureReadySettled) return;
 		captureReadySettled = true;
 		clearTimeout(captureReadyTimer);
-		if (error) rejectCaptureReady(error);
-		else resolveCaptureReady();
+		if (error) captureReady.reject(error);
+		else captureReady.resolve();
 	};
 	const settleRouteReady = (error) => {
 		if (routeReadySettled) return;
@@ -1357,8 +1286,8 @@ function startFaceTimeAudioPump(params) {
 			clearTimeout(routeReadyTimer);
 			routeReadyTimer = void 0;
 		}
-		if (error) rejectRouteReady(error);
-		else resolveRouteReady();
+		if (error) routeReady.reject(error);
+		else routeReady.resolve();
 	};
 	const reportFailure = (error, suppressionLost) => {
 		if (stopped) return;
@@ -2231,7 +2160,6 @@ async function startFaceTimeTalkDriver(params) {
 	let lastInputAudioStatusAt = 0;
 	let callMediaTimestampMs = 0;
 	let modelMediaGeneration = 1;
-	let responseGeneration = 0;
 	let response;
 	const settledResponseIds = /* @__PURE__ */ new Set();
 	let suppressNextUnkeyedLegacyTerminal = false;
@@ -2240,7 +2168,6 @@ async function startFaceTimeTalkDriver(params) {
 	let activated = false;
 	let providerReady = false;
 	const providerReadyDeferred = createDeferred();
-	let providerConnectPromise;
 	let audioReadyPromise;
 	let interruptProviderConnect;
 	let mediaSuspensionError;
@@ -2264,9 +2191,7 @@ async function startFaceTimeTalkDriver(params) {
 	} });
 	const reportFailure = (error) => {
 		if (failurePromise) return failurePromise;
-		failurePromise = Promise.resolve(params.onFailure?.(error)).then((safeToClose) => {
-			return safeToClose !== false;
-		});
+		failurePromise = Promise.resolve(params.onFailure?.(error)).then((safeToClose) => safeToClose !== false);
 		return failurePromise;
 	};
 	const suspendMedia = async (reason = "suspended") => {
@@ -2317,15 +2242,11 @@ async function startFaceTimeTalkDriver(params) {
 		return await closePromise;
 	};
 	const remember = (input) => talk.emit(input);
-	const ensureTurn = () => {
-		return talk.ensureTurn({ payload: { callUUID: params.callUUID } }).turnId;
-	};
+	const ensureTurn = () => talk.ensureTurn({ payload: { callUUID: params.callUUID } }).turnId;
 	const finishOutputAudio = (reason) => {
 		talk.finishOutputAudio({ payload: { reason } });
 	};
-	const endTurn = (reason) => {
-		return talk.endTurn({ payload: { reason } }).ok;
-	};
+	const endTurn = (reason) => talk.endTurn({ payload: { reason } }).ok;
 	const playedCurrentResponseMs = () => response === void 0 ? 0 : Math.max(0, ((pump?.playedAudioFrames() ?? 0) - response.playbackStartFrame) / 24);
 	const resetResponsePlayback = () => {
 		response = void 0;
@@ -2361,7 +2282,6 @@ async function startFaceTimeTalkDriver(params) {
 		}
 		response = {
 			id: responseId,
-			generation: ++responseGeneration,
 			startTimestampMs: callMediaTimestampMs,
 			playbackStartFrame: pump?.playedAudioFrames() ?? 0
 		};
@@ -2458,202 +2378,186 @@ async function startFaceTimeTalkDriver(params) {
 			if (safeToClose) await close("audio-error");
 			return safeToClose;
 		},
-		onPlaybackDrained() {
-			finishDrainedResponse();
-		}
+		onPlaybackDrained: finishDrainedResponse
 	});
-	const connectProvider = async () => {
-		if (providerConnectPromise) return await providerConnectPromise;
-		providerConnectPromise = (async () => {
-			let removeAbortListener;
-			let readinessTimer;
-			const interrupted = new Promise((_resolve, reject) => {
-				const interrupt = () => reject(/* @__PURE__ */ new Error("FaceTime talk startup aborted"));
-				interruptProviderConnect = interrupt;
-				params.signal?.addEventListener("abort", interrupt, { once: true });
-				removeAbortListener = () => params.signal?.removeEventListener("abort", interrupt);
-				if (params.signal?.aborted || stopped || mediaSuspended) interrupt();
+	const providerConnect = (async () => {
+		let removeAbortListener;
+		const interrupted = new Promise((_resolve, reject) => {
+			const interrupt = () => reject(/* @__PURE__ */ new Error("FaceTime talk startup aborted"));
+			interruptProviderConnect = interrupt;
+			params.signal?.addEventListener("abort", interrupt, { once: true });
+			removeAbortListener = () => params.signal?.removeEventListener("abort", interrupt);
+			if (params.signal?.aborted || stopped || mediaSuspended) interrupt();
+		});
+		const prepareAndConnect = async () => {
+			const providerResolution = resolveFaceTimeRealtimeProvider({
+				config: params.config,
+				fullConfig: params.fullConfig,
+				agentId: consultAgentId
 			});
-			const readinessTimedOut = new Promise((_resolve, reject) => {
-				readinessTimer = setTimeout(() => {
-					reject(/* @__PURE__ */ new Error("Realtime provider was not ready within 15 seconds"));
-				}, REALTIME_READY_TIMEOUT_MS);
-				readinessTimer.unref?.();
+			const agentContextResolution = resolveRealtimeVoiceAgentContextInstructions({
+				config: params.fullConfig,
+				agentId: consultAgentId,
+				sessionKey: requesterSessionKey,
+				warn: (message) => params.logger.warn?.(`[facetime] realtime agent context: ${message}`)
 			});
-			const prepareAndConnect = async () => {
-				const providerResolution = resolveFaceTimeRealtimeProvider({
-					config: params.config,
-					fullConfig: params.fullConfig,
-					agentId: consultAgentId
-				});
-				const bootstrapContextResolution = resolveRealtimeBootstrapContextInstructions({
-					config: params.fullConfig,
-					agentId: consultAgentId,
-					sessionKey: requesterSessionKey,
-					warn: (message) => params.logger.warn?.(`[facetime] realtime bootstrap context: ${message}`)
-				}).catch((error) => {
-					params.logger.warn?.(`[facetime] realtime bootstrap context unavailable: ${formatErrorMessage(error)}`);
-				});
-				const [resolved, bootstrapContext] = await Promise.all([providerResolution, bootstrapContextResolution]);
-				if (params.signal?.aborted || stopped || mediaSuspended) throw new Error("FaceTime talk startup aborted");
-				bridge = createRealtimeVoiceBridgeSession({
-					provider: resolved.provider,
-					capabilities: resolved.capabilities,
-					cfg: params.fullConfig,
-					agentId: consultAgentId,
-					providerConfig: resolved.providerConfig,
-					audioFormat: REALTIME_VOICE_AUDIO_FORMAT_PCM16_24KHZ,
-					instructions: buildRealtimeInstructions({
-						instructions: params.config.realtime.instructions,
-						bootstrapContext,
-						toolPolicy: params.config.realtime.toolPolicy
-					}),
-					autoRespondToAudio: true,
-					triggerGreetingOnReady: false,
-					initialGreetingInstructions: initialGreeting.instructions,
-					markStrategy: "ack-immediately",
-					tools: resolveRealtimeVoiceAgentConsultTools(params.config.realtime.toolPolicy, [FACETIME_END_CALL_TOOL]),
-					audioSink: {
-						isOpen: () => !stopped && !mediaSuspended,
-						sendAudio(audio, metadata) {
-							if (stopped || mediaSuspended) return;
-							const turnId = ensureTurn();
-							if (!response) startResponse();
-							talk.startOutputAudio({
-								turnId,
-								payload: { callUUID: params.callUUID }
-							});
-							remember({
-								type: "output.audio.delta",
-								turnId,
-								payload: { byteLength: audio.byteLength }
-							});
-							pump?.writeOutputAudio(audio, metadata);
-						},
-						getPlaybackState: () => pump.getPlaybackState(),
-						clearAudio() {
-							if (stopped || mediaSuspended) return;
-							pump?.clearOutputAudio();
-							resetResponsePlayback();
-							finishOutputAudio("clear");
-						}
-					},
-					onTranscript(role, text, final) {
+			const [resolved, bootstrapContext] = await Promise.all([providerResolution, agentContextResolution]);
+			if (params.signal?.aborted || stopped || mediaSuspended) throw new Error("FaceTime talk startup aborted");
+			bridge = createRealtimeVoiceBridgeSession({
+				provider: resolved.provider,
+				capabilities: resolved.capabilities,
+				cfg: params.fullConfig,
+				agentId: consultAgentId,
+				providerConfig: resolved.providerConfig,
+				audioFormat: REALTIME_VOICE_AUDIO_FORMAT_PCM16_24KHZ,
+				instructions: buildRealtimeInstructions({
+					instructions: params.config.realtime.instructions,
+					bootstrapContext,
+					toolPolicy: params.config.realtime.toolPolicy
+				}),
+				autoRespondToAudio: true,
+				triggerGreetingOnReady: false,
+				initialGreetingInstructions: initialGreeting.instructions,
+				markStrategy: "ack-immediately",
+				tools: resolveRealtimeVoiceAgentConsultTools(params.config.realtime.toolPolicy, [FACETIME_END_CALL_TOOL]),
+				audioSink: {
+					isOpen: () => !stopped && !mediaSuspended,
+					sendAudio(audio, metadata) {
 						if (stopped || mediaSuspended) return;
 						const turnId = ensureTurn();
-						remember({
-							type: role === "assistant" ? final ? "output.text.done" : "output.text.delta" : final ? "transcript.done" : "transcript.delta",
+						if (!response) startResponse();
+						talk.startOutputAudio({
 							turnId,
-							payload: role === "assistant" ? { text } : {
-								role,
-								text
-							},
-							final
+							payload: { callUUID: params.callUUID }
 						});
-						if (role === "user" && final) {
-							if (text.trim()) initialGreeting.cancel();
-							else initialGreeting.schedule();
-							remember({
-								type: "input.audio.committed",
-								turnId,
-								payload: { callUUID: params.callUUID },
-								final: true
-							});
-						}
-						if (final) appendTranscript({
+						remember({
+							type: "output.audio.delta",
+							turnId,
+							payload: { byteLength: audio.byteLength }
+						});
+						pump?.writeOutputAudio(audio, metadata);
+					},
+					getPlaybackState: () => pump.getPlaybackState(),
+					clearAudio() {
+						if (stopped || mediaSuspended) return;
+						pump?.clearOutputAudio();
+						resetResponsePlayback();
+						finishOutputAudio("clear");
+					}
+				},
+				onTranscript(role, text, final) {
+					if (stopped || mediaSuspended) return;
+					const turnId = ensureTurn();
+					remember({
+						type: role === "assistant" ? final ? "output.text.done" : "output.text.delta" : final ? "transcript.done" : "transcript.delta",
+						turnId,
+						payload: role === "assistant" ? { text } : {
 							role,
 							text
-						});
-					},
-					onEvent(event) {
-						if (stopped || mediaSuspended) return;
-						if (!(event.direction === "client" && event.type === "input_audio_buffer.append")) remember({
-							type: "health.changed",
-							payload: {
-								name: `${event.direction}:${event.type}`,
-								message: event.detail
-							}
-						});
-						if (event.type === "response.created") startResponse(event.responseId);
-						else if (event.type === "session.continuity.reset") resetProviderContinuity();
-						else if (event.type === "response.done") {
-							if (!event.responseId && suppressNextUnkeyedLegacyTerminal) suppressNextUnkeyedLegacyTerminal = false;
-							else finishResponseOutcome({
-								status: "completed",
-								...event.responseId ? { responseId: event.responseId } : {}
-							}, false);
-						} else if (event.type === "error") remember({
-							type: "session.error",
-							payload: { message: event.detail ?? "Realtime provider error" },
-							final: true
-						});
-					},
-					onResponseDone(outcome) {
-						finishResponseOutcome(outcome, true);
-					},
-					onToolCall: consultController.handleToolCall,
-					onReady() {
-						if (!stopped && !mediaSuspended) {
-							remember({
-								type: "session.ready",
-								payload: { callUUID: params.callUUID }
-							});
-							providerReadyDeferred.resolve();
-						}
-					},
-					onError(error) {
-						if (stopped || mediaSuspended) return;
+						},
+						final
+					});
+					if (role === "user" && final) {
+						if (text.trim()) initialGreeting.cancel();
+						else initialGreeting.schedule();
 						remember({
-							type: "session.error",
-							payload: { message: formatErrorMessage(error) },
+							type: "input.audio.committed",
+							turnId,
+							payload: { callUUID: params.callUUID },
 							final: true
 						});
-						params.logger.warn(`[facetime] realtime bridge failed: ${formatErrorMessage(error)}`);
-						if (!providerReady && !startupSettled) signalStartupFailure(error);
-					},
-					onClose(reason) {
-						if (stopped || mediaSuspended) return;
-						finishOutputAudio(reason);
-						remember({
-							type: "session.closed",
-							payload: { reason },
-							final: true
-						});
-						const error = /* @__PURE__ */ new Error(`Realtime bridge closed unexpectedly: ${reason}`);
-						signalStartupFailure(error);
-						(async () => {
-							await suspendMedia("provider-closed");
-							if (await reportFailure(error)) await close("provider-closed");
-						})();
 					}
-				});
-				await bridge.connect();
-			};
-			try {
-				await Promise.race([
-					Promise.all([prepareAndConnect(), providerReadyDeferred.promise]),
-					startupFailurePromise,
-					interrupted,
-					readinessTimedOut
-				]);
-				if (startupFailure) throw startupFailure;
-				if (params.signal?.aborted || stopped || mediaSuspended) throw new Error("FaceTime talk startup aborted");
-				startupSettled = true;
-				providerReady = true;
-			} catch (error) {
-				const normalized = error instanceof Error ? error : new Error(String(error));
-				await suspendMedia(params.signal?.aborted || stopped ? "startup-aborted" : "connect-failed");
-				if (stopped || await reportFailure(normalized)) await close(params.signal?.aborted || stopped ? "startup-aborted" : "connect-failed");
-				throw normalized;
-			} finally {
-				if (readinessTimer) clearTimeout(readinessTimer);
-				interruptProviderConnect = void 0;
-				removeAbortListener?.();
-			}
-		})();
-		return await providerConnectPromise;
-	};
-	const providerConnect = connectProvider();
+					if (final) appendTranscript({
+						role,
+						text
+					});
+				},
+				onEvent(event) {
+					if (stopped || mediaSuspended) return;
+					if (!(event.direction === "client" && event.type === "input_audio_buffer.append")) remember({
+						type: "health.changed",
+						payload: {
+							name: `${event.direction}:${event.type}`,
+							message: event.detail
+						}
+					});
+					if (event.type === "response.created") startResponse(event.responseId);
+					else if (event.type === "session.continuity.reset") resetProviderContinuity();
+					else if (event.type === "response.done") {
+						if (!event.responseId && suppressNextUnkeyedLegacyTerminal) suppressNextUnkeyedLegacyTerminal = false;
+						else finishResponseOutcome({
+							status: "completed",
+							...event.responseId ? { responseId: event.responseId } : {}
+						}, false);
+					} else if (event.type === "error") remember({
+						type: "session.error",
+						payload: { message: event.detail ?? "Realtime provider error" },
+						final: true
+					});
+				},
+				onResponseDone(outcome) {
+					finishResponseOutcome(outcome, true);
+				},
+				onToolCall: consultController.handleToolCall,
+				onReady() {
+					if (!stopped && !mediaSuspended) {
+						remember({
+							type: "session.ready",
+							payload: { callUUID: params.callUUID }
+						});
+						providerReadyDeferred.resolve();
+					}
+				},
+				onError(error) {
+					if (stopped || mediaSuspended) return;
+					remember({
+						type: "session.error",
+						payload: { message: formatErrorMessage(error) },
+						final: true
+					});
+					params.logger.warn(`[facetime] realtime bridge failed: ${formatErrorMessage(error)}`);
+					if (!providerReady && !startupSettled) signalStartupFailure(error);
+				},
+				onClose(reason) {
+					if (stopped || mediaSuspended) return;
+					finishOutputAudio(reason);
+					remember({
+						type: "session.closed",
+						payload: { reason },
+						final: true
+					});
+					const error = /* @__PURE__ */ new Error(`Realtime bridge closed unexpectedly: ${reason}`);
+					signalStartupFailure(error);
+					(async () => {
+						await suspendMedia("provider-closed");
+						if (await reportFailure(error)) await close("provider-closed");
+					})();
+				}
+			});
+			await bridge.connect();
+		};
+		try {
+			await raceWithTimeout(() => Promise.race([
+				Promise.all([prepareAndConnect(), providerReadyDeferred.promise]),
+				startupFailurePromise,
+				interrupted
+			]), REALTIME_READY_TIMEOUT_MS, () => {
+				throw new Error("Realtime provider was not ready within 15 seconds");
+			}, { ref: false });
+			if (startupFailure) throw startupFailure;
+			if (params.signal?.aborted || stopped || mediaSuspended) throw new Error("FaceTime talk startup aborted");
+			startupSettled = true;
+			providerReady = true;
+		} catch (error) {
+			const normalized = error instanceof Error ? error : new Error(String(error));
+			await suspendMedia(params.signal?.aborted || stopped ? "startup-aborted" : "connect-failed");
+			if (stopped || await reportFailure(normalized)) await close(params.signal?.aborted || stopped ? "startup-aborted" : "connect-failed");
+			throw normalized;
+		} finally {
+			interruptProviderConnect = void 0;
+			removeAbortListener?.();
+		}
+	})();
 	providerConnect.catch(() => {});
 	try {
 		await Promise.race([pump.suppressionReady(), startupFailurePromise]);
@@ -2675,9 +2579,7 @@ async function startFaceTimeTalkDriver(params) {
 			});
 			await audioReadyPromise;
 		},
-		processOutputSuppressed() {
-			return pump?.processOutputSuppressed() ?? false;
-		},
+		processOutputSuppressed: pump.processOutputSuppressed,
 		realtimeActive() {
 			return providerReady && !mediaSuspended && !stopped;
 		},
@@ -2696,35 +2598,22 @@ function createFaceTimeCallControl(params) {
 	const runCarrierActionAcrossAliases = async (request) => {
 		const candidates = [request.call.carrierCallUUID, ...[...request.call.carrierCallUUIDs].toReversed()].filter((candidate, index, all) => all.indexOf(candidate) === index);
 		let lastAbsent;
-		for (const candidate of candidates) {
-			let result;
+		for (const candidate of candidates) try {
+			const result = await request.call.runCarrierCommand({
+				generation: request.generation,
+				allowClosing: true,
+				action: async () => await request.run(candidate)
+			});
+			projectFaceTimeNativeAction(request.action, result);
+			request.call.promoteCarrierCallUUID(candidate);
+			return result;
+		} catch (error) {
+			if (!(error instanceof FaceTimeHelperAmbiguousError)) throw error;
 			try {
-				result = await request.call.runCarrierCommand({
-					generation: request.generation,
-					allowClosing: true,
-					action: async () => await request.run(candidate)
-				});
-			} catch (error) {
-				if (!(error instanceof FaceTimeHelperAmbiguousError)) throw error;
-				try {
-					projectCompleteFaceTimeAbsence(error.result);
-					lastAbsent = error;
-				} catch {
-					throw error;
-				}
-				continue;
-			}
-			try {
-				projectFaceTimeNativeAction(request.action, result);
-				request.call.promoteCarrierCallUUID(candidate);
-				return result;
-			} catch (error) {
-				try {
-					projectCompleteFaceTimeAbsence(result);
-					lastAbsent = error instanceof FaceTimeHelperAmbiguousError ? error : new FaceTimeHelperAmbiguousError(`FaceTime ${request.action} carrier owner is missing`, result);
-				} catch {
-					throw error;
-				}
+				projectCompleteFaceTimeAbsence(error.result);
+				lastAbsent = error;
+			} catch {
+				throw error;
 			}
 		}
 		throw lastAbsent ?? /* @__PURE__ */ new Error(`FaceTime ${request.action} carrier owner is missing`);
@@ -2859,9 +2748,7 @@ function createFaceTimeCallControl(params) {
 					action: async () => await params.helper.inspectCall([...call.carrierCallUUIDs], [...call.carrierPeers.keys()])
 				});
 				const first = projectCompleteFaceTimeAbsence(await inspect());
-				await new Promise((resolve) => {
-					setTimeout(resolve, 100).unref?.();
-				});
+				await sleepWithAbort(100, void 0, { ref: false });
 				const second = projectCompleteFaceTimeAbsence(await inspect());
 				return first.topologyGeneration === second.topologyGeneration && params.getHelperTopologyVersion() === topologyVersion;
 			} catch {
@@ -2900,9 +2787,7 @@ function createFaceTimeCallControl(params) {
 					closeLocal: false,
 					scheduleRetry: false
 				})) return true;
-				await new Promise((resolve) => {
-					setTimeout(resolve, 1e3).unref?.();
-				});
+				await sleepWithAbort(1e3, void 0, { ref: false });
 			}
 			return true;
 		})()]);
@@ -2947,14 +2832,7 @@ function createFaceTimeCallControl(params) {
 					},
 					async onFailure(error) {
 						const failureReason = `talk-failed: ${formatErrorMessage(error)}`;
-						if (!call.talk) {
-							const carrierClosed = await waitForStartupCarrierHangup(call, failureReason);
-							if (carrierClosed) queueMicrotask(() => {
-								closeCall(call, failureReason);
-							});
-							return carrierClosed;
-						}
-						const carrierClosed = await attemptCarrierHangup(call, failureReason, { closeLocal: false });
+						const carrierClosed = call.talk ? await attemptCarrierHangup(call, failureReason, { closeLocal: false }) : await waitForStartupCarrierHangup(call, failureReason);
 						if (carrierClosed) queueMicrotask(() => {
 							closeCall(call, failureReason);
 						});
@@ -3031,10 +2909,10 @@ function retainOutboundDialHelperPeers(peers, result) {
 	}
 }
 function readOutboundCallUUID(result) {
-	return readHelperResults(result).map((entry) => typeof entry.call_uuid === "string" && entry.call_uuid.trim() ? entry.call_uuid.trim() : void 0).find((value) => Boolean(value));
+	return readHelperResults(result).map((entry) => normalizeOptionalString(entry.call_uuid)).find((value) => Boolean(value));
 }
 function readOutboundProxyIdentifier(result) {
-	return readHelperResults(result).map((entry) => typeof entry.proxy_identifier === "string" && entry.proxy_identifier.trim() ? entry.proxy_identifier.trim() : void 0).find((value) => Boolean(value));
+	return readHelperResults(result).map((entry) => normalizeOptionalString(entry.proxy_identifier)).find((value) => Boolean(value));
 }
 function hasDialHelperConfirmation(results) {
 	return results.some((entry) => typeof entry.helperBundleIdentifier === "string" && OUTBOUND_DIAL_HELPER_BUNDLES.has(entry.helperBundleIdentifier));
@@ -3077,9 +2955,7 @@ async function reconcilePendingFaceTimeCarrier(params) {
 		}
 		previousAbsentTopology = completeAbsence ? topologyGeneration : void 0;
 		previousAbsenceCurrent = completeAbsence ? isSnapshotCurrent : void 0;
-		if (attempt + 1 < 12) await new Promise((resolve) => {
-			setTimeout(resolve, 250);
-		});
+		if (attempt + 1 < 12) await sleep(250);
 	}
 }
 //#endregion
@@ -3107,28 +2983,22 @@ var ActiveFaceTimeCall = class extends FaceTimeCallInstance {
 		this.carrierCallUUID = callUUID;
 	}
 };
-function readCallUUID(event) {
-	return String(event.data.call_uuid);
-}
 function updateCallStatus(call, event) {
-	call.callStatus = typeof event.data.call_status === "number" ? event.data.call_status : call.callStatus;
-	call.isSendingAudio = typeof event.data.is_sending_audio === "boolean" ? event.data.is_sending_audio : call.isSendingAudio;
-	call.isSendingTransmission = typeof event.data.is_sending_transmission === "boolean" ? event.data.is_sending_transmission : call.isSendingTransmission;
-	call.isUplinkMuted = typeof event.data.is_uplink_muted === "boolean" ? event.data.is_uplink_muted : call.isUplinkMuted;
-	call.isSendingVideo = typeof event.data.is_sending_video === "boolean" ? event.data.is_sending_video : call.isSendingVideo;
-	call.conversationUUID = typeof event.data.conversation_uuid === "string" ? event.data.conversation_uuid : call.conversationUUID;
-	call.conversationGroupUUID = typeof event.data.conversation_group_uuid === "string" ? event.data.conversation_group_uuid : call.conversationGroupUUID;
-	call.conversationAudioEnabled = typeof event.data.conversation_audio_enabled === "boolean" ? event.data.conversation_audio_enabled : call.conversationAudioEnabled;
-	call.conversationVideoEnabled = typeof event.data.conversation_video_enabled === "boolean" ? event.data.conversation_video_enabled : call.conversationVideoEnabled;
-	call.conversationAVMode = typeof event.data.conversation_av_mode === "number" ? event.data.conversation_av_mode : call.conversationAVMode;
-	call.conversationResolvedAudioVideoMode = typeof event.data.conversation_resolved_audio_video_mode === "number" ? event.data.conversation_resolved_audio_video_mode : call.conversationResolvedAudioVideoMode;
-	call.localMeterLevel = typeof event.data.local_meter_level === "number" ? event.data.local_meter_level : call.localMeterLevel;
-	call.remoteMeterLevel = typeof event.data.remote_meter_level === "number" ? event.data.remote_meter_level : call.remoteMeterLevel;
-	if (typeof event.data.local_meter_level === "number") call.maxLocalMeterLevel = Math.max(call.maxLocalMeterLevel ?? 0, event.data.local_meter_level);
-	if (typeof event.data.remote_meter_level === "number") call.maxRemoteMeterLevel = Math.max(call.maxRemoteMeterLevel ?? 0, event.data.remote_meter_level);
-}
-function createManagedCall(params) {
-	return new ActiveFaceTimeCall(params);
+	call.callStatus = event.data.call_status;
+	call.isSendingAudio = event.data.is_sending_audio ?? call.isSendingAudio;
+	call.isSendingTransmission = event.data.is_sending_transmission ?? call.isSendingTransmission;
+	call.isUplinkMuted = event.data.is_uplink_muted ?? call.isUplinkMuted;
+	call.isSendingVideo = event.data.is_sending_video ?? call.isSendingVideo;
+	call.conversationUUID = event.data.conversation_uuid ?? call.conversationUUID;
+	call.conversationGroupUUID = event.data.conversation_group_uuid ?? call.conversationGroupUUID;
+	call.conversationAudioEnabled = event.data.conversation_audio_enabled ?? call.conversationAudioEnabled;
+	call.conversationVideoEnabled = event.data.conversation_video_enabled ?? call.conversationVideoEnabled;
+	call.conversationAVMode = event.data.conversation_av_mode ?? call.conversationAVMode;
+	call.conversationResolvedAudioVideoMode = event.data.conversation_resolved_audio_video_mode ?? call.conversationResolvedAudioVideoMode;
+	call.localMeterLevel = event.data.local_meter_level ?? call.localMeterLevel;
+	call.remoteMeterLevel = event.data.remote_meter_level ?? call.remoteMeterLevel;
+	if (event.data.local_meter_level !== void 0) call.maxLocalMeterLevel = Math.max(call.maxLocalMeterLevel ?? 0, event.data.local_meter_level);
+	if (event.data.remote_meter_level !== void 0) call.maxRemoteMeterLevel = Math.max(call.maxRemoteMeterLevel ?? 0, event.data.remote_meter_level);
 }
 //#endregion
 //#region extensions/facetime/src/runtime-call-events.ts
@@ -3147,7 +3017,7 @@ function createFaceTimeCallEventHandler(params) {
 	};
 	const canPromotePendingDial = (pending) => !params.isStopping() && params.getPendingDial() === pending && pending.delivery !== "cancelling";
 	const authorizePendingDial = async (event, pending) => {
-		retainFaceTimeDialCallUUID(pending, readCallUUID(event));
+		retainFaceTimeDialCallUUID(pending, event.data.call_uuid);
 		await params.persistPendingDial();
 		if (params.isStopping() || params.getPendingDial() !== pending) return;
 		const owner = pending.delivery === "cancelling" ? void 0 : resolveAuthorizedFaceTimeOwner({
@@ -3170,7 +3040,7 @@ function createFaceTimeCallEventHandler(params) {
 			event.data.conversation_uuid,
 			event.data.conversation_group_uuid
 		]) if (typeof alias === "string" && alias.trim()) params.calls.retainAlias(call, alias);
-		call.carrierCallUUIDs.add(String(event.data.call_uuid));
+		call.carrierCallUUIDs.add(event.data.call_uuid);
 	};
 	const retainPendingDial = (call, pending) => {
 		params.calls.retainAlias(call, pending.dialID);
@@ -3182,7 +3052,7 @@ function createFaceTimeCallEventHandler(params) {
 		for (const carrierPeer of params.outboundCarrierPeers.values()) call.carrierPeers.set(carrierPeer.processId, carrierPeer);
 	};
 	const answerIncoming = async (event, owner, peer) => {
-		const callUUID = readCallUUID(event);
+		const callUUID = event.data.call_uuid;
 		if (params.isDriverInstallPending()) {
 			params.logger.warn("[facetime] ignored incoming call; audio driver installation is pending");
 			return;
@@ -3192,7 +3062,7 @@ function createFaceTimeCallEventHandler(params) {
 			params.logger.warn("[facetime] ignored incoming call; another FaceTime bridge is active");
 			return;
 		}
-		const call = createManagedCall({
+		const call = new ActiveFaceTimeCall({
 			callUUID,
 			phase: "ringing",
 			owner,
@@ -3228,7 +3098,7 @@ function createFaceTimeCallEventHandler(params) {
 		}
 	};
 	const activate = async (event, owner, peer, pending) => {
-		const callUUID = readCallUUID(event);
+		const callUUID = event.data.call_uuid;
 		if (params.isDriverInstallPending()) {
 			params.logger.warn("[facetime] ignored active call; audio driver installation is pending");
 			return;
@@ -3243,7 +3113,7 @@ function createFaceTimeCallEventHandler(params) {
 				params.logger.warn("[facetime] ignored active call; another FaceTime bridge is active");
 				return;
 			}
-			call = createManagedCall({
+			call = new ActiveFaceTimeCall({
 				callUUID,
 				phase: "active",
 				owner,
@@ -3269,7 +3139,7 @@ function createFaceTimeCallEventHandler(params) {
 	};
 	const handleCallEvent = async (event, peer) => {
 		if (params.isStopping()) return;
-		const callUUID = readCallUUID(event);
+		const callUUID = event.data.call_uuid;
 		const existingCall = resolveEventCall(event);
 		const pending = params.getPendingDial();
 		if (existingCall) {
@@ -3305,7 +3175,7 @@ function createFaceTimeCallEventHandler(params) {
 				if (!owner || !canPromotePendingDial(pending)) return;
 				let ringingCall = resolveEventCall(event);
 				if (!ringingCall && params.calls.size === 0) {
-					ringingCall = createManagedCall({
+					ringingCall = new ActiveFaceTimeCall({
 						callUUID,
 						phase: "ringing",
 						owner,
@@ -3382,9 +3252,6 @@ function createFaceTimeCallEventHandler(params) {
 }
 //#endregion
 //#region extensions/facetime/src/talk-events-summary.ts
-function optionalNumber(value) {
-	return typeof value === "number" && Number.isFinite(value) ? value : void 0;
-}
 function summarizeRecentTalkEvents(events, limit = 12) {
 	return events.slice(-limit).map((event) => {
 		const record = asRecord(event);
@@ -3394,7 +3261,7 @@ function summarizeRecentTalkEvents(events, limit = 12) {
 			turnId: normalizeOptionalString(record.turnId),
 			callId: normalizeOptionalString(record.callId),
 			final: typeof record.final === "boolean" ? record.final : void 0,
-			byteLength: optionalNumber(payload.byteLength),
+			byteLength: asFiniteNumber(payload.byteLength),
 			name: normalizeOptionalString(payload.name),
 			text: normalizeOptionalString(payload.text),
 			message: normalizeOptionalString(payload.message)
@@ -3497,12 +3364,11 @@ async function createFaceTimeRuntime(params) {
 	});
 	let stopping = false;
 	let helperStopped = false;
-	const helperRef = {};
 	const helperSupervisor = new FaceTimeHelperSupervisor({
 		pluginRoot: params.pluginRoot,
 		logger: params.logger,
 		runCommandWithTimeout: params.runtime.system.runCommandWithTimeout,
-		connectedBundles: () => helperRef.current?.connectedHelperBundles ?? []
+		connectedBundles: () => helper.connectedHelperBundles
 	});
 	const pendingOperations = /* @__PURE__ */ new Set();
 	const observePendingOperation = (operation) => {
@@ -3605,7 +3471,6 @@ async function createFaceTimeRuntime(params) {
 	};
 	let helperTopologyVersion = 0;
 	const helperEndpoint = resolveFaceTimeHelperEndpoint();
-	const callEventRef = {};
 	const helper = new FaceTimeHelperSocketServer({
 		...helperEndpoint,
 		logger: params.logger,
@@ -3621,29 +3486,25 @@ async function createFaceTimeRuntime(params) {
 				return observePendingOperation(persistOutboundCallPending());
 			}
 			const event = normalizeFaceTimeCallEvent(message);
-			if (event) {
-				const operation = callEventRef.current?.handleCallEvent(event, peer);
-				if (operation) return observePendingOperation(operation);
-			}
+			if (event) return observePendingOperation(callEvents.handleCallEvent(event, peer));
 		},
 		onConnect(bundleIdentifier) {
 			helperTopologyVersion += 1;
-			helperSupervisor?.connected(bundleIdentifier);
+			helperSupervisor.connected(bundleIdentifier);
 			for (const call of calls.values()) if (call.carrierHangupPending) attemptCarrierHangup(call, "helper-reconnected");
 			if (!stopping) observePendingOperation(reconcilePendingOutboundCall().finally(scheduleOutboundReconciliation));
 		},
 		onDisconnect(bundleIdentifier) {
 			helperTopologyVersion += 1;
-			helperSupervisor?.disconnected(bundleIdentifier);
+			helperSupervisor.disconnected(bundleIdentifier);
 			if (stopping || calls.size === 0) return;
 			params.logger.warn("[facetime] carrier helper disconnected during a call; retaining audio safety bridge");
 			for (const call of calls.values()) attemptCarrierHangup(call, "helper-disconnected");
 		},
 		onStale(bundleIdentifier, processId) {
-			helperSupervisor?.stale(bundleIdentifier, processId);
+			helperSupervisor.stale(bundleIdentifier, processId);
 		}
 	});
-	helperRef.current = helper;
 	const callControl = createFaceTimeCallControl({
 		calls,
 		helper,
@@ -3657,7 +3518,7 @@ async function createFaceTimeRuntime(params) {
 		retainHelperResultPeers
 	});
 	const { attemptCarrierHangup, stopCall } = callControl;
-	callEventRef.current = createFaceTimeCallEventHandler({
+	const callEvents = createFaceTimeCallEventHandler({
 		calls,
 		helper,
 		config,
@@ -3693,9 +3554,7 @@ async function createFaceTimeRuntime(params) {
 	});
 	return {
 		config,
-		async status() {
-			return await readStatus();
-		},
+		status: readStatus,
 		async dial(dialParams) {
 			if (stopping) throw new Error("cannot start an outbound FaceTime call while the plugin is stopping");
 			if (isDriverInstallPending()) throw new Error("cannot start an outbound FaceTime call while audio driver installation is pending");
@@ -3788,9 +3647,7 @@ async function createFaceTimeRuntime(params) {
 				}
 				for (let attempt = 0; attempt < 12 && !call; attempt += 1) {
 					call = findCall();
-					if (!call && attempt + 1 < 12) await new Promise((resolve) => {
-						setTimeout(resolve, 250);
-					});
+					if (!call && attempt + 1 < 12) await sleep(250);
 				}
 			}
 			if (!call) throw new Error("no active FaceTime call to hang up");
@@ -3816,9 +3673,7 @@ async function createFaceTimeRuntime(params) {
 				preflight
 			});
 		},
-		async preflight() {
-			return await runPreflight();
-		},
+		preflight: runPreflight,
 		async installDriver() {
 			if (stopping) throw new Error("cannot install the FaceTime audio driver while the plugin is stopping");
 			if (isDriverInstallPending()) throw new Error("FaceTime audio driver installation is already pending");

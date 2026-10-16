@@ -1,20 +1,21 @@
-import { a as asOptionalRecord, c as isRecord } from "../../record-coerce-DItp3I4t.mjs";
-import { w as root } from "../../fs-safe-BAPek8At.mjs";
+import { n as createLazyRuntimeMethodBinder } from "../../lazy-runtime-CJrzFzqU.mjs";
+import { a as asOptionalRecord, c as isRecord, u as readStringField } from "../../record-coerce-TIsquoVR.mjs";
+import { w as root } from "../../fs-safe-BUXBSN-4.mjs";
+import { n as resolvePreferredOpenClawTmpDir } from "../../tmp-openclaw-dir-DR7bHNl9.mjs";
 import { Fn as object, Jn as string, Lt as boolean, Nt as array, Pn as number, qn as strictObject, xn as literal } from "../../schemas-BOYIvvln.mjs";
-import { n as resolvePreferredOpenClawTmpDir } from "../../tmp-openclaw-dir-BSb3HetY.mjs";
-import { l as normalizePluginsConfig } from "../../config-state-BEAL5gWH.mjs";
-import { t as canonicalizeBase64 } from "../../base64-B5EyWEOm.mjs";
-import { _ as registerComputerUseProvider, a as COMPUTER_USE_V2_ACTION_NAMES, f as parseComputerActParamsJSON, h as parseScreenSnapshotParamsJSON } from "../../computer-use-contract-DzawlQtp.mjs";
-import "../../string-coerce-runtime-C_MKhRVt.mjs";
-import { t as removePathWithinRoot } from "../../fs-safe-remove-voSEe4IL.mjs";
-import { n as buildPluginConfigSchema } from "../../config-schema-c9utjSlx.mjs";
-import { t as definePluginEntry } from "../../plugin-entry-BOulgRcx.mjs";
-import "../../plugin-config-runtime-CaI6yWBc.mjs";
-import "../../file-access-runtime-CWjkXCju.mjs";
-import "../../media-runtime-8H9fNtEF.mjs";
-import "../../temp-path-PENdksor.mjs";
-import "../../computer-use-tSE8M6p_.mjs";
-import { n as registerCuaDriverDoctorChecks, r as verifyInstalledCuaDriverArtifacts } from "../../api-CmLrEDux.mjs";
+import { t as KeyedAsyncQueue } from "../../keyed-async-queue-CTreGrmR.mjs";
+import { n as createNormalizedPluginsConfig } from "../../config-state-DY_WJYue.mjs";
+import { t as canonicalizeBase64 } from "../../base64-CU53EX1R.mjs";
+import { c as COMPUTER_USE_V2_ACTION_NAMES, h as parseComputerActParamsJSON, v as parseScreenSnapshotParamsJSON } from "../../computer-use-contract-g23cJXOi.mjs";
+import "../../string-coerce-runtime-50qKeWeL.mjs";
+import { c as removePathWithinRoot } from "../../file-access-runtime-BMp89X4Y.mjs";
+import { n as buildPluginConfigSchema } from "../../config-schema-BBtylDlH.mjs";
+import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
+import "../../plugin-config-runtime-DKh00pJ1.mjs";
+import "../../media-runtime-BeXWK4uL.mjs";
+import "../../temp-path-C5ZA6ftW.mjs";
+import { t as registerComputerUseProvider } from "../../computer-use-DhnvVHBf.mjs";
+import { n as registerCuaDriverDoctorChecks, r as verifyInstalledCuaDriverArtifacts } from "../../api-f3da1Sak.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
@@ -110,13 +111,6 @@ function scalePoint(frame, x, y, label) {
 }
 //#endregion
 //#region extensions/cua-computer/src/driver-client.ts
-const EscalationReason = {
-	AxTreePixelMismatch: 0,
-	BackgroundDeliveryFailed: 1,
-	ForegroundIneffective: 2,
-	NoWindowTarget: 3,
-	Other: 4
-};
 const ClickButton = {
 	Left: 0,
 	Right: 1,
@@ -191,7 +185,7 @@ var DirectCuaDriverSession = class {
 	async getCursorPosition(signal) {
 		return await this.invoke(signal, () => this.session.getCursorPosition({ session: this.publicSession }, asyncOptions(signal)));
 	}
-	async escalateScope(_reason, signal) {
+	async getSessionState(signal) {
 		await this.ensureSessionStarted(signal);
 		return await this.session.getSessionState({ session: this.publicSession }, asyncOptions(signal));
 	}
@@ -316,6 +310,18 @@ var LazyCuaDriverSession = class {
 		this.generation = randomUUID();
 		this.hasLoadFailure = false;
 		this.disposed = false;
+		this.bindRuntime = createLazyRuntimeMethodBinder(() => this.requireRuntime());
+		this.getDesktopState = this.bindRuntime((runtime) => runtime.getDesktopState.bind(runtime));
+		this.callTool = this.bindRuntime((runtime) => runtime.callTool.bind(runtime));
+		this.getCursorPosition = this.bindRuntime((runtime) => runtime.getCursorPosition.bind(runtime));
+		this.getSessionState = this.bindRuntime((runtime) => runtime.getSessionState.bind(runtime));
+		this.getScreenSize = this.bindRuntime((runtime) => runtime.getScreenSize.bind(runtime));
+		this.click = this.bindRuntime((runtime) => runtime.click.bind(runtime));
+		this.drag = this.bindRuntime((runtime) => runtime.drag.bind(runtime));
+		this.moveCursor = this.bindRuntime((runtime) => runtime.moveCursor.bind(runtime));
+		this.scroll = this.bindRuntime((runtime) => runtime.scroll.bind(runtime));
+		this.typeText = this.bindRuntime((runtime) => runtime.typeText.bind(runtime));
+		this.pressKey = this.bindRuntime((runtime) => runtime.pressKey.bind(runtime));
 	}
 	resolveRuntime() {
 		if (this.disposed || this.hasLoadFailure || this.loadPromise) return;
@@ -369,39 +375,6 @@ var LazyCuaDriverSession = class {
 			this.hasLoadFailure = false;
 		}
 	}
-	async getDesktopState(signal) {
-		return await (await this.requireRuntime()).getDesktopState(signal);
-	}
-	async callTool(name, args, signal) {
-		return await (await this.requireRuntime()).callTool(name, args, signal);
-	}
-	async getCursorPosition(signal) {
-		return await (await this.requireRuntime()).getCursorPosition(signal);
-	}
-	async escalateScope(reason, signal) {
-		return await (await this.requireRuntime()).escalateScope(reason, signal);
-	}
-	async getScreenSize(signal) {
-		return await (await this.requireRuntime()).getScreenSize(signal);
-	}
-	async click(input, signal) {
-		return await (await this.requireRuntime()).click(input, signal);
-	}
-	async drag(input, signal) {
-		return await (await this.requireRuntime()).drag(input, signal);
-	}
-	async moveCursor(input, signal) {
-		return await (await this.requireRuntime()).moveCursor(input, signal);
-	}
-	async scroll(input, signal) {
-		return await (await this.requireRuntime()).scroll(input, signal);
-	}
-	async typeText(text, signal) {
-		return await (await this.requireRuntime()).typeText(text, signal);
-	}
-	async pressKey(input, signal) {
-		return await (await this.requireRuntime()).pressKey(input, signal);
-	}
 	async dispose() {
 		if (this.disposed) return;
 		this.disposed = true;
@@ -425,6 +398,14 @@ function staleObservation() {
 function opaqueRef(kind) {
 	return `cua:v2:${kind}:${randomUUID()}`;
 }
+function issueRef(kind, targets, target, matches) {
+	if (matches) {
+		for (const [ref, current] of targets) if (matches(current)) return ref;
+	}
+	const ref = opaqueRef(kind);
+	targets.set(ref, target);
+	return ref;
+}
 function adoptGeneration(state, generation) {
 	if (state.generation !== generation) {
 		state.lastFrame = void 0;
@@ -445,25 +426,18 @@ function verifyGeneration(state, generation) {
 	}
 }
 function issueAppRef(state, target) {
-	state.apps ??= /* @__PURE__ */ new Map();
-	const ref = opaqueRef("app");
-	state.apps.set(ref, target);
-	return ref;
-}
-function resolveAppRef(state, ref) {
-	return state.apps?.get(ref);
+	return issueRef("app", state.apps ??= /* @__PURE__ */ new Map(), target);
 }
 function issueWindowRef(state, target) {
-	state.windows ??= /* @__PURE__ */ new Map();
-	for (const [ref, current] of state.windows) if (current.pid === target.pid && current.windowId === target.windowId) return ref;
-	const ref = opaqueRef("window");
-	state.windows.set(ref, target);
-	return ref;
+	return issueRef("window", state.windows ??= /* @__PURE__ */ new Map(), target, (current) => current.pid === target.pid && current.windowId === target.windowId);
+}
+function requireRef(targets, ref) {
+	const target = targets?.get(ref);
+	if (target === void 0) throw staleObservation();
+	return target;
 }
 function resolveWindowRef(state, ref) {
-	const target = state.windows?.get(ref);
-	if (!target) throw staleObservation();
-	return target;
+	return requireRef(state.windows, ref);
 }
 function issueObservation(state, windowRef, options = {}) {
 	const observation = {
@@ -476,9 +450,7 @@ function issueObservation(state, windowRef, options = {}) {
 	return observation;
 }
 function issueElementRef(observation, target) {
-	const ref = opaqueRef("element");
-	observation.elements.set(ref, target);
-	return ref;
+	return issueRef("element", observation.elements, target);
 }
 function resolveObservation(state, observationId, windowRef) {
 	const observation = state.observation;
@@ -486,31 +458,19 @@ function resolveObservation(state, observationId, windowRef) {
 	return observation;
 }
 function resolveElementRef(observation, elementRef) {
-	const target = observation.elements.get(elementRef);
-	if (!target) throw staleObservation();
-	return target;
+	return requireRef(observation.elements, elementRef);
 }
 function issueBrowserRef(state, target) {
-	state.browsers ??= /* @__PURE__ */ new Map();
-	for (const [ref, current] of state.browsers) if (current.targetId === target.targetId && current.windowRef === target.windowRef) return ref;
-	const ref = opaqueRef("browser");
-	state.browsers.set(ref, target);
-	return ref;
+	return issueRef("browser", state.browsers ??= /* @__PURE__ */ new Map(), target, (current) => current.targetId === target.targetId && current.windowRef === target.windowRef);
 }
 function resolveBrowserRef(state, ref) {
-	const target = state.browsers?.get(ref);
-	if (!target) throw staleObservation();
-	return target;
+	return requireRef(state.browsers, ref);
 }
 function issuePageRef(state, browserRef, tabId) {
-	state.pages ??= /* @__PURE__ */ new Map();
-	for (const [ref, current] of state.pages) if (current.browserRef === browserRef && current.tabId === tabId) return ref;
-	const ref = opaqueRef("page");
-	state.pages.set(ref, {
+	return issueRef("page", state.pages ??= /* @__PURE__ */ new Map(), {
 		browserRef,
 		tabId
-	});
-	return ref;
+	}, (current) => current.browserRef === browserRef && current.tabId === tabId);
 }
 function resolvePageRef(state, browserRef, pageRef) {
 	const page = state.pages?.get(pageRef);
@@ -529,9 +489,7 @@ function issueBrowserObservation(state, browserRef, pageRef) {
 	return observation;
 }
 function issueBrowserElementRef(observation, nativeRef) {
-	const ref = opaqueRef("element");
-	observation.elements.set(ref, { nativeRef });
-	return ref;
+	return issueRef("element", observation.elements, nativeRef);
 }
 function resolveBrowserObservation(state, observationId, browserRef, pageRef) {
 	const observation = state.browserObservation;
@@ -539,9 +497,7 @@ function resolveBrowserObservation(state, observationId, browserRef, pageRef) {
 	return observation;
 }
 function resolveBrowserElementRef(observation, elementRef) {
-	const target = observation.elements.get(elementRef);
-	if (!target) throw staleObservation();
-	return target.nativeRef;
+	return requireRef(observation.elements, elementRef);
 }
 function invalidateBrowserObservation(state) {
 	state.browserObservation = void 0;
@@ -566,9 +522,6 @@ function resolveDialogRef(state, dialogRef, browserRef, pageRef) {
 	const dialog = state.dialog;
 	if (!dialog || dialog.ref !== dialogRef || dialog.browserRef !== browserRef || dialog.pageRef !== pageRef) throw staleObservation();
 	return dialog.nativeId;
-}
-function clearDialogRef(state) {
-	state.dialog = void 0;
 }
 /**
 * CUA Driver exposes only the primary-display label, not a stable display ID.
@@ -820,7 +773,7 @@ function projectedToolDetails(result, tool) {
 	if (!result.structuredJson) throw new Error(`COMPUTER_DRIVER_ERROR: ${tool} returned no structuredContent`);
 	try {
 		const value = JSON.parse(result.structuredJson);
-		if (value && typeof value === "object" && !Array.isArray(value)) return value;
+		if (isRecord(value)) return value;
 	} catch {}
 	throw new Error(`COMPUTER_DRIVER_ERROR: ${tool} returned invalid structuredContent`);
 }
@@ -996,7 +949,7 @@ function browserObservation(result, state, target) {
 		}
 	}
 	const boundedElements = elements.slice(0, MAX_BROWSER_ELEMENTS);
-	const page = structured.page && typeof structured.page === "object" && !Array.isArray(structured.page) ? structured.page : void 0;
+	const page = asOptionalRecord(structured.page);
 	return {
 		ok: true,
 		observation: {
@@ -1009,7 +962,7 @@ function browserObservation(result, state, target) {
 			pageRef: target.pageRef,
 			elements: boundedElements,
 			...elements.length > MAX_BROWSER_ELEMENTS ? { truncatedElements: elements.length - MAX_BROWSER_ELEMENTS } : {},
-			...typeof structured.snapshot_id === "string" ? { snapshot: { format: "dom_refs_v1" } } : structured.snapshot && typeof structured.snapshot === "object" && !Array.isArray(structured.snapshot) ? { snapshot: projectSemanticBrowserSnapshot(structured.snapshot) } : {},
+			...typeof structured.snapshot_id === "string" ? { snapshot: { format: "dom_refs_v1" } } : isRecord(structured.snapshot) ? { snapshot: projectSemanticBrowserSnapshot(structured.snapshot) } : {},
 			...typeof structured.url === "string" ? { url: structured.url } : {},
 			...page ? { page: {
 				...typeof page.url === "string" ? { url: page.url } : {},
@@ -1031,7 +984,7 @@ function browserToolEnvelope(result, tool) {
 			["side_effects", "sideEffects"]
 		]) if (structured[source] !== void 0) details[destination] = structured[source];
 		const endpointOwnership = structured.endpoint_ownership;
-		if (endpointOwnership && typeof endpointOwnership === "object" && !Array.isArray(endpointOwnership) && typeof endpointOwnership.method === "string") details.endpointOwnership = { method: endpointOwnership.method };
+		if (isRecord(endpointOwnership) && typeof endpointOwnership.method === "string") details.endpointOwnership = { method: endpointOwnership.method };
 	} else if (tool === "browser_navigate") {
 		if (typeof structured.url === "string") details.url = structured.url;
 		if (typeof structured.refs_invalidated === "boolean") details.refsInvalidated = structured.refs_invalidated;
@@ -1053,14 +1006,14 @@ function projectSemanticBrowserSnapshot(snapshot) {
 		...typeof snapshot.complete === "boolean" ? { complete: snapshot.complete } : {},
 		...typeof snapshot.selected_nodes === "number" ? { selectedNodes: snapshot.selected_nodes } : {},
 		...typeof snapshot.total_nodes === "number" ? { totalNodes: snapshot.total_nodes } : {},
-		...snapshot.omitted && typeof snapshot.omitted === "object" && !Array.isArray(snapshot.omitted) ? { omitted: snapshot.omitted } : {},
+		...isRecord(snapshot.omitted) ? { omitted: snapshot.omitted } : {},
 		...typeof snapshot.continuation === "string" ? { continuation: snapshot.continuation } : {}
 	};
 }
 function browserDialogEnvelope(result, state, target) {
 	const structured = projectedToolDetails(result, "browser_dialog");
 	const present = structured.present === true;
-	if (!present) clearDialogRef(state);
+	if (!present) state.dialog = void 0;
 	const details = { present };
 	if (typeof structured.kind === "string") details.kind = structured.kind;
 	if (present && typeof structured.dialog_id === "string") details.dialogRef = issueDialogRef(state, structured.dialog_id, target.browserRef, target.pageRef);
@@ -1094,9 +1047,6 @@ function resourceError(message) {
 }
 function newHandle() {
 	return `${RESOURCE_HANDLE_PREFIX}${randomUUID()}`;
-}
-function safeLabel(value) {
-	return value.replaceAll(/[^a-z0-9-]/giu, "-").slice(0, 32) || "resource";
 }
 async function requireEntry(resources, executionRoot, handle, kind) {
 	if (!handle.startsWith(RESOURCE_HANDLE_PREFIX)) throw resourceError("malformed resource handle");
@@ -1168,7 +1118,7 @@ async function createCuaExecutionResources() {
 	return {
 		async createDirectory(kind) {
 			assertActive();
-			const relativePath = `${safeLabel(kind)}-${randomUUID()}`;
+			const relativePath = `${kind}-${randomUUID()}`;
 			await executionRoot.mkdir(relativePath);
 			return {
 				handle: register(kind, relativePath),
@@ -1331,7 +1281,7 @@ function normalizeMcpToolResult(tool, raw) {
 		mimeType: entry.mimeType
 	}] : []);
 	const structured = asOptionalRecord(value.structuredContent);
-	const errorCode = typeof structured?.code === "string" ? structured.code : typeof asOptionalRecord(structured?.refusal)?.code === "string" ? asOptionalRecord(structured?.refusal)?.code : void 0;
+	const errorCode = readStringField(structured, "code") ?? readStringField(asOptionalRecord(structured?.refusal), "code");
 	const isError = value.isError === true;
 	return {
 		text: text.join("\n"),
@@ -1424,7 +1374,7 @@ var McpCuaDriverSession = class {
 	async getCursorPosition(signal) {
 		return await this.sessionTool("get_cursor_position", {}, signal);
 	}
-	async escalateScope(_reason, signal) {
+	async getSessionState(signal) {
 		return sessionState(await this.sessionTool("get_session_state", {}, signal));
 	}
 	async getDesktopState(signal) {
@@ -1606,7 +1556,7 @@ function projectRecordingState(native, resourceHandle) {
 		...resourceHandle ? { resourceHandle } : {}
 	};
 }
-async function stopOwnedRecording(params) {
+async function closeRecordingExecution(params) {
 	const active = params.state.active;
 	params.state.active = void 0;
 	if (!active) return;
@@ -1617,7 +1567,7 @@ async function stopOwnedRecording(params) {
 	} catch (error) {
 		failure = error;
 	}
-	if (params.discard) try {
+	if (params.reason !== "completion") try {
 		await params.resources.discard(active.resourceHandle);
 	} catch (error) {
 		failure ??= error;
@@ -1632,12 +1582,6 @@ function projectReplayTurn(turn) {
 	if (turn.tool) projected.tool = turn.tool;
 	if (turn.parse_error) projected.parseError = true;
 	return projected;
-}
-async function closeRecordingExecution(params) {
-	await stopOwnedRecording({
-		...params,
-		discard: params.reason !== "completion"
-	});
 }
 async function handleRecordingAct(driver, state, resources, input, signal) {
 	switch (input.action) {
@@ -1807,42 +1751,46 @@ async function handleBrowserAct(driver, state, resources, input, signal) {
 			}, signal);
 			return JSON.stringify(browserToolEnvelope(result, "browser_prepare"));
 		}
-		case "browser_navigate": {
+		case "browser_navigate":
+		case "browser_click":
+		case "browser_type":
+		case "browser_pointer": {
 			const target = browserTarget(driver, state, input);
-			const result = await callWindowTool(driver, state, "browser_navigate", {
+			const args = {
 				target_id: target.targetId,
-				tab_id: target.tabId,
-				url: input.url
-			}, signal);
-			invalidateBrowserObservation(state);
-			return JSON.stringify(browserToolEnvelope(result, "browser_navigate"));
-		}
-		case "browser_click": {
-			const target = browserTarget(driver, state, input);
-			resolveBrowserObservation(state, input.observationId, target.browserRef, target.pageRef);
-			const ref = browserElement(state, input, target);
-			const result = await callWindowTool(driver, state, "browser_click", {
-				target_id: target.targetId,
-				tab_id: target.tabId,
-				...ref ? { ref } : {},
-				...input.x !== void 0 ? { x: input.x } : {},
-				...input.y !== void 0 ? { y: input.y } : {},
-				...input.inputRoute ? { input_route: input.inputRoute } : {}
-			}, signal);
-			return JSON.stringify(browserToolEnvelope(result, "browser_click"));
-		}
-		case "browser_type": {
-			const target = browserTarget(driver, state, input);
-			const ref = browserElement(state, input, target);
-			const result = await callWindowTool(driver, state, "browser_type", {
-				target_id: target.targetId,
-				tab_id: target.tabId,
-				ref,
+				tab_id: target.tabId
+			};
+			if (input.action === "browser_navigate") args.url = input.url;
+			else if (input.action === "browser_type") Object.assign(args, {
+				ref: browserElement(state, input, target),
 				text: input.text,
 				...input.mode ? { mode: input.mode } : {},
 				...input.replace !== void 0 ? { replace: input.replace } : {}
-			}, signal);
-			return JSON.stringify(browserToolEnvelope(result, "browser_type"));
+			});
+			else {
+				resolveBrowserObservation(state, input.observationId, target.browserRef, target.pageRef);
+				const ref = browserElement(state, input, target);
+				if (input.action === "browser_pointer") {
+					const destinationRef = browserElement(state, input, target, input.destinationElementRef);
+					Object.assign(args, {
+						action: input.pointerAction,
+						...destinationRef ? { destination_ref: destinationRef } : {},
+						...input.toX !== void 0 ? { to_x: input.toX } : {},
+						...input.toY !== void 0 ? { to_y: input.toY } : {},
+						...input.deltaX !== void 0 ? { delta_x: input.deltaX } : {},
+						...input.deltaY !== void 0 ? { delta_y: input.deltaY } : {}
+					});
+				}
+				Object.assign(args, {
+					...ref ? { ref } : {},
+					...input.x !== void 0 ? { x: input.x } : {},
+					...input.y !== void 0 ? { y: input.y } : {},
+					...input.inputRoute ? { input_route: input.inputRoute } : {}
+				});
+			}
+			const result = await callWindowTool(driver, state, input.action, args, signal);
+			if (input.action === "browser_navigate") invalidateBrowserObservation(state);
+			return JSON.stringify(browserToolEnvelope(result, input.action));
 		}
 		case "browser_dialog": {
 			const target = browserTarget(driver, state, input);
@@ -1855,7 +1803,7 @@ async function handleBrowserAct(driver, state, resources, input, signal) {
 				...input.promptText !== void 0 ? { prompt_text: input.promptText } : {},
 				...input.deliveryMode ? { delivery_mode: input.deliveryMode } : {}
 			}, signal);
-			if (input.dialogAction !== "inspect") clearDialogRef(state);
+			if (input.dialogAction !== "inspect") state.dialog = void 0;
 			return JSON.stringify(browserDialogEnvelope(result, state, target));
 		}
 		case "browser_set_input_files": {
@@ -1903,27 +1851,6 @@ async function handleBrowserAct(driver, state, resources, input, signal) {
 					fileResourceHandles
 				}
 			});
-		}
-		case "browser_pointer": {
-			const target = browserTarget(driver, state, input);
-			resolveBrowserObservation(state, input.observationId, target.browserRef, target.pageRef);
-			const ref = browserElement(state, input, target);
-			const destinationRef = browserElement(state, input, target, input.destinationElementRef);
-			const result = await callWindowTool(driver, state, "browser_pointer", {
-				target_id: target.targetId,
-				tab_id: target.tabId,
-				action: input.pointerAction,
-				...input.inputRoute ? { input_route: input.inputRoute } : {},
-				...ref ? { ref } : {},
-				...input.x !== void 0 ? { x: input.x } : {},
-				...input.y !== void 0 ? { y: input.y } : {},
-				...destinationRef ? { destination_ref: destinationRef } : {},
-				...input.toX !== void 0 ? { to_x: input.toX } : {},
-				...input.toY !== void 0 ? { to_y: input.toY } : {},
-				...input.deltaX !== void 0 ? { delta_x: input.deltaX } : {},
-				...input.deltaY !== void 0 ? { delta_y: input.deltaY } : {}
-			}, signal);
-			return JSON.stringify(browserToolEnvelope(result, "browser_pointer"));
 		}
 		default: return;
 	}
@@ -2111,7 +2038,7 @@ async function handleWindowAct(platform, driver, state, execution, params, handl
 		case "launch_app": {
 			verifyGeneration(state, driver.generation);
 			const appName = input.app;
-			const app = resolveAppRef(state, appName);
+			const app = state.apps?.get(appName);
 			if (!app) throw new Error("COMPUTER_STALE_OBSERVATION: refresh list_apps and retry");
 			const result = await callWindowTool(driver, state, "launch_app", platform !== "darwin" && app.launchPath ? { launch_path: app.launchPath } : app.bundleId ? { bundle_id: app.bundleId } : { name: app.name }, signal);
 			const structured = projectedToolDetails(result, "launch_app");
@@ -2126,7 +2053,7 @@ async function handleWindowAct(platform, driver, state, execution, params, handl
 		case "kill_app": {
 			verifyGeneration(state, driver.generation);
 			const appName = input.app;
-			const app = resolveAppRef(state, appName);
+			const app = state.apps?.get(appName);
 			if (!app?.pid) throw new Error("COMPUTER_INVALID_REQUEST: kill_app requires a running app reference from list_apps");
 			const result = await callWindowTool(driver, state, "kill_app", { pid: app.pid }, signal);
 			return JSON.stringify(actionEnvelope(result, { app: appName }));
@@ -2176,14 +2103,7 @@ async function handleWindowAct(platform, driver, state, execution, params, handl
 			return JSON.stringify(windowObservation(result, state, ref, { fromZoom: true }));
 		}
 		case "escalate_scope": {
-			const reason = {
-				ax_tree_pixel_mismatch: EscalationReason.AxTreePixelMismatch,
-				background_delivery_failed: EscalationReason.BackgroundDeliveryFailed,
-				foreground_ineffective: EscalationReason.ForegroundIneffective,
-				no_window_target: EscalationReason.NoWindowTarget,
-				other: EscalationReason.Other
-			}[input.reason];
-			const result = await driver.escalateScope(reason, signal);
+			const result = await driver.getSessionState(signal);
 			adoptGeneration(state, driver.generation);
 			return JSON.stringify({
 				ok: true,
@@ -2240,24 +2160,6 @@ function resolveMacOsMcpEndpoint(env) {
 		return;
 	}
 }
-var PromiseQueue = class {
-	constructor() {
-		this.tail = Promise.resolve();
-	}
-	async run(operation) {
-		const previous = this.tail;
-		let release = () => {};
-		this.tail = new Promise((resolve) => {
-			release = resolve;
-		});
-		await previous;
-		try {
-			return await operation();
-		} finally {
-			release();
-		}
-	}
-};
 function assertPrimaryDisplay(screenIndex) {
 	if (screenIndex !== void 0 && screenIndex !== 0) throw new Error("COMPUTER_UNSUPPORTED_DISPLAY: cua-driver controls only the primary display (screenIndex 0)");
 }
@@ -2424,6 +2326,7 @@ function createCuaComputerProvider(options = {}) {
 	const env = options.env ?? process.env;
 	const macOsEndpoint = platform === "darwin" ? resolveMacOsMcpEndpoint(env) : void 0;
 	let ownedAvailabilityDriver;
+	let availabilityDisposal;
 	let stopped = false;
 	const createDriver = options.createDriver ?? (macOsEndpoint ? () => createCuaMcpDriver({
 		...macOsEndpoint,
@@ -2433,11 +2336,13 @@ function createCuaComputerProvider(options = {}) {
 		if (stopped) throw new Error("COMPUTER_DRIVER_UNAVAILABLE: cua-computer is stopping");
 		return options.driver ?? (ownedAvailabilityDriver ??= createDriver());
 	};
-	const disposeAvailabilityDriver = async () => {
+	const disposeAvailabilityDriver = () => {
 		stopped = true;
-		const current = ownedAvailabilityDriver;
-		ownedAvailabilityDriver = void 0;
-		await current?.dispose();
+		return availabilityDisposal ??= Promise.resolve().then(async () => {
+			const current = ownedAvailabilityDriver;
+			ownedAvailabilityDriver = void 0;
+			await current?.dispose();
+		});
 	};
 	const imageProcessor = options.imageProcessor ?? createImageProcessor(env);
 	const interval = options.setInterval ?? setInterval;
@@ -2490,7 +2395,7 @@ function createCuaComputerProvider(options = {}) {
 			timer.unref?.();
 			return () => {
 				clear(timer);
-				disposeAvailabilityDriver();
+				return disposeAvailabilityDriver();
 			};
 		},
 		openExecution: async () => {
@@ -2501,7 +2406,7 @@ function createCuaComputerProvider(options = {}) {
 				resources,
 				recording: {}
 			};
-			const queue = new PromiseQueue();
+			const queue = new KeyedAsyncQueue();
 			const frameState = { generation: executionDriver.generation };
 			let closing = false;
 			let closePromise;
@@ -2510,7 +2415,7 @@ function createCuaComputerProvider(options = {}) {
 				if (!isSupportedPlatform) throw new Error(platform === "darwin" ? `COMPUTER_DRIVER_UNAVAILABLE: cua-computer requires app-provided ${CUA_DRIVER_ENDPOINT_ENV}` : "COMPUTER_DRIVER_UNAVAILABLE: cua-computer supports macOS, Windows, and Linux");
 			};
 			return {
-				snapshot: async (paramsJSON, signal) => await queue.run(async () => {
+				snapshot: async (paramsJSON, signal) => await queue.enqueue("execution", async () => {
 					assertOpen();
 					const params = parseScreenSnapshotParamsJSON(paramsJSON);
 					assertPrimaryDisplay(params.screenIndex);
@@ -2552,14 +2457,14 @@ function createCuaComputerProvider(options = {}) {
 						height
 					});
 				}),
-				act: async (paramsJSON, signal) => await queue.run(async () => {
+				act: async (paramsJSON, signal) => await queue.enqueue("execution", async () => {
 					assertOpen();
 					return await handleWindowAct(platform, executionDriver, frameState, executionState, parseComputerActParamsJSON(paramsJSON), handleDesktopAct, signal);
 				}),
 				close: async (reason) => {
 					if (closePromise) return await closePromise;
 					closing = true;
-					closePromise = queue.run(async () => {
+					closePromise = queue.enqueue("execution", async () => {
 						let failure;
 						try {
 							await closeRecordingExecution({
@@ -2660,7 +2565,7 @@ var cua_computer_default = definePluginEntry({
 		const parsed = CuaComputerConfigSchema.safeParse(api.pluginConfig ?? {});
 		if (!parsed.success) throw new Error(`Invalid cua-computer plugin config: ${parsed.error.issues[0]?.message ?? "invalid config"}`);
 		api.registerNodeInvokePolicy(createCuaComputerNodeInvokePolicy());
-		if (process.platform !== "darwin" && normalizePluginsConfig(api.config.plugins).entries[api.id]?.enabled !== true) return;
+		if (process.platform !== "darwin" && createNormalizedPluginsConfig(api.config.plugins).entries[api.id]?.enabled !== true) return;
 		registerCuaDriverDoctorChecks();
 		const artifactVerification = verifyInstalledCuaDriverArtifacts();
 		if (!artifactVerification.ok) api.logger?.error(artifactVerification.diagnostic);

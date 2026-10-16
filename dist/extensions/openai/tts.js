@@ -1,2 +1,2 @@
-import { a as isValidOpenAIVoice, i as isValidOpenAIModel, n as OPENAI_TTS_MODELS, o as normalizeOpenAITtsBaseUrl, r as OPENAI_TTS_VOICES, s as openaiTTS, t as DEFAULT_OPENAI_BASE_URL } from "../../tts-CTOmge4b.mjs";
-export { DEFAULT_OPENAI_BASE_URL, OPENAI_TTS_MODELS, OPENAI_TTS_VOICES, isValidOpenAIModel, isValidOpenAIVoice, normalizeOpenAITtsBaseUrl, openaiTTS };
+import { a as isValidOpenAIModel, c as openaiTTS, i as isCustomOpenAITtsBaseUrl, n as OPENAI_TTS_MODELS, o as isValidOpenAIVoice, r as OPENAI_TTS_VOICES, s as normalizeOpenAITtsBaseUrl, t as DEFAULT_OPENAI_BASE_URL } from "../../tts-Di2jRkqQ.mjs";
+export { DEFAULT_OPENAI_BASE_URL, OPENAI_TTS_MODELS, OPENAI_TTS_VOICES, isCustomOpenAITtsBaseUrl, isValidOpenAIModel, isValidOpenAIVoice, normalizeOpenAITtsBaseUrl, openaiTTS };

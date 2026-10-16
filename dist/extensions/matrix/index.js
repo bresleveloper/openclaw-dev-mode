@@ -1,4 +1,4 @@
-import { n as registerMatrixCliMetadata } from "./.setup/cli-metadata-DFHQj5XR.mjs";
+import { n as registerMatrixCliMetadata } from "./.setup/cli-metadata-CtcjBFhc.mjs";
 import { a as setMatrixRuntimeLifecycle } from "./.setup/runtime-1kn1P6io.mjs";
 import "./runtime-setter-api.js";
 import { registerMatrixSubagentHooks } from "./subagent-hooks-api.js";

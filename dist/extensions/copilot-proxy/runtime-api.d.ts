@@ -1,2 +1,2 @@
-import { B as ProviderAuthResult, n as OpenClawPluginApi, t as definePluginEntry, z as ProviderAuthContext } from "../../runtime-api-BQqQOWYL.js";
+import { Ht as ProviderAuthResult, Vt as ProviderAuthContext, gn as definePluginEntry, n as OpenClawPluginApi } from "../../agent-harness-runtime-Du4B564s.js";
 export { type OpenClawPluginApi, type ProviderAuthContext, type ProviderAuthResult, definePluginEntry };

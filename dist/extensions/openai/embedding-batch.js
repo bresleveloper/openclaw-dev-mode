@@ -1,12 +1,12 @@
-import { t as coerceErrorMessage } from "../../error-coercion-C787aVxk.mjs";
-import { d as normalizeStringEntries } from "../../string-normalization-_gRhJUDw.mjs";
-import { h as readProviderTextResponse, m as readProviderJsonResponse, r as assertOkOrThrowProviderError } from "../../provider-http-errors-CTY_-ABT.mjs";
-import { M as withRemoteHttpResponse } from "../../gateway-startup-plugin-config-DCJJCRPW.mjs";
-import "../../error-runtime-Bf1fYXFh.mjs";
-import "../../string-coerce-runtime-C_MKhRVt.mjs";
-import { g as waitProviderOperationPollInterval, h as resolveProviderOperationTimeoutMs, r as createProviderOperationDeadline } from "../../shared-BLFkM12I.mjs";
-import "../../provider-http-Dn9NddwC.mjs";
-import { D as formatBatchErrorDetail, E as extractBatchErrorMessage, O as formatUnavailableBatchError, b as waitForEmbeddingBatch, d as buildEmbeddingBatchGroupOptions, l as resolveEmbeddingEndpointUrl, m as buildBatchHeaders, p as runEmbeddingBatches, s as uploadBatchJsonlFile, w as postJsonWithRetry, x as EMBEDDING_BATCH_ENDPOINT } from "../../memory-core-host-engine-embeddings-7e_FHMpT.mjs";
+import { t as coerceErrorMessage } from "../../error-coercion-CvJK4lmH.mjs";
+import { d as normalizeStringEntries } from "../../string-normalization-CECOqf64.mjs";
+import { h as readProviderTextResponse, m as readProviderJsonResponse, r as assertOkOrThrowProviderError } from "../../provider-http-errors-DmewLLH7.mjs";
+import { O as withRemoteHttpResponse } from "../../gateway-startup-plugin-config-CleWmmi_.mjs";
+import "../../error-runtime-BmospGvZ.mjs";
+import "../../string-coerce-runtime-50qKeWeL.mjs";
+import { _ as resolveProviderOperationTimeoutMs, r as createProviderOperationDeadline, v as waitProviderOperationPollInterval } from "../../shared-DcnGQdHV.mjs";
+import "../../provider-http-CuRGJD0L.mjs";
+import { D as formatBatchErrorDetail, E as extractBatchErrorMessage, O as formatUnavailableBatchError, b as waitForEmbeddingBatch, d as buildEmbeddingBatchGroupOptions, l as resolveEmbeddingEndpointUrl, m as buildBatchHeaders, p as runEmbeddingBatches, s as uploadBatchJsonlFile, w as postJsonWithRetry, x as EMBEDDING_BATCH_ENDPOINT } from "../../memory-core-host-engine-embeddings-D5ue0oCU.mjs";
 //#region extensions/openai/embedding-batch.ts
 const OPENAI_BATCH_ENDPOINT = EMBEDDING_BATCH_ENDPOINT;
 const OPENAI_BATCH_COMPLETION_WINDOW = "24h";
@@ -36,23 +36,6 @@ async function submitOpenAiBatch(params) {
 		errorPrefix: "openai batch create failed"
 	});
 }
-async function fetchOpenAiBatchStatus(params) {
-	return await fetchOpenAiBatchResource({
-		openAi: params.openAi,
-		path: `/batches/${params.batchId}`,
-		label: "openai.batch-status",
-		signal: params.signal,
-		parse: async (res) => readProviderJsonResponse(res, "openai.batch-status")
-	});
-}
-async function fetchOpenAiFileContent(params) {
-	return await fetchOpenAiBatchResource({
-		openAi: params.openAi,
-		path: `/files/${params.fileId}/content`,
-		label: "openai.batch-file-content",
-		parse: async (res) => await readProviderTextResponse(res, "openai.batch-file-content")
-	});
-}
 async function fetchOpenAiBatchResource(params) {
 	return await withRemoteHttpResponse({
 		url: resolveEmbeddingEndpointUrl(params.openAi.baseUrl, params.path),
@@ -75,7 +58,6 @@ function isOpenAiBatchUploadTooLargeError(error) {
 	return /\b413\b/.test(message) || /payload too large/i.test(message) || /request body too large/i.test(message) || /file too large/i.test(message) || /maximum allowed/i.test(message) || /max(?:imum)? (?:body|payload|file) (?:size )?(?:exceeded|limit)/i.test(message);
 }
 function parseOpenAiBatchOutput(text) {
-	if (!text.trim()) return [];
 	return normalizeStringEntries(text.split("\n")).map(parseOpenAiBatchOutputLine);
 }
 function parseOpenAiBatchOutputLine(line) {
@@ -87,9 +69,11 @@ function parseOpenAiBatchOutputLine(line) {
 }
 async function readOpenAiBatchError(params) {
 	try {
-		const lines = parseOpenAiBatchOutput(await fetchOpenAiFileContent({
+		const lines = parseOpenAiBatchOutput(await fetchOpenAiBatchResource({
 			openAi: params.openAi,
-			fileId: params.errorFileId
+			path: `/files/${params.errorFileId}/content`,
+			label: "openai.batch-file-content",
+			parse: (res) => readProviderTextResponse(res, "openai.batch-file-content")
 		}));
 		return formatBatchErrorDetail(extractBatchErrorMessage(lines));
 	} catch (err) {
@@ -142,9 +126,7 @@ async function runOpenAiEmbeddingBatches(params) {
 		}),
 		waitForBatch: async (batchInfo, pollIntervalMs, timeoutMs) => {
 			const batchId = batchInfo.id;
-			const openAi = params.openAi;
-			const wait = params.wait;
-			const debug = params.debug;
+			const { openAi, wait, debug } = params;
 			const deadline = createProviderOperationDeadline({
 				label: `openai batch ${batchId}`,
 				timeoutMs
@@ -157,10 +139,12 @@ async function runOpenAiEmbeddingBatches(params) {
 				timeoutMs,
 				debug,
 				initial: batchInfo,
-				fetchStatus: (signal) => fetchOpenAiBatchStatus({
+				fetchStatus: (signal) => fetchOpenAiBatchResource({
 					openAi,
-					batchId,
-					signal
+					path: `/batches/${batchId}`,
+					label: "openai.batch-status",
+					signal,
+					parse: (res) => readProviderJsonResponse(res, "openai.batch-status")
 				}),
 				resolveTimeoutMs: () => resolveProviderOperationTimeoutMs({
 					deadline,

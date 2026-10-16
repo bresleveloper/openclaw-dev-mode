@@ -1,0 +1,72 @@
+import { f as resolveGatewayProfileSuffix } from "./constants-BLghGsId.mjs";
+import { n as quoteCmdScriptArg } from "./cmd-argv-jQQXbWaH.mjs";
+import { n as resolveGatewayStateDir, t as resolveDaemonHomeDir } from "./paths-DMJOvLwv.mjs";
+import fs from "node:fs";
+import path from "node:path";
+//#region src/daemon/restart-logs.ts
+/** Resolves daemon log paths and shell snippets for restart handoff diagnostics. */
+const GATEWAY_RESTART_LOG_FILENAME = "gateway-restart.log";
+function resolveGatewayLogPaths(env) {
+	const stateDir = resolveGatewayStateDir(env);
+	const logDir = path.join(stateDir, "logs");
+	const prefix = env.OPENCLAW_LOG_PREFIX?.trim() || "gateway";
+	return {
+		logDir,
+		stdoutPath: path.join(logDir, `${prefix}.log`),
+		stderrPath: path.join(logDir, `${prefix}.err.log`)
+	};
+}
+function resolveMacLaunchAgentLogPaths(env) {
+	const home = resolveDaemonHomeDir(env).replaceAll("\\", "/");
+	const logDir = path.posix.join(home, "Library", "Logs", "openclaw");
+	const prefix = env.OPENCLAW_LOG_PREFIX?.trim() || `gateway${resolveGatewayProfileSuffix(env.OPENCLAW_PROFILE)}`;
+	return {
+		logDir,
+		stdoutPath: path.posix.join(logDir, `${prefix}.log`),
+		stderrPath: path.posix.join(logDir, `${prefix}.err.log`)
+	};
+}
+function resolveGatewaySupervisorLogPaths(env, options) {
+	return (options?.platform ?? process.platform) === "darwin" ? resolveMacLaunchAgentLogPaths(env) : resolveGatewayLogPaths(env);
+}
+function resolveGatewayRestartLogPath(env) {
+	return path.join(resolveGatewayLogPaths(env).logDir, GATEWAY_RESTART_LOG_FILENAME);
+}
+/** Append one best-effort lifecycle record without letting diagnostics block the mutation. */
+function appendGatewayLifecycleAuditLog(env, entry) {
+	try {
+		const logPath = resolveGatewayRestartLogPath(env);
+		fs.mkdirSync(path.dirname(logPath), { recursive: true });
+		const fields = [
+			`source=${entry.source}`,
+			`action=${entry.action}`,
+			`mode=${entry.mode}`,
+			...entry.pid !== void 0 ? [`pid=${entry.pid}`] : [],
+			`interactive=${entry.interactive ? 1 : 0}`
+		];
+		fs.appendFileSync(logPath, `[${(/* @__PURE__ */ new Date()).toISOString()}] openclaw gateway lifecycle ${fields.join(" ")}\n`, "utf8");
+	} catch {}
+}
+function shellEscapeRestartLogValue(value) {
+	return value.replace(/'/g, "'\\''");
+}
+function renderPosixRestartLogSetup(env) {
+	const logPath = resolveGatewayRestartLogPath(env);
+	const escapedLogDir = shellEscapeRestartLogValue(path.dirname(logPath));
+	const escapedLogPath = shellEscapeRestartLogValue(logPath);
+	return `if mkdir -p '${escapedLogDir}' 2>/dev/null && : >>'${escapedLogPath}' 2>/dev/null; then
+  exec >>'${escapedLogPath}' 2>&1
+fi`;
+}
+function renderCmdRestartLogSetup(env) {
+	const logPath = resolveGatewayRestartLogPath(env);
+	const logDir = path.dirname(logPath);
+	const quotedLogDir = quoteCmdScriptArg(logDir);
+	const quotedLogPath = quoteCmdScriptArg(logPath);
+	return {
+		quotedLogPath,
+		lines: [`if not exist ${quotedLogDir} mkdir ${quotedLogDir} >nul 2>&1`, `>> ${quotedLogPath} 2>&1 echo [%DATE% %TIME%] openclaw restart log initialized`]
+	};
+}
+//#endregion
+export { resolveGatewayRestartLogPath as a, resolveGatewayLogPaths as i, renderCmdRestartLogSetup as n, resolveGatewaySupervisorLogPaths as o, renderPosixRestartLogSetup as r, appendGatewayLifecycleAuditLog as t };

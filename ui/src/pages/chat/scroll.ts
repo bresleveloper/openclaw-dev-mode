@@ -96,7 +96,6 @@ export type ChatScrollHost = {
   chatReadingHistory: boolean;
   chatNewMessagesBelow: boolean;
   chatIsProgrammaticScroll?: () => boolean;
-  chatIsManualScroll?: () => boolean;
   chatIsMaintenanceScroll?: () => boolean;
   chatScrollElement?: () => HTMLElement | null;
   chatScrollToEnd?: (options: ChatScrollToEndOptions) => boolean;
@@ -115,6 +114,11 @@ type ChatScrollOptions = {
 
 type PendingChatScroll = { manual: boolean; cancel: () => void };
 const pendingChatScrolls = new WeakMap<ChatScrollHost, PendingChatScroll>();
+
+/** A queued reader command owns the next viewport movement, including geometric follow. */
+export function canAutoFollowChat(host: ChatScrollHost): boolean {
+  return !host.chatFollowLocked && !pendingChatScrolls.get(host)?.manual;
+}
 
 export function cancelChatScroll(host: ChatScrollHost): void {
   pendingChatScrolls.get(host)?.cancel();
@@ -142,6 +146,7 @@ function applyChatScroll(
   }
   const distanceFromBottom = target.scrollHeight - target.scrollTop - target.clientHeight;
   const contentGrew = target.scrollHeight > (host.chatLastScrollHeight ?? 0) + 1;
+  const contentHeightChanged = Math.abs(target.scrollHeight - (host.chatLastScrollHeight ?? 0)) > 1;
   host.chatLastScrollHeight = target.scrollHeight;
   const contentChanged = options.contentChanged ?? options.source !== "resize";
   const manualScroll = options.source === "manual";
@@ -149,11 +154,14 @@ function applyChatScroll(
   // force=true only overrides when we haven't auto-scrolled yet (initial load).
   // After initial load, respect the user's scroll position.
   const effectiveForce = force && !host.chatHasAutoScrolled;
+  // Content commits measure after rows change height. Preserve the prior reader
+  // intent in chatFollowLocked instead of re-deriving it from the new geometry.
   const shouldStick =
     manualScroll ||
     effectiveForce ||
     (!host.chatFollowLocked &&
-      (options.source === "resize" ||
+      ((contentChanged && contentHeightChanged) ||
+        options.source === "resize" ||
         host.chatUserNearBottom ||
         distanceFromBottom < NEAR_BOTTOM_THRESHOLD));
 
@@ -217,13 +225,23 @@ function queueChatScroll(
   };
   pendingChatScrolls.set(host, request);
   const enqueue = (complete?: () => void) => {
-    frame = requestAnimationFrame(() => {
+    const apply = () => {
       if (pendingChatScrolls.get(host) !== request) {
         return;
       }
       pendingChatScrolls.delete(host);
       complete?.();
       applyChatScroll(host, force, smooth, options);
+    };
+    frame = requestAnimationFrame(() => {
+      // The composer viewport and appended rows commit their measured sizes in
+      // ResizeObserver after rAF. Starting a smooth send against their estimates
+      // makes the virtualizer snap to a revised target on its next frame.
+      if (request.manual && smooth && resolveScrollBehavior() === "smooth") {
+        frame = requestAnimationFrame(apply);
+      } else {
+        apply();
+      }
     });
     return request.cancel;
   };
@@ -272,17 +290,7 @@ export function handleChatScrollTakeover(host: ChatScrollHost, towardEnd = false
 }
 
 /** Reader-controlled UI can take over even when the transcript is at its end. */
-export function lockChatScroll(
-  host: ChatScrollHost,
-  source: "reader" | "remote-input" = "reader",
-): void {
-  // Remote activity cannot cancel a queued or already-issued reader command.
-  if (
-    source === "remote-input" &&
-    (pendingChatScrolls.get(host)?.manual || host.chatIsManualScroll?.())
-  ) {
-    return;
-  }
+export function lockChatScroll(host: ChatScrollHost): void {
   const changed = !host.chatFollowLocked || host.chatUserNearBottom;
   cancelChatScroll(host);
   host.chatHasAutoScrolled = true;

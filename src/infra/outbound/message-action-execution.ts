@@ -29,10 +29,12 @@ import { stripUnsupportedCitationControlMarkers } from "../../shared/text/citati
 import { formatErrorMessage } from "../errors.js";
 import { throwIfAborted } from "./abort.js";
 import { assertOutboundHandoffCurrent, OutboundHandoffRejectedError } from "./deliver-handoff.js";
-import type {
-  MessageActionGateway,
-  MessageActionResult,
-  ResolvedActionContext,
+import {
+  createChannelActionContext,
+  type MessageActionGateway,
+  type MessageActionInput,
+  type MessageActionResult,
+  type ResolvedActionContext,
 } from "./message-action-contracts.js";
 import { annotateSourceDelivery } from "./message-action-result-acceptance.js";
 import { resolveAndApplyOutboundThreadId } from "./message-action-threading.js";
@@ -43,7 +45,6 @@ import {
 import {
   applyCrossContextDecoration,
   buildCrossContextDecoration,
-  type CrossContextDecoration,
   shouldApplyCrossContextMarker,
 } from "./outbound-policy.js";
 import { executePollAction } from "./outbound-send-service.js";
@@ -66,6 +67,23 @@ const loadMessageActionGatewayRuntime = createLazyRuntimeModule(
 const MESSAGE_ACTION_RECONCILIATION_TIMEOUT_MS = 60_000;
 const MESSAGE_ACTION_RECONCILIATION_MAX_MS = 9 * 60_000;
 const MESSAGE_ACTION_INITIAL_SEND_TIMEOUT_MAX_MS = 30_000;
+
+export function assertMessageDeliveryCurrent(input: MessageActionInput): void {
+  throwIfAborted(input.abortSignal);
+  input.assertDirectAdapterHandoff?.();
+  input.messageActionAuthorization?.scheduled?.assertCurrent();
+  input.messageActionAuthorization?.deliveryAttempt?.assertCurrent();
+}
+
+export async function beforeMessageDeliveryAttempt(input: MessageActionInput): Promise<void> {
+  const deliveryAttempt = input.messageActionAuthorization?.deliveryAttempt;
+  if (!deliveryAttempt) {
+    return;
+  }
+  assertMessageDeliveryCurrent(input);
+  await deliveryAttempt.beforeAttempt();
+  assertMessageDeliveryCurrent(input);
+}
 
 async function callGatewayMessageAction<T>(params: {
   gateway?: MessageActionGateway;
@@ -201,35 +219,6 @@ async function resolveGatewayActionIdempotencyKey(idempotencyKey?: string): Prom
   return randomIdempotencyKey();
 }
 
-function applyCrossContextMessageDecoration({
-  params,
-  message,
-  decoration,
-  preferPresentation,
-}: {
-  params: Record<string, unknown>;
-  message: string;
-  decoration: CrossContextDecoration;
-  preferPresentation: boolean;
-}): string {
-  const applied = applyCrossContextDecoration({
-    message,
-    decoration,
-    preferPresentation,
-  });
-  params.message = applied.message;
-  if (applied.presentation) {
-    const existing = normalizeMessagePresentation(params.presentation);
-    params.presentation = existing
-      ? {
-          ...existing,
-          blocks: [...applied.presentation.blocks, ...existing.blocks],
-        }
-      : applied.presentation;
-  }
-  return applied.message;
-}
-
 export async function applyMessageCrossContextMarker(params: {
   cfg: OpenClawConfig;
   channel: ChannelId;
@@ -256,12 +245,22 @@ export async function applyMessageCrossContextMarker(params: {
   if (!decoration) {
     return params.message;
   }
-  return applyCrossContextMessageDecoration({
-    params: params.args,
+  const applied = applyCrossContextDecoration({
     message: params.message,
     decoration,
     preferPresentation: params.preferPresentation,
   });
+  params.args.message = applied.message;
+  if (applied.presentation) {
+    const existing = normalizeMessagePresentation(params.args.presentation);
+    params.args.presentation = existing
+      ? {
+          ...existing,
+          blocks: [...applied.presentation.blocks, ...existing.blocks],
+        }
+      : applied.presentation;
+  }
+  return applied.message;
 }
 
 export async function executeGatewayAction(
@@ -556,26 +555,28 @@ export async function executeMessagePlugin(
     mediaAccess,
     accountId,
     dryRun,
-    gateway,
     input,
     abortSignal,
-    agentId,
   } = ctx;
   throwIfAborted(abortSignal);
   const action = input.action as Exclude<ChannelMessageActionName, "send" | "poll" | "broadcast">;
+  const actionResult = {
+    kind: "action" as const,
+    channel,
+    action,
+    ...(ctx.resolvedTarget ? { to: ctx.resolvedTarget.to } : {}),
+    dryRun,
+  };
   if (dryRun) {
     return {
-      kind: "action",
-      channel,
-      action,
+      ...actionResult,
       handledBy: "dry-run",
       payload: { ok: true, dryRun: true, channel, action },
-      dryRun: true,
     };
   }
 
   if (!channelPlugin?.actions?.handleAction) {
-    throw new Error(`Channel ${channel} is unavailable for message actions (plugin not loaded).`);
+    throw new Error(`Message action ${action} not supported for channel ${channel}.`);
   }
 
   // Plugin actions bypass buildSendPayloadParts, so model-authored text here
@@ -609,12 +610,9 @@ export async function executeMessagePlugin(
   const gatewayPluginAction = await executeGatewayAction(ctx, {
     action,
     result: (payload) => ({
-      kind: "action",
-      channel,
-      action,
+      ...actionResult,
       handledBy: "plugin",
       payload,
-      dryRun,
     }),
   });
   const replyToIsExplicit = Boolean(readToolStringParam(params, "replyTo"));
@@ -627,15 +625,8 @@ export async function executeMessagePlugin(
   let handled;
   try {
     handled = await dispatchChannelMessageAction({
-      channel,
-      action,
-      cfg,
-      params,
+      ...createChannelActionContext({ ctx, action, mediaAccess }),
       progressSnapshot: input.progressSnapshot,
-      mediaAccess,
-      mediaLocalRoots: mediaAccess.localRoots,
-      mediaReadFile: mediaAccess.readFile,
-      accountId: accountId ?? undefined,
       requesterAccountId:
         authorization !== undefined
           ? authorization.requesterAccountId
@@ -644,22 +635,10 @@ export async function executeMessagePlugin(
         authorization !== undefined
           ? authorization.requesterSenderId
           : (input.requesterSenderId ?? undefined),
-      senderIsOwner: input.senderIsOwner,
-      conversationReadOrigin: normalizeConversationReadInvocationOrigin(
-        input.conversationReadOrigin,
-      ),
-      sessionKey: input.sessionKey,
-      sessionId: input.sessionId,
-      inboundEventKind: input.inboundEventKind,
-      agentId,
-      gateway,
       toolContext: authorization !== undefined ? authorization.toolContext : input.toolContext,
       messageActionAuthorization: authorization,
       deliveryRetryOwner: input.actionOrigin === "message-tool" ? "caller" : undefined,
-      assertDirectAdapterHandoff: input.assertDirectAdapterHandoff,
-      onPlatformSendDispatch: input.onPlatformSendDispatch,
       skipQueue: input.skipQueue,
-      dryRun,
     });
   } catch (error) {
     const partialDelivery = input.messageActionAuthorization?.scheduled
@@ -668,12 +647,9 @@ export async function executeMessagePlugin(
     if (partialDelivery) {
       return await annotateSourceDelivery(
         {
-          kind: "action",
-          channel,
-          action,
+          ...actionResult,
           handledBy: "plugin",
           payload: partialDelivery,
-          dryRun,
         },
         ctx,
         replyToIsExplicit,
@@ -686,13 +662,10 @@ export async function executeMessagePlugin(
   }
   return await annotateSourceDelivery(
     {
-      kind: "action",
-      channel,
-      action,
+      ...actionResult,
       handledBy: "plugin",
       payload: extractToolPayload(handled),
       toolResult: handled,
-      dryRun,
     },
     ctx,
     replyToIsExplicit,

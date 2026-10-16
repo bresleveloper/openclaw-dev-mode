@@ -1,4 +1,5 @@
-import { t as COHERE_BASE_URL } from "./.setup/models-DxsOE4Aq.mjs";
+import { t as COHERE_BASE_URL } from "./.setup/models-BLTLa6bn.mjs";
+import { asOptionalObjectRecord, asOptionalRecord, normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
 //#region extensions/cohere/provider-catalog.ts
 const COHERE_LIVE_MODEL_DISCOVERY = {
 	endpointUrl: {
@@ -6,15 +7,15 @@ const COHERE_LIVE_MODEL_DISCOVERY = {
 		requireBaseUrl: COHERE_BASE_URL
 	},
 	readRows: (body) => {
-		if (!body || typeof body !== "object" || !Array.isArray(body.models)) throw new Error("Cohere model catalog response must contain models[]");
-		return body.models.flatMap((row) => {
-			if (!row || typeof row !== "object" || Array.isArray(row)) return [];
-			const record = row;
-			const modelId = typeof record.name === "string" ? record.name.trim() : "";
+		const models = asOptionalObjectRecord(body)?.models;
+		if (!Array.isArray(models)) throw new Error("Cohere model catalog response must contain models[]");
+		return models.flatMap((row) => {
+			const record = asOptionalRecord(row);
+			const modelId = normalizeOptionalString(record?.name);
 			return modelId ? [{
 				...record,
 				id: modelId,
-				active: record.is_deprecated !== true
+				active: record?.is_deprecated !== true
 			}] : [];
 		});
 	}

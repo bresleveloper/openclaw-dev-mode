@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";var t,n=e((()=>{t=`If a tool failed, say so; never claim completion or success.`}));export{n,t};

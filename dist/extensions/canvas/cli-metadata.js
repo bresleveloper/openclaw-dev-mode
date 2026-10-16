@@ -1,4 +1,4 @@
-import { t as definePluginEntry } from "../../plugin-entry-BOulgRcx.mjs";
+import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
 //#region extensions/canvas/cli-metadata.ts
 /**
 * Canvas CLI metadata entrypoint used for lightweight command discovery.

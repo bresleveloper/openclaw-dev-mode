@@ -12,7 +12,7 @@ const DEEPINFRA_IMAGE_SIZES = [
 const MAX_DEEPINFRA_INPUT_IMAGES = 1;
 function buildDeepInfraImageGenerationProvider(options) {
 	const ids = options?.imageGenModels && options.imageGenModels.length > 0 ? options.imageGenModels.map((model) => model.id) : [...DEEPINFRA_IMAGE_FALLBACK_MODELS];
-	const defaultModel = ids[0] ?? DEEPINFRA_IMAGE_FALLBACK_MODELS[0];
+	const defaultModel = ids[0];
 	return createOpenAiCompatibleImageGenerationProvider({
 		id: "deepinfra",
 		label: "DeepInfra",

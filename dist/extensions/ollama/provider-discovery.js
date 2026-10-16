@@ -90,9 +90,17 @@ function readProviderBaseUrl(provider) {
 }
 //#endregion
 //#region extensions/ollama/src/model-reasoning.ts
+const OLLAMA_CLOUD_FULL_THINKING_EFFORT_MODEL_IDS = /* @__PURE__ */ new Set([
+	"deepseek-v4-flash",
+	"deepseek-v4-pro",
+	"deepseek-v4.1-flash",
+	"glm-5.2",
+	"glm-5.3",
+	"glm-5.3-flash",
+	"kimi-k3"
+]);
 function supportsOllamaCloudFullThinkingEffort(modelId) {
-	const normalized = normalizeOllamaCloudModelId(modelId);
-	return normalized === "glm-5.2" || /^deepseek-v4-(?:flash|pro)$/.test(normalized);
+	return OLLAMA_CLOUD_FULL_THINKING_EFFORT_MODEL_IDS.has(normalizeOllamaCloudModelId(modelId));
 }
 //#endregion
 //#region extensions/ollama/src/provider-models.ts
@@ -107,17 +115,12 @@ const OLLAMA_ALWAYS_BLOCKED_HOSTNAMES = /* @__PURE__ */ new Set(["metadata.googl
 function buildOllamaBaseUrlSsrFPolicy(baseUrl) {
 	const trimmed = baseUrl.trim();
 	if (!trimmed) return;
-	try {
-		const parsed = new URL(trimmed);
-		if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return;
-		if (OLLAMA_ALWAYS_BLOCKED_HOSTNAMES.has(parsed.hostname)) return;
-		return {
-			hostnameAllowlist: [parsed.hostname],
-			allowPrivateNetwork: true
-		};
-	} catch {
-		return;
-	}
+	const parsed = URL.parse(trimmed);
+	if (!parsed || parsed.protocol !== "http:" && parsed.protocol !== "https:" || OLLAMA_ALWAYS_BLOCKED_HOSTNAMES.has(parsed.hostname)) return;
+	return {
+		hostnameAllowlist: [parsed.hostname],
+		allowPrivateNetwork: true
+	};
 }
 function resolveOllamaApiBase(configuredBaseUrl) {
 	if (!configuredBaseUrl) return OLLAMA_DEFAULT_BASE_URL;
@@ -453,27 +456,18 @@ function isIpv6LocalRange(host) {
 }
 function isLocalOllamaBaseUrl(baseUrl) {
 	if (!baseUrl) return true;
-	let parsed;
-	try {
-		parsed = new URL(baseUrl);
-	} catch {
-		return false;
-	}
-	let host = parsed.hostname.toLowerCase();
-	if (host.startsWith("[") && host.endsWith("]")) host = host.slice(1, -1);
+	const host = readOllamaHostname(baseUrl);
+	if (host === void 0) return false;
 	return LOCAL_OLLAMA_HOSTNAMES.has(host) || isLoopbackHost(host) || host.endsWith(".local") || isIpv4PrivateRange(host) || isIpv6LocalRange(host) || !host.includes(".") && !host.includes(":");
 }
 function isLoopbackOllamaBaseUrl(baseUrl) {
 	if (!baseUrl) return true;
-	let parsed;
-	try {
-		parsed = new URL(baseUrl);
-	} catch {
-		return false;
-	}
-	let host = parsed.hostname.toLowerCase();
-	if (host.startsWith("[") && host.endsWith("]")) host = host.slice(1, -1);
-	return LOOPBACK_OLLAMA_HOSTNAMES.has(host) || isLoopbackHost(host);
+	const host = readOllamaHostname(baseUrl);
+	return host !== void 0 && (LOOPBACK_OLLAMA_HOSTNAMES.has(host) || isLoopbackHost(host));
+}
+function readOllamaHostname(baseUrl) {
+	const host = URL.parse(baseUrl)?.hostname.toLowerCase();
+	return host?.startsWith("[") && host.endsWith("]") ? host.slice(1, -1) : host;
 }
 function hasExplicitRemoteOllamaApiProvider(providers) {
 	if (!providers) return false;
@@ -495,13 +489,7 @@ function hasMeaningfulExplicitOllamaConfig(providerConfig) {
 	if (Array.isArray(providerConfig.models) && providerConfig.models.length > 0) return true;
 	const baseUrl = readProviderBaseUrl(providerConfig);
 	if (baseUrl) return resolveOllamaApiBase(baseUrl) !== OLLAMA_DEFAULT_BASE_URL;
-	if (readOllamaStringValue(providerConfig.apiKey)) return true;
-	if (providerConfig.auth) return true;
-	if (typeof providerConfig.authHeader === "boolean") return true;
-	if (providerConfig.headers && typeof providerConfig.headers === "object" && Object.keys(providerConfig.headers).length > 0) return true;
-	if (providerConfig.request) return true;
-	if (typeof providerConfig.injectNumCtxForOpenAICompat === "boolean") return true;
-	return false;
+	return Boolean(readOllamaStringValue(providerConfig.apiKey) || providerConfig.auth || typeof providerConfig.authHeader === "boolean" || providerConfig.headers && typeof providerConfig.headers === "object" && Object.keys(providerConfig.headers).length > 0 || providerConfig.request || typeof providerConfig.injectNumCtxForOpenAICompat === "boolean");
 }
 async function resolveOllamaDiscoveryResult(params) {
 	if (params.ctx.providerIds && !params.ctx.providerIds.includes("ollama")) return null;

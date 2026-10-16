@@ -1,3 +1,3 @@
-import { n as resolveEffectiveTtsConfig, o as normalizeTtsAutoMode } from "../tts-config-DK27R_zM.mjs";
-import { r as normalizeSpeechProviderId } from "../provider-registry-core-DdKgepX8.mjs";
-export { normalizeSpeechProviderId, normalizeTtsAutoMode, resolveEffectiveTtsConfig };
+import { l as normalizeTtsAutoMode, r as resolveEffectiveTtsConfig } from "../tts-config-CxmNZyL1.mjs";
+import { i as normalizeCapabilityProviderId } from "../provider-registry-shared-Cov0065J.mjs";
+export { normalizeCapabilityProviderId as normalizeSpeechProviderId, normalizeTtsAutoMode, resolveEffectiveTtsConfig };

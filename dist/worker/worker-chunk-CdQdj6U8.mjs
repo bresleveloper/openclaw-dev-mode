@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function registerSealedRuntime(e){t=e}function getSealedRuntimeJson5(){return t?.json5}function getSealedRuntimeSecureTempRoot(){return t?.resolveSecureTempRoot}var t,n=e((()=>{}));export{registerSealedRuntime as i,getSealedRuntimeSecureTempRoot as n,n as r,getSealedRuntimeJson5 as t};

@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 var setup_entry_default = defineBundledChannelSetupEntry({
 	importMetaUrl: import.meta.url,
 	plugin: {
-		specifier: fileURLToPath(new URL(".setup/api-CJ5-eCcN.mjs", import.meta.url).href),
+		specifier: fileURLToPath(new URL(".setup/api-DjaW3W4A.mjs", import.meta.url).href),
 		exportName: "tlonPlugin"
 	}
 });

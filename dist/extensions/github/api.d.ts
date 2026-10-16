@@ -1,10 +1,16 @@
-import { t as ControlUiLinkReaderDocument } from "../../control-ui-link-reader-DjD6bkVP.js";
+import { t as ControlUiLinkReaderDocument } from "../../control-ui-link-reader-CcJBydfw.js";
 //#region packages/normalization-core/src/record-coerce.d.ts
 /** Type guard for non-array object records at browser-safe boundaries. */
 export declare function isRecord(value: unknown): value is Record<string, unknown>;
 //#endregion
 //#region extensions/github/src/github-api.d.ts
 export declare const GITHUB_API_ORIGIN = "https://api.github.com";
+export declare const GITHUB_API_BASE_URL = "https://api.github.com";
+export declare const GITHUB_GRAPHQL_URL: string;
+export declare function resolveGitHubApiUrls(apiBaseUrl: string | undefined): {
+  baseUrl: string;
+  graphqlUrl: string;
+};
 export declare const GITHUB_REQUEST_TIMEOUT_MS = 8000;
 export declare class ControlUiGitHubError extends Error {
   readonly statusCode: number;
@@ -36,7 +42,7 @@ export declare function fetchGitHubApi(rawUrl: string, fetchImpl: typeof fetch, 
 }, etag?: string, callerSignal?: AbortSignal, graphql?: {
   query: string;
   variables: Record<string, string>;
-}): Promise<Response>;
+}, apiBaseUrl?: string): Promise<Response>;
 export declare function discardResponse(response: Response): Promise<void>;
 export declare function readBoundedResponse(response: Response, maxBytes: number): Promise<Buffer>;
 /** GraphQL can report failed queries and exhausted quota in an HTTP 200 response. */
@@ -44,42 +50,7 @@ export declare function readGitHubGraphQLResponse(response: Response, fetchImpl:
 export declare function withOptionalGitHubAuth<T>(token: string | undefined, request: (token: string | undefined) => Promise<T>): Promise<T>;
 export declare function readGitHubJsonResponse(response: Response, maxBytes?: number): Promise<unknown>;
 /** Fetch a GitHub API JSON document with bounded size and normalized errors. */
-export declare function fetchGitHubJson(rawUrl: string, fetchImpl: typeof fetch, token?: string, maxBytes?: number): Promise<unknown>;
-//#endregion
-//#region extensions/github/src/preview-contract.d.ts
-/** Public GitHub metadata rendered by Control UI link hover cards. */
-/**
- * One co-author resolved from a `Co-authored-by` trailer. Only trailers using
- * GitHub's `<id>+<login>@users.noreply.github.com` form resolve, because the id
- * yields both the login and the avatar without a per-person API lookup.
- */
-type ControlUiGitHubPreviewCoAuthor = {
-  login: string;
-  avatarDataUrl?: string;
-};
-type ControlUiGitHubPreview = {
-  additions?: number;
-  avatarDataUrl?: string;
-  /** Bounded to the faces the card renders; `coAuthorCount` carries the true total. */
-  coAuthors?: ControlUiGitHubPreviewCoAuthor[];
-  coAuthorCount?: number;
-  changedFiles?: number;
-  closedAt?: string;
-  comments?: number;
-  createdAt: string;
-  deletions?: number;
-  draft?: boolean;
-  kind: "issue" | "pull";
-  login: string;
-  mergedAt?: string;
-  number: number;
-  owner: string;
-  repo: string;
-  state: string;
-  stateReason?: string;
-  title: string;
-  updatedAt: string;
-};
+export declare function fetchGitHubJson(rawUrl: string, fetchImpl: typeof fetch, token?: string, maxBytes?: number, apiBaseUrl?: string): Promise<unknown>;
 //#endregion
 //#region extensions/github/src/targets.d.ts
 type GitHubItemTarget = {
@@ -96,6 +67,36 @@ type GitHubTarget = GitHubItemTarget | {
 };
 export declare function parseGitHubTarget(value: unknown): GitHubTarget | null;
 declare function parseGitHubItemTarget(value: unknown): GitHubItemTarget | null;
+//#endregion
+//#region extensions/github/src/preview-contract.d.ts
+/**
+ * One co-author resolved from a `Co-authored-by` trailer. Only trailers using
+ * GitHub's `<id>+<login>@users.noreply.github.com` form resolve, because the id
+ * yields both the login and the avatar without a per-person API lookup.
+ */
+type ControlUiGitHubPreviewCoAuthor = {
+  login: string;
+  avatarDataUrl?: string;
+};
+type ControlUiGitHubPreview = GitHubItemTarget & {
+  additions?: number;
+  avatarDataUrl?: string;
+  /** Bounded to the faces the card renders; `coAuthorCount` carries the true total. */
+  coAuthors?: ControlUiGitHubPreviewCoAuthor[];
+  coAuthorCount?: number;
+  changedFiles?: number;
+  closedAt?: string;
+  comments?: number;
+  createdAt: string;
+  deletions?: number;
+  draft?: boolean;
+  login: string;
+  mergedAt?: string;
+  state: string;
+  stateReason?: string;
+  title: string;
+  updatedAt: string;
+};
 //#endregion
 //#region extensions/github/src/preview.d.ts
 type ControlUiGitHubPreviewTarget = GitHubItemTarget;

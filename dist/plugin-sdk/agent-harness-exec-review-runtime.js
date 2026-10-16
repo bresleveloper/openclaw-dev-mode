@@ -9,7 +9,7 @@
 * Facade loading or reviewer construction errors may still reject the promise.
 */
 async function reviewExecRequestWithConfiguredModel(params) {
-	const { createModelExecAutoReviewer } = await import("../exec-auto-reviewer-DchJPQ_Y.mjs");
+	const { createModelExecAutoReviewer } = await import("../exec-auto-reviewer-CrcrQN1p.mjs");
 	return createModelExecAutoReviewer({
 		cfg: params.cfg,
 		agentId: params.agentId,
@@ -22,11 +22,11 @@ async function reviewExecRequestWithConfiguredModel(params) {
 * the subsequent review must handle `allow-once`, `deny`, and `ask` explicitly.
 */
 async function buildExecAutoReviewInputForShellCommand(params) {
-	const [{ commandRequiresSecurityAuditSuppressionApproval, evaluateShellAllowlistWithAuthorization }, { detectUnsafeExecControlShellCommand }, { detectPolicyInlineEval }, { isBlockedShellWrapperCommand }] = await Promise.all([
-		import("../exec-approvals-CcP_Znli.mjs"),
-		import("../exec-control-command-guard-B4i5GqV0.mjs"),
-		import("../policy-BibU02x9.mjs"),
-		import("../exec-wrapper-resolution-CW0s5wIV.mjs")
+	const [{ evaluateShellAllowlistWithAuthorization }, { detectUnsafeExecControlShellCommand }, { detectInlineEvalInSegments }, { isBlockedShellWrapperCommand }] = await Promise.all([
+		import("../exec-approvals-HvORCmfN.mjs"),
+		import("../exec-control-command-guard-CsKd9V6g.mjs"),
+		import("../risks-BXjcrVKp.mjs"),
+		import("../exec-wrapper-resolution-Bx7D_IFT.mjs")
 	]);
 	const command = params.command.trim();
 	const host = params.host;
@@ -41,13 +41,8 @@ async function buildExecAutoReviewInputForShellCommand(params) {
 	const [segment] = allowlistEval.segments;
 	if (!(allowlistEval.analysisOk && allowlistEval.segments.length === 1 && segment !== void 0 && segment.raw.trim() === command)) return;
 	if (segment.resolution?.policyBlocked === true || isBlockedShellWrapperCommand(segment.argv)) return;
-	if (commandRequiresSecurityAuditSuppressionApproval({
-		command,
-		cwd: params.cwd ?? void 0,
-		segments: allowlistEval.segments
-	})) return;
 	if (await detectUnsafeExecControlShellCommand(command) !== null) return;
-	const inlineEval = detectPolicyInlineEval(allowlistEval.segments) !== null;
+	const inlineEval = detectInlineEvalInSegments(allowlistEval.segments) !== null;
 	const heredoc = segment.argv.some((token) => token.startsWith("<<"));
 	return {
 		command,

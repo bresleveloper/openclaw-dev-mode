@@ -1,3 +1,703 @@
+/**
+* @license
+* Copyright 2019 Google LLC
+* SPDX-License-Identifier: BSD-3-Clause
+*/
+const t$7 = globalThis;
+const e$12 = t$7.ShadowRoot && (void 0 === t$7.ShadyCSS || t$7.ShadyCSS.nativeShadow) && "adoptedStyleSheets" in Document.prototype && "replace" in CSSStyleSheet.prototype;
+const s$9 = Symbol();
+const o$11 = /* @__PURE__ */ new WeakMap();
+var n$11 = class {
+	constructor(t, e, o) {
+		if (this._$cssResult$ = !0, o !== s$9) throw Error("CSSResult is not constructable. Use `unsafeCSS` or `css` instead.");
+		this.cssText = t, this.t = e;
+	}
+	get styleSheet() {
+		let t = this.o;
+		const s = this.t;
+		if (e$12 && void 0 === t) {
+			const e = void 0 !== s && 1 === s.length;
+			e && (t = o$11.get(s)), void 0 === t && ((this.o = t = new CSSStyleSheet()).replaceSync(this.cssText), e && o$11.set(s, t));
+		}
+		return t;
+	}
+	toString() {
+		return this.cssText;
+	}
+};
+const r$9 = (t) => new n$11("string" == typeof t ? t : t + "", void 0, s$9);
+const i$9 = (t, ...e) => {
+	return new n$11(1 === t.length ? t[0] : e.reduce((e, s, o) => e + ((t) => {
+		if (!0 === t._$cssResult$) return t.cssText;
+		if ("number" == typeof t) return t;
+		throw Error("Value passed to 'css' function must be a 'css' function result: " + t + ". Use 'unsafeCSS' to pass non-literal values, but take care to ensure page security.");
+	})(s) + t[o + 1], t[0]), t, s$9);
+};
+const S$2 = (s, o) => {
+	if (e$12) s.adoptedStyleSheets = o.map((t) => t instanceof CSSStyleSheet ? t : t.styleSheet);
+	else for (const e of o) {
+		const o = document.createElement("style"), n = t$7.litNonce;
+		void 0 !== n && o.setAttribute("nonce", n), o.textContent = e.cssText, s.appendChild(o);
+	}
+};
+const c$8 = e$12 ? (t) => t : (t) => t instanceof CSSStyleSheet ? ((t) => {
+	let e = "";
+	for (const s of t.cssRules) e += s.cssText;
+	return r$9(e);
+})(t) : t;
+/**
+* @license
+* Copyright 2017 Google LLC
+* SPDX-License-Identifier: BSD-3-Clause
+*/ const { is: i$8, defineProperty: e$11, getOwnPropertyDescriptor: h$4, getOwnPropertyNames: r$8, getOwnPropertySymbols: o$10, getPrototypeOf: n$10 } = Object, a$3 = globalThis, c$7 = a$3.trustedTypes, l$4 = c$7 ? c$7.emptyScript : "", p$3 = a$3.reactiveElementPolyfillSupport, d$3 = (t, s) => t, u$5 = {
+	toAttribute(t, s) {
+		switch (s) {
+			case Boolean:
+				t = t ? l$4 : null;
+				break;
+			case Object:
+			case Array: t = null == t ? t : JSON.stringify(t);
+		}
+		return t;
+	},
+	fromAttribute(t, s) {
+		let i = t;
+		switch (s) {
+			case Boolean:
+				i = null !== t;
+				break;
+			case Number:
+				i = null === t ? null : Number(t);
+				break;
+			case Object:
+			case Array: try {
+				i = JSON.parse(t);
+			} catch (t) {
+				i = null;
+			}
+		}
+		return i;
+	}
+}, f$4 = (t, s) => !i$8(t, s), b$2 = {
+	attribute: !0,
+	type: String,
+	converter: u$5,
+	reflect: !1,
+	useDefault: !1,
+	hasChanged: f$4
+};
+Symbol.metadata ??= Symbol("metadata"), a$3.litPropertyMetadata ??= /* @__PURE__ */ new WeakMap();
+var y$2 = class extends HTMLElement {
+	static addInitializer(t) {
+		this._$Ei(), (this.l ??= []).push(t);
+	}
+	static get observedAttributes() {
+		return this.finalize(), this._$Eh && [...this._$Eh.keys()];
+	}
+	static createProperty(t, s = b$2) {
+		if (s.state && (s.attribute = !1), this._$Ei(), this.prototype.hasOwnProperty(t) && ((s = Object.create(s)).wrapped = !0), this.elementProperties.set(t, s), !s.noAccessor) {
+			const i = Symbol(), h = this.getPropertyDescriptor(t, i, s);
+			void 0 !== h && e$11(this.prototype, t, h);
+		}
+	}
+	static getPropertyDescriptor(t, s, i) {
+		const { get: e, set: r } = h$4(this.prototype, t) ?? {
+			get() {
+				return this[s];
+			},
+			set(t) {
+				this[s] = t;
+			}
+		};
+		return {
+			get: e,
+			set(s) {
+				const h = e?.call(this);
+				r?.call(this, s), this.requestUpdate(t, h, i);
+			},
+			configurable: !0,
+			enumerable: !0
+		};
+	}
+	static getPropertyOptions(t) {
+		return this.elementProperties.get(t) ?? b$2;
+	}
+	static _$Ei() {
+		if (this.hasOwnProperty(d$3("elementProperties"))) return;
+		const t = n$10(this);
+		t.finalize(), void 0 !== t.l && (this.l = [...t.l]), this.elementProperties = new Map(t.elementProperties);
+	}
+	static finalize() {
+		if (this.hasOwnProperty(d$3("finalized"))) return;
+		if (this.finalized = !0, this._$Ei(), this.hasOwnProperty(d$3("properties"))) {
+			const t = this.properties, s = [...r$8(t), ...o$10(t)];
+			for (const i of s) this.createProperty(i, t[i]);
+		}
+		const t = this[Symbol.metadata];
+		if (null !== t) {
+			const s = litPropertyMetadata.get(t);
+			if (void 0 !== s) for (const [t, i] of s) this.elementProperties.set(t, i);
+		}
+		this._$Eh = /* @__PURE__ */ new Map();
+		for (const [t, s] of this.elementProperties) {
+			const i = this._$Eu(t, s);
+			void 0 !== i && this._$Eh.set(i, t);
+		}
+		this.elementStyles = this.finalizeStyles(this.styles);
+	}
+	static finalizeStyles(s) {
+		const i = [];
+		if (Array.isArray(s)) {
+			const e = new Set(s.flat(1 / 0).reverse());
+			for (const s of e) i.unshift(c$8(s));
+		} else void 0 !== s && i.push(c$8(s));
+		return i;
+	}
+	static _$Eu(t, s) {
+		const i = s.attribute;
+		return !1 === i ? void 0 : "string" == typeof i ? i : "string" == typeof t ? t.toLowerCase() : void 0;
+	}
+	constructor() {
+		super(), this._$Ep = void 0, this.isUpdatePending = !1, this.hasUpdated = !1, this._$Em = null, this._$Ev();
+	}
+	_$Ev() {
+		this._$ES = new Promise((t) => this.enableUpdating = t), this._$AL = /* @__PURE__ */ new Map(), this._$E_(), this.requestUpdate(), this.constructor.l?.forEach((t) => t(this));
+	}
+	addController(t) {
+		(this._$EO ??= /* @__PURE__ */ new Set()).add(t), void 0 !== this.renderRoot && this.isConnected && t.hostConnected?.();
+	}
+	removeController(t) {
+		this._$EO?.delete(t);
+	}
+	_$E_() {
+		const t = /* @__PURE__ */ new Map(), s = this.constructor.elementProperties;
+		for (const i of s.keys()) this.hasOwnProperty(i) && (t.set(i, this[i]), delete this[i]);
+		t.size > 0 && (this._$Ep = t);
+	}
+	createRenderRoot() {
+		const t = this.shadowRoot ?? this.attachShadow(this.constructor.shadowRootOptions);
+		return S$2(t, this.constructor.elementStyles), t;
+	}
+	connectedCallback() {
+		this.renderRoot ??= this.createRenderRoot(), this.enableUpdating(!0), this._$EO?.forEach((t) => t.hostConnected?.());
+	}
+	enableUpdating(t) {}
+	disconnectedCallback() {
+		this._$EO?.forEach((t) => t.hostDisconnected?.());
+	}
+	attributeChangedCallback(t, s, i) {
+		this._$AK(t, i);
+	}
+	_$ET(t, s) {
+		const i = this.constructor.elementProperties.get(t), e = this.constructor._$Eu(t, i);
+		if (void 0 !== e && !0 === i.reflect) {
+			const h = (void 0 !== i.converter?.toAttribute ? i.converter : u$5).toAttribute(s, i.type);
+			this._$Em = t, null == h ? this.removeAttribute(e) : this.setAttribute(e, h), this._$Em = null;
+		}
+	}
+	_$AK(t, s) {
+		const i = this.constructor, e = i._$Eh.get(t);
+		if (void 0 !== e && this._$Em !== e) {
+			const t = i.getPropertyOptions(e), h = "function" == typeof t.converter ? { fromAttribute: t.converter } : void 0 !== t.converter?.fromAttribute ? t.converter : u$5;
+			this._$Em = e;
+			const r = h.fromAttribute(s, t.type);
+			this[e] = r ?? this._$Ej?.get(e) ?? r, this._$Em = null;
+		}
+	}
+	requestUpdate(t, s, i, e = !1, h) {
+		if (void 0 !== t) {
+			const r = this.constructor;
+			if (!1 === e && (h = this[t]), i ??= r.getPropertyOptions(t), !((i.hasChanged ?? f$4)(h, s) || i.useDefault && i.reflect && h === this._$Ej?.get(t) && !this.hasAttribute(r._$Eu(t, i)))) return;
+			this.C(t, s, i);
+		}
+		!1 === this.isUpdatePending && (this._$ES = this._$EP());
+	}
+	C(t, s, { useDefault: i, reflect: e, wrapped: h }, r) {
+		i && !(this._$Ej ??= /* @__PURE__ */ new Map()).has(t) && (this._$Ej.set(t, r ?? s ?? this[t]), !0 !== h || void 0 !== r) || (this._$AL.has(t) || (this.hasUpdated || i || (s = void 0), this._$AL.set(t, s)), !0 === e && this._$Em !== t && (this._$Eq ??= /* @__PURE__ */ new Set()).add(t));
+	}
+	async _$EP() {
+		this.isUpdatePending = !0;
+		try {
+			await this._$ES;
+		} catch (t) {
+			Promise.reject(t);
+		}
+		const t = this.scheduleUpdate();
+		return null != t && await t, !this.isUpdatePending;
+	}
+	scheduleUpdate() {
+		return this.performUpdate();
+	}
+	performUpdate() {
+		if (!this.isUpdatePending) return;
+		if (!this.hasUpdated) {
+			if (this.renderRoot ??= this.createRenderRoot(), this._$Ep) {
+				for (const [t, s] of this._$Ep) this[t] = s;
+				this._$Ep = void 0;
+			}
+			const t = this.constructor.elementProperties;
+			if (t.size > 0) for (const [s, i] of t) {
+				const { wrapped: t } = i, e = this[s];
+				!0 !== t || this._$AL.has(s) || void 0 === e || this.C(s, void 0, i, e);
+			}
+		}
+		let t = !1;
+		const s = this._$AL;
+		try {
+			t = this.shouldUpdate(s), t ? (this.willUpdate(s), this._$EO?.forEach((t) => t.hostUpdate?.()), this.update(s)) : this._$EM();
+		} catch (s) {
+			throw t = !1, this._$EM(), s;
+		}
+		t && this._$AE(s);
+	}
+	willUpdate(t) {}
+	_$AE(t) {
+		this._$EO?.forEach((t) => t.hostUpdated?.()), this.hasUpdated || (this.hasUpdated = !0, this.firstUpdated(t)), this.updated(t);
+	}
+	_$EM() {
+		this._$AL = /* @__PURE__ */ new Map(), this.isUpdatePending = !1;
+	}
+	get updateComplete() {
+		return this.getUpdateComplete();
+	}
+	getUpdateComplete() {
+		return this._$ES;
+	}
+	shouldUpdate(t) {
+		return !0;
+	}
+	update(t) {
+		this._$Eq &&= this._$Eq.forEach((t) => this._$ET(t, this[t])), this._$EM();
+	}
+	updated(t) {}
+	firstUpdated(t) {}
+};
+y$2.elementStyles = [], y$2.shadowRootOptions = { mode: "open" }, y$2[d$3("elementProperties")] = /* @__PURE__ */ new Map(), y$2[d$3("finalized")] = /* @__PURE__ */ new Map(), p$3?.({ ReactiveElement: y$2 }), (a$3.reactiveElementVersions ??= []).push("2.1.2");
+/**
+* @license
+* Copyright 2017 Google LLC
+* SPDX-License-Identifier: BSD-3-Clause
+*/
+const t$6 = globalThis;
+const i$7 = (t) => t;
+const s$8 = t$6.trustedTypes;
+const e$10 = s$8 ? s$8.createPolicy("lit-html", { createHTML: (t) => t }) : void 0;
+const h$3 = "$lit$";
+const o$9 = `lit$${Math.random().toFixed(9).slice(2)}$`;
+const n$9 = "?" + o$9;
+const r$7 = `<${n$9}>`;
+const l$3 = document;
+const c$6 = () => l$3.createComment("");
+const a$2 = (t) => null === t || "object" != typeof t && "function" != typeof t;
+const u$4 = Array.isArray;
+const d$2 = (t) => u$4(t) || "function" == typeof t?.[Symbol.iterator];
+const f$3 = "[ 	\n\f\r]";
+const v$2 = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g;
+const _$1 = /-->/g;
+const m$2 = />/g;
+const p$2 = RegExp(`>|${f$3}(?:([^\\s"'>=/]+)(${f$3}*=${f$3}*(?:[^ \t\n\f\r"'\`<>=]|("|')|))|$)`, "g");
+const g$1 = /'/g;
+const $$1 = /"/g;
+const y$1 = /^(?:script|style|textarea|title)$/i;
+const x$1 = (t) => (i, ...s) => ({
+	_$litType$: t,
+	strings: i,
+	values: s
+});
+const b$1 = x$1(1);
+const E$1 = Symbol.for("lit-noChange");
+const A = Symbol.for("lit-nothing");
+const C$1 = /* @__PURE__ */ new WeakMap();
+const P = l$3.createTreeWalker(l$3, 129);
+function V(t, i) {
+	if (!u$4(t) || !t.hasOwnProperty("raw")) throw Error("invalid template strings array");
+	return void 0 !== e$10 ? e$10.createHTML(i) : i;
+}
+const N = (t, i) => {
+	const s = t.length - 1, e = [];
+	let n, l = 2 === i ? "<svg>" : 3 === i ? "<math>" : "", c = v$2;
+	for (let i = 0; i < s; i++) {
+		const s = t[i];
+		let a, u, d = -1, f = 0;
+		for (; f < s.length && (c.lastIndex = f, u = c.exec(s), null !== u);) f = c.lastIndex, c === v$2 ? "!--" === u[1] ? c = _$1 : void 0 !== u[1] ? c = m$2 : void 0 !== u[2] ? (y$1.test(u[2]) && (n = RegExp("</" + u[2], "g")), c = p$2) : void 0 !== u[3] && (c = p$2) : c === p$2 ? ">" === u[0] ? (c = n ?? v$2, d = -1) : void 0 === u[1] ? d = -2 : (d = c.lastIndex - u[2].length, a = u[1], c = void 0 === u[3] ? p$2 : "\"" === u[3] ? $$1 : g$1) : c === $$1 || c === g$1 ? c = p$2 : c === _$1 || c === m$2 ? c = v$2 : (c = p$2, n = void 0);
+		const x = c === p$2 && t[i + 1].startsWith("/>") ? " " : "";
+		l += c === v$2 ? s + r$7 : d >= 0 ? (e.push(a), s.slice(0, d) + h$3 + s.slice(d) + o$9 + x) : s + o$9 + (-2 === d ? i : x);
+	}
+	return [V(t, l + (t[s] || "<?>") + (2 === i ? "</svg>" : 3 === i ? "</math>" : "")), e];
+};
+var S$1 = class S$1 {
+	constructor({ strings: t, _$litType$: i }, e) {
+		let r;
+		this.parts = [];
+		let l = 0, a = 0;
+		const u = t.length - 1, d = this.parts, [f, v] = N(t, i);
+		if (this.el = S$1.createElement(f, e), P.currentNode = this.el.content, 2 === i || 3 === i) {
+			const t = this.el.content.firstChild;
+			t.replaceWith(...t.childNodes);
+		}
+		for (; null !== (r = P.nextNode()) && d.length < u;) {
+			if (1 === r.nodeType) {
+				if (r.hasAttributes()) for (const t of r.getAttributeNames()) if (t.endsWith(h$3)) {
+					const i = v[a++], s = r.getAttribute(t).split(o$9), e = /([.?@])?(.*)/.exec(i);
+					d.push({
+						type: 1,
+						index: l,
+						name: e[2],
+						strings: s,
+						ctor: "." === e[1] ? I : "?" === e[1] ? L : "@" === e[1] ? z : H
+					}), r.removeAttribute(t);
+				} else t.startsWith(o$9) && (d.push({
+					type: 6,
+					index: l
+				}), r.removeAttribute(t));
+				if (y$1.test(r.tagName)) {
+					const t = r.textContent.split(o$9), i = t.length - 1;
+					if (i > 0) {
+						r.textContent = s$8 ? s$8.emptyScript : "";
+						for (let s = 0; s < i; s++) r.append(t[s], c$6()), P.nextNode(), d.push({
+							type: 2,
+							index: ++l
+						});
+						r.append(t[i], c$6());
+					}
+				}
+			} else if (8 === r.nodeType) if (r.data === n$9) d.push({
+				type: 2,
+				index: l
+			});
+			else {
+				let t = -1;
+				for (; -1 !== (t = r.data.indexOf(o$9, t + 1));) d.push({
+					type: 7,
+					index: l
+				}), t += o$9.length - 1;
+			}
+			l++;
+		}
+	}
+	static createElement(t, i) {
+		const s = l$3.createElement("template");
+		return s.innerHTML = t, s;
+	}
+};
+function M$1(t, i, s = t, e) {
+	if (i === E$1) return i;
+	let h = void 0 !== e ? s._$Co?.[e] : s._$Cl;
+	const o = a$2(i) ? void 0 : i._$litDirective$;
+	return h?.constructor !== o && (h?._$AO?.(!1), void 0 === o ? h = void 0 : (h = new o(t), h._$AT(t, s, e)), void 0 !== e ? (s._$Co ??= [])[e] = h : s._$Cl = h), void 0 !== h && (i = M$1(t, h._$AS(t, i.values), h, e)), i;
+}
+var R = class {
+	constructor(t, i) {
+		this._$AV = [], this._$AN = void 0, this._$AD = t, this._$AM = i;
+	}
+	get parentNode() {
+		return this._$AM.parentNode;
+	}
+	get _$AU() {
+		return this._$AM._$AU;
+	}
+	u(t) {
+		const { el: { content: i }, parts: s } = this._$AD, e = (t?.creationScope ?? l$3).importNode(i, !0);
+		P.currentNode = e;
+		let h = P.nextNode(), o = 0, n = 0, r = s[0];
+		for (; void 0 !== r;) {
+			if (o === r.index) {
+				let i;
+				2 === r.type ? i = new k$1(h, h.nextSibling, this, t) : 1 === r.type ? i = new r.ctor(h, r.name, r.strings, this, t) : 6 === r.type && (i = new Z(h, this, t)), this._$AV.push(i), r = s[++n];
+			}
+			o !== r?.index && (h = P.nextNode(), o++);
+		}
+		return P.currentNode = l$3, e;
+	}
+	p(t) {
+		let i = 0;
+		for (const s of this._$AV) void 0 !== s && (void 0 !== s.strings ? (s._$AI(t, s, i), i += s.strings.length - 2) : s._$AI(t[i])), i++;
+	}
+};
+var k$1 = class k$1 {
+	get _$AU() {
+		return this._$AM?._$AU ?? this._$Cv;
+	}
+	constructor(t, i, s, e) {
+		this.type = 2, this._$AH = A, this._$AN = void 0, this._$AA = t, this._$AB = i, this._$AM = s, this.options = e, this._$Cv = e?.isConnected ?? !0;
+	}
+	get parentNode() {
+		let t = this._$AA.parentNode;
+		const i = this._$AM;
+		return void 0 !== i && 11 === t?.nodeType && (t = i.parentNode), t;
+	}
+	get startNode() {
+		return this._$AA;
+	}
+	get endNode() {
+		return this._$AB;
+	}
+	_$AI(t, i = this) {
+		t = M$1(this, t, i), a$2(t) ? t === A || null == t || "" === t ? (this._$AH !== A && this._$AR(), this._$AH = A) : t !== this._$AH && t !== E$1 && this._(t) : void 0 !== t._$litType$ ? this.$(t) : void 0 !== t.nodeType ? this.T(t) : d$2(t) ? this.k(t) : this._(t);
+	}
+	O(t) {
+		return this._$AA.parentNode.insertBefore(t, this._$AB);
+	}
+	T(t) {
+		this._$AH !== t && (this._$AR(), this._$AH = this.O(t));
+	}
+	_(t) {
+		this._$AH !== A && a$2(this._$AH) ? this._$AA.nextSibling.data = t : this.T(l$3.createTextNode(t)), this._$AH = t;
+	}
+	$(t) {
+		const { values: i, _$litType$: s } = t, e = "number" == typeof s ? this._$AC(t) : (void 0 === s.el && (s.el = S$1.createElement(V(s.h, s.h[0]), this.options)), s);
+		if (this._$AH?._$AD === e) this._$AH.p(i);
+		else {
+			const t = new R(e, this), s = t.u(this.options);
+			t.p(i), this.T(s), this._$AH = t;
+		}
+	}
+	_$AC(t) {
+		let i = C$1.get(t.strings);
+		return void 0 === i && C$1.set(t.strings, i = new S$1(t)), i;
+	}
+	k(t) {
+		u$4(this._$AH) || (this._$AH = [], this._$AR());
+		const i = this._$AH;
+		let s, e = 0;
+		for (const h of t) e === i.length ? i.push(s = new k$1(this.O(c$6()), this.O(c$6()), this, this.options)) : s = i[e], s._$AI(h), e++;
+		e < i.length && (this._$AR(s && s._$AB.nextSibling, e), i.length = e);
+	}
+	_$AR(t = this._$AA.nextSibling, s) {
+		for (this._$AP?.(!1, !0, s); t !== this._$AB;) {
+			const s = i$7(t).nextSibling;
+			i$7(t).remove(), t = s;
+		}
+	}
+	setConnected(t) {
+		void 0 === this._$AM && (this._$Cv = t, this._$AP?.(t));
+	}
+};
+var H = class {
+	get tagName() {
+		return this.element.tagName;
+	}
+	get _$AU() {
+		return this._$AM._$AU;
+	}
+	constructor(t, i, s, e, h) {
+		this.type = 1, this._$AH = A, this._$AN = void 0, this.element = t, this.name = i, this._$AM = e, this.options = h, s.length > 2 || "" !== s[0] || "" !== s[1] ? (this._$AH = Array(s.length - 1).fill(/* @__PURE__ */ new String()), this.strings = s) : this._$AH = A;
+	}
+	_$AI(t, i = this, s, e) {
+		const h = this.strings;
+		let o = !1;
+		if (void 0 === h) t = M$1(this, t, i, 0), o = !a$2(t) || t !== this._$AH && t !== E$1, o && (this._$AH = t);
+		else {
+			const e = t;
+			let n, r;
+			for (t = h[0], n = 0; n < h.length - 1; n++) r = M$1(this, e[s + n], i, n), r === E$1 && (r = this._$AH[n]), o ||= !a$2(r) || r !== this._$AH[n], r === A ? t = A : t !== A && (t += (r ?? "") + h[n + 1]), this._$AH[n] = r;
+		}
+		o && !e && this.j(t);
+	}
+	j(t) {
+		t === A ? this.element.removeAttribute(this.name) : this.element.setAttribute(this.name, t ?? "");
+	}
+};
+var I = class extends H {
+	constructor() {
+		super(...arguments), this.type = 3;
+	}
+	j(t) {
+		this.element[this.name] = t === A ? void 0 : t;
+	}
+};
+var L = class extends H {
+	constructor() {
+		super(...arguments), this.type = 4;
+	}
+	j(t) {
+		this.element.toggleAttribute(this.name, !!t && t !== A);
+	}
+};
+var z = class extends H {
+	constructor(t, i, s, e, h) {
+		super(t, i, s, e, h), this.type = 5;
+	}
+	_$AI(t, i = this) {
+		if ((t = M$1(this, t, i, 0) ?? A) === E$1) return;
+		const s = this._$AH, e = t === A && s !== A || t.capture !== s.capture || t.once !== s.once || t.passive !== s.passive, h = t !== A && (s === A || e);
+		e && this.element.removeEventListener(this.name, this, s), h && this.element.addEventListener(this.name, this, t), this._$AH = t;
+	}
+	handleEvent(t) {
+		"function" == typeof this._$AH ? this._$AH.call(this.options?.host ?? this.element, t) : this._$AH.handleEvent(t);
+	}
+};
+var Z = class {
+	constructor(t, i, s) {
+		this.element = t, this.type = 6, this._$AN = void 0, this._$AM = i, this.options = s;
+	}
+	get _$AU() {
+		return this._$AM._$AU;
+	}
+	_$AI(t) {
+		M$1(this, t);
+	}
+};
+const j$2 = {
+	M: h$3,
+	P: o$9,
+	A: n$9,
+	C: 1,
+	L: N,
+	R,
+	D: d$2,
+	V: M$1,
+	I: k$1,
+	H,
+	N: L,
+	U: z,
+	B: I,
+	F: Z
+};
+const B = t$6.litHtmlPolyfillSupport;
+B?.(S$1, k$1), (t$6.litHtmlVersions ??= []).push("3.3.3");
+const D = (t, i, s) => {
+	const e = s?.renderBefore ?? i;
+	let h = e._$litPart$;
+	if (void 0 === h) {
+		const t = s?.renderBefore ?? null;
+		e._$litPart$ = h = new k$1(i.insertBefore(c$6(), t), t, void 0, s ?? {});
+	}
+	return h._$AI(t), h;
+};
+/**
+* @license
+* Copyright 2017 Google LLC
+* SPDX-License-Identifier: BSD-3-Clause
+*/ const s$7 = globalThis;
+var i$6 = class extends y$2 {
+	constructor() {
+		super(...arguments), this.renderOptions = { host: this }, this._$Do = void 0;
+	}
+	createRenderRoot() {
+		const t = super.createRenderRoot();
+		return this.renderOptions.renderBefore ??= t.firstChild, t;
+	}
+	update(t) {
+		const r = this.render();
+		this.hasUpdated || (this.renderOptions.isConnected = this.isConnected), super.update(t), this._$Do = D(r, this.renderRoot, this.renderOptions);
+	}
+	connectedCallback() {
+		super.connectedCallback(), this._$Do?.setConnected(!0);
+	}
+	disconnectedCallback() {
+		super.disconnectedCallback(), this._$Do?.setConnected(!1);
+	}
+	render() {
+		return E$1;
+	}
+};
+i$6._$litElement$ = !0, i$6["finalized"] = !0, s$7.litElementHydrateSupport?.({ LitElement: i$6 });
+const o$8 = s$7.litElementPolyfillSupport;
+o$8?.({ LitElement: i$6 });
+(s$7.litElementVersions ??= []).push("4.2.2");
+/**
+* @license
+* Copyright 2022 Google LLC
+* SPDX-License-Identifier: BSD-3-Clause
+*/
+/**
+* @license
+* Copyright 2017 Google LLC
+* SPDX-License-Identifier: BSD-3-Clause
+*/
+const t$5 = (t) => (e, o) => {
+	void 0 !== o ? o.addInitializer(() => {
+		customElements.define(t, e);
+	}) : customElements.define(t, e);
+};
+/**
+* @license
+* Copyright 2017 Google LLC
+* SPDX-License-Identifier: BSD-3-Clause
+*/ const o$6 = {
+	attribute: !0,
+	type: String,
+	converter: u$5,
+	reflect: !1,
+	hasChanged: f$4
+};
+const r$6 = (t = o$6, e, r) => {
+	const { kind: n, metadata: i } = r;
+	let s = globalThis.litPropertyMetadata.get(i);
+	if (void 0 === s && globalThis.litPropertyMetadata.set(i, s = /* @__PURE__ */ new Map()), "setter" === n && ((t = Object.create(t)).wrapped = !0), s.set(r.name, t), "accessor" === n) {
+		const { name: o } = r;
+		return {
+			set(r) {
+				const n = e.get.call(this);
+				e.set.call(this, r), this.requestUpdate(o, n, t, !0, r);
+			},
+			init(e) {
+				return void 0 !== e && this.C(o, void 0, t, e), e;
+			}
+		};
+	}
+	if ("setter" === n) {
+		const { name: o } = r;
+		return function(r) {
+			const n = this[o];
+			e.call(this, r), this.requestUpdate(o, n, t, !0, r);
+		};
+	}
+	throw Error("Unsupported decorator location: " + n);
+};
+function n$7(t) {
+	return (e, o) => "object" == typeof o ? r$6(t, e, o) : ((t, e, o) => {
+		const r = e.hasOwnProperty(o);
+		return e.constructor.createProperty(o, t), r ? Object.getOwnPropertyDescriptor(e, o) : void 0;
+	})(t, e, o);
+}
+/**
+* @license
+* Copyright 2017 Google LLC
+* SPDX-License-Identifier: BSD-3-Clause
+*/ function r$5(r) {
+	return n$7({
+		...r,
+		state: !0,
+		attribute: !1
+	});
+}
+/**
+* @license
+* Copyright 2017 Google LLC
+* SPDX-License-Identifier: BSD-3-Clause
+*/
+/**
+* @license
+* Copyright 2017 Google LLC
+* SPDX-License-Identifier: BSD-3-Clause
+*/
+/**
+* @license
+* Copyright 2017 Google LLC
+* SPDX-License-Identifier: BSD-3-Clause
+*/
+/**
+* @license
+* Copyright 2017 Google LLC
+* SPDX-License-Identifier: BSD-3-Clause
+*/
+/**
+* @license
+* Copyright 2017 Google LLC
+* SPDX-License-Identifier: BSD-3-Clause
+*/
+/**
+* @license
+* Copyright 2021 Google LLC
+* SPDX-License-Identifier: BSD-3-Clause
+*/
+/**
+* @license
+* Copyright 2017 Google LLC
+* SPDX-License-Identifier: BSD-3-Clause
+*/
 var util;
 (function(util) {
 	util.assertEqual = (_) => {};
@@ -3969,49 +4669,339 @@ var Catalog = class {
 	}
 };
 /**
-* Internal implementation used by the model.
-* Implements EventSource but also provides the 'emit' method.
+* Traverses a Zod schema tree to build a `BehaviorNode` map.
+*
+* This allows the Generic Binder to know *how* to handle a piece of raw JSON
+* data without needing hardcoded logic for every specific component type.
+* It identifies core A2UI primitives (Dynamic values, Actions, ChildLists) by
+* inspecting the shape of ZodUnion objects defined in `common-types.ts`.
 */
-var EventEmitter = class {
-	constructor() {
-		this.listeners = /* @__PURE__ */ new Set();
+function scrapeSchemaBehavior(schema) {
+	return getFieldBehavior(schema);
+}
+const ACTION_REF = "REF:common_types.json#/$defs/Action";
+const DATA_BINDING_REF = "REF:common_types.json#/$defs/DataBinding";
+const DYNAMIC_REF_PREFIX = "#/$defs/Dynamic";
+function getFieldBehavior(type, propertyName) {
+	let current = type;
+	let description = current._def?.description || "";
+	while (current._def.typeName === "ZodOptional" || current._def.typeName === "ZodNullable" || current._def.typeName === "ZodDefault") {
+		if (!description && current._def.description) description = current._def.description;
+		current = current._def.innerType;
 	}
-	/**
-	* Subscribes to the event.
-	*
-	* @param listener The listener function to call when the event is emitted.
-	* @returns A subscription object that can be used to unsubscribe.
-	*/
-	subscribe(listener) {
-		this.listeners.add(listener);
-		return { unsubscribe: () => this.listeners.delete(listener) };
+	if (!description && current._def.description) description = current._def.description;
+	if (propertyName === "checks") return { type: "CHECKABLE" };
+	if (description.startsWith(ACTION_REF)) return { type: "ACTION" };
+	if (childRefKindOf(current) === "child-list" || description.includes("#/$defs/ChildList")) return { type: "STRUCTURAL" };
+	if ((description.startsWith(DATA_BINDING_REF) || description.includes(DYNAMIC_REF_PREFIX)) && current._def.typeName !== "ZodObject" && current._def.typeName !== "ZodArray") return { type: "DYNAMIC" };
+	if (current._def.typeName === "ZodUnion") {
+		const options = current._def.options;
+		if (options.some((o) => o._def.typeName === "ZodObject" && o._def.shape().event)) return { type: "ACTION" };
+		if (options.some((o) => o._def.typeName === "ZodObject" && o._def.shape().path && !o._def.shape().componentId)) return { type: "DYNAMIC" };
+		if (options.some((o) => o._def.typeName === "ZodObject" && o._def.shape().componentId && o._def.shape().path)) return { type: "STRUCTURAL" };
+	} else if (current._def.typeName === "ZodString") {}
+	if (current._def.typeName === "ZodArray") return {
+		type: "ARRAY",
+		element: getFieldBehavior(current._def.type)
+	};
+	if (current._def.typeName === "ZodObject") {
+		const shape = {};
+		const objShape = current._def.shape();
+		for (const [key, value] of Object.entries(objShape)) shape[key] = getFieldBehavior(value, key);
+		return {
+			type: "OBJECT",
+			shape
+		};
 	}
-	/**
-	* Emits an event to all subscribers.
-	*
-	* @param data The data to pass to subscribers.
-	*/
-	async emit(data) {
-		for (const listener of this.listeners) try {
-			await listener(data);
-		} catch (e) {
-			console.error("EventEmitter error:", e);
+	return { type: "STATIC" };
+}
+/**
+* The Generic Binder is a framework-agnostic engine that transforms raw A2UI JSON payload
+* configurations into a single, cohesive reactive stream of strongly-typed `ResolvedProps`.
+*
+* It solves the problem of manual state management: developers do not need to write
+* boilerplate code to subscribe to data paths, evaluate logic expressions, or tear down
+* listeners when components unmount.
+*
+* Usage Flow:
+* 1. Takes a `ComponentContext` (the raw JSON config) and a `Zod Schema` (the API definition).
+* 2. Uses `scrapeSchemaBehavior` to analyze the schema.
+* 3. Deeply iterates over the raw JSON properties, applying rules based on the scraped behavior.
+* 4. Subscribes to the `DataContext` for all `DYNAMIC` and `CHECKABLE` paths.
+* 5. Bundles the final resolved primitives, structural arrays, and executable Actions into `currentProps`.
+* 6. Exposes a `subscribe()` interface for framework-specific adapters (React, Angular) to listen to state changes.
+*/
+var GenericBinder = class {
+	constructor(context, schema) {
+		this.dataListeners = [];
+		this.propsListeners = [];
+		this.currentProps = {};
+		this.isConnected = false;
+		this.actionClosures = /* @__PURE__ */ new Map();
+		this.context = context;
+		this.behaviorTree = scrapeSchemaBehavior(schema);
+		if (this.behaviorTree.type !== "OBJECT") this.behaviorTree = {
+			type: "OBJECT",
+			shape: {}
+		};
+		this.resolveInitialProps();
+	}
+	resolveInitialProps() {
+		const props = this.context.componentModel.properties;
+		const resolved = this.resolveAndBind(props, this.behaviorTree, [], true);
+		this.currentProps = {
+			...this.currentProps,
+			...resolved
+		};
+	}
+	connect() {
+		if (this.isConnected) return;
+		this.isConnected = true;
+		const sub = this.context.componentModel.onUpdated.subscribe(() => {
+			this.rebuildAllBindings();
+		});
+		this.compUnsub = () => sub.unsubscribe();
+		this.rebuildAllBindings();
+	}
+	rebuildAllBindings() {
+		this.dataListeners.forEach((l) => l());
+		this.dataListeners = [];
+		const props = this.context.componentModel.properties;
+		const resolved = this.resolveAndBind(props, this.behaviorTree, [], false);
+		this.currentProps = {
+			...this.currentProps,
+			...resolved
+		};
+		this.notify();
+	}
+	bindDynamicValue(value, path, isSync) {
+		const bound = this.context.dataContext.subscribeDynamicValue(value, (newVal) => {
+			this.updateDeepValue(path, newVal);
+			this.notify();
+		});
+		if (!isSync) this.dataListeners.push(() => bound.unsubscribe());
+		else bound.unsubscribe();
+		return bound.value;
+	}
+	bindAction(value, path) {
+		const cacheKey = path.join("/");
+		const cached = this.actionClosures.get(cacheKey);
+		if (cached && jsonEquals(cached.raw, value)) return cached.closure;
+		const closure = () => {
+			const resolveDeepSync = (val) => {
+				if (typeof val !== "object" || val === null) return val;
+				if ("path" in val || "call" in val) return this.context.dataContext.resolveDynamicValue(val);
+				if (Array.isArray(val)) return val.map(resolveDeepSync);
+				const res = {};
+				for (const [k, v] of Object.entries(val)) res[k] = resolveDeepSync(v);
+				return res;
+			};
+			this.context.dispatchAction(resolveDeepSync(value));
+		};
+		this.actionClosures.set(cacheKey, {
+			raw: value,
+			closure
+		});
+		return closure;
+	}
+	bindStructuralTemplate(value, path, isSync) {
+		if (value && typeof value === "object" && !Array.isArray(value)) {
+			const templatePath = value.path;
+			const templateComponentId = value.componentId;
+			if (templatePath && templateComponentId) {
+				const bound = this.context.dataContext.subscribeDynamicValue({ path: templatePath }, (newVal) => {
+					const arr = Array.isArray(newVal) ? newVal : [];
+					const listContext = this.context.dataContext.nested(templatePath);
+					const resolvedChildren = arr.map((_, i) => ({
+						id: templateComponentId,
+						basePath: listContext.nested(String(i)).path
+					}));
+					this.updateDeepValue(path, resolvedChildren);
+					this.notify();
+				});
+				if (!isSync) this.dataListeners.push(() => bound.unsubscribe());
+				else bound.unsubscribe();
+				const currentArr = Array.isArray(bound.value) ? bound.value : [];
+				const listContext = this.context.dataContext.nested(templatePath);
+				return currentArr.map((_, i) => ({
+					id: templateComponentId,
+					basePath: listContext.nested(String(i)).path
+				}));
+			}
+		}
+		return value;
+	}
+	resolveAndBind(value, behavior, path, isSync) {
+		if (value === void 0 || value === null) return value;
+		switch (behavior.type) {
+			case "DYNAMIC": return this.bindDynamicValue(value, path, isSync);
+			case "ACTION": return this.bindAction(value, path);
+			case "STRUCTURAL": return this.bindStructuralTemplate(value, path, isSync);
+			case "CHECKABLE": {
+				const rules = Array.isArray(value) ? value : [];
+				const ruleResults = rules.map(() => ({
+					valid: true,
+					message: ""
+				}));
+				const parentPath = path.slice(0, -1);
+				const updateValidationState = () => {
+					const errors = ruleResults.filter((r) => !r.valid).map((r) => r.message);
+					this.updateDeepValue([...parentPath, "isValid"], errors.length === 0);
+					this.updateDeepValue([...parentPath, "validationErrors"], errors);
+					this.notify();
+				};
+				rules.forEach((rule, index) => {
+					const condition = rule.condition || rule;
+					const message = rule.message || "Validation failed";
+					ruleResults[index].message = message;
+					const bound = this.context.dataContext.subscribeDynamicValue(condition, (newVal) => {
+						ruleResults[index].valid = !!newVal;
+						updateValidationState();
+					});
+					if (!isSync) this.dataListeners.push(() => bound.unsubscribe());
+					else bound.unsubscribe();
+					ruleResults[index].valid = !!bound.value;
+				});
+				const initialErrors = ruleResults.filter((r) => !r.valid).map((r) => r.message);
+				this.updateDeepValue([...parentPath, "isValid"], initialErrors.length === 0);
+				this.updateDeepValue([...parentPath, "validationErrors"], initialErrors);
+				return value;
+			}
+			case "STATIC": return value;
+			case "ARRAY":
+				if (!Array.isArray(value)) return value;
+				return value.map((item, index) => this.resolveAndBind(item, behavior.element, [...path, index.toString()], isSync));
+			case "OBJECT": {
+				if (typeof value !== "object") return value;
+				const result = {};
+				for (const [k, v] of Object.entries(value)) {
+					const childBehavior = behavior.shape[k] || { type: "STATIC" };
+					result[k] = this.resolveAndBind(v, childBehavior, [...path, k], isSync);
+				}
+				for (const [k, childBehavior] of Object.entries(behavior.shape)) if (childBehavior.type === "DYNAMIC") {
+					const setterName = `set${k.charAt(0).toUpperCase() + k.slice(1)}`;
+					const rawPropValue = value[k];
+					result[setterName] = (newValue) => {
+						if (rawPropValue && typeof rawPropValue === "object" && "path" in rawPropValue) this.context.dataContext.set(rawPropValue.path, newValue);
+					};
+				}
+				return result;
+			}
 		}
 	}
-	/**
-	* Removes all listeners.
-	*/
+	updateDeepValue(path, newValue) {
+		this.currentProps = this.cloneAndUpdate(this.currentProps, path, newValue);
+	}
+	cloneAndUpdate(obj, path, newValue) {
+		if (path.length === 0) return newValue;
+		const [key, ...rest] = path;
+		if (Array.isArray(obj)) {
+			const newArr = [...obj];
+			newArr[Number(key)] = this.cloneAndUpdate(newArr[Number(key)], rest, newValue);
+			return newArr;
+		} else return {
+			...obj || {},
+			[key]: this.cloneAndUpdate((obj || {})[key], rest, newValue)
+		};
+	}
 	dispose() {
-		this.listeners.clear();
+		if (!this.isConnected) return;
+		this.isConnected = false;
+		this.dataListeners.forEach((l) => l());
+		this.dataListeners = [];
+		if (this.compUnsub) {
+			this.compUnsub();
+			this.compUnsub = void 0;
+		}
+	}
+	notify() {
+		this.propsListeners.forEach((l) => l(this.currentProps));
+	}
+	subscribe(listener) {
+		if (this.propsListeners.length === 0) this.connect();
+		this.propsListeners.push(listener);
+		return { unsubscribe: () => {
+			this.propsListeners = this.propsListeners.filter((l) => l !== listener);
+			if (this.propsListeners.length === 0) this.dispose();
+		} };
+	}
+	get snapshot() {
+		return this.currentProps;
 	}
 };
-var i$10 = Symbol.for("preact-signals");
-function t$8() {
-	if (!(v$2 > 1)) {
+/** Structural equality over JSON-shaped values (objects, arrays, primitives). */
+function jsonEquals(a, b) {
+	if (Object.is(a, b)) return true;
+	if (typeof a !== "object" || typeof b !== "object" || a === null || b === null) return false;
+	if (Array.isArray(a) || Array.isArray(b)) {
+		if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+		return a.every((item, index) => jsonEquals(item, b[index]));
+	}
+	const aKeys = Object.keys(a);
+	const bKeys = Object.keys(b);
+	if (aKeys.length !== bKeys.length) return false;
+	return aKeys.every((key) => Object.prototype.hasOwnProperty.call(b, key) && jsonEquals(a[key], b[key]));
+}
+/**
+* A Lit ReactiveController that binds an A2UI component context to its API schema.
+*
+* This controller manages the subscription to the GenericBinder, updating the
+* component props and requesting a host update whenever the underlying layer data changes.
+*
+* @template Api The specific A2UI component API interface this controller is bound to.
+* @internal
+*/
+var A2uiController = class {
+	/**
+	* Initializes the controller, binding it to the given Lit element and API schema.
+	*
+	* @param host The A2uiLitElement acting as the component host.
+	* @param api The A2UI component API defining the schema for this element.
+	*/
+	constructor(host, api) {
+		this.host = host;
+		this.binder = new GenericBinder(this.host.context, api.schema);
+		this.props = this.binder.snapshot;
+		this.host.addController(this);
+		if (this.host.isConnected) this.hostConnected();
+	}
+	/**
+	* Subscribes to the GenericBinder updates when the host connects.
+	*
+	* Triggers a request update on the host element when new props are received.
+	*/
+	hostConnected() {
+		if (!this.subscription) this.subscription = this.binder.subscribe((newProps) => {
+			this.props = newProps;
+			this.host.requestUpdate();
+		});
+		if (!this.componentsSubscription) this.componentsSubscription = this.host.context.dataContext.surface.componentsModel?.onCreated.subscribe(() => {
+			this.host.requestUpdate();
+		});
+	}
+	/**
+	* Unsubscribes from the GenericBinder updates when the host disconnects.
+	*/
+	hostDisconnected() {
+		this.subscription?.unsubscribe();
+		this.subscription = void 0;
+		this.componentsSubscription?.unsubscribe();
+		this.componentsSubscription = void 0;
+	}
+	/**
+	* Disposes the underlying GenericBinder to clean up resources from the context.
+	*/
+	dispose() {
+		this.binder.dispose();
+	}
+};
+var i$5 = Symbol.for("preact-signals");
+function t$3() {
+	if (!(v$1 > 1)) {
 		var i, t = !1;
 		(function() {
-			var i = c$9;
-			c$9 = void 0;
+			var i = c$5;
+			c$5 = void 0;
 			while (void 0 !== i) {
 				var t = i.S;
 				if (t.v === i.v) {
@@ -4020,15 +5010,15 @@ function t$8() {
 				i = i.o;
 			}
 		})();
-		while (void 0 !== h$5) {
-			var n = h$5;
-			h$5 = void 0;
-			s$10++;
+		while (void 0 !== h$2) {
+			var n = h$2;
+			h$2 = void 0;
+			s$6++;
 			while (void 0 !== n) {
 				var r = n.u;
 				n.u = void 0;
 				n.f &= -3;
-				if (!(8 & n.f) && w$1(n)) try {
+				if (!(8 & n.f) && w(n)) try {
 					n.c();
 				} catch (n) {
 					if (!t) {
@@ -4039,75 +5029,75 @@ function t$8() {
 				n = r;
 			}
 		}
-		s$10 = 0;
-		v$2--;
+		s$6 = 0;
+		v$1--;
 		if (t) throw i;
-	} else v$2--;
+	} else v$1--;
 }
-function n$12(i) {
-	if (v$2 > 0) return i();
-	e$12 = ++u$5;
-	v$2++;
+function n$5(i) {
+	if (v$1 > 0) return i();
+	e$6 = ++u$3;
+	v$1++;
 	try {
 		return i();
 	} finally {
-		t$8();
+		t$3();
 	}
 }
-var r$9;
-var o$12 = void 0;
-function f$4(i) {
-	var t = o$12, n = r$9;
-	o$12 = void 0;
-	r$9 = void 0;
+var r$2;
+var o$4 = void 0;
+function f$2(i) {
+	var t = o$4, n = r$2;
+	o$4 = void 0;
+	r$2 = void 0;
 	try {
 		return i();
 	} finally {
-		o$12 = t;
-		r$9 = n;
+		o$4 = t;
+		r$2 = n;
 	}
 }
-var h$5 = void 0;
-var v$2 = 0;
-var s$10 = 0;
-var u$5 = 0;
-var e$12 = 0;
-var c$9 = void 0;
-var d$3 = 0;
-function a$3(i) {
-	if (void 0 !== o$12) {
+var h$2 = void 0;
+var v$1 = 0;
+var s$6 = 0;
+var u$3 = 0;
+var e$6 = 0;
+var c$5 = void 0;
+var d$1 = 0;
+function a$1(i) {
+	if (void 0 !== o$4) {
 		var t = i.n;
-		if (void 0 === t || t.t !== o$12) {
+		if (void 0 === t || t.t !== o$4) {
 			t = {
 				i: 0,
 				S: i,
-				p: o$12.s,
+				p: o$4.s,
 				n: void 0,
-				t: o$12,
+				t: o$4,
 				e: void 0,
 				x: void 0,
 				r: t
 			};
-			if (void 0 !== o$12.s) o$12.s.n = t;
-			o$12.s = t;
+			if (void 0 !== o$4.s) o$4.s.n = t;
+			o$4.s = t;
 			i.n = t;
-			if (32 & o$12.f) i.S(t);
+			if (32 & o$4.f) i.S(t);
 			return t;
 		} else if (-1 === t.i) {
 			t.i = 0;
 			if (void 0 !== t.n) {
 				t.n.p = t.p;
 				if (void 0 !== t.p) t.p.n = t.n;
-				t.p = o$12.s;
+				t.p = o$4.s;
 				t.n = void 0;
-				o$12.s.n = t;
-				o$12.s = t;
+				o$4.s.n = t;
+				o$4.s = t;
 			}
 			return t;
 		}
 	}
 }
-function l$4(i, t) {
+function l$2(i, t) {
 	this.v = i;
 	this.i = 0;
 	this.n = void 0;
@@ -4117,23 +5107,23 @@ function l$4(i, t) {
 	this.Z = null == t ? void 0 : t.unwatched;
 	this.name = null == t ? void 0 : t.name;
 }
-l$4.prototype.brand = i$10;
-l$4.prototype.h = function() {
+l$2.prototype.brand = i$5;
+l$2.prototype.h = function() {
 	return !0;
 };
-l$4.prototype.S = function(i) {
+l$2.prototype.S = function(i) {
 	var t = this, n = this.t;
 	if (n !== i && void 0 === i.e) {
 		i.x = n;
 		this.t = i;
 		if (void 0 !== n) n.e = i;
-		else f$4(function() {
+		else f$2(function() {
 			var i;
 			null == (i = t.W) || i.call(t);
 		});
 	}
 };
-l$4.prototype.U = function(i) {
+l$2.prototype.U = function(i) {
 	var t = this;
 	if (void 0 !== this.t) {
 		var n = i.e, r = i.x;
@@ -4147,79 +5137,79 @@ l$4.prototype.U = function(i) {
 		}
 		if (i === this.t) {
 			this.t = r;
-			if (void 0 === r) f$4(function() {
+			if (void 0 === r) f$2(function() {
 				var i;
 				null == (i = t.Z) || i.call(t);
 			});
 		}
 	}
 };
-l$4.prototype.subscribe = function(i) {
+l$2.prototype.subscribe = function(i) {
 	var t = this;
-	return j$2(function() {
+	return j$1(function() {
 		var n = t.value;
-		f$4(function() {
+		f$2(function() {
 			return i(n);
 		});
 	}, { name: "sub" });
 };
-l$4.prototype.valueOf = function() {
+l$2.prototype.valueOf = function() {
 	return this.value;
 };
-l$4.prototype.toString = function() {
+l$2.prototype.toString = function() {
 	return this.value + "";
 };
-l$4.prototype.toJSON = function() {
+l$2.prototype.toJSON = function() {
 	return this.value;
 };
-l$4.prototype.peek = function() {
+l$2.prototype.peek = function() {
 	var i = this;
-	return f$4(function() {
+	return f$2(function() {
 		return i.value;
 	});
 };
-Object.defineProperty(l$4.prototype, "value", {
+Object.defineProperty(l$2.prototype, "value", {
 	get: function() {
-		var i = a$3(this);
+		var i = a$1(this);
 		if (void 0 !== i) i.i = this.i;
 		return this.v;
 	},
 	set: function(i) {
 		if (i !== this.v) {
-			if (s$10 > 100) throw new Error("Cycle detected");
+			if (s$6 > 100) throw new Error("Cycle detected");
 			(function(i) {
-				if (0 !== v$2 && 0 === s$10) {
-					if (i.l !== e$12) {
-						i.l = e$12;
-						c$9 = {
+				if (0 !== v$1 && 0 === s$6) {
+					if (i.l !== e$6) {
+						i.l = e$6;
+						c$5 = {
 							S: i,
 							v: i.v,
 							i: i.i,
-							o: c$9
+							o: c$5
 						};
 					}
 				}
 			})(this);
 			this.v = i;
 			this.i++;
-			d$3++;
-			v$2++;
+			d$1++;
+			v$1++;
 			try {
 				for (var n = this.t; void 0 !== n; n = n.x) n.t.N();
 			} finally {
-				t$8();
+				t$3();
 			}
 		}
 	}
 });
-function y$2(i, t) {
-	return new l$4(i, t);
+function y(i, t) {
+	return new l$2(i, t);
 }
-function w$1(i) {
+function w(i) {
 	for (var t = i.s; void 0 !== t; t = t.n) if (t.S.i !== t.i || !t.S.h() || t.S.i !== t.i) return !0;
 	return !1;
 }
-function _$1(i) {
+function _(i) {
 	for (var t = i.s; void 0 !== t; t = t.n) {
 		var n = t.S.n;
 		if (void 0 !== n) t.r = n;
@@ -4231,7 +5221,7 @@ function _$1(i) {
 		}
 	}
 }
-function b$2(i) {
+function b(i) {
 	var t = i.s, n = void 0;
 	while (void 0 !== t) {
 		var r = t.p;
@@ -4246,30 +5236,30 @@ function b$2(i) {
 	}
 	i.s = n;
 }
-function p$3(i, t) {
-	l$4.call(this, void 0, t);
+function p$1(i, t) {
+	l$2.call(this, void 0, t);
 	this.x = i;
 	this.s = void 0;
-	this.g = d$3 - 1;
+	this.g = d$1 - 1;
 	this.f = 4;
 }
-p$3.prototype = new l$4();
-p$3.prototype.h = function() {
+p$1.prototype = new l$2();
+p$1.prototype.h = function() {
 	this.f &= -3;
 	if (1 & this.f) return !1;
 	if (32 == (36 & this.f)) return !0;
 	this.f &= -5;
-	if (this.g === d$3) return !0;
-	this.g = d$3;
+	if (this.g === d$1) return !0;
+	this.g = d$1;
 	this.f |= 1;
-	if (this.i > 0 && !w$1(this)) {
+	if (this.i > 0 && !w(this)) {
 		this.f &= -2;
 		return !0;
 	}
-	var i = o$12;
+	var i = o$4;
 	try {
-		_$1(this);
-		o$12 = this;
+		_(this);
+		o$4 = this;
 		var t = this.x();
 		if (16 & this.f || this.v !== t || 0 === this.i) {
 			this.v = t;
@@ -4281,88 +5271,88 @@ p$3.prototype.h = function() {
 		this.f |= 16;
 		this.i++;
 	}
-	o$12 = i;
-	b$2(this);
+	o$4 = i;
+	b(this);
 	this.f &= -2;
 	return !0;
 };
-p$3.prototype.S = function(i) {
+p$1.prototype.S = function(i) {
 	if (void 0 === this.t) {
 		this.f |= 36;
 		for (var t = this.s; void 0 !== t; t = t.n) t.S.S(t);
 	}
-	l$4.prototype.S.call(this, i);
+	l$2.prototype.S.call(this, i);
 };
-p$3.prototype.U = function(i) {
+p$1.prototype.U = function(i) {
 	if (void 0 !== this.t) {
-		l$4.prototype.U.call(this, i);
+		l$2.prototype.U.call(this, i);
 		if (void 0 === this.t) {
 			this.f &= -33;
 			for (var t = this.s; void 0 !== t; t = t.n) t.S.U(t);
 		}
 	}
 };
-p$3.prototype.N = function() {
+p$1.prototype.N = function() {
 	if (!(2 & this.f)) {
 		this.f |= 6;
 		for (var i = this.t; void 0 !== i; i = i.x) i.t.N();
 	}
 };
-Object.defineProperty(p$3.prototype, "value", { get: function() {
+Object.defineProperty(p$1.prototype, "value", { get: function() {
 	if (1 & this.f) throw new Error("Cycle detected");
-	var i = a$3(this);
+	var i = a$1(this);
 	this.h();
 	if (void 0 !== i) i.i = this.i;
 	if (16 & this.f) throw this.v;
 	return this.v;
 } });
-function g$1(i, t) {
-	return new p$3(i, t);
+function g(i, t) {
+	return new p$1(i, t);
 }
-function S$2(i) {
+function S(i) {
 	var n = i.m;
 	i.m = void 0;
 	if ("function" == typeof n) {
-		v$2++;
-		var r = o$12;
-		o$12 = void 0;
+		v$1++;
+		var r = o$4;
+		o$4 = void 0;
 		try {
 			n();
 		} catch (t) {
 			i.f &= -2;
 			i.f |= 8;
-			m$3(i);
+			m$1(i);
 			throw t;
 		} finally {
-			o$12 = r;
-			t$8();
+			o$4 = r;
+			t$3();
 		}
 	}
 }
-function m$3(i) {
+function m$1(i) {
 	for (var t = i.s; void 0 !== t; t = t.n) t.S.U(t);
 	i.x = void 0;
 	i.s = void 0;
-	S$2(i);
+	S(i);
 }
-function x$1(i) {
-	if (o$12 !== this) throw new Error("Out-of-order effect");
-	b$2(this);
-	o$12 = i;
+function x(i) {
+	if (o$4 !== this) throw new Error("Out-of-order effect");
+	b(this);
+	o$4 = i;
 	this.f &= -2;
-	if (8 & this.f) m$3(this);
-	t$8();
+	if (8 & this.f) m$1(this);
+	t$3();
 }
-function E$1(i, t) {
+function E(i, t) {
 	this.x = i;
 	this.m = void 0;
 	this.s = void 0;
 	this.u = void 0;
 	this.f = 32;
 	this.name = null == t ? void 0 : t.name;
-	if (r$9) r$9.push(this);
+	if (r$2) r$2.push(this);
 }
-E$1.prototype.c = function() {
+E.prototype.c = function() {
 	var i = this.S();
 	try {
 		if (8 & this.f) return;
@@ -4373,33 +5363,33 @@ E$1.prototype.c = function() {
 		i();
 	}
 };
-E$1.prototype.S = function() {
+E.prototype.S = function() {
 	if (1 & this.f) throw new Error("Cycle detected");
 	this.f |= 1;
 	this.f &= -9;
-	S$2(this);
-	_$1(this);
-	v$2++;
-	var i = o$12;
-	o$12 = this;
-	return x$1.bind(this, i);
+	S(this);
+	_(this);
+	v$1++;
+	var i = o$4;
+	o$4 = this;
+	return x.bind(this, i);
 };
-E$1.prototype.N = function() {
+E.prototype.N = function() {
 	if (!(2 & this.f)) {
 		this.f |= 2;
-		this.u = h$5;
-		h$5 = this;
+		this.u = h$2;
+		h$2 = this;
 	}
 };
-E$1.prototype.d = function() {
+E.prototype.d = function() {
 	this.f |= 8;
-	if (!(1 & this.f)) m$3(this);
+	if (!(1 & this.f)) m$1(this);
 };
-E$1.prototype.dispose = function() {
+E.prototype.dispose = function() {
 	this.d();
 };
-function j$2(i, t) {
-	var n = new E$1(i, t);
+function j$1(i, t) {
+	var n = new E(i, t);
 	try {
 		n.c();
 	} catch (i) {
@@ -4419,14 +5409,14 @@ let getValueImpl;
 let setValueImpl;
 let peekValueImpl;
 setSignalImplementation({
-	signal: y$2,
-	computed: g$1,
-	effect: j$2,
-	batchWrite: n$12,
+	signal: y,
+	computed: g,
+	effect: j$1,
+	batchWrite: n$5,
 	isSignal: (val) => !!val && typeof val === "object" && "value" in val && "peek" in val,
 	getValue: (signal) => signal.value,
 	setValue: (signal, value) => {
-		if (!(signal instanceof p$3)) signal.value = value;
+		if (!(signal instanceof p$1)) signal.value = value;
 	},
 	peekValue: (signal) => signal.peek()
 });
@@ -4468,6 +5458,526 @@ function setValue(signal, value) {
 function peekValue(signal) {
 	return peekValueImpl(signal);
 }
+/**
+* A contextual view of the main DataModel, serving as the unified interface for resolving
+* DynamicValues (literals, data paths, function calls) within a specific scope.
+*
+* Components use `DataContext` instead of interacting with the `DataModel` directly.
+* It automatically handles resolving relative paths against the component's current scope
+* and provides tools for evaluating complex, reactive expressions.
+*/
+var DataContext = class DataContext {
+	/**
+	* Initializes a new DataContext.
+	*
+	* @param surface The surface model this context belongs to.
+	* @param path The absolute path in the DataModel that this context is scoped to (its "current working directory").
+	*/
+	constructor(surface, path) {
+		this.surface = surface;
+		this.path = path;
+		this.dataModel = surface.dataModel;
+		this.functionInvoker = surface.catalog.invoker;
+	}
+	/**
+	* Mutates the underlying DataModel at the specified path.
+	*
+	* This is the primary method for components to push state changes (e.g. user input)
+	* back up to the global model.
+	*
+	* @param path A JSON pointer path. If relative, it is resolved against this context's `path`.
+	* @param value The new value to store in the DataModel.
+	*/
+	set(path, value) {
+		const absolutePath = this.resolvePath(path);
+		this.dataModel.set(absolutePath, value);
+	}
+	/**
+	* Checks whether a value (typically an array element) contains any dynamic parts
+	* (path bindings or function calls) that require resolution.
+	*/
+	static containsDynamicValue(value) {
+		if (value === null || typeof value !== "object") return false;
+		if (Array.isArray(value)) return value.some((item) => DataContext.containsDynamicValue(item));
+		return "path" in value || "call" in value;
+	}
+	/**
+	* Synchronously evaluates a `DynamicValue` (a literal, a path binding, or a function call)
+	* into its concrete runtime value.
+	*
+	* **Note:** This method evaluates the value *once* at the current moment in time.
+	* It does not create any reactive subscriptions. If the underlying data changes later,
+	* this result will not automatically update. Use `subscribeDynamicValue` for reactive updates.
+	*
+	* @param value The DynamicValue object from the A2UI JSON payload.
+	* @returns The synchronously resolved value.
+	*/
+	resolveDynamicValue(value) {
+		if (value === null || typeof value !== "object") return value;
+		if (Array.isArray(value)) {
+			if (!DataContext.containsDynamicValue(value)) return value;
+			return value.map((item) => this.resolveDynamicValue(item));
+		}
+		if ("path" in value) {
+			const absolutePath = this.resolvePath(value.path);
+			return this.dataModel.get(absolutePath);
+		}
+		if ("call" in value) {
+			const call = value;
+			const args = {};
+			for (const [key, argVal] of Object.entries(call.args)) args[key] = this.resolveDynamicValue(argVal);
+			const abortController = new AbortController();
+			const result = this.evaluateFunctionReactive(call.call, args, abortController.signal);
+			if (result === void 0) return;
+			return isSignal(result) ? peekValue(result) : result;
+		}
+		return value;
+	}
+	/**
+	* Reactively listens to changes in a `DynamicValue`.
+	*
+	* This is the core reactive binding mechanism. Whenever the underlying data changes
+	* (or if a function call's dependencies change), the `onChange` callback will be fired
+	* with the freshly evaluated result.
+	*
+	* @template V The expected type of the resolved value.
+	* @param value The DynamicValue to evaluate and observe.
+	* @param onChange A callback fired whenever the evaluated result changes.
+	* @returns A `DataSubscription` containing the initial synchronously-resolved value, along with an `unsubscribe` method to clean up the listener.
+	*/
+	subscribeDynamicValue(value, onChange) {
+		const sig = this.resolveSignal(value);
+		let isSync = true;
+		let currentValue = peekValue(sig);
+		const dispose = effect(() => {
+			const val = getValue(sig);
+			currentValue = val;
+			if (!isSync) onChange(val);
+		});
+		isSync = false;
+		return {
+			get value() {
+				return currentValue;
+			},
+			unsubscribe: () => {
+				dispose();
+				sig.unsubscribe?.();
+			}
+		};
+	}
+	/**
+	* Returns a Preact Signal representing the reactive dynamic value.
+	*
+	* This method recursively resolves any nested path bindings or function calls into a
+	* single, reactive `Signal`. Any changes to the underlying data or function dependencies
+	* will cause this signal's value to update.
+	*
+	* @param value The DynamicValue to evaluate and observe.
+	* @returns A Preact Signal containing the reactive result of the evaluation.
+	*/
+	resolveSignal(value) {
+		if (typeof value !== "object" || value === null) return signal(value);
+		if (Array.isArray(value)) {
+			if (!DataContext.containsDynamicValue(value)) return signal(value);
+			const itemSignals = value.map((item) => this.resolveSignal(item));
+			const resultSig = computed(() => itemSignals.map((s) => getValue(s)));
+			resultSig.unsubscribe = () => {
+				for (const s of itemSignals) s.unsubscribe?.();
+			};
+			return resultSig;
+		}
+		if ("path" in value) {
+			const absolutePath = this.resolvePath(value.path);
+			return this.dataModel.getSignal(absolutePath);
+		}
+		if ("call" in value) {
+			const call = value;
+			const argSignals = {};
+			for (const [key, argVal] of Object.entries(call.args)) argSignals[key] = this.resolveSignal(argVal);
+			if (Object.keys(argSignals).length === 0) {
+				const abortController = new AbortController();
+				const result = this.evaluateFunctionReactive(call.call, {}, abortController.signal);
+				const sig = isSignal(result) ? result : signal(result);
+				sig.unsubscribe = () => abortController.abort();
+				return sig;
+			}
+			const keys = Object.keys(argSignals);
+			const resultSig = signal(void 0);
+			let abortController;
+			let innerUnsubscribe;
+			const argsSig = computed(() => {
+				const argsRecord = {};
+				for (let i = 0; i < keys.length; i++) argsRecord[keys[i]] = getValue(argSignals[keys[i]]);
+				return argsRecord;
+			});
+			const stopper = effect(() => {
+				try {
+					const args = getValue(argsSig);
+					if (abortController) abortController.abort();
+					if (innerUnsubscribe) {
+						innerUnsubscribe();
+						innerUnsubscribe = void 0;
+					}
+					abortController = new AbortController();
+					const res = this.evaluateFunctionReactive(call.call, args, abortController.signal);
+					if (isSignal(res)) innerUnsubscribe = effect(() => {
+						setValue(resultSig, getValue(res));
+					});
+					else setValue(resultSig, res);
+				} catch (e) {
+					this.dispatchExpressionError(e, call.call);
+					setValue(resultSig, void 0);
+				}
+			});
+			resultSig.unsubscribe = () => {
+				stopper();
+				if (innerUnsubscribe) innerUnsubscribe();
+				if (abortController) abortController.abort();
+				for (let i = 0; i < keys.length; i++) argSignals[keys[i]].unsubscribe?.();
+			};
+			return resultSig;
+		}
+		return signal(value);
+	}
+	/**
+	* Resolves an action by evaluating its top-level dynamic values.
+	*
+	* For event actions, it resolves each value in the context map.
+	* For function call actions, it evaluates the call.
+	*
+	* This is non-recursive: it only resolves one level deep for the context record,
+	* in accordance with the schema specification that requires values to be single
+	* DynamicValue types and prevents arbitrary nesting.
+	*/
+	resolveAction(action) {
+		if ("event" in action) {
+			const resolvedContext = {};
+			if (action.event.context) for (const [key, value] of Object.entries(action.event.context)) resolvedContext[key] = this.resolveDynamicValue(value);
+			return { event: {
+				...action.event,
+				context: resolvedContext
+			} };
+		}
+		if ("functionCall" in action) return this.resolveDynamicValue(action.functionCall);
+		return action;
+	}
+	evaluateFunctionReactive(name, args, abortSignal) {
+		try {
+			return this.functionInvoker(name, args, this, abortSignal);
+		} catch (e) {
+			this.dispatchExpressionError(e, name);
+			return;
+		}
+	}
+	dispatchExpressionError(e, name) {
+		if (e?.name === "ZodError" || e instanceof ZodError) {
+			const err = new A2uiExpressionError(`Validation failed for function '${name}': ${e.message}`, name, e.errors ?? e.issues);
+			this.surface.dispatchError({
+				code: "EXPRESSION_ERROR",
+				message: err.message,
+				expression: name,
+				details: err.details
+			});
+		} else if (e instanceof A2uiExpressionError) this.surface.dispatchError({
+			code: "EXPRESSION_ERROR",
+			message: e.message,
+			expression: e.expression,
+			details: e.details
+		});
+		else this.surface.dispatchError({
+			code: "EXPRESSION_ERROR",
+			message: e.message ?? `An unexpected error occurred in function ${name}.`,
+			expression: name,
+			details: { stack: e.stack }
+		});
+	}
+	/**
+	* Creates a new, child `DataContext` scoped to a deeper path.
+	*
+	* This is used when a component (like a List or a Card) wants to provide a targeted
+	* data scope for its children, so children can use relative paths like `./title`.
+	*
+	* @param relativePath The path relative to the *current* context's path.
+	* @returns A new `DataContext` instance pointing to the resolved absolute path.
+	*/
+	nested(relativePath) {
+		const newPath = this.resolvePath(relativePath);
+		return new DataContext(this.surface, newPath);
+	}
+	resolvePath(path) {
+		if (path.startsWith("/")) return path;
+		if (path === "" || path === ".") return this.path;
+		let base = this.path;
+		if (base.endsWith("/") && base.length > 1) base = base.slice(0, -1);
+		if (base === "/") base = "";
+		return `${base}/${path}`;
+	}
+};
+/**
+* Context provided to components during rendering.
+* It provides access to the component's model, the data context, and a way to dispatch actions.
+*/
+var ComponentContext = class {
+	/**
+	* Creates a new component context.
+	*
+	* @param surface The surface model the component belongs to.
+	* @param componentId The ID of the component.
+	* @param dataModelBasePath The base path for data model access (default: '/').
+	*/
+	constructor(surface, componentId, dataModelBasePath = "/") {
+		const model = surface.componentsModel.get(componentId);
+		if (!model) throw new A2uiStateError(`Component not found: ${componentId}`);
+		this.componentModel = model;
+		this.surfaceComponents = surface.componentsModel;
+		this.theme = surface.theme;
+		this.dataContext = new DataContext(surface, dataModelBasePath);
+		this._actionDispatcher = (action) => surface.dispatchAction(action, this.componentModel.id);
+	}
+	/**
+	* Dispatches an action from the component.
+	*
+	* @param action The action to dispatch.
+	*/
+	dispatchAction(action) {
+		return this._actionDispatcher(action);
+	}
+};
+/**
+* @license
+* Copyright 2020 Google LLC
+* SPDX-License-Identifier: BSD-3-Clause
+*/
+const a = Symbol.for("");
+const o$3 = (t) => {
+	if (t?.r === a) return t?._$litStatic$;
+};
+const s$5 = (t) => ({
+	_$litStatic$: t,
+	r: a
+});
+const l$1 = /* @__PURE__ */ new Map();
+const n$4 = (t) => (r, ...e) => {
+	const a = e.length;
+	let s, i;
+	const n = [], u = [];
+	let c, $ = 0, f = !1;
+	for (; $ < a;) {
+		for (c = r[$]; $ < a && void 0 !== (i = e[$], s = o$3(i));) c += s + r[++$], f = !0;
+		$ !== a && u.push(i), n.push(c), $++;
+	}
+	if ($ === a && n.push(r[a]), f) {
+		const t = n.join("$$lit$$");
+		void 0 === (r = l$1.get(t)) && (n.raw = n, l$1.set(t, r = n)), e = u;
+	}
+	return t(r, ...e);
+};
+const u$2 = n$4(b$1);
+/**
+* Pure function that acts as a generic container for A2UI components.
+*
+* It dynamically resolves and renders the specific Lit component implementation
+* based on the component type provided in the context, returning a TemplateResult directly
+* to avoid duplicate DOM node wrapping.
+*
+* @param context The component context defining the data model and type to render.
+* @param catalog The catalog of component implementations.
+* @returns A Lit TemplateResult representing the resolved component, or `nothing` if the component is invalid or unresolvable.
+*/
+function renderA2uiNode$1(context, catalog) {
+	const type = context.componentModel.type;
+	const implementation = catalog.components.get(type);
+	if (!implementation || !implementation.tagName) {
+		console.warn(`Component implementation not found or missing tagName for type: ${type}`);
+		return A;
+	}
+	const tag = s$5(implementation.tagName);
+	return u$2`<${tag} .context=${context}></${tag}>`;
+}
+var __decorate$18 = function(decorators, target, key, desc) {
+	var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+	if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+	else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+	return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+/**
+* A base class for A2UI Lit elements that manages the A2uiController lifecycle
+* and provides Light DOM style adoption and scoping.
+*
+* By default, elements render into the Light DOM (direct children) to enable
+* universal CSS cascade, styling, and cross-framework composition. To opt into
+* Shadow DOM encapsulation, subclasses can override `createRenderRoot()` to return
+* `super.createRenderRoot()`.
+*
+* @template Api The specific A2UI component API defining the schema for this element.
+* @experimental This class is experimental and subject to change as A2UI transitions
+* to the unified Node Layer resolution pipeline.
+*/
+var A2uiLitElement = class extends i$6 {
+	/**
+	* The reactive controller instance managing property bindings and state subscriptions.
+	*/
+	get controller() {
+		return this._controller;
+	}
+	/**
+	* Adopts and scopes component CSS rules into the containing document or host shadow root.
+	*
+	* In Light DOM (the default for A2uiLitElement), the element has no shadow root of its own,
+	* so this method locates the nearest enclosing Document or ShadowRoot and adopts the
+	* stylesheet once per root, scoping `:host` and descendant selectors to the element's tagName.
+	*/
+	adoptLightDomStyles() {
+		if (typeof document === "undefined") return;
+		const root = this.getRootNode();
+		const constructor = this.constructor;
+		const styles = constructor.styles;
+		if (!styles) return;
+		const tagName = this.tagName.toLowerCase();
+		if (!constructor._processedSheet && constructor._processedCss === void 0) {
+			const baseCss = (Array.isArray(styles) ? styles : [styles]).map((s) => s && typeof s === "object" && "cssText" in s ? String(s.cssText) : String(s)).join("\n").replace(/:where\(:host\)/g, `:where(${tagName})`).replace(/:host\(([^)]+)\)/g, `${tagName}$1`).replace(/:host/g, tagName);
+			let processedCss = baseCss;
+			try {
+				const sheet = new CSSStyleSheet();
+				sheet.replaceSync(baseCss);
+				const scopeRule = (rule) => {
+					if (typeof CSSStyleRule !== "undefined" && rule instanceof CSSStyleRule) return `${rule.selectorText.split(",").map((sel) => {
+						sel = sel.trim();
+						if (sel === tagName || sel.startsWith(tagName + " ") || sel.startsWith(tagName + ".") || sel.startsWith(tagName + ":") || sel.startsWith(tagName + "[") || sel.startsWith(`:where(${tagName}`) || sel.startsWith(`:is(${tagName}`)) return sel;
+						return `${tagName} ${sel}`;
+					}).join(", ")} { ${rule.style.cssText} }`;
+					else if (typeof CSSMediaRule !== "undefined" && rule instanceof CSSMediaRule) {
+						const inner = Array.from(rule.cssRules).map(scopeRule).join("\n");
+						return `@media ${rule.conditionText} {\n${inner}\n}`;
+					}
+					return rule.cssText;
+				};
+				processedCss = Array.from(sheet.cssRules).map(scopeRule).join("\n");
+				const scopedSheet = new CSSStyleSheet();
+				scopedSheet.replaceSync(processedCss);
+				constructor._processedSheet = scopedSheet;
+			} catch {}
+			constructor._processedCss = processedCss;
+			constructor._processedStyle = i$9([processedCss]);
+			constructor._adoptedRoots = /* @__PURE__ */ new WeakSet();
+		}
+		const target = typeof ShadowRoot !== "undefined" && root instanceof ShadowRoot ? root : document;
+		if (target) {
+			if (!constructor._adoptedRoots) constructor._adoptedRoots = /* @__PURE__ */ new WeakSet();
+			if (!constructor._adoptedRoots.has(target)) {
+				constructor._adoptedRoots.add(target);
+				if (constructor._processedSheet && target.adoptedStyleSheets) target.adoptedStyleSheets = [...target.adoptedStyleSheets, constructor._processedSheet];
+			}
+		}
+	}
+	/**
+	* Lifecycle hook invoked when the element is connected to the DOM.
+	* Scopes and adopts component styles into the document or host shadow root.
+	*/
+	connectedCallback() {
+		super.connectedCallback();
+		this.adoptLightDomStyles();
+	}
+	/**
+	* Instantiates the controller for this element's specific bound API.
+	*
+	* By default, this creates an `A2uiController` using the instance `api` property.
+	* Subclasses can override this method if custom controller initialization is required.
+	*
+	* @returns A new instance of `A2uiController` matching the component API.
+	*/
+	createController() {
+		if (!this.api) throw new Error(`[A2uiLitElement] Either define 'protected readonly api = ...' on ${this.constructor.name} or override 'createController()'.`);
+		return new A2uiController(this, this.api);
+	}
+	/**
+	* Helper method to render a child A2UI node.
+	* Abstracts away the need to manually create a ComponentContext.
+	*
+	* @param childRef The reference to the child component to render. Either a string ID
+	*                 or a reference object containing `{id, basePath}`.
+	* @param customPath An explicit data model path to bind the child to. If provided,
+	*                   this overrides any path defined in the `childRef` object. If omitted,
+	*                   falls back to the `childRef`'s `basePath`, or the current component's path.
+	*
+	* @returns A Lit template result containing the rendered child component, or `nothing` if the reference is empty.
+	*/
+	renderNode(childRef, customPath) {
+		if (!childRef) return A;
+		const { surface, path: parentPath } = this.context.dataContext;
+		if (!!!surface.componentsModel?.get(this.context.componentModel.id)) return A;
+		let componentId;
+		let path = customPath;
+		if (typeof childRef === "object") {
+			componentId = childRef.id || childRef.componentId;
+			path = path ?? childRef.basePath ?? childRef.path;
+		} else componentId = childRef;
+		if (!componentId || !surface.componentsModel?.get(componentId)) return A;
+		path = path ?? parentPath;
+		return renderA2uiNode$1(new ComponentContext(surface, componentId, path), surface.catalog);
+	}
+	/**
+	* Reacts to changes in the component's properties.
+	*
+	* Specifically, when the `context` property changes or is initialized, this method
+	* cleans up any existing controller and invokes `createController()` to bind to
+	* the new context.
+	*
+	* @param changedProperties Map of changed properties with their previous values.
+	*/
+	willUpdate(changedProperties) {
+		super.willUpdate(changedProperties);
+		if (changedProperties.has("context") && this.context) {
+			if (this._controller) {
+				this.removeController(this._controller);
+				this._controller.dispose();
+			}
+			this._controller = this.createController();
+		}
+	}
+	update(changedProperties) {
+		if (!this._controller) return;
+		super.update(changedProperties);
+	}
+};
+__decorate$18([n$7({ type: Object })], A2uiLitElement.prototype, "context", void 0);
+/**
+* Internal implementation used by the model.
+* Implements EventSource but also provides the 'emit' method.
+*/
+var EventEmitter = class {
+	constructor() {
+		this.listeners = /* @__PURE__ */ new Set();
+	}
+	/**
+	* Subscribes to the event.
+	*
+	* @param listener The listener function to call when the event is emitted.
+	* @returns A subscription object that can be used to unsubscribe.
+	*/
+	subscribe(listener) {
+		this.listeners.add(listener);
+		return { unsubscribe: () => this.listeners.delete(listener) };
+	}
+	/**
+	* Emits an event to all subscribers.
+	*
+	* @param data The data to pass to subscribers.
+	*/
+	async emit(data) {
+		for (const listener of this.listeners) try {
+			await listener(data);
+		} catch (e) {
+			console.error("EventEmitter error:", e);
+		}
+	}
+	/**
+	* Removes all listeners.
+	*/
+	dispose() {
+		this.listeners.clear();
+	}
+};
 function isNumeric(value) {
 	return /^(0|[1-9]\d*)$/.test(value);
 }
@@ -4540,7 +6050,8 @@ var DataModel = class {
 		}
 		const segments = this.parsePath(path);
 		const lastSegment = segments.pop();
-		if (!this.data) this.data = {};
+		if (this.data === void 0 || this.data === null) this.data = {};
+		else if (typeof this.data !== "object") throw new A2uiDataError(`Cannot set path '${path}': the data model root is a primitive value.`, path);
 		let current = this.data;
 		for (let i = 0; i < segments.length; i++) {
 			const segment = segments[i];
@@ -6224,565 +7735,6 @@ var MessageProcessor = class {
 	}
 };
 /**
-* A contextual view of the main DataModel, serving as the unified interface for resolving
-* DynamicValues (literals, data paths, function calls) within a specific scope.
-*
-* Components use `DataContext` instead of interacting with the `DataModel` directly.
-* It automatically handles resolving relative paths against the component's current scope
-* and provides tools for evaluating complex, reactive expressions.
-*/
-var DataContext = class DataContext {
-	/**
-	* Initializes a new DataContext.
-	*
-	* @param surface The surface model this context belongs to.
-	* @param path The absolute path in the DataModel that this context is scoped to (its "current working directory").
-	*/
-	constructor(surface, path) {
-		this.surface = surface;
-		this.path = path;
-		this.dataModel = surface.dataModel;
-		this.functionInvoker = surface.catalog.invoker;
-	}
-	/**
-	* Mutates the underlying DataModel at the specified path.
-	*
-	* This is the primary method for components to push state changes (e.g. user input)
-	* back up to the global model.
-	*
-	* @param path A JSON pointer path. If relative, it is resolved against this context's `path`.
-	* @param value The new value to store in the DataModel.
-	*/
-	set(path, value) {
-		const absolutePath = this.resolvePath(path);
-		this.dataModel.set(absolutePath, value);
-	}
-	/**
-	* Checks whether a value (typically an array element) contains any dynamic parts
-	* (path bindings or function calls) that require resolution.
-	*/
-	static containsDynamicValue(value) {
-		if (value === null || typeof value !== "object") return false;
-		if (Array.isArray(value)) return value.some((item) => DataContext.containsDynamicValue(item));
-		return "path" in value || "call" in value;
-	}
-	/**
-	* Synchronously evaluates a `DynamicValue` (a literal, a path binding, or a function call)
-	* into its concrete runtime value.
-	*
-	* **Note:** This method evaluates the value *once* at the current moment in time.
-	* It does not create any reactive subscriptions. If the underlying data changes later,
-	* this result will not automatically update. Use `subscribeDynamicValue` for reactive updates.
-	*
-	* @param value The DynamicValue object from the A2UI JSON payload.
-	* @returns The synchronously resolved value.
-	*/
-	resolveDynamicValue(value) {
-		if (value === null || typeof value !== "object") return value;
-		if (Array.isArray(value)) {
-			if (!DataContext.containsDynamicValue(value)) return value;
-			return value.map((item) => this.resolveDynamicValue(item));
-		}
-		if ("path" in value) {
-			const absolutePath = this.resolvePath(value.path);
-			return this.dataModel.get(absolutePath);
-		}
-		if ("call" in value) {
-			const call = value;
-			const args = {};
-			for (const [key, argVal] of Object.entries(call.args)) args[key] = this.resolveDynamicValue(argVal);
-			const abortController = new AbortController();
-			const result = this.evaluateFunctionReactive(call.call, args, abortController.signal);
-			if (result === void 0) return;
-			return isSignal(result) ? peekValue(result) : result;
-		}
-		return value;
-	}
-	/**
-	* Reactively listens to changes in a `DynamicValue`.
-	*
-	* This is the core reactive binding mechanism. Whenever the underlying data changes
-	* (or if a function call's dependencies change), the `onChange` callback will be fired
-	* with the freshly evaluated result.
-	*
-	* @template V The expected type of the resolved value.
-	* @param value The DynamicValue to evaluate and observe.
-	* @param onChange A callback fired whenever the evaluated result changes.
-	* @returns A `DataSubscription` containing the initial synchronously-resolved value, along with an `unsubscribe` method to clean up the listener.
-	*/
-	subscribeDynamicValue(value, onChange) {
-		const sig = this.resolveSignal(value);
-		let isSync = true;
-		let currentValue = peekValue(sig);
-		const dispose = effect(() => {
-			const val = getValue(sig);
-			currentValue = val;
-			if (!isSync) onChange(val);
-		});
-		isSync = false;
-		return {
-			get value() {
-				return currentValue;
-			},
-			unsubscribe: () => {
-				dispose();
-				sig.unsubscribe?.();
-			}
-		};
-	}
-	/**
-	* Returns a Preact Signal representing the reactive dynamic value.
-	*
-	* This method recursively resolves any nested path bindings or function calls into a
-	* single, reactive `Signal`. Any changes to the underlying data or function dependencies
-	* will cause this signal's value to update.
-	*
-	* @param value The DynamicValue to evaluate and observe.
-	* @returns A Preact Signal containing the reactive result of the evaluation.
-	*/
-	resolveSignal(value) {
-		if (typeof value !== "object" || value === null) return signal(value);
-		if (Array.isArray(value)) {
-			if (!DataContext.containsDynamicValue(value)) return signal(value);
-			const itemSignals = value.map((item) => this.resolveSignal(item));
-			const resultSig = computed(() => itemSignals.map((s) => getValue(s)));
-			resultSig.unsubscribe = () => {
-				for (const s of itemSignals) s.unsubscribe?.();
-			};
-			return resultSig;
-		}
-		if ("path" in value) {
-			const absolutePath = this.resolvePath(value.path);
-			return this.dataModel.getSignal(absolutePath);
-		}
-		if ("call" in value) {
-			const call = value;
-			const argSignals = {};
-			for (const [key, argVal] of Object.entries(call.args)) argSignals[key] = this.resolveSignal(argVal);
-			if (Object.keys(argSignals).length === 0) {
-				const abortController = new AbortController();
-				const result = this.evaluateFunctionReactive(call.call, {}, abortController.signal);
-				const sig = isSignal(result) ? result : signal(result);
-				sig.unsubscribe = () => abortController.abort();
-				return sig;
-			}
-			const keys = Object.keys(argSignals);
-			const resultSig = signal(void 0);
-			let abortController;
-			let innerUnsubscribe;
-			const argsSig = computed(() => {
-				const argsRecord = {};
-				for (let i = 0; i < keys.length; i++) argsRecord[keys[i]] = getValue(argSignals[keys[i]]);
-				return argsRecord;
-			});
-			const stopper = effect(() => {
-				try {
-					const args = getValue(argsSig);
-					if (abortController) abortController.abort();
-					if (innerUnsubscribe) {
-						innerUnsubscribe();
-						innerUnsubscribe = void 0;
-					}
-					abortController = new AbortController();
-					const res = this.evaluateFunctionReactive(call.call, args, abortController.signal);
-					if (isSignal(res)) innerUnsubscribe = effect(() => {
-						setValue(resultSig, getValue(res));
-					});
-					else setValue(resultSig, res);
-				} catch (e) {
-					this.dispatchExpressionError(e, call.call);
-					setValue(resultSig, void 0);
-				}
-			});
-			resultSig.unsubscribe = () => {
-				stopper();
-				if (innerUnsubscribe) innerUnsubscribe();
-				if (abortController) abortController.abort();
-				for (let i = 0; i < keys.length; i++) argSignals[keys[i]].unsubscribe?.();
-			};
-			return resultSig;
-		}
-		return signal(value);
-	}
-	/**
-	* Resolves an action by evaluating its top-level dynamic values.
-	*
-	* For event actions, it resolves each value in the context map.
-	* For function call actions, it evaluates the call.
-	*
-	* This is non-recursive: it only resolves one level deep for the context record,
-	* in accordance with the schema specification that requires values to be single
-	* DynamicValue types and prevents arbitrary nesting.
-	*/
-	resolveAction(action) {
-		if ("event" in action) {
-			const resolvedContext = {};
-			if (action.event.context) for (const [key, value] of Object.entries(action.event.context)) resolvedContext[key] = this.resolveDynamicValue(value);
-			return { event: {
-				...action.event,
-				context: resolvedContext
-			} };
-		}
-		if ("functionCall" in action) return this.resolveDynamicValue(action.functionCall);
-		return action;
-	}
-	evaluateFunctionReactive(name, args, abortSignal) {
-		try {
-			return this.functionInvoker(name, args, this, abortSignal);
-		} catch (e) {
-			this.dispatchExpressionError(e, name);
-			return;
-		}
-	}
-	dispatchExpressionError(e, name) {
-		if (e?.name === "ZodError" || e instanceof ZodError) {
-			const err = new A2uiExpressionError(`Validation failed for function '${name}': ${e.message}`, name, e.errors ?? e.issues);
-			this.surface.dispatchError({
-				code: "EXPRESSION_ERROR",
-				message: err.message,
-				expression: name,
-				details: err.details
-			});
-		} else if (e instanceof A2uiExpressionError) this.surface.dispatchError({
-			code: "EXPRESSION_ERROR",
-			message: e.message,
-			expression: e.expression,
-			details: e.details
-		});
-		else this.surface.dispatchError({
-			code: "EXPRESSION_ERROR",
-			message: e.message ?? `An unexpected error occurred in function ${name}.`,
-			expression: name,
-			details: { stack: e.stack }
-		});
-	}
-	/**
-	* Creates a new, child `DataContext` scoped to a deeper path.
-	*
-	* This is used when a component (like a List or a Card) wants to provide a targeted
-	* data scope for its children, so children can use relative paths like `./title`.
-	*
-	* @param relativePath The path relative to the *current* context's path.
-	* @returns A new `DataContext` instance pointing to the resolved absolute path.
-	*/
-	nested(relativePath) {
-		const newPath = this.resolvePath(relativePath);
-		return new DataContext(this.surface, newPath);
-	}
-	resolvePath(path) {
-		if (path.startsWith("/")) return path;
-		if (path === "" || path === ".") return this.path;
-		let base = this.path;
-		if (base.endsWith("/") && base.length > 1) base = base.slice(0, -1);
-		if (base === "/") base = "";
-		return `${base}/${path}`;
-	}
-};
-/**
-* Context provided to components during rendering.
-* It provides access to the component's model, the data context, and a way to dispatch actions.
-*/
-var ComponentContext = class {
-	/**
-	* Creates a new component context.
-	*
-	* @param surface The surface model the component belongs to.
-	* @param componentId The ID of the component.
-	* @param dataModelBasePath The base path for data model access (default: '/').
-	*/
-	constructor(surface, componentId, dataModelBasePath = "/") {
-		const model = surface.componentsModel.get(componentId);
-		if (!model) throw new A2uiStateError(`Component not found: ${componentId}`);
-		this.componentModel = model;
-		this.surfaceComponents = surface.componentsModel;
-		this.theme = surface.theme;
-		this.dataContext = new DataContext(surface, dataModelBasePath);
-		this._actionDispatcher = (action) => surface.dispatchAction(action, this.componentModel.id);
-	}
-	/**
-	* Dispatches an action from the component.
-	*
-	* @param action The action to dispatch.
-	*/
-	dispatchAction(action) {
-		return this._actionDispatcher(action);
-	}
-};
-/**
-* Traverses a Zod schema tree to build a `BehaviorNode` map.
-*
-* This allows the Generic Binder to know *how* to handle a piece of raw JSON
-* data without needing hardcoded logic for every specific component type.
-* It identifies core A2UI primitives (Dynamic values, Actions, ChildLists) by
-* inspecting the shape of ZodUnion objects defined in `common-types.ts`.
-*/
-function scrapeSchemaBehavior(schema) {
-	return getFieldBehavior(schema);
-}
-const ACTION_REF = "REF:common_types.json#/$defs/Action";
-const DATA_BINDING_REF = "REF:common_types.json#/$defs/DataBinding";
-const DYNAMIC_REF_PREFIX = "#/$defs/Dynamic";
-function getFieldBehavior(type, propertyName) {
-	let current = type;
-	let description = current._def?.description || "";
-	while (current._def.typeName === "ZodOptional" || current._def.typeName === "ZodNullable" || current._def.typeName === "ZodDefault") {
-		if (!description && current._def.description) description = current._def.description;
-		current = current._def.innerType;
-	}
-	if (!description && current._def.description) description = current._def.description;
-	if (propertyName === "checks") return { type: "CHECKABLE" };
-	if (description.startsWith(ACTION_REF)) return { type: "ACTION" };
-	if (childRefKindOf(current) === "child-list" || description.includes("#/$defs/ChildList")) return { type: "STRUCTURAL" };
-	if ((description.startsWith(DATA_BINDING_REF) || description.includes(DYNAMIC_REF_PREFIX)) && current._def.typeName !== "ZodObject" && current._def.typeName !== "ZodArray") return { type: "DYNAMIC" };
-	if (current._def.typeName === "ZodUnion") {
-		const options = current._def.options;
-		if (options.some((o) => o._def.typeName === "ZodObject" && o._def.shape().event)) return { type: "ACTION" };
-		if (options.some((o) => o._def.typeName === "ZodObject" && o._def.shape().path && !o._def.shape().componentId)) return { type: "DYNAMIC" };
-		if (options.some((o) => o._def.typeName === "ZodObject" && o._def.shape().componentId && o._def.shape().path)) return { type: "STRUCTURAL" };
-	} else if (current._def.typeName === "ZodString") {}
-	if (current._def.typeName === "ZodArray") return {
-		type: "ARRAY",
-		element: getFieldBehavior(current._def.type)
-	};
-	if (current._def.typeName === "ZodObject") {
-		const shape = {};
-		const objShape = current._def.shape();
-		for (const [key, value] of Object.entries(objShape)) shape[key] = getFieldBehavior(value, key);
-		return {
-			type: "OBJECT",
-			shape
-		};
-	}
-	return { type: "STATIC" };
-}
-/**
-* The Generic Binder is a framework-agnostic engine that transforms raw A2UI JSON payload
-* configurations into a single, cohesive reactive stream of strongly-typed `ResolvedProps`.
-*
-* It solves the problem of manual state management: developers do not need to write
-* boilerplate code to subscribe to data paths, evaluate logic expressions, or tear down
-* listeners when components unmount.
-*
-* Usage Flow:
-* 1. Takes a `ComponentContext` (the raw JSON config) and a `Zod Schema` (the API definition).
-* 2. Uses `scrapeSchemaBehavior` to analyze the schema.
-* 3. Deeply iterates over the raw JSON properties, applying rules based on the scraped behavior.
-* 4. Subscribes to the `DataContext` for all `DYNAMIC` and `CHECKABLE` paths.
-* 5. Bundles the final resolved primitives, structural arrays, and executable Actions into `currentProps`.
-* 6. Exposes a `subscribe()` interface for framework-specific adapters (React, Angular) to listen to state changes.
-*/
-var GenericBinder = class {
-	constructor(context, schema) {
-		this.dataListeners = [];
-		this.propsListeners = [];
-		this.currentProps = {};
-		this.isConnected = false;
-		this.actionClosures = /* @__PURE__ */ new Map();
-		this.context = context;
-		this.behaviorTree = scrapeSchemaBehavior(schema);
-		if (this.behaviorTree.type !== "OBJECT") this.behaviorTree = {
-			type: "OBJECT",
-			shape: {}
-		};
-		this.resolveInitialProps();
-	}
-	resolveInitialProps() {
-		const props = this.context.componentModel.properties;
-		const resolved = this.resolveAndBind(props, this.behaviorTree, [], true);
-		this.currentProps = {
-			...this.currentProps,
-			...resolved
-		};
-	}
-	connect() {
-		if (this.isConnected) return;
-		this.isConnected = true;
-		const sub = this.context.componentModel.onUpdated.subscribe(() => {
-			this.rebuildAllBindings();
-		});
-		this.compUnsub = () => sub.unsubscribe();
-		this.rebuildAllBindings();
-	}
-	rebuildAllBindings() {
-		this.dataListeners.forEach((l) => l());
-		this.dataListeners = [];
-		const props = this.context.componentModel.properties;
-		const resolved = this.resolveAndBind(props, this.behaviorTree, [], false);
-		this.currentProps = {
-			...this.currentProps,
-			...resolved
-		};
-		this.notify();
-	}
-	bindDynamicValue(value, path, isSync) {
-		const bound = this.context.dataContext.subscribeDynamicValue(value, (newVal) => {
-			this.updateDeepValue(path, newVal);
-			this.notify();
-		});
-		if (!isSync) this.dataListeners.push(() => bound.unsubscribe());
-		else bound.unsubscribe();
-		return bound.value;
-	}
-	bindAction(value, path) {
-		const cacheKey = path.join("/");
-		const cached = this.actionClosures.get(cacheKey);
-		if (cached && jsonEquals(cached.raw, value)) return cached.closure;
-		const closure = () => {
-			const resolveDeepSync = (val) => {
-				if (typeof val !== "object" || val === null) return val;
-				if ("path" in val || "call" in val) return this.context.dataContext.resolveDynamicValue(val);
-				if (Array.isArray(val)) return val.map(resolveDeepSync);
-				const res = {};
-				for (const [k, v] of Object.entries(val)) res[k] = resolveDeepSync(v);
-				return res;
-			};
-			this.context.dispatchAction(resolveDeepSync(value));
-		};
-		this.actionClosures.set(cacheKey, {
-			raw: value,
-			closure
-		});
-		return closure;
-	}
-	bindStructuralTemplate(value, path, isSync) {
-		if (value && typeof value === "object" && !Array.isArray(value)) {
-			const templatePath = value.path;
-			const templateComponentId = value.componentId;
-			if (templatePath && templateComponentId) {
-				const bound = this.context.dataContext.subscribeDynamicValue({ path: templatePath }, (newVal) => {
-					const arr = Array.isArray(newVal) ? newVal : [];
-					const listContext = this.context.dataContext.nested(templatePath);
-					const resolvedChildren = arr.map((_, i) => ({
-						id: templateComponentId,
-						basePath: listContext.nested(String(i)).path
-					}));
-					this.updateDeepValue(path, resolvedChildren);
-					this.notify();
-				});
-				if (!isSync) this.dataListeners.push(() => bound.unsubscribe());
-				else bound.unsubscribe();
-				const currentArr = Array.isArray(bound.value) ? bound.value : [];
-				const listContext = this.context.dataContext.nested(templatePath);
-				return currentArr.map((_, i) => ({
-					id: templateComponentId,
-					basePath: listContext.nested(String(i)).path
-				}));
-			}
-		}
-		return value;
-	}
-	resolveAndBind(value, behavior, path, isSync) {
-		if (value === void 0 || value === null) return value;
-		switch (behavior.type) {
-			case "DYNAMIC": return this.bindDynamicValue(value, path, isSync);
-			case "ACTION": return this.bindAction(value, path);
-			case "STRUCTURAL": return this.bindStructuralTemplate(value, path, isSync);
-			case "CHECKABLE": {
-				const rules = Array.isArray(value) ? value : [];
-				const ruleResults = rules.map(() => ({
-					valid: true,
-					message: ""
-				}));
-				const parentPath = path.slice(0, -1);
-				const updateValidationState = () => {
-					const errors = ruleResults.filter((r) => !r.valid).map((r) => r.message);
-					this.updateDeepValue([...parentPath, "isValid"], errors.length === 0);
-					this.updateDeepValue([...parentPath, "validationErrors"], errors);
-					this.notify();
-				};
-				rules.forEach((rule, index) => {
-					const condition = rule.condition || rule;
-					const message = rule.message || "Validation failed";
-					ruleResults[index].message = message;
-					const bound = this.context.dataContext.subscribeDynamicValue(condition, (newVal) => {
-						ruleResults[index].valid = !!newVal;
-						updateValidationState();
-					});
-					if (!isSync) this.dataListeners.push(() => bound.unsubscribe());
-					else bound.unsubscribe();
-					ruleResults[index].valid = !!bound.value;
-				});
-				const initialErrors = ruleResults.filter((r) => !r.valid).map((r) => r.message);
-				this.updateDeepValue([...parentPath, "isValid"], initialErrors.length === 0);
-				this.updateDeepValue([...parentPath, "validationErrors"], initialErrors);
-				return value;
-			}
-			case "STATIC": return value;
-			case "ARRAY":
-				if (!Array.isArray(value)) return value;
-				return value.map((item, index) => this.resolveAndBind(item, behavior.element, [...path, index.toString()], isSync));
-			case "OBJECT": {
-				if (typeof value !== "object") return value;
-				const result = {};
-				for (const [k, v] of Object.entries(value)) {
-					const childBehavior = behavior.shape[k] || { type: "STATIC" };
-					result[k] = this.resolveAndBind(v, childBehavior, [...path, k], isSync);
-				}
-				for (const [k, childBehavior] of Object.entries(behavior.shape)) if (childBehavior.type === "DYNAMIC") {
-					const setterName = `set${k.charAt(0).toUpperCase() + k.slice(1)}`;
-					const rawPropValue = value[k];
-					result[setterName] = (newValue) => {
-						if (rawPropValue && typeof rawPropValue === "object" && "path" in rawPropValue) this.context.dataContext.set(rawPropValue.path, newValue);
-					};
-				}
-				return result;
-			}
-		}
-	}
-	updateDeepValue(path, newValue) {
-		this.currentProps = this.cloneAndUpdate(this.currentProps, path, newValue);
-	}
-	cloneAndUpdate(obj, path, newValue) {
-		if (path.length === 0) return newValue;
-		const [key, ...rest] = path;
-		if (Array.isArray(obj)) {
-			const newArr = [...obj];
-			newArr[Number(key)] = this.cloneAndUpdate(newArr[Number(key)], rest, newValue);
-			return newArr;
-		} else return {
-			...obj || {},
-			[key]: this.cloneAndUpdate((obj || {})[key], rest, newValue)
-		};
-	}
-	dispose() {
-		if (!this.isConnected) return;
-		this.isConnected = false;
-		this.dataListeners.forEach((l) => l());
-		this.dataListeners = [];
-		if (this.compUnsub) {
-			this.compUnsub();
-			this.compUnsub = void 0;
-		}
-	}
-	notify() {
-		this.propsListeners.forEach((l) => l(this.currentProps));
-	}
-	subscribe(listener) {
-		if (this.propsListeners.length === 0) this.connect();
-		this.propsListeners.push(listener);
-		return { unsubscribe: () => {
-			this.propsListeners = this.propsListeners.filter((l) => l !== listener);
-			if (this.propsListeners.length === 0) this.dispose();
-		} };
-	}
-	get snapshot() {
-		return this.currentProps;
-	}
-};
-/** Structural equality over JSON-shaped values (objects, arrays, primitives). */
-function jsonEquals(a, b) {
-	if (Object.is(a, b)) return true;
-	if (typeof a !== "object" || typeof b !== "object" || a === null || b === null) return false;
-	if (Array.isArray(a) || Array.isArray(b)) {
-		if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
-		return a.every((item, index) => jsonEquals(item, b[index]));
-	}
-	const aKeys = Object.keys(a);
-	const bKeys = Object.keys(b);
-	if (aKeys.length !== bKeys.length) return false;
-	return aKeys.every((key) => Object.prototype.hasOwnProperty.call(b, key) && jsonEquals(a[key], b[key]));
-}
-/**
 * A resolved dynamic value in a node's props: a snapshot of the current
 * value, pinned at emission. A new binding arrives through the node's props
 * whenever the underlying value changes.
@@ -6929,11 +7881,14 @@ objectType({ messages: arrayType(unionType([
 * It supports literals (strings, numbers, booleans), path-based data bindings, and
 * nested function calls with named arguments.
 */
+/**
+* Digits, an optional decimal point, and optional further digits.
+*
+* Every client implementation accepts a trailing point (`1.`) today and none
+* accepts a second point (`1.2.3`), so the grammar is written to keep that.
+*/
+const NUMBER_LITERAL = /^\d+\.?\d*$/;
 var ExpressionParser = class ExpressionParser {
-	/** The maximum allowed recursion depth for nested expressions to prevent stack overflows. */
-	static {
-		this.MAX_DEPTH = 10;
-	}
 	/**
 	* Parses an input string into an array of DynamicValues.
 	* If the input contains no interpolation, it returns the raw string as a single literal.
@@ -7001,6 +7956,7 @@ var ExpressionParser = class ExpressionParser {
 		return result;
 	}
 	parseExpressionInternal(scanner, depth) {
+		if (depth > ExpressionParser.MAX_DEPTH) throw new A2uiExpressionError("Max recursion depth reached in parse");
 		scanner.skipWhitespace();
 		if (scanner.isAtEnd()) return "";
 		if (scanner.matches("${")) {
@@ -7039,7 +7995,7 @@ var ExpressionParser = class ExpressionParser {
 			scanner.skipWhitespace();
 			if (!scanner.match(":")) throw new A2uiExpressionError(`Expected ':' after argument name '${argName}' in function '${funcName}'`);
 			scanner.skipWhitespace();
-			args[argName] = this.parseExpressionInternal(scanner, depth);
+			args[argName] = this.parseExpressionInternal(scanner, depth + 1);
 			scanner.skipWhitespace();
 			if (scanner.peek() === ",") {
 				scanner.advance();
@@ -7077,7 +8033,9 @@ var ExpressionParser = class ExpressionParser {
 	parseNumberLiteral(scanner) {
 		const start = scanner.pos;
 		while (!scanner.isAtEnd() && (this.isDigit(scanner.peek()) || scanner.peek() === ".")) scanner.advance();
-		return Number(scanner.input.substring(start, scanner.pos));
+		const text = scanner.input.substring(start, scanner.pos);
+		if (!NUMBER_LITERAL.test(text)) throw new A2uiExpressionError(`Invalid number literal: '${text}'`);
+		return Number(text);
 	}
 	isAlnum(c) {
 		return c >= "a" && c <= "z" || c >= "A" && c <= "Z" || c >= "0" && c <= "9";
@@ -7086,6 +8044,8 @@ var ExpressionParser = class ExpressionParser {
 		return c >= "0" && c <= "9";
 	}
 };
+/** The maximum allowed recursion depth for nested expressions to prevent stack overflows. */
+ExpressionParser.MAX_DEPTH = 100;
 var Scanner = class {
 	constructor(input) {
 		this.input = input;
@@ -11782,6 +12742,274 @@ const DateTimeInputApi = {
 	}).strict()
 };
 /**
+* @license
+* Copyright 2021 Google LLC
+* SPDX-License-Identifier: BSD-3-Clause
+*/
+var s$4 = class extends Event {
+	constructor(s, t, e, o) {
+		super("context-request", {
+			bubbles: !0,
+			composed: !0
+		}), this.context = s, this.contextTarget = t, this.callback = e, this.subscribe = o ?? !1;
+	}
+};
+/**
+* @license
+* Copyright 2021 Google LLC
+* SPDX-License-Identifier: BSD-3-Clause
+*/
+function n$3(n) {
+	return n;
+}
+/**
+* @license
+* Copyright 2021 Google LLC
+* SPDX-License-Identifier: BSD-3-Clause
+*/ var s$3 = class {
+	constructor(t, s, i, h) {
+		if (this.subscribe = !1, this.provided = !1, this.value = void 0, this.t = (t, s) => {
+			this.unsubscribe && (this.unsubscribe !== s && (this.provided = !1, this.unsubscribe()), this.subscribe || this.unsubscribe()), this.value = t, this.host.requestUpdate(), this.provided && !this.subscribe || (this.provided = !0, this.callback && this.callback(t, s)), this.unsubscribe = s;
+		}, this.host = t, void 0 !== s.context) {
+			const t = s;
+			this.context = t.context, this.callback = t.callback, this.subscribe = t.subscribe ?? !1;
+		} else this.context = s, this.callback = i, this.subscribe = h ?? !1;
+		this.host.addController(this);
+	}
+	hostConnected() {
+		this.dispatchRequest();
+	}
+	hostDisconnected() {
+		this.unsubscribe && (this.unsubscribe(), this.unsubscribe = void 0);
+	}
+	dispatchRequest() {
+		this.host.dispatchEvent(new s$4(this.context, this.host, this.t, this.subscribe));
+	}
+};
+/**
+* @license
+* Copyright 2021 Google LLC
+* SPDX-License-Identifier: BSD-3-Clause
+*/
+/**
+* @license
+* Copyright 2021 Google LLC
+* SPDX-License-Identifier: BSD-3-Clause
+*/
+/**
+* @license
+* Copyright 2021 Google LLC
+* SPDX-License-Identifier: BSD-3-Clause
+*/
+/**
+* @license
+* Copyright 2017 Google LLC
+* SPDX-License-Identifier: BSD-3-Clause
+*/
+/**
+* @license
+* Copyright 2022 Google LLC
+* SPDX-License-Identifier: BSD-3-Clause
+*/ function c$3({ context: c, subscribe: e }) {
+	return (o, n) => {
+		"object" == typeof n ? n.addInitializer((function() {
+			new s$3(this, {
+				context: c,
+				callback: (t) => {
+					o.set.call(this, t);
+				},
+				subscribe: e
+			});
+		})) : o.constructor.addInitializer(((o) => {
+			new s$3(o, {
+				context: c,
+				callback: (t) => {
+					o[n] = t;
+				},
+				subscribe: e
+			});
+		}));
+	};
+}
+/**
+* Contexts used to inject dependencies into the Lit renderer.
+*/
+const Context$1 = { markdown: n$3(Symbol.for("A2UIMarkdown")) };
+/**
+* @license
+* Copyright 2017 Google LLC
+* SPDX-License-Identifier: BSD-3-Clause
+*/
+const t$1 = {
+	ATTRIBUTE: 1,
+	CHILD: 2,
+	PROPERTY: 3,
+	BOOLEAN_ATTRIBUTE: 4,
+	EVENT: 5,
+	ELEMENT: 6
+};
+const e$3 = (t) => (...e) => ({
+	_$litDirective$: t,
+	values: e
+});
+var i$2 = class {
+	constructor(t) {}
+	get _$AU() {
+		return this._$AM._$AU;
+	}
+	_$AT(t, e, i) {
+		this._$Ct = t, this._$AM = e, this._$Ci = i;
+	}
+	_$AS(t, e) {
+		return this.update(t, e);
+	}
+	update(t, e) {
+		return this.render(...e);
+	}
+};
+/**
+* @license
+* Copyright 2020 Google LLC
+* SPDX-License-Identifier: BSD-3-Clause
+*/ const { I: t } = j$2, i$1 = (o) => o, r$1 = (o) => void 0 === o.strings, s$1 = () => document.createComment(""), v = (o, n, e) => {
+	const l = o._$AA.parentNode, d = void 0 === n ? o._$AB : n._$AA;
+	if (void 0 === e) {
+		const i = l.insertBefore(s$1(), d), n = l.insertBefore(s$1(), d);
+		e = new t(i, n, o, o.options);
+	} else {
+		const t = e._$AB.nextSibling, n = e._$AM, c = n !== o;
+		if (c) {
+			let t;
+			e._$AQ?.(o), e._$AM = o, void 0 !== e._$AP && (t = o._$AU) !== n._$AU && e._$AP(t);
+		}
+		if (t !== d || c) {
+			let o = e._$AA;
+			for (; o !== t;) {
+				const t = i$1(o).nextSibling;
+				i$1(l).insertBefore(o, d), o = t;
+			}
+		}
+	}
+	return e;
+}, u$1 = (o, t, i = o) => (o._$AI(t, i), o), m = {}, p = (o, t = m) => o._$AH = t, M = (o) => o._$AH, h$1 = (o) => {
+	o._$AR(), o._$AA.remove();
+};
+/**
+* @license
+* Copyright 2017 Google LLC
+* SPDX-License-Identifier: BSD-3-Clause
+*/ const s = (i, t) => {
+	const e = i._$AN;
+	if (void 0 === e) return !1;
+	for (const i of e) i._$AO?.(t, !1), s(i, t);
+	return !0;
+};
+const o$2 = (i) => {
+	let t, e;
+	do {
+		if (void 0 === (t = i._$AM)) break;
+		e = t._$AN, e.delete(i), i = t;
+	} while (0 === e?.size);
+};
+const r = (i) => {
+	for (let t; t = i._$AM; i = t) {
+		let e = t._$AN;
+		if (void 0 === e) t._$AN = e = /* @__PURE__ */ new Set();
+		else if (e.has(i)) break;
+		e.add(i), c$1(t);
+	}
+};
+function h(i) {
+	void 0 !== this._$AN ? (o$2(this), this._$AM = i, r(this)) : this._$AM = i;
+}
+function n$1(i, t = !1, e = 0) {
+	const r = this._$AH, h = this._$AN;
+	if (void 0 !== h && 0 !== h.size) if (t) if (Array.isArray(r)) for (let i = e; i < r.length; i++) s(r[i], !1), o$2(r[i]);
+	else null != r && (s(r, !1), o$2(r));
+	else s(this, i);
+}
+const c$1 = (i) => {
+	i.type == t$1.CHILD && (i._$AP ??= n$1, i._$AQ ??= h);
+};
+var f = class extends i$2 {
+	constructor() {
+		super(...arguments), this._$AN = void 0;
+	}
+	_$AT(i, t, e) {
+		super._$AT(i, t, e), r(this), this.isConnected = i._$AU;
+	}
+	_$AO(i, t = !0) {
+		i !== this.isConnected && (this.isConnected = i, i ? this.reconnected?.() : this.disconnected?.()), t && (s(this, i), o$2(this));
+	}
+	setValue(t) {
+		if (r$1(this._$Ct)) this._$Ct._$AI(t, this);
+		else {
+			const i = [...this._$Ct._$AH];
+			i[this._$Ci] = t, this._$Ct._$AI(i, this, 0);
+		}
+	}
+	disconnected() {}
+	reconnected() {}
+};
+/**
+* @license
+* Copyright 2017 Google LLC
+* SPDX-License-Identifier: BSD-3-Clause
+*/ var e$1 = class extends i$2 {
+	constructor(i) {
+		if (super(i), this.it = A, i.type !== t$1.CHILD) throw Error(this.constructor.directiveName + "() can only be used in child bindings");
+	}
+	render(r) {
+		if (r === A || null == r) return this._t = void 0, this.it = r;
+		if (r === E$1) return r;
+		if ("string" != typeof r) throw Error(this.constructor.directiveName + "() called with a non-string value");
+		if (r === this.it) return this._t;
+		this.it = r;
+		const s = [r];
+		return s.raw = s, this._t = {
+			_$litType$: this.constructor.resultType,
+			strings: s,
+			values: []
+		};
+	}
+};
+e$1.directiveName = "unsafeHTML", e$1.resultType = 1;
+const o$1 = e$3(e$1);
+var MarkdownDirective = class MarkdownDirective extends f {
+	constructor() {
+		super(...arguments);
+		this.lastValue = null;
+		this.lastRenderer = void 0;
+		this.lastTagClassMap = null;
+	}
+	update(_part, [value, markdownRenderer, markdownOptions]) {
+		const jsonTagClassMap = JSON.stringify(markdownOptions?.tagClassMap);
+		if (this.lastValue === value && this.lastRenderer === markdownRenderer && jsonTagClassMap === this.lastTagClassMap) return E$1;
+		this.lastValue = value;
+		this.lastRenderer = markdownRenderer;
+		this.lastTagClassMap = jsonTagClassMap;
+		return this.render(value, markdownRenderer, markdownOptions);
+	}
+	render(value, markdownRenderer, markdownOptions) {
+		if (markdownRenderer) {
+			const renderFn = typeof markdownRenderer === "function" ? markdownRenderer : markdownRenderer?.["render"]?.bind(markdownRenderer);
+			if (renderFn) {
+				Promise.resolve(renderFn(value, markdownOptions)).then((renderedStr) => {
+					if (this.isConnected) this.setValue(o$1(renderedStr));
+				});
+				return b$1`<span class="no-markdown-renderer">${value}</span>`;
+			}
+		}
+		if (!MarkdownDirective.defaultMarkdownWarningLogged) {
+			console.warn("[MarkdownDirective]", "can't render markdown because no markdown renderer is configured.\n", "Use `@a2ui/markdown-it`, or your own markdown renderer.");
+			MarkdownDirective.defaultMarkdownWarningLogged = true;
+		}
+		return b$1`<span class="no-markdown-renderer">${value}</span>`;
+	}
+};
+MarkdownDirective.defaultMarkdownWarningLogged = false;
+const markdown$1 = e$3(MarkdownDirective);
+/**
 * The actual CSS markup of the default A2UI theme.
 *
 * This should be only variable definitions, so they can pierce into the
@@ -11902,10 +13130,19 @@ function getDefaultStyleSheet() {
 * stylesheet above (and the specific ones exposed by each basic catalog
 * package) to customize the appearance of the items of the basic catalog.
 */
-function injectBasicCatalogStyles() {
+function injectBasicCatalogStyles(targetRoot) {
 	if (typeof document === "undefined") return;
 	const sheet = getDefaultStyleSheet();
-	if (!document.adoptedStyleSheets.includes(sheet)) document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
+	const docSheets = typeof document !== "undefined" ? document.adoptedStyleSheets : null;
+	if (docSheets && typeof docSheets.includes === "function" && !docSheets.includes(sheet)) try {
+		document.adoptedStyleSheets = [...docSheets, sheet];
+	} catch {}
+	if (targetRoot && targetRoot !== document) {
+		const targetSheets = targetRoot.adoptedStyleSheets;
+		if (targetSheets && typeof targetSheets.includes === "function" && !targetSheets.includes(sheet)) try {
+			targetRoot.adoptedStyleSheets = [...targetSheets, sheet];
+		} catch {}
+	}
 }
 /**
 * Computes the formula for light, dark, or hover variants of a color.
@@ -11931,821 +13168,11 @@ function computeColorVariant(type, options) {
 	}
 }
 /**
-* A Lit ReactiveController that binds an A2UI component context to its API schema.
-*
-* This controller manages the subscription to the GenericBinder, updating the
-* component props and requesting a host update whenever the underlying layer data changes.
-*
-* @template Api The specific A2UI component API interface this controller is bound to.
-*/
-var A2uiController = class {
-	/**
-	* Initializes the controller, binding it to the given Lit element and API schema.
-	*
-	* @param host The A2uiLitElement acting as the component host.
-	* @param api The A2UI component API defining the schema for this element.
-	*/
-	constructor(host, api) {
-		this.host = host;
-		this.binder = new GenericBinder(this.host.context, api.schema);
-		this.props = this.binder.snapshot;
-		this.host.addController(this);
-		if (this.host.isConnected) this.hostConnected();
-	}
-	/**
-	* Subscribes to the GenericBinder updates when the host connects.
-	*
-	* Triggers a request update on the host element when new props are received.
-	*/
-	hostConnected() {
-		if (!this.subscription) this.subscription = this.binder.subscribe((newProps) => {
-			this.props = newProps;
-			this.host.requestUpdate();
-		});
-	}
-	/**
-	* Unsubscribes from the GenericBinder updates when the host disconnects.
-	*/
-	hostDisconnected() {
-		this.subscription?.unsubscribe();
-		this.subscription = void 0;
-	}
-	/**
-	* Disposes the underlying GenericBinder to clean up resources from the context.
-	*/
-	dispose() {
-		this.binder.dispose();
-	}
-};
-/**
-* @license
-* Copyright 2019 Google LLC
-* SPDX-License-Identifier: BSD-3-Clause
-*/
-const t$7 = globalThis;
-const e$11 = t$7.ShadowRoot && (void 0 === t$7.ShadyCSS || t$7.ShadyCSS.nativeShadow) && "adoptedStyleSheets" in Document.prototype && "replace" in CSSStyleSheet.prototype;
-const s$9 = Symbol();
-const o$11 = /* @__PURE__ */ new WeakMap();
-var n$11 = class {
-	constructor(t, e, o) {
-		if (this._$cssResult$ = !0, o !== s$9) throw Error("CSSResult is not constructable. Use `unsafeCSS` or `css` instead.");
-		this.cssText = t, this.t = e;
-	}
-	get styleSheet() {
-		let t = this.o;
-		const s = this.t;
-		if (e$11 && void 0 === t) {
-			const e = void 0 !== s && 1 === s.length;
-			e && (t = o$11.get(s)), void 0 === t && ((this.o = t = new CSSStyleSheet()).replaceSync(this.cssText), e && o$11.set(s, t));
-		}
-		return t;
-	}
-	toString() {
-		return this.cssText;
-	}
-};
-const r$8 = (t) => new n$11("string" == typeof t ? t : t + "", void 0, s$9);
-const i$9 = (t, ...e) => {
-	return new n$11(1 === t.length ? t[0] : e.reduce((e, s, o) => e + ((t) => {
-		if (!0 === t._$cssResult$) return t.cssText;
-		if ("number" == typeof t) return t;
-		throw Error("Value passed to 'css' function must be a 'css' function result: " + t + ". Use 'unsafeCSS' to pass non-literal values, but take care to ensure page security.");
-	})(s) + t[o + 1], t[0]), t, s$9);
-};
-const S$1 = (s, o) => {
-	if (e$11) s.adoptedStyleSheets = o.map((t) => t instanceof CSSStyleSheet ? t : t.styleSheet);
-	else for (const e of o) {
-		const o = document.createElement("style"), n = t$7.litNonce;
-		void 0 !== n && o.setAttribute("nonce", n), o.textContent = e.cssText, s.appendChild(o);
-	}
-};
-const c$8 = e$11 ? (t) => t : (t) => t instanceof CSSStyleSheet ? ((t) => {
-	let e = "";
-	for (const s of t.cssRules) e += s.cssText;
-	return r$8(e);
-})(t) : t;
-/**
-* @license
-* Copyright 2017 Google LLC
-* SPDX-License-Identifier: BSD-3-Clause
-*/ const { is: i$8, defineProperty: e$10, getOwnPropertyDescriptor: h$4, getOwnPropertyNames: r$7, getOwnPropertySymbols: o$10, getPrototypeOf: n$10 } = Object, a$2 = globalThis, c$7 = a$2.trustedTypes, l$3 = c$7 ? c$7.emptyScript : "", p$2 = a$2.reactiveElementPolyfillSupport, d$2 = (t, s) => t, u$4 = {
-	toAttribute(t, s) {
-		switch (s) {
-			case Boolean:
-				t = t ? l$3 : null;
-				break;
-			case Object:
-			case Array: t = null == t ? t : JSON.stringify(t);
-		}
-		return t;
-	},
-	fromAttribute(t, s) {
-		let i = t;
-		switch (s) {
-			case Boolean:
-				i = null !== t;
-				break;
-			case Number:
-				i = null === t ? null : Number(t);
-				break;
-			case Object:
-			case Array: try {
-				i = JSON.parse(t);
-			} catch (t) {
-				i = null;
-			}
-		}
-		return i;
-	}
-}, f$3 = (t, s) => !i$8(t, s), b$1 = {
-	attribute: !0,
-	type: String,
-	converter: u$4,
-	reflect: !1,
-	useDefault: !1,
-	hasChanged: f$3
-};
-Symbol.metadata ??= Symbol("metadata"), a$2.litPropertyMetadata ??= /* @__PURE__ */ new WeakMap();
-var y$1 = class extends HTMLElement {
-	static addInitializer(t) {
-		this._$Ei(), (this.l ??= []).push(t);
-	}
-	static get observedAttributes() {
-		return this.finalize(), this._$Eh && [...this._$Eh.keys()];
-	}
-	static createProperty(t, s = b$1) {
-		if (s.state && (s.attribute = !1), this._$Ei(), this.prototype.hasOwnProperty(t) && ((s = Object.create(s)).wrapped = !0), this.elementProperties.set(t, s), !s.noAccessor) {
-			const i = Symbol(), h = this.getPropertyDescriptor(t, i, s);
-			void 0 !== h && e$10(this.prototype, t, h);
-		}
-	}
-	static getPropertyDescriptor(t, s, i) {
-		const { get: e, set: r } = h$4(this.prototype, t) ?? {
-			get() {
-				return this[s];
-			},
-			set(t) {
-				this[s] = t;
-			}
-		};
-		return {
-			get: e,
-			set(s) {
-				const h = e?.call(this);
-				r?.call(this, s), this.requestUpdate(t, h, i);
-			},
-			configurable: !0,
-			enumerable: !0
-		};
-	}
-	static getPropertyOptions(t) {
-		return this.elementProperties.get(t) ?? b$1;
-	}
-	static _$Ei() {
-		if (this.hasOwnProperty(d$2("elementProperties"))) return;
-		const t = n$10(this);
-		t.finalize(), void 0 !== t.l && (this.l = [...t.l]), this.elementProperties = new Map(t.elementProperties);
-	}
-	static finalize() {
-		if (this.hasOwnProperty(d$2("finalized"))) return;
-		if (this.finalized = !0, this._$Ei(), this.hasOwnProperty(d$2("properties"))) {
-			const t = this.properties, s = [...r$7(t), ...o$10(t)];
-			for (const i of s) this.createProperty(i, t[i]);
-		}
-		const t = this[Symbol.metadata];
-		if (null !== t) {
-			const s = litPropertyMetadata.get(t);
-			if (void 0 !== s) for (const [t, i] of s) this.elementProperties.set(t, i);
-		}
-		this._$Eh = /* @__PURE__ */ new Map();
-		for (const [t, s] of this.elementProperties) {
-			const i = this._$Eu(t, s);
-			void 0 !== i && this._$Eh.set(i, t);
-		}
-		this.elementStyles = this.finalizeStyles(this.styles);
-	}
-	static finalizeStyles(s) {
-		const i = [];
-		if (Array.isArray(s)) {
-			const e = new Set(s.flat(1 / 0).reverse());
-			for (const s of e) i.unshift(c$8(s));
-		} else void 0 !== s && i.push(c$8(s));
-		return i;
-	}
-	static _$Eu(t, s) {
-		const i = s.attribute;
-		return !1 === i ? void 0 : "string" == typeof i ? i : "string" == typeof t ? t.toLowerCase() : void 0;
-	}
-	constructor() {
-		super(), this._$Ep = void 0, this.isUpdatePending = !1, this.hasUpdated = !1, this._$Em = null, this._$Ev();
-	}
-	_$Ev() {
-		this._$ES = new Promise((t) => this.enableUpdating = t), this._$AL = /* @__PURE__ */ new Map(), this._$E_(), this.requestUpdate(), this.constructor.l?.forEach((t) => t(this));
-	}
-	addController(t) {
-		(this._$EO ??= /* @__PURE__ */ new Set()).add(t), void 0 !== this.renderRoot && this.isConnected && t.hostConnected?.();
-	}
-	removeController(t) {
-		this._$EO?.delete(t);
-	}
-	_$E_() {
-		const t = /* @__PURE__ */ new Map(), s = this.constructor.elementProperties;
-		for (const i of s.keys()) this.hasOwnProperty(i) && (t.set(i, this[i]), delete this[i]);
-		t.size > 0 && (this._$Ep = t);
-	}
-	createRenderRoot() {
-		const t = this.shadowRoot ?? this.attachShadow(this.constructor.shadowRootOptions);
-		return S$1(t, this.constructor.elementStyles), t;
-	}
-	connectedCallback() {
-		this.renderRoot ??= this.createRenderRoot(), this.enableUpdating(!0), this._$EO?.forEach((t) => t.hostConnected?.());
-	}
-	enableUpdating(t) {}
-	disconnectedCallback() {
-		this._$EO?.forEach((t) => t.hostDisconnected?.());
-	}
-	attributeChangedCallback(t, s, i) {
-		this._$AK(t, i);
-	}
-	_$ET(t, s) {
-		const i = this.constructor.elementProperties.get(t), e = this.constructor._$Eu(t, i);
-		if (void 0 !== e && !0 === i.reflect) {
-			const h = (void 0 !== i.converter?.toAttribute ? i.converter : u$4).toAttribute(s, i.type);
-			this._$Em = t, null == h ? this.removeAttribute(e) : this.setAttribute(e, h), this._$Em = null;
-		}
-	}
-	_$AK(t, s) {
-		const i = this.constructor, e = i._$Eh.get(t);
-		if (void 0 !== e && this._$Em !== e) {
-			const t = i.getPropertyOptions(e), h = "function" == typeof t.converter ? { fromAttribute: t.converter } : void 0 !== t.converter?.fromAttribute ? t.converter : u$4;
-			this._$Em = e;
-			const r = h.fromAttribute(s, t.type);
-			this[e] = r ?? this._$Ej?.get(e) ?? r, this._$Em = null;
-		}
-	}
-	requestUpdate(t, s, i, e = !1, h) {
-		if (void 0 !== t) {
-			const r = this.constructor;
-			if (!1 === e && (h = this[t]), i ??= r.getPropertyOptions(t), !((i.hasChanged ?? f$3)(h, s) || i.useDefault && i.reflect && h === this._$Ej?.get(t) && !this.hasAttribute(r._$Eu(t, i)))) return;
-			this.C(t, s, i);
-		}
-		!1 === this.isUpdatePending && (this._$ES = this._$EP());
-	}
-	C(t, s, { useDefault: i, reflect: e, wrapped: h }, r) {
-		i && !(this._$Ej ??= /* @__PURE__ */ new Map()).has(t) && (this._$Ej.set(t, r ?? s ?? this[t]), !0 !== h || void 0 !== r) || (this._$AL.has(t) || (this.hasUpdated || i || (s = void 0), this._$AL.set(t, s)), !0 === e && this._$Em !== t && (this._$Eq ??= /* @__PURE__ */ new Set()).add(t));
-	}
-	async _$EP() {
-		this.isUpdatePending = !0;
-		try {
-			await this._$ES;
-		} catch (t) {
-			Promise.reject(t);
-		}
-		const t = this.scheduleUpdate();
-		return null != t && await t, !this.isUpdatePending;
-	}
-	scheduleUpdate() {
-		return this.performUpdate();
-	}
-	performUpdate() {
-		if (!this.isUpdatePending) return;
-		if (!this.hasUpdated) {
-			if (this.renderRoot ??= this.createRenderRoot(), this._$Ep) {
-				for (const [t, s] of this._$Ep) this[t] = s;
-				this._$Ep = void 0;
-			}
-			const t = this.constructor.elementProperties;
-			if (t.size > 0) for (const [s, i] of t) {
-				const { wrapped: t } = i, e = this[s];
-				!0 !== t || this._$AL.has(s) || void 0 === e || this.C(s, void 0, i, e);
-			}
-		}
-		let t = !1;
-		const s = this._$AL;
-		try {
-			t = this.shouldUpdate(s), t ? (this.willUpdate(s), this._$EO?.forEach((t) => t.hostUpdate?.()), this.update(s)) : this._$EM();
-		} catch (s) {
-			throw t = !1, this._$EM(), s;
-		}
-		t && this._$AE(s);
-	}
-	willUpdate(t) {}
-	_$AE(t) {
-		this._$EO?.forEach((t) => t.hostUpdated?.()), this.hasUpdated || (this.hasUpdated = !0, this.firstUpdated(t)), this.updated(t);
-	}
-	_$EM() {
-		this._$AL = /* @__PURE__ */ new Map(), this.isUpdatePending = !1;
-	}
-	get updateComplete() {
-		return this.getUpdateComplete();
-	}
-	getUpdateComplete() {
-		return this._$ES;
-	}
-	shouldUpdate(t) {
-		return !0;
-	}
-	update(t) {
-		this._$Eq &&= this._$Eq.forEach((t) => this._$ET(t, this[t])), this._$EM();
-	}
-	updated(t) {}
-	firstUpdated(t) {}
-};
-y$1.elementStyles = [], y$1.shadowRootOptions = { mode: "open" }, y$1[d$2("elementProperties")] = /* @__PURE__ */ new Map(), y$1[d$2("finalized")] = /* @__PURE__ */ new Map(), p$2?.({ ReactiveElement: y$1 }), (a$2.reactiveElementVersions ??= []).push("2.1.2");
-/**
-* @license
-* Copyright 2017 Google LLC
-* SPDX-License-Identifier: BSD-3-Clause
-*/
-const t$6 = globalThis;
-const i$7 = (t) => t;
-const s$8 = t$6.trustedTypes;
-const e$9 = s$8 ? s$8.createPolicy("lit-html", { createHTML: (t) => t }) : void 0;
-const h$3 = "$lit$";
-const o$9 = `lit$${Math.random().toFixed(9).slice(2)}$`;
-const n$9 = "?" + o$9;
-const r$6 = `<${n$9}>`;
-const l$2 = document;
-const c$6 = () => l$2.createComment("");
-const a$1 = (t) => null === t || "object" != typeof t && "function" != typeof t;
-const u$3 = Array.isArray;
-const d$1 = (t) => u$3(t) || "function" == typeof t?.[Symbol.iterator];
-const f$2 = "[ 	\n\f\r]";
-const v$1 = /<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g;
-const _ = /-->/g;
-const m$2 = />/g;
-const p$1 = RegExp(`>|${f$2}(?:([^\\s"'>=/]+)(${f$2}*=${f$2}*(?:[^ \t\n\f\r"'\`<>=]|("|')|))|$)`, "g");
-const g = /'/g;
-const $$1 = /"/g;
-const y = /^(?:script|style|textarea|title)$/i;
-const x = (t) => (i, ...s) => ({
-	_$litType$: t,
-	strings: i,
-	values: s
-});
-const b = x(1);
-const E = Symbol.for("lit-noChange");
-const A = Symbol.for("lit-nothing");
-const C = /* @__PURE__ */ new WeakMap();
-const P = l$2.createTreeWalker(l$2, 129);
-function V(t, i) {
-	if (!u$3(t) || !t.hasOwnProperty("raw")) throw Error("invalid template strings array");
-	return void 0 !== e$9 ? e$9.createHTML(i) : i;
-}
-const N = (t, i) => {
-	const s = t.length - 1, e = [];
-	let n, l = 2 === i ? "<svg>" : 3 === i ? "<math>" : "", c = v$1;
-	for (let i = 0; i < s; i++) {
-		const s = t[i];
-		let a, u, d = -1, f = 0;
-		for (; f < s.length && (c.lastIndex = f, u = c.exec(s), null !== u);) f = c.lastIndex, c === v$1 ? "!--" === u[1] ? c = _ : void 0 !== u[1] ? c = m$2 : void 0 !== u[2] ? (y.test(u[2]) && (n = RegExp("</" + u[2], "g")), c = p$1) : void 0 !== u[3] && (c = p$1) : c === p$1 ? ">" === u[0] ? (c = n ?? v$1, d = -1) : void 0 === u[1] ? d = -2 : (d = c.lastIndex - u[2].length, a = u[1], c = void 0 === u[3] ? p$1 : "\"" === u[3] ? $$1 : g) : c === $$1 || c === g ? c = p$1 : c === _ || c === m$2 ? c = v$1 : (c = p$1, n = void 0);
-		const x = c === p$1 && t[i + 1].startsWith("/>") ? " " : "";
-		l += c === v$1 ? s + r$6 : d >= 0 ? (e.push(a), s.slice(0, d) + h$3 + s.slice(d) + o$9 + x) : s + o$9 + (-2 === d ? i : x);
-	}
-	return [V(t, l + (t[s] || "<?>") + (2 === i ? "</svg>" : 3 === i ? "</math>" : "")), e];
-};
-var S = class S {
-	constructor({ strings: t, _$litType$: i }, e) {
-		let r;
-		this.parts = [];
-		let l = 0, a = 0;
-		const u = t.length - 1, d = this.parts, [f, v] = N(t, i);
-		if (this.el = S.createElement(f, e), P.currentNode = this.el.content, 2 === i || 3 === i) {
-			const t = this.el.content.firstChild;
-			t.replaceWith(...t.childNodes);
-		}
-		for (; null !== (r = P.nextNode()) && d.length < u;) {
-			if (1 === r.nodeType) {
-				if (r.hasAttributes()) for (const t of r.getAttributeNames()) if (t.endsWith(h$3)) {
-					const i = v[a++], s = r.getAttribute(t).split(o$9), e = /([.?@])?(.*)/.exec(i);
-					d.push({
-						type: 1,
-						index: l,
-						name: e[2],
-						strings: s,
-						ctor: "." === e[1] ? I : "?" === e[1] ? L : "@" === e[1] ? z : H
-					}), r.removeAttribute(t);
-				} else t.startsWith(o$9) && (d.push({
-					type: 6,
-					index: l
-				}), r.removeAttribute(t));
-				if (y.test(r.tagName)) {
-					const t = r.textContent.split(o$9), i = t.length - 1;
-					if (i > 0) {
-						r.textContent = s$8 ? s$8.emptyScript : "";
-						for (let s = 0; s < i; s++) r.append(t[s], c$6()), P.nextNode(), d.push({
-							type: 2,
-							index: ++l
-						});
-						r.append(t[i], c$6());
-					}
-				}
-			} else if (8 === r.nodeType) if (r.data === n$9) d.push({
-				type: 2,
-				index: l
-			});
-			else {
-				let t = -1;
-				for (; -1 !== (t = r.data.indexOf(o$9, t + 1));) d.push({
-					type: 7,
-					index: l
-				}), t += o$9.length - 1;
-			}
-			l++;
-		}
-	}
-	static createElement(t, i) {
-		const s = l$2.createElement("template");
-		return s.innerHTML = t, s;
-	}
-};
-function M$1(t, i, s = t, e) {
-	if (i === E) return i;
-	let h = void 0 !== e ? s._$Co?.[e] : s._$Cl;
-	const o = a$1(i) ? void 0 : i._$litDirective$;
-	return h?.constructor !== o && (h?._$AO?.(!1), void 0 === o ? h = void 0 : (h = new o(t), h._$AT(t, s, e)), void 0 !== e ? (s._$Co ??= [])[e] = h : s._$Cl = h), void 0 !== h && (i = M$1(t, h._$AS(t, i.values), h, e)), i;
-}
-var R = class {
-	constructor(t, i) {
-		this._$AV = [], this._$AN = void 0, this._$AD = t, this._$AM = i;
-	}
-	get parentNode() {
-		return this._$AM.parentNode;
-	}
-	get _$AU() {
-		return this._$AM._$AU;
-	}
-	u(t) {
-		const { el: { content: i }, parts: s } = this._$AD, e = (t?.creationScope ?? l$2).importNode(i, !0);
-		P.currentNode = e;
-		let h = P.nextNode(), o = 0, n = 0, r = s[0];
-		for (; void 0 !== r;) {
-			if (o === r.index) {
-				let i;
-				2 === r.type ? i = new k(h, h.nextSibling, this, t) : 1 === r.type ? i = new r.ctor(h, r.name, r.strings, this, t) : 6 === r.type && (i = new Z(h, this, t)), this._$AV.push(i), r = s[++n];
-			}
-			o !== r?.index && (h = P.nextNode(), o++);
-		}
-		return P.currentNode = l$2, e;
-	}
-	p(t) {
-		let i = 0;
-		for (const s of this._$AV) void 0 !== s && (void 0 !== s.strings ? (s._$AI(t, s, i), i += s.strings.length - 2) : s._$AI(t[i])), i++;
-	}
-};
-var k = class k {
-	get _$AU() {
-		return this._$AM?._$AU ?? this._$Cv;
-	}
-	constructor(t, i, s, e) {
-		this.type = 2, this._$AH = A, this._$AN = void 0, this._$AA = t, this._$AB = i, this._$AM = s, this.options = e, this._$Cv = e?.isConnected ?? !0;
-	}
-	get parentNode() {
-		let t = this._$AA.parentNode;
-		const i = this._$AM;
-		return void 0 !== i && 11 === t?.nodeType && (t = i.parentNode), t;
-	}
-	get startNode() {
-		return this._$AA;
-	}
-	get endNode() {
-		return this._$AB;
-	}
-	_$AI(t, i = this) {
-		t = M$1(this, t, i), a$1(t) ? t === A || null == t || "" === t ? (this._$AH !== A && this._$AR(), this._$AH = A) : t !== this._$AH && t !== E && this._(t) : void 0 !== t._$litType$ ? this.$(t) : void 0 !== t.nodeType ? this.T(t) : d$1(t) ? this.k(t) : this._(t);
-	}
-	O(t) {
-		return this._$AA.parentNode.insertBefore(t, this._$AB);
-	}
-	T(t) {
-		this._$AH !== t && (this._$AR(), this._$AH = this.O(t));
-	}
-	_(t) {
-		this._$AH !== A && a$1(this._$AH) ? this._$AA.nextSibling.data = t : this.T(l$2.createTextNode(t)), this._$AH = t;
-	}
-	$(t) {
-		const { values: i, _$litType$: s } = t, e = "number" == typeof s ? this._$AC(t) : (void 0 === s.el && (s.el = S.createElement(V(s.h, s.h[0]), this.options)), s);
-		if (this._$AH?._$AD === e) this._$AH.p(i);
-		else {
-			const t = new R(e, this), s = t.u(this.options);
-			t.p(i), this.T(s), this._$AH = t;
-		}
-	}
-	_$AC(t) {
-		let i = C.get(t.strings);
-		return void 0 === i && C.set(t.strings, i = new S(t)), i;
-	}
-	k(t) {
-		u$3(this._$AH) || (this._$AH = [], this._$AR());
-		const i = this._$AH;
-		let s, e = 0;
-		for (const h of t) e === i.length ? i.push(s = new k(this.O(c$6()), this.O(c$6()), this, this.options)) : s = i[e], s._$AI(h), e++;
-		e < i.length && (this._$AR(s && s._$AB.nextSibling, e), i.length = e);
-	}
-	_$AR(t = this._$AA.nextSibling, s) {
-		for (this._$AP?.(!1, !0, s); t !== this._$AB;) {
-			const s = i$7(t).nextSibling;
-			i$7(t).remove(), t = s;
-		}
-	}
-	setConnected(t) {
-		void 0 === this._$AM && (this._$Cv = t, this._$AP?.(t));
-	}
-};
-var H = class {
-	get tagName() {
-		return this.element.tagName;
-	}
-	get _$AU() {
-		return this._$AM._$AU;
-	}
-	constructor(t, i, s, e, h) {
-		this.type = 1, this._$AH = A, this._$AN = void 0, this.element = t, this.name = i, this._$AM = e, this.options = h, s.length > 2 || "" !== s[0] || "" !== s[1] ? (this._$AH = Array(s.length - 1).fill(/* @__PURE__ */ new String()), this.strings = s) : this._$AH = A;
-	}
-	_$AI(t, i = this, s, e) {
-		const h = this.strings;
-		let o = !1;
-		if (void 0 === h) t = M$1(this, t, i, 0), o = !a$1(t) || t !== this._$AH && t !== E, o && (this._$AH = t);
-		else {
-			const e = t;
-			let n, r;
-			for (t = h[0], n = 0; n < h.length - 1; n++) r = M$1(this, e[s + n], i, n), r === E && (r = this._$AH[n]), o ||= !a$1(r) || r !== this._$AH[n], r === A ? t = A : t !== A && (t += (r ?? "") + h[n + 1]), this._$AH[n] = r;
-		}
-		o && !e && this.j(t);
-	}
-	j(t) {
-		t === A ? this.element.removeAttribute(this.name) : this.element.setAttribute(this.name, t ?? "");
-	}
-};
-var I = class extends H {
-	constructor() {
-		super(...arguments), this.type = 3;
-	}
-	j(t) {
-		this.element[this.name] = t === A ? void 0 : t;
-	}
-};
-var L = class extends H {
-	constructor() {
-		super(...arguments), this.type = 4;
-	}
-	j(t) {
-		this.element.toggleAttribute(this.name, !!t && t !== A);
-	}
-};
-var z = class extends H {
-	constructor(t, i, s, e, h) {
-		super(t, i, s, e, h), this.type = 5;
-	}
-	_$AI(t, i = this) {
-		if ((t = M$1(this, t, i, 0) ?? A) === E) return;
-		const s = this._$AH, e = t === A && s !== A || t.capture !== s.capture || t.once !== s.once || t.passive !== s.passive, h = t !== A && (s === A || e);
-		e && this.element.removeEventListener(this.name, this, s), h && this.element.addEventListener(this.name, this, t), this._$AH = t;
-	}
-	handleEvent(t) {
-		"function" == typeof this._$AH ? this._$AH.call(this.options?.host ?? this.element, t) : this._$AH.handleEvent(t);
-	}
-};
-var Z = class {
-	constructor(t, i, s) {
-		this.element = t, this.type = 6, this._$AN = void 0, this._$AM = i, this.options = s;
-	}
-	get _$AU() {
-		return this._$AM._$AU;
-	}
-	_$AI(t) {
-		M$1(this, t);
-	}
-};
-const j$1 = {
-	M: h$3,
-	P: o$9,
-	A: n$9,
-	C: 1,
-	L: N,
-	R,
-	D: d$1,
-	V: M$1,
-	I: k,
-	H,
-	N: L,
-	U: z,
-	B: I,
-	F: Z
-};
-const B = t$6.litHtmlPolyfillSupport;
-B?.(S, k), (t$6.litHtmlVersions ??= []).push("3.3.3");
-const D = (t, i, s) => {
-	const e = s?.renderBefore ?? i;
-	let h = e._$litPart$;
-	if (void 0 === h) {
-		const t = s?.renderBefore ?? null;
-		e._$litPart$ = h = new k(i.insertBefore(c$6(), t), t, void 0, s ?? {});
-	}
-	return h._$AI(t), h;
-};
-/**
-* @license
-* Copyright 2017 Google LLC
-* SPDX-License-Identifier: BSD-3-Clause
-*/ const s$7 = globalThis;
-var i$6 = class extends y$1 {
-	constructor() {
-		super(...arguments), this.renderOptions = { host: this }, this._$Do = void 0;
-	}
-	createRenderRoot() {
-		const t = super.createRenderRoot();
-		return this.renderOptions.renderBefore ??= t.firstChild, t;
-	}
-	update(t) {
-		const r = this.render();
-		this.hasUpdated || (this.renderOptions.isConnected = this.isConnected), super.update(t), this._$Do = D(r, this.renderRoot, this.renderOptions);
-	}
-	connectedCallback() {
-		super.connectedCallback(), this._$Do?.setConnected(!0);
-	}
-	disconnectedCallback() {
-		super.disconnectedCallback(), this._$Do?.setConnected(!1);
-	}
-	render() {
-		return E;
-	}
-};
-i$6._$litElement$ = !0, i$6["finalized"] = !0, s$7.litElementHydrateSupport?.({ LitElement: i$6 });
-const o$8 = s$7.litElementPolyfillSupport;
-o$8?.({ LitElement: i$6 });
-(s$7.litElementVersions ??= []).push("4.2.2");
-/**
-* @license
-* Copyright 2022 Google LLC
-* SPDX-License-Identifier: BSD-3-Clause
-*/
-/**
-* @license
-* Copyright 2017 Google LLC
-* SPDX-License-Identifier: BSD-3-Clause
-*/
-const t$5 = (t) => (e, o) => {
-	void 0 !== o ? o.addInitializer(() => {
-		customElements.define(t, e);
-	}) : customElements.define(t, e);
-};
-/**
-* @license
-* Copyright 2017 Google LLC
-* SPDX-License-Identifier: BSD-3-Clause
-*/ const o$6 = {
-	attribute: !0,
-	type: String,
-	converter: u$4,
-	reflect: !1,
-	hasChanged: f$3
-};
-const r$5 = (t = o$6, e, r) => {
-	const { kind: n, metadata: i } = r;
-	let s = globalThis.litPropertyMetadata.get(i);
-	if (void 0 === s && globalThis.litPropertyMetadata.set(i, s = /* @__PURE__ */ new Map()), "setter" === n && ((t = Object.create(t)).wrapped = !0), s.set(r.name, t), "accessor" === n) {
-		const { name: o } = r;
-		return {
-			set(r) {
-				const n = e.get.call(this);
-				e.set.call(this, r), this.requestUpdate(o, n, t, !0, r);
-			},
-			init(e) {
-				return void 0 !== e && this.C(o, void 0, t, e), e;
-			}
-		};
-	}
-	if ("setter" === n) {
-		const { name: o } = r;
-		return function(r) {
-			const n = this[o];
-			e.call(this, r), this.requestUpdate(o, n, t, !0, r);
-		};
-	}
-	throw Error("Unsupported decorator location: " + n);
-};
-function n$7(t) {
-	return (e, o) => "object" == typeof o ? r$5(t, e, o) : ((t, e, o) => {
-		const r = e.hasOwnProperty(o);
-		return e.constructor.createProperty(o, t), r ? Object.getOwnPropertyDescriptor(e, o) : void 0;
-	})(t, e, o);
-}
-/**
-* @license
-* Copyright 2017 Google LLC
-* SPDX-License-Identifier: BSD-3-Clause
-*/ function r$4(r) {
-	return n$7({
-		...r,
-		state: !0,
-		attribute: !1
-	});
-}
-/**
-* @license
-* Copyright 2017 Google LLC
-* SPDX-License-Identifier: BSD-3-Clause
-*/
-/**
-* @license
-* Copyright 2017 Google LLC
-* SPDX-License-Identifier: BSD-3-Clause
-*/
-const e$8 = (e, t, c) => (c.configurable = !0, c.enumerable = !0, Reflect.decorate && "object" != typeof t && Object.defineProperty(e, t, c), c);
-/**
-* @license
-* Copyright 2017 Google LLC
-* SPDX-License-Identifier: BSD-3-Clause
-*/ function e$7(e, r) {
-	return (n, s, i) => {
-		const o = (t) => t.renderRoot?.querySelector(e) ?? null;
-		if (r) {
-			const { get: e, set: r } = "object" == typeof s ? n : i ?? (() => {
-				const t = Symbol();
-				return {
-					get() {
-						return this[t];
-					},
-					set(e) {
-						this[t] = e;
-					}
-				};
-			})();
-			return e$8(n, s, { get() {
-				let t = e.call(this);
-				return void 0 === t && (t = o(this), (null !== t || this.hasUpdated) && r.call(this, t)), t;
-			} });
-		}
-		return e$8(n, s, { get() {
-			return o(this);
-		} });
-	};
-}
-/**
-* @license
-* Copyright 2017 Google LLC
-* SPDX-License-Identifier: BSD-3-Clause
-*/
-/**
-* @license
-* Copyright 2017 Google LLC
-* SPDX-License-Identifier: BSD-3-Clause
-*/
-/**
-* @license
-* Copyright 2021 Google LLC
-* SPDX-License-Identifier: BSD-3-Clause
-*/
-/**
-* @license
-* Copyright 2017 Google LLC
-* SPDX-License-Identifier: BSD-3-Clause
-*/
-/**
-* @license
-* Copyright 2020 Google LLC
-* SPDX-License-Identifier: BSD-3-Clause
-*/
-const a = Symbol.for("");
-const o$4 = (t) => {
-	if (t?.r === a) return t?._$litStatic$;
-};
-const s$6 = (t) => ({
-	_$litStatic$: t,
-	r: a
-});
-const l$1 = /* @__PURE__ */ new Map();
-const n$5 = (t) => (r, ...e) => {
-	const a = e.length;
-	let s, i;
-	const n = [], u = [];
-	let c, $ = 0, f = !1;
-	for (; $ < a;) {
-		for (c = r[$]; $ < a && void 0 !== (i = e[$], s = o$4(i));) c += s + r[++$], f = !0;
-		$ !== a && u.push(i), n.push(c), $++;
-	}
-	if ($ === a && n.push(r[a]), f) {
-		const t = n.join("$$lit$$");
-		void 0 === (r = l$1.get(t)) && (n.raw = n, l$1.set(t, r = n)), e = u;
-	}
-	return t(r, ...e);
-};
-const u$2 = n$5(b);
-/**
-* Pure function that acts as a generic container for A2UI components.
-*
-* It dynamically resolves and renders the specific Lit component implementation
-* based on the component type provided in the context, returning a TemplateResult directly
-* to avoid duplicate DOM node wrapping.
+* Pure function that acts as a generic container for A2UI components in Lit.
 *
 * @param context The component context defining the data model and type to render.
 * @param catalog The catalog of component implementations.
-* @returns A Lit TemplateResult representing the resolved component, or `nothing` if the component is invalid or unresolvable.
-*
-* This method should be used directly very rarely. Instead, programmers should use
-* the `renderNode` method on the base `A2uiLitElement` class, which handles context
-* creation automatically.
+* @returns A Lit TemplateResult representing the resolved component, or `nothing`.
 */
 function renderA2uiNode(context, catalog) {
 	const type = context.componentModel.type;
@@ -12754,10 +13181,14 @@ function renderA2uiNode(context, catalog) {
 		console.warn(`Component implementation not found for type: ${type}`);
 		return A;
 	}
-	const tag = s$6(implementation.tagName);
-	return u$2`<${tag} .context=${context}></${tag}>`;
+	const tagName = implementation.tagName;
+	if (tagName) {
+		const tag = s$5(tagName);
+		return u$2`<${tag} .context=${context}></${tag}>`;
+	}
+	return A;
 }
-var __esDecorate$19 = function(ctor, descriptorIn, decorators, contextIn, initializers, extraInitializers) {
+var __esDecorate = function(ctor, descriptorIn, decorators, contextIn, initializers, extraInitializers) {
 	function accept(f) {
 		if (f !== void 0 && typeof f !== "function") throw new TypeError("Function expected");
 		return f;
@@ -12792,7 +13223,7 @@ var __esDecorate$19 = function(ctor, descriptorIn, decorators, contextIn, initia
 	if (target) Object.defineProperty(target, contextIn.name, descriptor);
 	done = true;
 };
-var __runInitializers$19 = function(thisArg, initializers, value) {
+var __runInitializers = function(thisArg, initializers, value) {
 	var useValue = arguments.length > 2;
 	for (var i = 0; i < initializers.length; i++) value = useValue ? initializers[i].call(thisArg, value) : initializers[i].call(thisArg);
 	return useValue ? value : void 0;
@@ -12815,19 +13246,19 @@ var __runInitializers$19 = function(thisArg, initializers, value) {
 		}
 		constructor() {
 			super(...arguments);
-			this.#surface_accessor_storage = __runInitializers$19(this, _surface_initializers, void 0);
-			this.#_hasRoot_accessor_storage = (__runInitializers$19(this, _surface_extraInitializers), __runInitializers$19(this, __hasRoot_initializers, false));
+			this.#surface_accessor_storage = __runInitializers(this, _surface_initializers, void 0);
+			this.#_hasRoot_accessor_storage = (__runInitializers(this, _surface_extraInitializers), __runInitializers(this, __hasRoot_initializers, false));
 			/**
 			* Subscription cleanup function.
 			* @internal
 			*/
-			this.unsubscribe = __runInitializers$19(this, __hasRoot_extraInitializers);
+			this.unsubscribe = __runInitializers(this, __hasRoot_extraInitializers);
 		}
 		static {
 			const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(_classSuper[Symbol.metadata] ?? null) : void 0;
 			_surface_decorators = [n$7({ type: Object })];
-			__hasRoot_decorators = [r$4()];
-			__esDecorate$19(this, null, _surface_decorators, {
+			__hasRoot_decorators = [r$5()];
+			__esDecorate(this, null, _surface_decorators, {
 				kind: "accessor",
 				name: "surface",
 				static: false,
@@ -12841,7 +13272,7 @@ var __runInitializers$19 = function(thisArg, initializers, value) {
 				},
 				metadata: _metadata
 			}, _surface_initializers, _surface_extraInitializers);
-			__esDecorate$19(this, null, __hasRoot_decorators, {
+			__esDecorate(this, null, __hasRoot_decorators, {
 				kind: "accessor",
 				name: "_hasRoot",
 				static: false,
@@ -12855,7 +13286,7 @@ var __runInitializers$19 = function(thisArg, initializers, value) {
 				},
 				metadata: _metadata
 			}, __hasRoot_initializers, __hasRoot_extraInitializers);
-			__esDecorate$19(null, _classDescriptor = { value: _classThis }, _classDecorators, {
+			__esDecorate(null, _classDescriptor = { value: _classThis }, _classDecorators, {
 				kind: "class",
 				name: _classThis.name,
 				metadata: _metadata
@@ -12867,7 +13298,7 @@ var __runInitializers$19 = function(thisArg, initializers, value) {
 				writable: true,
 				value: _metadata
 			});
-			__runInitializers$19(_classThis, _classExtraInitializers);
+			__runInitializers(_classThis, _classExtraInitializers);
 		}
 		#surface_accessor_storage;
 		/**
@@ -12937,275 +13368,47 @@ var __runInitializers$19 = function(thisArg, initializers, value) {
 		*/
 		render() {
 			if (!this.surface) return A;
-			if (!this._hasRoot) return b`<slot name="loading"><div>Loading surface...</div></slot>`;
+			if (!this._hasRoot) return b$1`<slot name="loading"><div>Loading surface...</div></slot>`;
 			try {
 				const rootContext = new ComponentContext(this.surface, "root", "/");
-				return b`${renderA2uiNode(rootContext, this.surface.catalog)}`;
+				return b$1`${renderA2uiNode(rootContext, this.surface.catalog)}`;
 			} catch (e) {
 				console.error("Error creating root context:", e);
-				return b`<div>Error rendering surface</div>`;
+				return b$1`<div>Error rendering surface</div>`;
 			}
 		}
 	};
 	return _classThis;
 })();
-var __esDecorate$18 = function(ctor, descriptorIn, decorators, contextIn, initializers, extraInitializers) {
-	function accept(f) {
-		if (f !== void 0 && typeof f !== "function") throw new TypeError("Function expected");
-		return f;
-	}
-	var kind = contextIn.kind, key = kind === "getter" ? "get" : kind === "setter" ? "set" : "value";
-	var target = !descriptorIn && ctor ? contextIn["static"] ? ctor : ctor.prototype : null;
-	var descriptor = descriptorIn || (target ? Object.getOwnPropertyDescriptor(target, contextIn.name) : {});
-	var _, done = false;
-	for (var i = decorators.length - 1; i >= 0; i--) {
-		var context = {};
-		for (var p in contextIn) context[p] = p === "access" ? {} : contextIn[p];
-		for (var p in contextIn.access) context.access[p] = contextIn.access[p];
-		context.addInitializer = function(f) {
-			if (done) throw new TypeError("Cannot add initializers after decoration has completed");
-			extraInitializers.push(accept(f || null));
-		};
-		var result = (0, decorators[i])(kind === "accessor" ? {
-			get: descriptor.get,
-			set: descriptor.set
-		} : descriptor[key], context);
-		if (kind === "accessor") {
-			if (result === void 0) continue;
-			if (result === null || typeof result !== "object") throw new TypeError("Object expected");
-			if (_ = accept(result.get)) descriptor.get = _;
-			if (_ = accept(result.set)) descriptor.set = _;
-			if (_ = accept(result.init)) initializers.unshift(_);
-		} else if (_ = accept(result)) {
-			if (kind === "field") initializers.unshift(_);
-			else descriptor[key] = _;
-		}
-	}
-	if (target) Object.defineProperty(target, contextIn.name, descriptor);
-	done = true;
-};
-var __runInitializers$18 = function(thisArg, initializers, value) {
-	var useValue = arguments.length > 2;
-	for (var i = 0; i < initializers.length; i++) value = useValue ? initializers[i].call(thisArg, value) : initializers[i].call(thisArg);
-	return useValue ? value : void 0;
-};
 /**
-* A base class for A2UI Lit elements that manages the A2uiController lifecycle.
+* Internal base class for the built-in Basic Catalog components.
 *
-* This element handles the reactive attachment and detachment of the `A2uiController`
-* whenever the component's `context` changes. Subclasses only need to implement
-* `createController` to provide their specific schema-bound controller, and `render`
-* to define the template based on the controller's reactive props.
+* Extends `A2uiLitElement` to inject global basic catalog CSS, map `props.weight` to flex,
+* and calculate `--a2ui-color-primary` CSS variables from the surface theme.
 *
-* @template Api The specific A2UI component API defining the schema for this element.
-*/
-let A2uiLitElement = (() => {
-	let _classSuper = i$6;
-	let _context_decorators;
-	let _context_initializers = [];
-	let _context_extraInitializers = [];
-	return class A2uiLitElement extends _classSuper {
-		constructor() {
-			super(...arguments);
-			this.#context_accessor_storage = __runInitializers$18(this, _context_initializers, void 0);
-			this.controller = __runInitializers$18(this, _context_extraInitializers);
-		}
-		static {
-			const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(_classSuper[Symbol.metadata] ?? null) : void 0;
-			_context_decorators = [n$7({ type: Object })];
-			__esDecorate$18(this, null, _context_decorators, {
-				kind: "accessor",
-				name: "context",
-				static: false,
-				private: false,
-				access: {
-					has: (obj) => "context" in obj,
-					get: (obj) => obj.context,
-					set: (obj, value) => {
-						obj.context = value;
-					}
-				},
-				metadata: _metadata
-			}, _context_initializers, _context_extraInitializers);
-			if (_metadata) Object.defineProperty(this, Symbol.metadata, {
-				enumerable: true,
-				configurable: true,
-				writable: true,
-				value: _metadata
-			});
-		}
-		#context_accessor_storage;
-		get context() {
-			return this.#context_accessor_storage;
-		}
-		set context(value) {
-			this.#context_accessor_storage = value;
-		}
-		/**
-		* Helper method to render a child A2UI node.
-		* Abstracts away the need to manually create a ComponentContext.
-		*
-		* @param childRef The reference to the child component to render. Either a string ID
-		*                 or a reference object containing `{id, basePath}`.
-		* @param customPath An explicit data model path to bind the child to. If provided,
-		*                   this overrides any path defined in the `childRef` object. If omitted,
-		*                   falls back to the `childRef`'s `basePath`, or the current component's path.
-		*
-		* @returns A Lit template result containing the rendered child component, or `nothing` if the reference is empty.
-		*/
-		renderNode(childRef, customPath) {
-			if (!childRef) return A;
-			const { surface, path: parentPath } = this.context.dataContext;
-			if (!!!surface.componentsModel.get(this.context.componentModel.id)) return A;
-			let componentId;
-			let path = customPath;
-			if (typeof childRef === "object") {
-				componentId = childRef.id;
-				path = path ?? childRef.basePath;
-			} else componentId = childRef;
-			path = path ?? parentPath;
-			return renderA2uiNode(new ComponentContext(surface, componentId, path), surface.catalog);
-		}
-		/**
-		* Reacts to changes in the component's properties.
-		*
-		* Specifically, when the `context` property changes or is initialized, this method
-		* cleans up any existing controller and invokes `createController()` to bind to
-		* the new context.
-		*/
-		willUpdate(changedProperties) {
-			super.willUpdate(changedProperties);
-			if (changedProperties.has("context") && this.context) {
-				if (this.controller) {
-					this.removeController(this.controller);
-					this.controller.dispose();
-				}
-				this.controller = this.createController();
-			}
-		}
-	};
-})();
-/**
-* @license
-* Copyright 2021 Google LLC
-* SPDX-License-Identifier: BSD-3-Clause
-*/
-var s$5 = class extends Event {
-	constructor(s, t, e, o) {
-		super("context-request", {
-			bubbles: !0,
-			composed: !0
-		}), this.context = s, this.contextTarget = t, this.callback = e, this.subscribe = o ?? !1;
-	}
-};
-/**
-* @license
-* Copyright 2021 Google LLC
-* SPDX-License-Identifier: BSD-3-Clause
-*/
-function n$4(n) {
-	return n;
-}
-/**
-* @license
-* Copyright 2021 Google LLC
-* SPDX-License-Identifier: BSD-3-Clause
-*/ var s$4 = class {
-	constructor(t, s, i, h) {
-		if (this.subscribe = !1, this.provided = !1, this.value = void 0, this.t = (t, s) => {
-			this.unsubscribe && (this.unsubscribe !== s && (this.provided = !1, this.unsubscribe()), this.subscribe || this.unsubscribe()), this.value = t, this.host.requestUpdate(), this.provided && !this.subscribe || (this.provided = !0, this.callback && this.callback(t, s)), this.unsubscribe = s;
-		}, this.host = t, void 0 !== s.context) {
-			const t = s;
-			this.context = t.context, this.callback = t.callback, this.subscribe = t.subscribe ?? !1;
-		} else this.context = s, this.callback = i, this.subscribe = h ?? !1;
-		this.host.addController(this);
-	}
-	hostConnected() {
-		this.dispatchRequest();
-	}
-	hostDisconnected() {
-		this.unsubscribe && (this.unsubscribe(), this.unsubscribe = void 0);
-	}
-	dispatchRequest() {
-		this.host.dispatchEvent(new s$5(this.context, this.host, this.t, this.subscribe));
-	}
-};
-/**
-* @license
-* Copyright 2021 Google LLC
-* SPDX-License-Identifier: BSD-3-Clause
-*/
-/**
-* @license
-* Copyright 2021 Google LLC
-* SPDX-License-Identifier: BSD-3-Clause
-*/
-/**
-* @license
-* Copyright 2021 Google LLC
-* SPDX-License-Identifier: BSD-3-Clause
-*/
-/**
-* @license
-* Copyright 2017 Google LLC
-* SPDX-License-Identifier: BSD-3-Clause
-*/
-/**
-* @license
-* Copyright 2022 Google LLC
-* SPDX-License-Identifier: BSD-3-Clause
-*/ function c$4({ context: c, subscribe: e }) {
-	return (o, n) => {
-		"object" == typeof n ? n.addInitializer((function() {
-			new s$4(this, {
-				context: c,
-				callback: (t) => {
-					o.set.call(this, t);
-				},
-				subscribe: e
-			});
-		})) : o.constructor.addInitializer(((o) => {
-			new s$4(o, {
-				context: c,
-				callback: (t) => {
-					o[n] = t;
-				},
-				subscribe: e
-			});
-		}));
-	};
-}
-/**
-* Copyright 2026 Google LLC
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
-/**
-* Contexts used to inject dependencies into the Lit renderer.
-*/
-const Context = { markdown: n$4(Symbol("A2UIMarkdown")) };
-/**
-* A base class for A2UI basic catalog components.
-*
-* Handles some common features of all basic catalog A2ui elements, like
-* injecting the basic CSS styles if needed, and setting the flex property
-* if set by the framework.
+* @internal
 */
 var BasicCatalogA2uiLitElement = class extends A2uiLitElement {
+	/**
+	* Renders into the element's direct children (Light DOM) instead of a ShadowRoot.
+	*/
+	createRenderRoot() {
+		return this;
+	}
+	/**
+	* Lifecycle hook invoked when the element is connected to the DOM.
+	* Injects global basic catalog CSS.
+	*/
 	connectedCallback() {
 		super.connectedCallback();
 		injectBasicCatalogStyles();
 	}
+	/**
+	* Lifecycle hook invoked before rendering.
+	* Resolves the component flex weight and calculates theme color CSS variables.
+	*
+	* @param changedProperties Map of changed properties with their previous values.
+	*/
 	willUpdate(changedProperties) {
 		super.willUpdate(changedProperties);
 		const props = this.controller?.props;
@@ -13228,456 +13431,128 @@ var BasicCatalogA2uiLitElement = class extends A2uiLitElement {
 		}
 	}
 };
-/**
-* @license
-* Copyright 2017 Google LLC
-* SPDX-License-Identifier: BSD-3-Clause
-*/
-const t$2 = {
-	ATTRIBUTE: 1,
-	CHILD: 2,
-	PROPERTY: 3,
-	BOOLEAN_ATTRIBUTE: 4,
-	EVENT: 5,
-	ELEMENT: 6
+var __decorate$17 = function(decorators, target, key, desc) {
+	var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+	if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+	else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+	return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
-const e$3 = (t) => (...e) => ({
-	_$litDirective$: t,
-	values: e
-});
-var i$3 = class {
-	constructor(t) {}
-	get _$AU() {
-		return this._$AM._$AU;
-	}
-	_$AT(t, e, i) {
-		this._$Ct = t, this._$AM = e, this._$Ci = i;
-	}
-	_$AS(t, e) {
-		return this.update(t, e);
-	}
-	update(t, e) {
-		return this.render(...e);
-	}
-};
-/**
-* @license
-* Copyright 2017 Google LLC
-* SPDX-License-Identifier: BSD-3-Clause
-*/ var e$2 = class extends i$3 {
-	constructor(i) {
-		if (super(i), this.it = A, i.type !== t$2.CHILD) throw Error(this.constructor.directiveName + "() can only be used in child bindings");
-	}
-	render(r) {
-		if (r === A || null == r) return this._t = void 0, this.it = r;
-		if (r === E) return r;
-		if ("string" != typeof r) throw Error(this.constructor.directiveName + "() called with a non-string value");
-		if (r === this.it) return this._t;
-		this.it = r;
-		const s = [r];
-		return s.raw = s, this._t = {
-			_$litType$: this.constructor.resultType,
-			strings: s,
-			values: []
-		};
-	}
-};
-e$2.directiveName = "unsafeHTML", e$2.resultType = 1;
-const o$3 = e$3(e$2), { I: t$1 } = j$1, i$2 = (o) => o, n$3 = (o) => null === o || "object" != typeof o && "function" != typeof o, r$1 = (o) => void 0 === o.strings, s$2 = () => document.createComment(""), v = (o, n, e) => {
-	/**
-	* @license
-	* Copyright 2020 Google LLC
-	* SPDX-License-Identifier: BSD-3-Clause
-	*/
-	const l = o._$AA.parentNode, d = void 0 === n ? o._$AB : n._$AA;
-	if (void 0 === e) {
-		const i = l.insertBefore(s$2(), d), n = l.insertBefore(s$2(), d);
-		e = new t$1(i, n, o, o.options);
-	} else {
-		const t = e._$AB.nextSibling, n = e._$AM, c = n !== o;
-		if (c) {
-			let t;
-			e._$AQ?.(o), e._$AM = o, void 0 !== e._$AP && (t = o._$AU) !== n._$AU && e._$AP(t);
-		}
-		if (t !== d || c) {
-			let o = e._$AA;
-			for (; o !== t;) {
-				const t = i$2(o).nextSibling;
-				i$2(l).insertBefore(o, d), o = t;
-			}
-		}
-	}
-	return e;
-}, u$1 = (o, t, i = o) => (o._$AI(t, i), o), m$1 = {}, p = (o, t = m$1) => o._$AH = t, M = (o) => o._$AH, h$2 = (o) => {
-	o._$AR(), o._$AA.remove();
-};
-/**
-* @license
-* Copyright 2017 Google LLC
-* SPDX-License-Identifier: BSD-3-Clause
-*/ const s$1 = (i, t) => {
-	const e = i._$AN;
-	if (void 0 === e) return !1;
-	for (const i of e) i._$AO?.(t, !1), s$1(i, t);
-	return !0;
-};
-const o$2 = (i) => {
-	let t, e;
-	do {
-		if (void 0 === (t = i._$AM)) break;
-		e = t._$AN, e.delete(i), i = t;
-	} while (0 === e?.size);
-};
-const r = (i) => {
-	for (let t; t = i._$AM; i = t) {
-		let e = t._$AN;
-		if (void 0 === e) t._$AN = e = /* @__PURE__ */ new Set();
-		else if (e.has(i)) break;
-		e.add(i), c$2(t);
-	}
-};
-function h$1(i) {
-	void 0 !== this._$AN ? (o$2(this), this._$AM = i, r(this)) : this._$AM = i;
-}
-function n$2(i, t = !1, e = 0) {
-	const r = this._$AH, h = this._$AN;
-	if (void 0 !== h && 0 !== h.size) if (t) if (Array.isArray(r)) for (let i = e; i < r.length; i++) s$1(r[i], !1), o$2(r[i]);
-	else null != r && (s$1(r, !1), o$2(r));
-	else s$1(this, i);
-}
-const c$2 = (i) => {
-	i.type == t$2.CHILD && (i._$AP ??= n$2, i._$AQ ??= h$1);
-};
-var f = class extends i$3 {
-	constructor() {
-		super(...arguments), this._$AN = void 0;
-	}
-	_$AT(i, t, e) {
-		super._$AT(i, t, e), r(this), this.isConnected = i._$AU;
-	}
-	_$AO(i, t = !0) {
-		i !== this.isConnected && (this.isConnected = i, i ? this.reconnected?.() : this.disconnected?.()), t && (s$1(this, i), o$2(this));
-	}
-	setValue(t) {
-		if (r$1(this._$Ct)) this._$Ct._$AI(t, this);
-		else {
-			const i = [...this._$Ct._$AH];
-			i[this._$Ci] = t, this._$Ct._$AI(i, this, 0);
-		}
-	}
-	disconnected() {}
-	reconnected() {}
-};
-/**
-* @license
-* Copyright 2021 Google LLC
-* SPDX-License-Identifier: BSD-3-Clause
-*/
-var s = class {
-	constructor(t) {
-		this.G = t;
-	}
-	disconnect() {
-		this.G = void 0;
-	}
-	reconnect(t) {
-		this.G = t;
-	}
-	deref() {
-		return this.G;
-	}
-};
-var i$1 = class {
-	constructor() {
-		this.Y = void 0, this.Z = void 0;
-	}
-	get() {
-		return this.Y;
-	}
-	pause() {
-		this.Y ??= new Promise((t) => this.Z = t);
-	}
-	resume() {
-		this.Z?.(), this.Y = this.Z = void 0;
-	}
-};
-/**
-* @license
-* Copyright 2017 Google LLC
-* SPDX-License-Identifier: BSD-3-Clause
-*/ const n$1 = (t) => !n$3(t) && "function" == typeof t.then;
-const h = 1073741823;
-var c$1 = class extends f {
-	constructor() {
-		super(...arguments), this._$Cwt = h, this._$Cbt = [], this._$CK = new s(this), this._$CX = new i$1();
-	}
-	render(...s) {
-		return s.find((t) => !n$1(t)) ?? E;
-	}
-	update(s, i) {
-		const e = this._$Cbt;
-		let r = e.length;
-		this._$Cbt = i;
-		const o = this._$CK, c = this._$CX;
-		this.isConnected || this.disconnected();
-		for (let t = 0; t < i.length && !(t > this._$Cwt); t++) {
-			const s = i[t];
-			if (!n$1(s)) return this._$Cwt = t, s;
-			t < r && s === e[t] || (this._$Cwt = h, r = 0, Promise.resolve(s).then(async (t) => {
-				for (; c.get();) await c.get();
-				const i = o.deref();
-				if (void 0 !== i) {
-					const e = i._$Cbt.indexOf(s);
-					e > -1 && e < i._$Cwt && (i._$Cwt = e, i.setValue(t));
-				}
-			}));
-		}
-		return E;
-	}
-	disconnected() {
-		this._$CK.disconnect(), this._$CX.pause();
-	}
-	reconnected() {
-		this._$CK.reconnect(this), this._$CX.resume();
-	}
-};
-const m = e$3(c$1);
-const markdown = e$3(class MarkdownDirective extends i$3 {
+const NON_MARKDOWN_VARIANTS = /* @__PURE__ */ new Set([
+	"h1",
+	"h2",
+	"h3",
+	"h4",
+	"h5",
+	"caption"
+]);
+let A2uiBasicTextElement = class A2uiBasicTextElement extends BasicCatalogA2uiLitElement {
 	constructor() {
 		super(...arguments);
-		this.lastValue = null;
-		this.lastTagClassMap = null;
+		this.api = TextApi;
 	}
-	update(_part, [value, markdownRenderer, markdownOptions]) {
-		const jsonTagClassMap = JSON.stringify(markdownOptions?.tagClassMap);
-		if (this.lastValue === value && jsonTagClassMap === this.lastTagClassMap) return E;
-		this.lastValue = value;
-		this.lastTagClassMap = jsonTagClassMap;
-		return this.render(value, markdownRenderer, markdownOptions);
-	}
-	static {
-		this.defaultMarkdownWarningLogged = false;
-	}
-	/**
-	* Renders the markdown string to HTML using the injected markdown renderer,
-	* if present. Otherwise, it returns the value wrapped in a span.
-	*/
-	render(value, markdownRenderer, markdownOptions) {
-		if (markdownRenderer) {
-			const rendered = markdownRenderer(value, markdownOptions).then((value) => {
-				return o$3(value);
-			});
-			return m(rendered, b`<span class="no-markdown-renderer">${value}</span>`);
+	render() {
+		const props = this.controller.props;
+		if (!props) return A;
+		const variant = props.variant || "body";
+		const text = typeof props.text === "string" ? props.text : String(props.text ?? "");
+		const flexStyle = typeof props.weight === "number" ? `flex: ${props.weight};` : A;
+		if (NON_MARKDOWN_VARIANTS.has(variant)) {
+			let content = b$1`${text}`;
+			switch (variant) {
+				case "h1":
+					content = b$1`<h1>${text}</h1>`;
+					break;
+				case "h2":
+					content = b$1`<h2>${text}</h2>`;
+					break;
+				case "h3":
+					content = b$1`<h3>${text}</h3>`;
+					break;
+				case "h4":
+					content = b$1`<h4>${text}</h4>`;
+					break;
+				case "h5":
+					content = b$1`<h5>${text}</h5>`;
+					break;
+				case "caption": content = b$1`<em>${text}</em>`;
+			}
+			return b$1`<span class="a2ui-text ${variant}" style=${flexStyle}>${content}</span>`;
 		}
-		if (!MarkdownDirective.defaultMarkdownWarningLogged) {
-			console.warn("[MarkdownDirective]", "can't render markdown because no markdown renderer is configured.\n", "Use `@a2ui/markdown-it`, or your own markdown renderer.");
-			MarkdownDirective.defaultMarkdownWarningLogged = true;
-		}
-		return b`<span class="no-markdown-renderer">${value}</span>`;
+		const renderedMarkdown = markdown$1(text, this.markdownRenderer);
+		return b$1`<span class="a2ui-text ${variant}" style=${flexStyle}>${renderedMarkdown}</span>`;
 	}
-});
-var __esDecorate$17 = function(ctor, descriptorIn, decorators, contextIn, initializers, extraInitializers) {
-	function accept(f) {
-		if (f !== void 0 && typeof f !== "function") throw new TypeError("Function expected");
-		return f;
-	}
-	var kind = contextIn.kind, key = kind === "getter" ? "get" : kind === "setter" ? "set" : "value";
-	var target = !descriptorIn && ctor ? contextIn["static"] ? ctor : ctor.prototype : null;
-	var descriptor = descriptorIn || (target ? Object.getOwnPropertyDescriptor(target, contextIn.name) : {});
-	var _, done = false;
-	for (var i = decorators.length - 1; i >= 0; i--) {
-		var context = {};
-		for (var p in contextIn) context[p] = p === "access" ? {} : contextIn[p];
-		for (var p in contextIn.access) context.access[p] = contextIn.access[p];
-		context.addInitializer = function(f) {
-			if (done) throw new TypeError("Cannot add initializers after decoration has completed");
-			extraInitializers.push(accept(f || null));
-		};
-		var result = (0, decorators[i])(kind === "accessor" ? {
-			get: descriptor.get,
-			set: descriptor.set
-		} : descriptor[key], context);
-		if (kind === "accessor") {
-			if (result === void 0) continue;
-			if (result === null || typeof result !== "object") throw new TypeError("Object expected");
-			if (_ = accept(result.get)) descriptor.get = _;
-			if (_ = accept(result.set)) descriptor.set = _;
-			if (_ = accept(result.init)) initializers.unshift(_);
-		} else if (_ = accept(result)) {
-			if (kind === "field") initializers.unshift(_);
-			else descriptor[key] = _;
-		}
-	}
-	if (target) Object.defineProperty(target, contextIn.name, descriptor);
-	done = true;
 };
-var __runInitializers$17 = function(thisArg, initializers, value) {
-	var useValue = arguments.length > 2;
-	for (var i = 0; i < initializers.length; i++) value = useValue ? initializers[i].call(thisArg, value) : initializers[i].call(thisArg);
-	return useValue ? value : void 0;
-};
-(() => {
-	let _classDecorators = [t$5("a2ui-basic-text")];
-	let _classDescriptor;
-	let _classExtraInitializers = [];
-	let _classThis;
-	let _classSuper = BasicCatalogA2uiLitElement;
-	let _markdownRenderer_decorators;
-	let _markdownRenderer_initializers = [];
-	let _markdownRenderer_extraInitializers = [];
-	var A2uiBasicTextElement = class extends _classSuper {
-		static {
-			_classThis = this;
-		}
-		static {
-			const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(_classSuper[Symbol.metadata] ?? null) : void 0;
-			_markdownRenderer_decorators = [c$4({
-				context: Context.markdown,
-				subscribe: true
-			})];
-			__esDecorate$17(this, null, _markdownRenderer_decorators, {
-				kind: "accessor",
-				name: "markdownRenderer",
-				static: false,
-				private: false,
-				access: {
-					has: (obj) => "markdownRenderer" in obj,
-					get: (obj) => obj.markdownRenderer,
-					set: (obj, value) => {
-						obj.markdownRenderer = value;
-					}
-				},
-				metadata: _metadata
-			}, _markdownRenderer_initializers, _markdownRenderer_extraInitializers);
-			__esDecorate$17(null, _classDescriptor = { value: _classThis }, _classDecorators, {
-				kind: "class",
-				name: _classThis.name,
-				metadata: _metadata
-			}, null, _classExtraInitializers);
-			A2uiBasicTextElement = _classThis = _classDescriptor.value;
-			if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, {
-				enumerable: true,
-				configurable: true,
-				writable: true,
-				value: _metadata
-			});
-		}
-		/**
-		* The styles of the text component can be customized by redefining the following
-		* CSS variables:
-		*
-		* - `--a2ui-text-color-text`: The color of the text. Defaults to `--a2ui-color-on-background`.
-		* - `--a2ui-text-caption-color`: The color for caption text. Defaults to `light-dark(#666, #aaa)`.
-		*
-		* It also supports `--_a2ui-text-color` override from parent components (like Button).
-		*/
-		static {
-			this.styles = i$9`
+/**
+* The styles of the text component can be customized by redefining the following
+* CSS variables:
+*
+* - `--a2ui-text-color-text`: The color of the text. Defaults to `--a2ui-color-on-background`.
+* - `--a2ui-text-caption-color`: The color for caption text. Defaults to `light-dark(#666, #aaa)`.
+*/
+A2uiBasicTextElement.styles = i$9`
     :host {
-      display: inline-block;
-      color: var(--_a2ui-text-color, var(--a2ui-text-color-text, var(--a2ui-color-on-background)));
+      display: contents;
     }
-    p,
-    h1,
-    h2,
-    h3,
-    h4,
-    h5,
-    h6,
-    ol,
-    ul,
-    li,
-    blockquote,
-    pre {
+    .a2ui-text p,
+    .a2ui-text h1,
+    .a2ui-text h2,
+    .a2ui-text h3,
+    .a2ui-text h4,
+    .a2ui-text h5,
+    .a2ui-text h6,
+    .a2ui-text ol,
+    .a2ui-text ul,
+    .a2ui-text li,
+    .a2ui-text blockquote,
+    .a2ui-text pre {
       margin: var(--_a2ui-text-margin, 0);
     }
-    h1,
-    h2,
-    h3,
-    h4,
-    h5 {
+    .a2ui-text {
+      color: var(--_a2ui-text-color, var(--a2ui-text-color-text, var(--a2ui-color-on-background)));
+    }
+    .a2ui-text h1,
+    .a2ui-text h2,
+    .a2ui-text h3,
+    .a2ui-text h4,
+    .a2ui-text h5,
+    .a2ui-text h6 {
       font-family: var(--a2ui-font-family-title, inherit);
       line-height: var(--a2ui-line-height-headings, 1.2);
     }
-    h1 {
+    .a2ui-text h1 {
       font-size: var(--a2ui-font-size-2xl);
     }
-    h2 {
+    .a2ui-text h2 {
       font-size: var(--a2ui-font-size-xl);
     }
-    h3 {
+    .a2ui-text h3 {
       font-size: var(--a2ui-font-size-l);
     }
-    p,
-    h4 {
+    .a2ui-text p,
+    .a2ui-text h4 {
       font-size: var(--a2ui-font-size-m);
     }
-    h5 {
+    .a2ui-text h5 {
       font-size: var(--a2ui-font-size-s);
     }
-    p,
-    ol,
-    ul,
-    li,
-    blockquote,
-    .a2ui-caption {
+    .a2ui-text p {
       line-height: var(--a2ui-line-height-body, 1.5);
     }
-    .a2ui-caption,
-    .a2ui-caption > *,
-    .a2ui-caption ::slotted(*) {
+    .a2ui-text.caption,
+    .a2ui-caption {
       font-size: var(--a2ui-font-size-xs);
       color: var(--a2ui-text-caption-color, light-dark(#666, #aaa));
     }
-    a {
+    .a2ui-text a {
       color: var(--a2ui-text-a-color, inherit);
       font-weight: var(--a2ui-text-a-font-weight, inherit);
     }
   `;
-		}
-		#markdownRenderer_accessor_storage = __runInitializers$17(this, _markdownRenderer_initializers, void 0);
-		get markdownRenderer() {
-			return this.#markdownRenderer_accessor_storage;
-		}
-		set markdownRenderer(value) {
-			this.#markdownRenderer_accessor_storage = value;
-		}
-		createController() {
-			return new A2uiController(this, TextApi);
-		}
-		render() {
-			const props = this.controller.props;
-			if (!props) return A;
-			let markdownText = typeof props.text === "string" ? props.text : String(props.text ?? "");
-			switch (props.variant) {
-				case "h1":
-					markdownText = `# ${markdownText}`;
-					break;
-				case "h2":
-					markdownText = `## ${markdownText}`;
-					break;
-				case "h3":
-					markdownText = `### ${markdownText}`;
-					break;
-				case "h4":
-					markdownText = `#### ${markdownText}`;
-					break;
-				case "h5": markdownText = `##### ${markdownText}`;
-			}
-			const renderedMarkdown = markdown(markdownText, this.markdownRenderer);
-			if (props.variant === "caption") return b`<span class="a2ui-caption">${renderedMarkdown}</span>`;
-			return b`${renderedMarkdown}`;
-		}
-		constructor() {
-			super(...arguments);
-			__runInitializers$17(this, _markdownRenderer_extraInitializers);
-		}
-		static {
-			__runInitializers$17(_classThis, _classExtraInitializers);
-		}
-	};
-	return _classThis;
-})();
+__decorate$17([c$3({
+	context: Context$1.markdown,
+	subscribe: true
+})], A2uiBasicTextElement.prototype, "markdownRenderer", void 0);
+A2uiBasicTextElement = __decorate$17([t$5("a2ui-basic-text")], A2uiBasicTextElement);
 const A2uiText = {
 	...TextApi,
 	tagName: "a2ui-basic-text"
@@ -13686,9 +13561,9 @@ const A2uiText = {
 * @license
 * Copyright 2018 Google LLC
 * SPDX-License-Identifier: BSD-3-Clause
-*/ const e = e$3(class extends i$3 {
+*/ const e = e$3(class extends i$2 {
 	constructor(t) {
-		if (super(t), t.type !== t$2.ATTRIBUTE || "class" !== t.name || t.strings?.length > 2) throw Error("`classMap()` can only be used in the `class` attribute and must be the only part in the attribute.");
+		if (super(t), t.type !== t$1.ATTRIBUTE || "class" !== t.name || t.strings?.length > 2) throw Error("`classMap()` can only be used in the `class` attribute and must be the only part in the attribute.");
 	}
 	render(t) {
 		return " " + Object.keys(t).filter((s) => t[s]).join(" ") + " ";
@@ -13705,260 +13580,178 @@ const A2uiText = {
 			const s = !!i[t];
 			s === this.st.has(t) || this.nt?.has(t) || (s ? (r.add(t), this.st.add(t)) : (r.remove(t), this.st.delete(t)));
 		}
-		return E;
+		return E$1;
 	}
 });
-var __esDecorate$16 = function(ctor, descriptorIn, decorators, contextIn, initializers, extraInitializers) {
-	function accept(f) {
-		if (f !== void 0 && typeof f !== "function") throw new TypeError("Function expected");
-		return f;
+var __decorate$16 = function(decorators, target, key, desc) {
+	var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+	if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+	else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+	return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+/**
+* A button component that can be used to trigger an action.
+*/
+let A2uiBasicButtonElement = class A2uiBasicButtonElement extends BasicCatalogA2uiLitElement {
+	constructor() {
+		super(...arguments);
+		this.api = ButtonApi;
 	}
-	var kind = contextIn.kind, key = kind === "getter" ? "get" : kind === "setter" ? "set" : "value";
-	var target = !descriptorIn && ctor ? contextIn["static"] ? ctor : ctor.prototype : null;
-	var descriptor = descriptorIn || (target ? Object.getOwnPropertyDescriptor(target, contextIn.name) : {});
-	var _, done = false;
-	for (var i = decorators.length - 1; i >= 0; i--) {
-		var context = {};
-		for (var p in contextIn) context[p] = p === "access" ? {} : contextIn[p];
-		for (var p in contextIn.access) context.access[p] = contextIn.access[p];
-		context.addInitializer = function(f) {
-			if (done) throw new TypeError("Cannot add initializers after decoration has completed");
-			extraInitializers.push(accept(f || null));
+	render() {
+		const props = this.controller.props;
+		if (!props) return A;
+		const isDisabled = props.isValid === false;
+		const variant = props.variant ?? "default";
+		const classes = {
+			"a2ui-button": true,
+			[variant]: true,
+			["a2ui-button-" + variant]: true
 		};
-		var result = (0, decorators[i])(kind === "accessor" ? {
-			get: descriptor.get,
-			set: descriptor.set
-		} : descriptor[key], context);
-		if (kind === "accessor") {
-			if (result === void 0) continue;
-			if (result === null || typeof result !== "object") throw new TypeError("Object expected");
-			if (_ = accept(result.get)) descriptor.get = _;
-			if (_ = accept(result.set)) descriptor.set = _;
-			if (_ = accept(result.init)) initializers.unshift(_);
-		} else if (_ = accept(result)) {
-			if (kind === "field") initializers.unshift(_);
-			else descriptor[key] = _;
-		}
+		return b$1`
+      <button
+        type="button"
+        class=${e(classes)}
+        @click=${() => {
+			if (isDisabled) return;
+			props.action?.();
+		}}
+        ?disabled=${isDisabled}
+      >
+        ${props.child ? b$1`${this.renderNode(props.child)}` : A}
+      </button>
+    `;
 	}
-	if (target) Object.defineProperty(target, contextIn.name, descriptor);
-	done = true;
 };
-var __runInitializers$16 = function(thisArg, initializers, value) {
-	var useValue = arguments.length > 2;
-	for (var i = 0; i < initializers.length; i++) value = useValue ? initializers[i].call(thisArg, value) : initializers[i].call(thisArg);
-	return useValue ? value : void 0;
-};
-(() => {
-	let _classDecorators = [t$5("a2ui-basic-button")];
-	let _classDescriptor;
-	let _classExtraInitializers = [];
-	let _classThis;
-	let _classSuper = BasicCatalogA2uiLitElement;
-	var A2uiBasicButtonElement = class extends _classSuper {
-		static {
-			_classThis = this;
-		}
-		static {
-			const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(_classSuper[Symbol.metadata] ?? null) : void 0;
-			__esDecorate$16(null, _classDescriptor = { value: _classThis }, _classDecorators, {
-				kind: "class",
-				name: _classThis.name,
-				metadata: _metadata
-			}, null, _classExtraInitializers);
-			A2uiBasicButtonElement = _classThis = _classDescriptor.value;
-			if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, {
-				enumerable: true,
-				configurable: true,
-				writable: true,
-				value: _metadata
-			});
-		}
-		/**
-		* The styles of the button can be customized by redefining the following
-		* CSS variables:
-		*
-		* - Primary variant:
-		*   - `--a2ui-color-primary`: The color for the primary variant.
-		*   - `--a2ui-color-on-primary`: The color of the text on the primary variant.
-		* - Standard/default variant:
-		*   - `--a2ui-color-secondary`: The color for the default variant.
-		*   - `--a2ui-color-on-secondary`: The color of the text on the default variant.
-		* - `--a2ui-button-border`: The styling for the button border. Defaults to `--a2ui-border-width` width and `--a2ui-color-border` color.
-		* - `--a2ui-button-border-radius`: The border radius of the button. Defaults to `--a2ui-border-radius`.
-		* - `--a2ui-button-padding`: The padding of the button. Defaults to `--a2ui-spacing-m`.
-		* - `--a2ui-button-margin`: The outer margin of the button. Defaults to `--a2ui-spacing-m`.
-		*/
-		static {
-			this.styles = i$9`
-    :host {
-      display: inline-block;
-      margin: var(--a2ui-button-margin, var(--a2ui-spacing-m));
-    }
-    :where(:host) {
-      --_color-primary: var(--a2ui-color-primary, #17e);
-      --_button-border-radius: var(--a2ui-button-border-radius, var(--a2ui-spacing-s, 0.25rem));
-      --_button-padding: var(
+/**
+* The styles of the button can be customized by redefining the following
+* CSS variables:
+*
+* - Primary variant:
+*   - `--a2ui-color-primary`: The color for the primary variant.
+*   - `--a2ui-color-on-primary`: The color of the text on the primary variant.
+* - Standard/default variant:
+*   - `--a2ui-color-secondary`: The color for the default variant.
+*   - `--a2ui-color-on-secondary`: The color of the text on the default variant.
+* - `--a2ui-button-border`: The styling for the button border. Defaults to `--a2ui-border-width` width and `--a2ui-color-border` color.
+* - `--a2ui-button-border-radius`: The border radius of the button. Defaults to `--a2ui-border-radius`.
+* - `--a2ui-button-padding`: The padding of the button. Defaults to `--a2ui-spacing-m`.
+* - `--a2ui-button-margin`: The outer margin of the button. Defaults to `--a2ui-spacing-m`.
+*/
+A2uiBasicButtonElement.styles = i$9`
+    .a2ui-button {
+      padding: var(
         --a2ui-button-padding,
         var(--a2ui-spacing-m, 0.5rem) var(--a2ui-spacing-l, 1rem)
       );
-      --_button-border: var(
+      border-radius: var(--a2ui-button-border-radius, var(--a2ui-spacing-s, 0.25rem));
+      border: var(
         --a2ui-button-border,
         var(--a2ui-border-width, 1px) solid var(--a2ui-color-border, #ccc)
       );
-    }
-    .a2ui-button {
-      --_a2ui-text-margin: 0;
-      --_a2ui-text-color: var(--a2ui-color-on-secondary, #333);
-      padding: var(--_button-padding);
+      cursor: pointer;
+      margin: var(--a2ui-button-margin, var(--a2ui-spacing-m, 0.5rem));
       background: var(--a2ui-button-background, var(--a2ui-color-surface, #fff));
       box-shadow: var(--a2ui-button-box-shadow, none);
       font-weight: var(--a2ui-button-font-weight, normal);
-      color: var(--_a2ui-text-color);
-      border: var(--_button-border);
-      border-radius: var(--_button-border-radius);
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .a2ui-button.a2ui-button-primary {
-      --_a2ui-text-color: var(--a2ui-color-on-primary, #fff);
-      background-color: var(--_color-primary);
+      --_a2ui-text-margin: 0;
+      --_a2ui-text-color: var(--a2ui-color-on-secondary, #333);
       color: var(--_a2ui-text-color);
     }
     .a2ui-button:hover {
       background-color: var(--a2ui-color-secondary-hover, #ddd);
     }
-    .a2ui-button.a2ui-button-primary:hover {
+    .a2ui-button.primary {
+      background: var(--a2ui-color-primary, #17e);
+      --_a2ui-text-color: var(--a2ui-color-on-primary, #fff);
+      color: var(--_a2ui-text-color);
+      border: none;
+    }
+    .a2ui-button.primary:hover {
       background-color: var(--a2ui-color-primary-hover, #fbd);
     }
-    .a2ui-button.a2ui-button-borderless {
+    .a2ui-button.borderless {
       background: none;
+      border: none;
       padding: 0;
-      color: var(--_color-primary);
+      color: var(--a2ui-color-primary, #17e);
+    }
+    .a2ui-button:disabled {
+      cursor: not-allowed;
+      opacity: 0.5;
     }
   `;
-		}
-		createController() {
-			return new A2uiController(this, ButtonApi);
-		}
-		render() {
-			const props = this.controller.props;
-			if (!props) return A;
-			const isDisabled = props.isValid === false;
-			const classes = {
-				"a2ui-button": true,
-				["a2ui-button-" + (props.variant || "default")]: true
-			};
-			return b`
-      <button
-        class=${e(classes)}
-        @click=${() => !isDisabled && props.action && props.action()}
-        ?disabled=${isDisabled}
-      >
-        ${props.child ? b`${this.renderNode(props.child)}` : A}
-      </button>
-    `;
-		}
-		static {
-			__runInitializers$16(_classThis, _classExtraInitializers);
-		}
-	};
-	return _classThis;
-})();
+A2uiBasicButtonElement = __decorate$16([t$5("a2ui-basic-button")], A2uiBasicButtonElement);
 const A2uiButton = {
 	...ButtonApi,
 	tagName: "a2ui-basic-button"
 };
-var __esDecorate$15 = function(ctor, descriptorIn, decorators, contextIn, initializers, extraInitializers) {
-	function accept(f) {
-		if (f !== void 0 && typeof f !== "function") throw new TypeError("Function expected");
-		return f;
+var __decorate$15 = function(decorators, target, key, desc) {
+	var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+	if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+	else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+	return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+let A2uiBasicTextFieldElement = class A2uiBasicTextFieldElement extends BasicCatalogA2uiLitElement {
+	constructor() {
+		super(...arguments);
+		this.api = TextFieldApi;
 	}
-	var kind = contextIn.kind, key = kind === "getter" ? "get" : kind === "setter" ? "set" : "value";
-	var target = !descriptorIn && ctor ? contextIn["static"] ? ctor : ctor.prototype : null;
-	var descriptor = descriptorIn || (target ? Object.getOwnPropertyDescriptor(target, contextIn.name) : {});
-	var _, done = false;
-	for (var i = decorators.length - 1; i >= 0; i--) {
-		var context = {};
-		for (var p in contextIn) context[p] = p === "access" ? {} : contextIn[p];
-		for (var p in contextIn.access) context.access[p] = contextIn.access[p];
-		context.addInitializer = function(f) {
-			if (done) throw new TypeError("Cannot add initializers after decoration has completed");
-			extraInitializers.push(accept(f || null));
+	render() {
+		const props = this.controller.props;
+		if (!props) return A;
+		const isInvalid = props.isValid === false;
+		const onInput = (e) => props.setValue?.(e.target.value);
+		let type = "text";
+		if (props.variant === "number") type = "number";
+		if (props.variant === "obscured") type = "password";
+		const classes = {
+			"a2ui-textfield": true,
+			invalid: isInvalid
 		};
-		var result = (0, decorators[i])(kind === "accessor" ? {
-			get: descriptor.get,
-			set: descriptor.set
-		} : descriptor[key], context);
-		if (kind === "accessor") {
-			if (result === void 0) continue;
-			if (result === null || typeof result !== "object") throw new TypeError("Object expected");
-			if (_ = accept(result.get)) descriptor.get = _;
-			if (_ = accept(result.set)) descriptor.set = _;
-			if (_ = accept(result.init)) initializers.unshift(_);
-		} else if (_ = accept(result)) {
-			if (kind === "field") initializers.unshift(_);
-			else descriptor[key] = _;
-		}
+		return b$1`
+      ${props.label ? b$1`<label>${props.label}</label>` : A}
+      ${props.variant === "longText" ? b$1`<textarea
+            class=${e(classes)}
+            .value=${props.value || ""}
+            @input=${onInput}
+          ></textarea>` : b$1`<input
+            type=${type}
+            class=${e(classes)}
+            .value=${props.value || ""}
+            @input=${onInput}
+          />`}
+      ${isInvalid && props.validationErrors?.length ? props.validationErrors.map((err) => b$1`<div class="error">${err}</div>`) : A}
+    `;
 	}
-	if (target) Object.defineProperty(target, contextIn.name, descriptor);
-	done = true;
 };
-var __runInitializers$15 = function(thisArg, initializers, value) {
-	var useValue = arguments.length > 2;
-	for (var i = 0; i < initializers.length; i++) value = useValue ? initializers[i].call(thisArg, value) : initializers[i].call(thisArg);
-	return useValue ? value : void 0;
-};
-(() => {
-	let _classDecorators = [t$5("a2ui-basic-textfield")];
-	let _classDescriptor;
-	let _classExtraInitializers = [];
-	let _classThis;
-	let _classSuper = BasicCatalogA2uiLitElement;
-	var A2uiBasicTextFieldElement = class extends _classSuper {
-		static {
-			_classThis = this;
-		}
-		static {
-			const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(_classSuper[Symbol.metadata] ?? null) : void 0;
-			__esDecorate$15(null, _classDescriptor = { value: _classThis }, _classDecorators, {
-				kind: "class",
-				name: _classThis.name,
-				metadata: _metadata
-			}, null, _classExtraInitializers);
-			A2uiBasicTextFieldElement = _classThis = _classDescriptor.value;
-			if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, {
-				enumerable: true,
-				configurable: true,
-				writable: true,
-				value: _metadata
-			});
-		}
-		/**
-		* The styles of the text field can be customized by redefining the following
-		* CSS variables:
-		*
-		* - `--a2ui-textfield-border`: The styling for the text field border. Defaults to `--a2ui-border-width` width and `--a2ui-color-border` color.
-		* - `--a2ui-textfield-border-radius`: The border radius of the text field. Defaults to `--a2ui-spacing-m`.
-		* - `--a2ui-textfield-padding`: The padding of the text field. Defaults to `--a2ui-spacing-m`.
-		* - `--a2ui-textfield-color-border-focus`: The border color on focus. Defaults to `--a2ui-color-primary`.
-		* - `--a2ui-textfield-color-error`: The color for both invalid border and error text. Defaults to red.
-		* - `--a2ui-textfield-label-font-size`: Font size of the label. Defaults to `--a2ui-label-font-size` then `--a2ui-font-size-s`.
-		* - `--a2ui-textfield-label-font-weight`: Font weight of the label. Defaults to `--a2ui-label-font-weight` then `bold`.
-		*
-		* It also inherits global input variables:
-		* - `--a2ui-color-input`: Background color.
-		* - `--a2ui-color-on-input`: Text color.
-		*/
-		static {
-			this.styles = i$9`
-    :host {
+/**
+* The styles of the text field can be customized by redefining the following
+* CSS variables:
+*
+* - `--a2ui-textfield-width`: Width of the component. Defaults to `100%`.
+* - `--a2ui-textfield-border`: The styling for the text field border. Defaults to `--a2ui-border-width` width and `--a2ui-color-border` color.
+* - `--a2ui-textfield-border-radius`: The border radius of the text field. Defaults to `--a2ui-spacing-m`.
+* - `--a2ui-textfield-padding`: The padding of the text field. Defaults to `--a2ui-spacing-m`.
+* - `--a2ui-textfield-color-border-focus`: The border color on focus. Defaults to `--a2ui-color-primary`.
+* - `--a2ui-textfield-color-error`: The color for both invalid border and error text. Defaults to red.
+* - `--a2ui-textfield-label-font-size`: Font size of the label. Defaults to `--a2ui-label-font-size` then `--a2ui-font-size-s`.
+* - `--a2ui-textfield-label-font-weight`: Font weight of the label. Defaults to `--a2ui-label-font-weight` then `bold`.
+*
+* It also inherits global input variables:
+* - `--a2ui-color-input`: Background color.
+* - `--a2ui-color-on-input`: Text color.
+*/
+A2uiBasicTextFieldElement.styles = i$9`
+    :host,
+    a2ui-basic-textfield {
       display: flex;
       flex-direction: column;
+      width: var(--a2ui-textfield-width, 100%);
       gap: var(--a2ui-spacing-xs, 0.25rem);
     }
     .a2ui-textfield {
+      box-sizing: border-box;
+      width: 100%;
       background-color: var(--a2ui-color-input, #fff);
       color: var(--a2ui-color-on-input, #333);
       border: var(--a2ui-textfield-border, var(--a2ui-border));
@@ -13985,2161 +13778,11 @@ var __runInitializers$15 = function(thisArg, initializers, value) {
       font-size: var(--a2ui-font-size-xs, 0.75rem);
     }
   `;
-		}
-		createController() {
-			return new A2uiController(this, TextFieldApi);
-		}
-		render() {
-			const props = this.controller.props;
-			if (!props) return A;
-			const isInvalid = props.isValid === false;
-			const onInput = (e) => props.setValue?.(e.target.value);
-			let type = "text";
-			if (props.variant === "number") type = "number";
-			if (props.variant === "obscured") type = "password";
-			const classes = {
-				"a2ui-textfield": true,
-				invalid: isInvalid
-			};
-			return b`
-      ${props.label ? b`<label>${props.label}</label>` : A}
-      ${props.variant === "longText" ? b`<textarea
-            class=${e(classes)}
-            .value=${props.value || ""}
-            @input=${onInput}
-          ></textarea>` : b`<input
-            type=${type}
-            class=${e(classes)}
-            .value=${props.value || ""}
-            @input=${onInput}
-          />`}
-      ${isInvalid && props.validationErrors?.length ? b`<div class="error">${props.validationErrors[0]}</div>` : A}
-    `;
-		}
-		static {
-			__runInitializers$15(_classThis, _classExtraInitializers);
-		}
-	};
-	return _classThis;
-})();
+A2uiBasicTextFieldElement = __decorate$15([t$5("a2ui-basic-textfield")], A2uiBasicTextFieldElement);
 const A2uiTextField = {
 	...TextFieldApi,
 	tagName: "a2ui-basic-textfield"
 };
-/**
-* @license
-* Copyright 2021 Google LLC
-* SPDX-License-Identifier: BSD-3-Clause
-*/
-function* o$1(o, f) {
-	if (void 0 !== o) {
-		let i = 0;
-		for (const t of o) yield f(t, i++);
-	}
-}
-var __esDecorate$14 = function(ctor, descriptorIn, decorators, contextIn, initializers, extraInitializers) {
-	function accept(f) {
-		if (f !== void 0 && typeof f !== "function") throw new TypeError("Function expected");
-		return f;
-	}
-	var kind = contextIn.kind, key = kind === "getter" ? "get" : kind === "setter" ? "set" : "value";
-	var target = !descriptorIn && ctor ? contextIn["static"] ? ctor : ctor.prototype : null;
-	var descriptor = descriptorIn || (target ? Object.getOwnPropertyDescriptor(target, contextIn.name) : {});
-	var _, done = false;
-	for (var i = decorators.length - 1; i >= 0; i--) {
-		var context = {};
-		for (var p in contextIn) context[p] = p === "access" ? {} : contextIn[p];
-		for (var p in contextIn.access) context.access[p] = contextIn.access[p];
-		context.addInitializer = function(f) {
-			if (done) throw new TypeError("Cannot add initializers after decoration has completed");
-			extraInitializers.push(accept(f || null));
-		};
-		var result = (0, decorators[i])(kind === "accessor" ? {
-			get: descriptor.get,
-			set: descriptor.set
-		} : descriptor[key], context);
-		if (kind === "accessor") {
-			if (result === void 0) continue;
-			if (result === null || typeof result !== "object") throw new TypeError("Object expected");
-			if (_ = accept(result.get)) descriptor.get = _;
-			if (_ = accept(result.set)) descriptor.set = _;
-			if (_ = accept(result.init)) initializers.unshift(_);
-		} else if (_ = accept(result)) {
-			if (kind === "field") initializers.unshift(_);
-			else descriptor[key] = _;
-		}
-	}
-	if (target) Object.defineProperty(target, contextIn.name, descriptor);
-	done = true;
-};
-var __runInitializers$14 = function(thisArg, initializers, value) {
-	var useValue = arguments.length > 2;
-	for (var i = 0; i < initializers.length; i++) value = useValue ? initializers[i].call(thisArg, value) : initializers[i].call(thisArg);
-	return useValue ? value : void 0;
-};
-const JUSTIFY_MAP$1 = {
-	start: "flex-start",
-	center: "center",
-	end: "flex-end",
-	spaceBetween: "space-between",
-	spaceAround: "space-around",
-	spaceEvenly: "space-evenly",
-	stretch: "stretch"
-};
-const ALIGN_MAP$1 = {
-	start: "flex-start",
-	center: "center",
-	end: "flex-end",
-	stretch: "stretch"
-};
-(() => {
-	let _classDecorators = [t$5("a2ui-basic-row")];
-	let _classDescriptor;
-	let _classExtraInitializers = [];
-	let _classThis;
-	let _classSuper = BasicCatalogA2uiLitElement;
-	var A2uiBasicRowElement = class extends _classSuper {
-		static {
-			_classThis = this;
-		}
-		static {
-			const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(_classSuper[Symbol.metadata] ?? null) : void 0;
-			__esDecorate$14(null, _classDescriptor = { value: _classThis }, _classDecorators, {
-				kind: "class",
-				name: _classThis.name,
-				metadata: _metadata
-			}, null, _classExtraInitializers);
-			A2uiBasicRowElement = _classThis = _classDescriptor.value;
-			if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, {
-				enumerable: true,
-				configurable: true,
-				writable: true,
-				value: _metadata
-			});
-		}
-		/**
-		* The styles of the row can be customized by redefining the following
-		* CSS variables:
-		*
-		* - `--a2ui-row-gap`: The gap between items in the row. Defaults to `--a2ui-spacing-m`.
-		*/
-		static {
-			this.styles = i$9`
-    :host {
-      display: flex;
-      flex-direction: row;
-      gap: var(--a2ui-row-gap, var(--a2ui-spacing-m));
-    }
-  `;
-		}
-		createController() {
-			return new A2uiController(this, RowApi);
-		}
-		updated(changedProperties) {
-			super.updated(changedProperties);
-			const props = this.controller.props;
-			if (props) {
-				this.style.justifyContent = JUSTIFY_MAP$1[props.justify ?? ""] ?? "flex-start";
-				this.style.alignItems = ALIGN_MAP$1[props.align ?? ""] ?? "stretch";
-			}
-		}
-		render() {
-			const props = this.controller.props;
-			if (!props) return A;
-			const children = Array.isArray(props.children) ? props.children : [];
-			return b` ${o$1(children, (child) => b`${this.renderNode(child)}`)} `;
-		}
-		static {
-			__runInitializers$14(_classThis, _classExtraInitializers);
-		}
-	};
-	return _classThis;
-})();
-const A2uiRow = {
-	...RowApi,
-	tagName: "a2ui-basic-row"
-};
-var __esDecorate$13 = function(ctor, descriptorIn, decorators, contextIn, initializers, extraInitializers) {
-	function accept(f) {
-		if (f !== void 0 && typeof f !== "function") throw new TypeError("Function expected");
-		return f;
-	}
-	var kind = contextIn.kind, key = kind === "getter" ? "get" : kind === "setter" ? "set" : "value";
-	var target = !descriptorIn && ctor ? contextIn["static"] ? ctor : ctor.prototype : null;
-	var descriptor = descriptorIn || (target ? Object.getOwnPropertyDescriptor(target, contextIn.name) : {});
-	var _, done = false;
-	for (var i = decorators.length - 1; i >= 0; i--) {
-		var context = {};
-		for (var p in contextIn) context[p] = p === "access" ? {} : contextIn[p];
-		for (var p in contextIn.access) context.access[p] = contextIn.access[p];
-		context.addInitializer = function(f) {
-			if (done) throw new TypeError("Cannot add initializers after decoration has completed");
-			extraInitializers.push(accept(f || null));
-		};
-		var result = (0, decorators[i])(kind === "accessor" ? {
-			get: descriptor.get,
-			set: descriptor.set
-		} : descriptor[key], context);
-		if (kind === "accessor") {
-			if (result === void 0) continue;
-			if (result === null || typeof result !== "object") throw new TypeError("Object expected");
-			if (_ = accept(result.get)) descriptor.get = _;
-			if (_ = accept(result.set)) descriptor.set = _;
-			if (_ = accept(result.init)) initializers.unshift(_);
-		} else if (_ = accept(result)) {
-			if (kind === "field") initializers.unshift(_);
-			else descriptor[key] = _;
-		}
-	}
-	if (target) Object.defineProperty(target, contextIn.name, descriptor);
-	done = true;
-};
-var __runInitializers$13 = function(thisArg, initializers, value) {
-	var useValue = arguments.length > 2;
-	for (var i = 0; i < initializers.length; i++) value = useValue ? initializers[i].call(thisArg, value) : initializers[i].call(thisArg);
-	return useValue ? value : void 0;
-};
-const JUSTIFY_MAP = {
-	start: "flex-start",
-	center: "center",
-	end: "flex-end",
-	spaceBetween: "space-between",
-	spaceAround: "space-around",
-	spaceEvenly: "space-evenly",
-	stretch: "stretch"
-};
-const ALIGN_MAP = {
-	start: "flex-start",
-	center: "center",
-	end: "flex-end",
-	stretch: "stretch"
-};
-(() => {
-	let _classDecorators = [t$5("a2ui-basic-column")];
-	let _classDescriptor;
-	let _classExtraInitializers = [];
-	let _classThis;
-	let _classSuper = BasicCatalogA2uiLitElement;
-	var A2uiBasicColumnElement = class extends _classSuper {
-		static {
-			_classThis = this;
-		}
-		static {
-			const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(_classSuper[Symbol.metadata] ?? null) : void 0;
-			__esDecorate$13(null, _classDescriptor = { value: _classThis }, _classDecorators, {
-				kind: "class",
-				name: _classThis.name,
-				metadata: _metadata
-			}, null, _classExtraInitializers);
-			A2uiBasicColumnElement = _classThis = _classDescriptor.value;
-			if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, {
-				enumerable: true,
-				configurable: true,
-				writable: true,
-				value: _metadata
-			});
-		}
-		/**
-		* The styles of the column can be customized by redefining the following
-		* CSS variables:
-		*
-		* - `--a2ui-column-gap`: The gap between items in the column. Defaults to `--a2ui-spacing-m`.
-		*/
-		static {
-			this.styles = i$9`
-    :host {
-      display: flex;
-      flex-direction: column;
-      gap: var(--a2ui-column-gap, var(--a2ui-spacing-m));
-    }
-  `;
-		}
-		createController() {
-			return new A2uiController(this, ColumnApi);
-		}
-		updated(changedProperties) {
-			super.updated(changedProperties);
-			const props = this.controller.props;
-			if (props) {
-				this.style.justifyContent = JUSTIFY_MAP[props.justify ?? ""] ?? "flex-start";
-				this.style.alignItems = ALIGN_MAP[props.align ?? ""] ?? "stretch";
-			}
-		}
-		render() {
-			const props = this.controller.props;
-			if (!props) return A;
-			const children = Array.isArray(props.children) ? props.children : [];
-			return b` ${o$1(children, (child) => b`${this.renderNode(child)}`)} `;
-		}
-		static {
-			__runInitializers$13(_classThis, _classExtraInitializers);
-		}
-	};
-	return _classThis;
-})();
-const A2uiColumn = {
-	...ColumnApi,
-	tagName: "a2ui-basic-column"
-};
-var __esDecorate$12 = function(ctor, descriptorIn, decorators, contextIn, initializers, extraInitializers) {
-	function accept(f) {
-		if (f !== void 0 && typeof f !== "function") throw new TypeError("Function expected");
-		return f;
-	}
-	var kind = contextIn.kind, key = kind === "getter" ? "get" : kind === "setter" ? "set" : "value";
-	var target = !descriptorIn && ctor ? contextIn["static"] ? ctor : ctor.prototype : null;
-	var descriptor = descriptorIn || (target ? Object.getOwnPropertyDescriptor(target, contextIn.name) : {});
-	var _, done = false;
-	for (var i = decorators.length - 1; i >= 0; i--) {
-		var context = {};
-		for (var p in contextIn) context[p] = p === "access" ? {} : contextIn[p];
-		for (var p in contextIn.access) context.access[p] = contextIn.access[p];
-		context.addInitializer = function(f) {
-			if (done) throw new TypeError("Cannot add initializers after decoration has completed");
-			extraInitializers.push(accept(f || null));
-		};
-		var result = (0, decorators[i])(kind === "accessor" ? {
-			get: descriptor.get,
-			set: descriptor.set
-		} : descriptor[key], context);
-		if (kind === "accessor") {
-			if (result === void 0) continue;
-			if (result === null || typeof result !== "object") throw new TypeError("Object expected");
-			if (_ = accept(result.get)) descriptor.get = _;
-			if (_ = accept(result.set)) descriptor.set = _;
-			if (_ = accept(result.init)) initializers.unshift(_);
-		} else if (_ = accept(result)) {
-			if (kind === "field") initializers.unshift(_);
-			else descriptor[key] = _;
-		}
-	}
-	if (target) Object.defineProperty(target, contextIn.name, descriptor);
-	done = true;
-};
-var __runInitializers$12 = function(thisArg, initializers, value) {
-	var useValue = arguments.length > 2;
-	for (var i = 0; i < initializers.length; i++) value = useValue ? initializers[i].call(thisArg, value) : initializers[i].call(thisArg);
-	return useValue ? value : void 0;
-};
-(() => {
-	let _classDecorators = [t$5("a2ui-list")];
-	let _classDescriptor;
-	let _classExtraInitializers = [];
-	let _classThis;
-	let _classSuper = BasicCatalogA2uiLitElement;
-	var A2uiListElement = class extends _classSuper {
-		static {
-			_classThis = this;
-		}
-		static {
-			const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(_classSuper[Symbol.metadata] ?? null) : void 0;
-			__esDecorate$12(null, _classDescriptor = { value: _classThis }, _classDecorators, {
-				kind: "class",
-				name: _classThis.name,
-				metadata: _metadata
-			}, null, _classExtraInitializers);
-			A2uiListElement = _classThis = _classDescriptor.value;
-			if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, {
-				enumerable: true,
-				configurable: true,
-				writable: true,
-				value: _metadata
-			});
-		}
-		static {
-			this.styles = i$9`
-    :host {
-      display: flex;
-      overflow: auto;
-      gap: var(--a2ui-list-gap, var(--a2ui-spacing-m, 0.5rem));
-      padding: var(--a2ui-list-padding, 0);
-    }
-  `;
-		}
-		createController() {
-			return new A2uiController(this, ListApi);
-		}
-		updated(changedProperties) {
-			super.updated(changedProperties);
-			const props = this.controller.props;
-			if (props) this.style.flexDirection = props.direction === "horizontal" ? "row" : "column";
-		}
-		render() {
-			const props = this.controller.props;
-			if (!props) return A;
-			const children = Array.isArray(props.children) ? props.children : [];
-			return b`${o$1(children, (child) => b`${this.renderNode(child)}`)}`;
-		}
-		static {
-			__runInitializers$12(_classThis, _classExtraInitializers);
-		}
-	};
-	return _classThis;
-})();
-const A2uiList = {
-	...ListApi,
-	tagName: "a2ui-list"
-};
-/**
-* @license
-* Copyright 2018 Google LLC
-* SPDX-License-Identifier: BSD-3-Clause
-*/ const n = "important";
-const i = " !" + n;
-const o = e$3(class extends i$3 {
-	constructor(t) {
-		if (super(t), t.type !== t$2.ATTRIBUTE || "style" !== t.name || t.strings?.length > 2) throw Error("The `styleMap` directive must be used in the `style` attribute and must be the only part in the attribute.");
-	}
-	render(t) {
-		return Object.keys(t).reduce((e, r) => {
-			const s = t[r];
-			return null == s ? e : e + `${r = r.includes("-") ? r : r.replace(/(?:^(webkit|moz|ms|o)|)(?=[A-Z])/g, "-$&").toLowerCase()}:${s};`;
-		}, "");
-	}
-	update(e, [r]) {
-		const { style: s } = e.element;
-		if (void 0 === this.ft) return this.ft = new Set(Object.keys(r)), this.render(r);
-		for (const t of this.ft) null == r[t] && (this.ft.delete(t), t.includes("-") ? s.removeProperty(t) : s[t] = null);
-		for (const t in r) {
-			const e = r[t];
-			if (null != e) {
-				this.ft.add(t);
-				const r = "string" == typeof e && e.endsWith(i);
-				t.includes("-") || r ? s.setProperty(t, r ? e.slice(0, -11) : e, r ? n : "") : s[t] = e;
-			}
-		}
-		return E;
-	}
-});
-var __esDecorate$11 = function(ctor, descriptorIn, decorators, contextIn, initializers, extraInitializers) {
-	function accept(f) {
-		if (f !== void 0 && typeof f !== "function") throw new TypeError("Function expected");
-		return f;
-	}
-	var kind = contextIn.kind, key = kind === "getter" ? "get" : kind === "setter" ? "set" : "value";
-	var target = !descriptorIn && ctor ? contextIn["static"] ? ctor : ctor.prototype : null;
-	var descriptor = descriptorIn || (target ? Object.getOwnPropertyDescriptor(target, contextIn.name) : {});
-	var _, done = false;
-	for (var i = decorators.length - 1; i >= 0; i--) {
-		var context = {};
-		for (var p in contextIn) context[p] = p === "access" ? {} : contextIn[p];
-		for (var p in contextIn.access) context.access[p] = contextIn.access[p];
-		context.addInitializer = function(f) {
-			if (done) throw new TypeError("Cannot add initializers after decoration has completed");
-			extraInitializers.push(accept(f || null));
-		};
-		var result = (0, decorators[i])(kind === "accessor" ? {
-			get: descriptor.get,
-			set: descriptor.set
-		} : descriptor[key], context);
-		if (kind === "accessor") {
-			if (result === void 0) continue;
-			if (result === null || typeof result !== "object") throw new TypeError("Object expected");
-			if (_ = accept(result.get)) descriptor.get = _;
-			if (_ = accept(result.set)) descriptor.set = _;
-			if (_ = accept(result.init)) initializers.unshift(_);
-		} else if (_ = accept(result)) {
-			if (kind === "field") initializers.unshift(_);
-			else descriptor[key] = _;
-		}
-	}
-	if (target) Object.defineProperty(target, contextIn.name, descriptor);
-	done = true;
-};
-var __runInitializers$11 = function(thisArg, initializers, value) {
-	var useValue = arguments.length > 2;
-	for (var i = 0; i < initializers.length; i++) value = useValue ? initializers[i].call(thisArg, value) : initializers[i].call(thisArg);
-	return useValue ? value : void 0;
-};
-(() => {
-	let _classDecorators = [t$5("a2ui-image")];
-	let _classDescriptor;
-	let _classExtraInitializers = [];
-	let _classThis;
-	let _classSuper = BasicCatalogA2uiLitElement;
-	var A2uiImageElement = class extends _classSuper {
-		static {
-			_classThis = this;
-		}
-		static {
-			const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(_classSuper[Symbol.metadata] ?? null) : void 0;
-			__esDecorate$11(null, _classDescriptor = { value: _classThis }, _classDecorators, {
-				kind: "class",
-				name: _classThis.name,
-				metadata: _metadata
-			}, null, _classExtraInitializers);
-			A2uiImageElement = _classThis = _classDescriptor.value;
-			if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, {
-				enumerable: true,
-				configurable: true,
-				writable: true,
-				value: _metadata
-			});
-		}
-		/**
-		* The styles of the image can be customized by redefining the following
-		* CSS variables:
-		*
-		* - `--a2ui-image-border-radius`: Controls the rounded corners of the image. Defaults to `0`.
-		* - `--a2ui-image-icon-size`: Controls the size of the `icon` variant. Defaults to `24px`.
-		* - `--a2ui-image-avatar-size`: Controls the size of the `avatar` variant. Defaults to `40px`.
-		* - `--a2ui-image-small-feature-size`: Controls the max-width of the `smallFeature` variant. Defaults to `100px`.
-		* - `--a2ui-image-large-feature-size`: Controls the max-height of the `largeFeature` variant. Defaults to `400px`.
-		* - `--a2ui-image-header-size`: Controls the height of the `header` variant. Defaults to `200px`.
-		*/
-		static {
-			this.styles = i$9`
-    img {
-      display: block;
-      width: 100%;
-      height: auto;
-      border-radius: var(--a2ui-image-border-radius, 0);
-    }
-    :host(.icon),
-    img.icon {
-      width: var(--a2ui-image-icon-size, 24px);
-      height: var(--a2ui-image-icon-size, 24px);
-    }
-    img.avatar {
-      width: var(--a2ui-image-avatar-size, 40px);
-      height: var(--a2ui-image-avatar-size, 40px);
-      border-radius: 50%;
-    }
-    :host(.smallFeature),
-    img.smallFeature {
-      max-width: var(--a2ui-image-small-feature-size, 100px);
-    }
-    :host(.largeFeature),
-    img.largeFeature {
-      max-height: var(--a2ui-image-large-feature-size, 400px);
-    }
-    :host(.header),
-    img.header {
-      height: var(--a2ui-image-header-size, 200px);
-      object-fit: cover;
-    }
-  `;
-		}
-		createController() {
-			return new A2uiController(this, ImageApi);
-		}
-		render() {
-			const props = this.controller.props;
-			if (!props) return A;
-			const classes = {
-				"a2ui-image": true,
-				[props.variant || ""]: !!props.variant
-			};
-			const styles = { objectFit: props.fit || "fill" };
-			return b`<img
-      src=${props.url}
-      alt=${props.description || ""}
-      class=${e(classes)}
-      style=${o(styles)}
-    />`;
-		}
-		static {
-			__runInitializers$11(_classThis, _classExtraInitializers);
-		}
-	};
-	return _classThis;
-})();
-const A2uiImage = {
-	...ImageApi,
-	tagName: "a2ui-image"
-};
-var __esDecorate$10 = function(ctor, descriptorIn, decorators, contextIn, initializers, extraInitializers) {
-	function accept(f) {
-		if (f !== void 0 && typeof f !== "function") throw new TypeError("Function expected");
-		return f;
-	}
-	var kind = contextIn.kind, key = kind === "getter" ? "get" : kind === "setter" ? "set" : "value";
-	var target = !descriptorIn && ctor ? contextIn["static"] ? ctor : ctor.prototype : null;
-	var descriptor = descriptorIn || (target ? Object.getOwnPropertyDescriptor(target, contextIn.name) : {});
-	var _, done = false;
-	for (var i = decorators.length - 1; i >= 0; i--) {
-		var context = {};
-		for (var p in contextIn) context[p] = p === "access" ? {} : contextIn[p];
-		for (var p in contextIn.access) context.access[p] = contextIn.access[p];
-		context.addInitializer = function(f) {
-			if (done) throw new TypeError("Cannot add initializers after decoration has completed");
-			extraInitializers.push(accept(f || null));
-		};
-		var result = (0, decorators[i])(kind === "accessor" ? {
-			get: descriptor.get,
-			set: descriptor.set
-		} : descriptor[key], context);
-		if (kind === "accessor") {
-			if (result === void 0) continue;
-			if (result === null || typeof result !== "object") throw new TypeError("Object expected");
-			if (_ = accept(result.get)) descriptor.get = _;
-			if (_ = accept(result.set)) descriptor.set = _;
-			if (_ = accept(result.init)) initializers.unshift(_);
-		} else if (_ = accept(result)) {
-			if (kind === "field") initializers.unshift(_);
-			else descriptor[key] = _;
-		}
-	}
-	if (target) Object.defineProperty(target, contextIn.name, descriptor);
-	done = true;
-};
-var __runInitializers$10 = function(thisArg, initializers, value) {
-	var useValue = arguments.length > 2;
-	for (var i = 0; i < initializers.length; i++) value = useValue ? initializers[i].call(thisArg, value) : initializers[i].call(thisArg);
-	return useValue ? value : void 0;
-};
-const ICON_NAME_OVERRIDES = {
-	play: "play_arrow",
-	rewind: "fast_rewind",
-	favoriteOff: "favorite_border",
-	starOff: "star_border"
-};
-function toMaterialSymbol(name) {
-	if (ICON_NAME_OVERRIDES[name]) return ICON_NAME_OVERRIDES[name];
-	return name.replace(/[A-Z]/g, (letter) => "_" + letter.toLowerCase());
-}
-(() => {
-	let _classDecorators = [t$5("a2ui-icon")];
-	let _classDescriptor;
-	let _classExtraInitializers = [];
-	let _classThis;
-	let _classSuper = BasicCatalogA2uiLitElement;
-	var A2uiIconElement = class extends _classSuper {
-		static {
-			_classThis = this;
-		}
-		static {
-			const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(_classSuper[Symbol.metadata] ?? null) : void 0;
-			__esDecorate$10(null, _classDescriptor = { value: _classThis }, _classDecorators, {
-				kind: "class",
-				name: _classThis.name,
-				metadata: _metadata
-			}, null, _classExtraInitializers);
-			A2uiIconElement = _classThis = _classDescriptor.value;
-			if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, {
-				enumerable: true,
-				configurable: true,
-				writable: true,
-				value: _metadata
-			});
-		}
-		/**
-		* The icon component can be customized with the following CSS variables:
-		*
-		* - `--a2ui-icon-size`: Dimensions of the icon.
-		* - `--a2ui-icon-color`: Color tint applied to the icon.
-		* - `--a2ui-icon-font-family`: Override the font family for icons. Defaults to Material Symbols Outlined.
-		* - `--a2ui-icon-font-variation-settings`: Complete override for font-variation-settings.
-		*/
-		static {
-			this.styles = i$9`
-    :where(:host) {
-      --_icon-size: var(--a2ui-icon-size, var(--a2ui-font-size-xl, 24px));
-    }
-    :host {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .material-symbol {
-      font-family: var(--a2ui-icon-font-family, 'Material Symbols Outlined', sans-serif);
-      font-size: var(--_icon-size);
-      font-weight: normal;
-      font-style: normal;
-      line-height: 1;
-      letter-spacing: normal;
-      text-transform: none;
-      color: var(--a2ui-icon-color, inherit);
-      font-variation-settings: var(--a2ui-icon-font-variation-settings, 'FILL' 1);
-    }
-    .svg {
-      fill: currentColor;
-      width: var(--_icon-size);
-      height: var(--_icon-size);
-    }
-  `;
-		}
-		createController() {
-			return new A2uiController(this, IconApi);
-		}
-		render() {
-			const props = this.controller.props;
-			if (!props) return A;
-			const name = props.name;
-			if (typeof name === "object" && name !== null && "svgPath" in name) {
-				const path = name.svgPath;
-				return b`<svg class="svg" viewBox="0 0 24 24"><path d=${path}></path></svg>`;
-			}
-			const iconName = typeof name === "string" ? toMaterialSymbol(name) : "";
-			return b`<span class="material-symbol">${iconName}</span>`;
-		}
-		static {
-			__runInitializers$10(_classThis, _classExtraInitializers);
-		}
-	};
-	return _classThis;
-})();
-const A2uiIcon = {
-	...IconApi,
-	tagName: "a2ui-icon"
-};
-var __esDecorate$9 = function(ctor, descriptorIn, decorators, contextIn, initializers, extraInitializers) {
-	function accept(f) {
-		if (f !== void 0 && typeof f !== "function") throw new TypeError("Function expected");
-		return f;
-	}
-	var kind = contextIn.kind, key = kind === "getter" ? "get" : kind === "setter" ? "set" : "value";
-	var target = !descriptorIn && ctor ? contextIn["static"] ? ctor : ctor.prototype : null;
-	var descriptor = descriptorIn || (target ? Object.getOwnPropertyDescriptor(target, contextIn.name) : {});
-	var _, done = false;
-	for (var i = decorators.length - 1; i >= 0; i--) {
-		var context = {};
-		for (var p in contextIn) context[p] = p === "access" ? {} : contextIn[p];
-		for (var p in contextIn.access) context.access[p] = contextIn.access[p];
-		context.addInitializer = function(f) {
-			if (done) throw new TypeError("Cannot add initializers after decoration has completed");
-			extraInitializers.push(accept(f || null));
-		};
-		var result = (0, decorators[i])(kind === "accessor" ? {
-			get: descriptor.get,
-			set: descriptor.set
-		} : descriptor[key], context);
-		if (kind === "accessor") {
-			if (result === void 0) continue;
-			if (result === null || typeof result !== "object") throw new TypeError("Object expected");
-			if (_ = accept(result.get)) descriptor.get = _;
-			if (_ = accept(result.set)) descriptor.set = _;
-			if (_ = accept(result.init)) initializers.unshift(_);
-		} else if (_ = accept(result)) {
-			if (kind === "field") initializers.unshift(_);
-			else descriptor[key] = _;
-		}
-	}
-	if (target) Object.defineProperty(target, contextIn.name, descriptor);
-	done = true;
-};
-var __runInitializers$9 = function(thisArg, initializers, value) {
-	var useValue = arguments.length > 2;
-	for (var i = 0; i < initializers.length; i++) value = useValue ? initializers[i].call(thisArg, value) : initializers[i].call(thisArg);
-	return useValue ? value : void 0;
-};
-(() => {
-	let _classDecorators = [t$5("a2ui-video")];
-	let _classDescriptor;
-	let _classExtraInitializers = [];
-	let _classThis;
-	let _classSuper = BasicCatalogA2uiLitElement;
-	var A2uiVideoElement = class extends _classSuper {
-		static {
-			_classThis = this;
-		}
-		static {
-			const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(_classSuper[Symbol.metadata] ?? null) : void 0;
-			__esDecorate$9(null, _classDescriptor = { value: _classThis }, _classDecorators, {
-				kind: "class",
-				name: _classThis.name,
-				metadata: _metadata
-			}, null, _classExtraInitializers);
-			A2uiVideoElement = _classThis = _classDescriptor.value;
-			if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, {
-				enumerable: true,
-				configurable: true,
-				writable: true,
-				value: _metadata
-			});
-		}
-		/**
-		* The styles of the video can be customized by redefining the following
-		* CSS variables:
-		*
-		* - `--a2ui-video-border-radius`: Controls the rounded corners of the video. Defaults to `0`.
-		*/
-		static {
-			this.styles = i$9`
-    :host {
-      display: block;
-      width: 100%;
-    }
-    video {
-      display: block;
-      width: 100%;
-      height: auto;
-      border-radius: var(--a2ui-video-border-radius, 0);
-    }
-  `;
-		}
-		createController() {
-			return new A2uiController(this, VideoApi);
-		}
-		render() {
-			const props = this.controller.props;
-			if (!props) return A;
-			return b`<video src=${props.url} controls class="a2ui-video"></video>`;
-		}
-		static {
-			__runInitializers$9(_classThis, _classExtraInitializers);
-		}
-	};
-	return _classThis;
-})();
-const A2uiVideo = {
-	...VideoApi,
-	tagName: "a2ui-video"
-};
-var __esDecorate$8 = function(ctor, descriptorIn, decorators, contextIn, initializers, extraInitializers) {
-	function accept(f) {
-		if (f !== void 0 && typeof f !== "function") throw new TypeError("Function expected");
-		return f;
-	}
-	var kind = contextIn.kind, key = kind === "getter" ? "get" : kind === "setter" ? "set" : "value";
-	var target = !descriptorIn && ctor ? contextIn["static"] ? ctor : ctor.prototype : null;
-	var descriptor = descriptorIn || (target ? Object.getOwnPropertyDescriptor(target, contextIn.name) : {});
-	var _, done = false;
-	for (var i = decorators.length - 1; i >= 0; i--) {
-		var context = {};
-		for (var p in contextIn) context[p] = p === "access" ? {} : contextIn[p];
-		for (var p in contextIn.access) context.access[p] = contextIn.access[p];
-		context.addInitializer = function(f) {
-			if (done) throw new TypeError("Cannot add initializers after decoration has completed");
-			extraInitializers.push(accept(f || null));
-		};
-		var result = (0, decorators[i])(kind === "accessor" ? {
-			get: descriptor.get,
-			set: descriptor.set
-		} : descriptor[key], context);
-		if (kind === "accessor") {
-			if (result === void 0) continue;
-			if (result === null || typeof result !== "object") throw new TypeError("Object expected");
-			if (_ = accept(result.get)) descriptor.get = _;
-			if (_ = accept(result.set)) descriptor.set = _;
-			if (_ = accept(result.init)) initializers.unshift(_);
-		} else if (_ = accept(result)) {
-			if (kind === "field") initializers.unshift(_);
-			else descriptor[key] = _;
-		}
-	}
-	if (target) Object.defineProperty(target, contextIn.name, descriptor);
-	done = true;
-};
-var __runInitializers$8 = function(thisArg, initializers, value) {
-	var useValue = arguments.length > 2;
-	for (var i = 0; i < initializers.length; i++) value = useValue ? initializers[i].call(thisArg, value) : initializers[i].call(thisArg);
-	return useValue ? value : void 0;
-};
-(() => {
-	let _classDecorators = [t$5("a2ui-audioplayer")];
-	let _classDescriptor;
-	let _classExtraInitializers = [];
-	let _classThis;
-	let _classSuper = BasicCatalogA2uiLitElement;
-	var A2uiAudioPlayerElement = class extends _classSuper {
-		static {
-			_classThis = this;
-		}
-		static {
-			const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(_classSuper[Symbol.metadata] ?? null) : void 0;
-			__esDecorate$8(null, _classDescriptor = { value: _classThis }, _classDecorators, {
-				kind: "class",
-				name: _classThis.name,
-				metadata: _metadata
-			}, null, _classExtraInitializers);
-			A2uiAudioPlayerElement = _classThis = _classDescriptor.value;
-			if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, {
-				enumerable: true,
-				configurable: true,
-				writable: true,
-				value: _metadata
-			});
-		}
-		static {
-			this.styles = i$9`
-    :host {
-      display: flex;
-      flex-direction: column;
-      gap: var(--a2ui-spacing-xs, 0.25rem);
-      background: var(--a2ui-audioplayer-background, transparent);
-      border-radius: var(--a2ui-audioplayer-border-radius, 0);
-      padding: var(--a2ui-audioplayer-padding, 0);
-    }
-  `;
-		}
-		createController() {
-			return new A2uiController(this, AudioPlayerApi);
-		}
-		render() {
-			const props = this.controller.props;
-			if (!props) return A;
-			return b`
-      ${props.description ? b`<p>${props.description}</p>` : A}
-      <audio src=${props.url} controls></audio>
-    `;
-		}
-		static {
-			__runInitializers$8(_classThis, _classExtraInitializers);
-		}
-	};
-	return _classThis;
-})();
-const A2uiAudioPlayer = {
-	...AudioPlayerApi,
-	tagName: "a2ui-audioplayer"
-};
-var __esDecorate$7 = function(ctor, descriptorIn, decorators, contextIn, initializers, extraInitializers) {
-	function accept(f) {
-		if (f !== void 0 && typeof f !== "function") throw new TypeError("Function expected");
-		return f;
-	}
-	var kind = contextIn.kind, key = kind === "getter" ? "get" : kind === "setter" ? "set" : "value";
-	var target = !descriptorIn && ctor ? contextIn["static"] ? ctor : ctor.prototype : null;
-	var descriptor = descriptorIn || (target ? Object.getOwnPropertyDescriptor(target, contextIn.name) : {});
-	var _, done = false;
-	for (var i = decorators.length - 1; i >= 0; i--) {
-		var context = {};
-		for (var p in contextIn) context[p] = p === "access" ? {} : contextIn[p];
-		for (var p in contextIn.access) context.access[p] = contextIn.access[p];
-		context.addInitializer = function(f) {
-			if (done) throw new TypeError("Cannot add initializers after decoration has completed");
-			extraInitializers.push(accept(f || null));
-		};
-		var result = (0, decorators[i])(kind === "accessor" ? {
-			get: descriptor.get,
-			set: descriptor.set
-		} : descriptor[key], context);
-		if (kind === "accessor") {
-			if (result === void 0) continue;
-			if (result === null || typeof result !== "object") throw new TypeError("Object expected");
-			if (_ = accept(result.get)) descriptor.get = _;
-			if (_ = accept(result.set)) descriptor.set = _;
-			if (_ = accept(result.init)) initializers.unshift(_);
-		} else if (_ = accept(result)) {
-			if (kind === "field") initializers.unshift(_);
-			else descriptor[key] = _;
-		}
-	}
-	if (target) Object.defineProperty(target, contextIn.name, descriptor);
-	done = true;
-};
-var __runInitializers$7 = function(thisArg, initializers, value) {
-	var useValue = arguments.length > 2;
-	for (var i = 0; i < initializers.length; i++) value = useValue ? initializers[i].call(thisArg, value) : initializers[i].call(thisArg);
-	return useValue ? value : void 0;
-};
-(() => {
-	let _classDecorators = [t$5("a2ui-card")];
-	let _classDescriptor;
-	let _classExtraInitializers = [];
-	let _classThis;
-	let _classSuper = BasicCatalogA2uiLitElement;
-	var A2uiCardElement = class extends _classSuper {
-		static {
-			_classThis = this;
-		}
-		static {
-			const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(_classSuper[Symbol.metadata] ?? null) : void 0;
-			__esDecorate$7(null, _classDescriptor = { value: _classThis }, _classDecorators, {
-				kind: "class",
-				name: _classThis.name,
-				metadata: _metadata
-			}, null, _classExtraInitializers);
-			A2uiCardElement = _classThis = _classDescriptor.value;
-			if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, {
-				enumerable: true,
-				configurable: true,
-				writable: true,
-				value: _metadata
-			});
-		}
-		/**
-		* The styles of the card can be customized by redefining the following
-		* CSS variables:
-		*
-		* - `--a2ui-card-border`: The styling for the card border. Defaults to `--a2ui-border-width` width and `--a2ui-color-border` color.
-		* - `--a2ui-card-border-radius`: The border radius of the card. Defaults to `--a2ui-border-radius`.
-		* - `--a2ui-card-padding`: The padding of the card. Defaults to `--a2ui-spacing-m`.
-		* - `--a2ui-card-box-shadow`: The box shadow of the card. Defaults to `0 2px 4px rgba(0,0,0,0.1)`.
-		* - `--a2ui-card-margin`: The outer margin of the card. Defaults to `--a2ui-spacing-m`.
-		*/
-		static {
-			this.styles = i$9`
-    :host {
-      display: block;
-      border: var(
-        --a2ui-card-border,
-        var(--a2ui-border-width, 1px) solid var(--a2ui-color-border, #ccc)
-      );
-      border-radius: var(--a2ui-card-border-radius, var(--a2ui-border-radius, 8px));
-      padding: var(--a2ui-card-padding, var(--a2ui-spacing-m, 16px));
-      background: var(--a2ui-card-background, var(--a2ui-color-surface, #fff));
-      color: var(--a2ui-color-on-surface, #333);
-      box-shadow: var(--a2ui-card-box-shadow, 0 2px 4px rgba(0, 0, 0, 0.1));
-      margin: var(--a2ui-card-margin, var(--a2ui-spacing-m));
-    }
-  `;
-		}
-		createController() {
-			return new A2uiController(this, CardApi);
-		}
-		render() {
-			const props = this.controller.props;
-			if (!props) return A;
-			return b` ${props.child ? b`${this.renderNode(props.child)}` : A} `;
-		}
-		static {
-			__runInitializers$7(_classThis, _classExtraInitializers);
-		}
-	};
-	return _classThis;
-})();
-const A2uiCard = {
-	...CardApi,
-	tagName: "a2ui-card"
-};
-var __esDecorate$6 = function(ctor, descriptorIn, decorators, contextIn, initializers, extraInitializers) {
-	function accept(f) {
-		if (f !== void 0 && typeof f !== "function") throw new TypeError("Function expected");
-		return f;
-	}
-	var kind = contextIn.kind, key = kind === "getter" ? "get" : kind === "setter" ? "set" : "value";
-	var target = !descriptorIn && ctor ? contextIn["static"] ? ctor : ctor.prototype : null;
-	var descriptor = descriptorIn || (target ? Object.getOwnPropertyDescriptor(target, contextIn.name) : {});
-	var _, done = false;
-	for (var i = decorators.length - 1; i >= 0; i--) {
-		var context = {};
-		for (var p in contextIn) context[p] = p === "access" ? {} : contextIn[p];
-		for (var p in contextIn.access) context.access[p] = contextIn.access[p];
-		context.addInitializer = function(f) {
-			if (done) throw new TypeError("Cannot add initializers after decoration has completed");
-			extraInitializers.push(accept(f || null));
-		};
-		var result = (0, decorators[i])(kind === "accessor" ? {
-			get: descriptor.get,
-			set: descriptor.set
-		} : descriptor[key], context);
-		if (kind === "accessor") {
-			if (result === void 0) continue;
-			if (result === null || typeof result !== "object") throw new TypeError("Object expected");
-			if (_ = accept(result.get)) descriptor.get = _;
-			if (_ = accept(result.set)) descriptor.set = _;
-			if (_ = accept(result.init)) initializers.unshift(_);
-		} else if (_ = accept(result)) {
-			if (kind === "field") initializers.unshift(_);
-			else descriptor[key] = _;
-		}
-	}
-	if (target) Object.defineProperty(target, contextIn.name, descriptor);
-	done = true;
-};
-var __runInitializers$6 = function(thisArg, initializers, value) {
-	var useValue = arguments.length > 2;
-	for (var i = 0; i < initializers.length; i++) value = useValue ? initializers[i].call(thisArg, value) : initializers[i].call(thisArg);
-	return useValue ? value : void 0;
-};
-(() => {
-	let _classDecorators = [t$5("a2ui-divider")];
-	let _classDescriptor;
-	let _classExtraInitializers = [];
-	let _classThis;
-	let _classSuper = BasicCatalogA2uiLitElement;
-	var A2uiDividerElement = class extends _classSuper {
-		static {
-			_classThis = this;
-		}
-		static {
-			const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(_classSuper[Symbol.metadata] ?? null) : void 0;
-			__esDecorate$6(null, _classDescriptor = { value: _classThis }, _classDecorators, {
-				kind: "class",
-				name: _classThis.name,
-				metadata: _metadata
-			}, null, _classExtraInitializers);
-			A2uiDividerElement = _classThis = _classDescriptor.value;
-			if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, {
-				enumerable: true,
-				configurable: true,
-				writable: true,
-				value: _metadata
-			});
-		}
-		/**
-		* The styles of the divider can be customized by redefining the following
-		* CSS variables:
-		*
-		* - `--a2ui-divider-border`: The styling for the divider border. Defaults to `--a2ui-border-width` solid `--a2ui-color-border`.
-		* - `--a2ui-divider-spacing`: The spacing around the divider. Defaults to `--a2ui-spacing-m`.
-		*/
-		static {
-			this.styles = i$9`
-    :host {
-      display: block;
-      align-self: stretch;
-    }
-    .a2ui-divider.horizontal {
-      height: 0;
-      overflow: hidden;
-      font-size: 0.1px;
-      line-height: 0;
-      border: 0;
-      border-top: var(
-        --a2ui-divider-border,
-        var(--a2ui-border-width, 1px) solid var(--a2ui-color-border, #ccc)
-      );
-      margin: var(--a2ui-divider-spacing, var(--a2ui-spacing-m, 0.5rem)) 0;
-      width: 100%;
-    }
-    .a2ui-divider.vertical {
-      width: var(--a2ui-border-width, 1px);
-      background-color: var(--a2ui-color-border, #ccc);
-      height: 100%;
-      margin: 0 var(--a2ui-divider-spacing, var(--a2ui-spacing-m, 0.5rem));
-    }
-  `;
-		}
-		createController() {
-			return new A2uiController(this, DividerApi);
-		}
-		render() {
-			const props = this.controller.props;
-			if (!props) return A;
-			const classes = {
-				"a2ui-divider": true,
-				vertical: props.axis === "vertical",
-				horizontal: props.axis !== "vertical"
-			};
-			return props.axis === "vertical" ? b`<div class=${e(classes)}></div>` : b`<hr class=${e(classes)} />`;
-		}
-		static {
-			__runInitializers$6(_classThis, _classExtraInitializers);
-		}
-	};
-	return _classThis;
-})();
-const A2uiDivider = {
-	...DividerApi,
-	tagName: "a2ui-divider"
-};
-var __esDecorate$5 = function(ctor, descriptorIn, decorators, contextIn, initializers, extraInitializers) {
-	function accept(f) {
-		if (f !== void 0 && typeof f !== "function") throw new TypeError("Function expected");
-		return f;
-	}
-	var kind = contextIn.kind, key = kind === "getter" ? "get" : kind === "setter" ? "set" : "value";
-	var target = !descriptorIn && ctor ? contextIn["static"] ? ctor : ctor.prototype : null;
-	var descriptor = descriptorIn || (target ? Object.getOwnPropertyDescriptor(target, contextIn.name) : {});
-	var _, done = false;
-	for (var i = decorators.length - 1; i >= 0; i--) {
-		var context = {};
-		for (var p in contextIn) context[p] = p === "access" ? {} : contextIn[p];
-		for (var p in contextIn.access) context.access[p] = contextIn.access[p];
-		context.addInitializer = function(f) {
-			if (done) throw new TypeError("Cannot add initializers after decoration has completed");
-			extraInitializers.push(accept(f || null));
-		};
-		var result = (0, decorators[i])(kind === "accessor" ? {
-			get: descriptor.get,
-			set: descriptor.set
-		} : descriptor[key], context);
-		if (kind === "accessor") {
-			if (result === void 0) continue;
-			if (result === null || typeof result !== "object") throw new TypeError("Object expected");
-			if (_ = accept(result.get)) descriptor.get = _;
-			if (_ = accept(result.set)) descriptor.set = _;
-			if (_ = accept(result.init)) initializers.unshift(_);
-		} else if (_ = accept(result)) {
-			if (kind === "field") initializers.unshift(_);
-			else descriptor[key] = _;
-		}
-	}
-	if (target) Object.defineProperty(target, contextIn.name, descriptor);
-	done = true;
-};
-var __runInitializers$5 = function(thisArg, initializers, value) {
-	var useValue = arguments.length > 2;
-	for (var i = 0; i < initializers.length; i++) value = useValue ? initializers[i].call(thisArg, value) : initializers[i].call(thisArg);
-	return useValue ? value : void 0;
-};
-(() => {
-	let _classDecorators = [t$5("a2ui-checkbox")];
-	let _classDescriptor;
-	let _classExtraInitializers = [];
-	let _classThis;
-	let _classSuper = BasicCatalogA2uiLitElement;
-	var A2uiCheckBoxElement = class extends _classSuper {
-		static {
-			_classThis = this;
-		}
-		static {
-			const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(_classSuper[Symbol.metadata] ?? null) : void 0;
-			__esDecorate$5(null, _classDescriptor = { value: _classThis }, _classDecorators, {
-				kind: "class",
-				name: _classThis.name,
-				metadata: _metadata
-			}, null, _classExtraInitializers);
-			A2uiCheckBoxElement = _classThis = _classDescriptor.value;
-			if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, {
-				enumerable: true,
-				configurable: true,
-				writable: true,
-				value: _metadata
-			});
-		}
-		/**
-		* The styles of the checkbox can be customized by redefining the following
-		* CSS variables:
-		*
-		* - `--a2ui-checkbox-size`: Size of the box. Defaults to `1rem`.
-		* - `--a2ui-checkbox-border-radius`: Default corner rounding of the box.
-		* - `--a2ui-checkbox-gap`: Spacing between the checkbox and its label. Defaults to `8px`.
-		* - `--a2ui-checkbox-margin`: Outer margin of the component. Defaults to `--a2ui-spacing-m`.
-		* - `--a2ui-checkbox-color-error`: Color for invalid state. Defaults to `red`.
-		* - `--a2ui-checkbox-label-font-size`: Font size of the label. Defaults to `--a2ui-label-font-size` then `--a2ui-font-size-s`.
-		* - `--a2ui-checkbox-label-font-weight`: Font weight of the label. Defaults to `--a2ui-label-font-weight` then `bold`.
-		*/
-		static {
-			this.styles = i$9`
-    :host {
-      display: block;
-    }
-    .container {
-      display: flex;
-      flex-direction: column;
-      margin: var(--a2ui-checkbox-margin, var(--a2ui-spacing-m));
-    }
-    label.a2ui-checkbox {
-      display: inline-flex;
-      align-items: center;
-      gap: var(--a2ui-checkbox-gap, var(--a2ui-spacing-s, 0.5rem));
-      font-size: var(
-        --a2ui-checkbox-label-font-size,
-        var(--a2ui-label-font-size, var(--a2ui-font-size-s))
-      );
-      font-weight: var(--a2ui-checkbox-label-font-weight, var(--a2ui-label-font-weight, bold));
-      cursor: pointer;
-    }
-    label.invalid {
-      color: var(--a2ui-checkbox-color-error, red);
-    }
-    input {
-      width: var(--a2ui-checkbox-size, 1rem);
-      height: var(--a2ui-checkbox-size, 1rem);
-      background: var(--a2ui-checkbox-background, inherit);
-      border: var(--a2ui-checkbox-border, var(--a2ui-border));
-      border-radius: var(--a2ui-checkbox-border-radius, 4px);
-    }
-    input.invalid {
-      outline: 1px solid var(--a2ui-checkbox-color-error, red);
-    }
-    .error {
-      color: var(--a2ui-checkbox-color-error, red);
-      font-size: var(--a2ui-font-size-xs, 0.75rem);
-      margin-top: 4px;
-    }
-  `;
-		}
-		createController() {
-			return new A2uiController(this, CheckBoxApi);
-		}
-		render() {
-			const props = this.controller.props;
-			if (!props) return A;
-			const isInvalid = props.isValid === false;
-			const labelClasses = {
-				"a2ui-checkbox": true,
-				invalid: isInvalid
-			};
-			const inputClasses = { invalid: isInvalid };
-			return b`
-      <div class="container">
-        <label class=${e(labelClasses)}>
-          <input
-            type="checkbox"
-            class=${e(inputClasses)}
-            .checked=${props.value || false}
-            @change=${(e) => props.setValue?.(e.target.checked)}
-          />
-          ${props.label}
-        </label>
-        ${isInvalid && props.validationErrors?.length ? b`<div class="error">${props.validationErrors[0]}</div>` : A}
-      </div>
-    `;
-		}
-		static {
-			__runInitializers$5(_classThis, _classExtraInitializers);
-		}
-	};
-	return _classThis;
-})();
-const A2uiCheckBox = {
-	...CheckBoxApi,
-	tagName: "a2ui-checkbox"
-};
-var __esDecorate$4 = function(ctor, descriptorIn, decorators, contextIn, initializers, extraInitializers) {
-	function accept(f) {
-		if (f !== void 0 && typeof f !== "function") throw new TypeError("Function expected");
-		return f;
-	}
-	var kind = contextIn.kind, key = kind === "getter" ? "get" : kind === "setter" ? "set" : "value";
-	var target = !descriptorIn && ctor ? contextIn["static"] ? ctor : ctor.prototype : null;
-	var descriptor = descriptorIn || (target ? Object.getOwnPropertyDescriptor(target, contextIn.name) : {});
-	var _, done = false;
-	for (var i = decorators.length - 1; i >= 0; i--) {
-		var context = {};
-		for (var p in contextIn) context[p] = p === "access" ? {} : contextIn[p];
-		for (var p in contextIn.access) context.access[p] = contextIn.access[p];
-		context.addInitializer = function(f) {
-			if (done) throw new TypeError("Cannot add initializers after decoration has completed");
-			extraInitializers.push(accept(f || null));
-		};
-		var result = (0, decorators[i])(kind === "accessor" ? {
-			get: descriptor.get,
-			set: descriptor.set
-		} : descriptor[key], context);
-		if (kind === "accessor") {
-			if (result === void 0) continue;
-			if (result === null || typeof result !== "object") throw new TypeError("Object expected");
-			if (_ = accept(result.get)) descriptor.get = _;
-			if (_ = accept(result.set)) descriptor.set = _;
-			if (_ = accept(result.init)) initializers.unshift(_);
-		} else if (_ = accept(result)) {
-			if (kind === "field") initializers.unshift(_);
-			else descriptor[key] = _;
-		}
-	}
-	if (target) Object.defineProperty(target, contextIn.name, descriptor);
-	done = true;
-};
-var __runInitializers$4 = function(thisArg, initializers, value) {
-	var useValue = arguments.length > 2;
-	for (var i = 0; i < initializers.length; i++) value = useValue ? initializers[i].call(thisArg, value) : initializers[i].call(thisArg);
-	return useValue ? value : void 0;
-};
-(() => {
-	let _classDecorators = [t$5("a2ui-slider")];
-	let _classDescriptor;
-	let _classExtraInitializers = [];
-	let _classThis;
-	let _classSuper = BasicCatalogA2uiLitElement;
-	var A2uiSliderElement = class extends _classSuper {
-		static {
-			_classThis = this;
-		}
-		static {
-			const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(_classSuper[Symbol.metadata] ?? null) : void 0;
-			__esDecorate$4(null, _classDescriptor = { value: _classThis }, _classDecorators, {
-				kind: "class",
-				name: _classThis.name,
-				metadata: _metadata
-			}, null, _classExtraInitializers);
-			A2uiSliderElement = _classThis = _classDescriptor.value;
-			if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, {
-				enumerable: true,
-				configurable: true,
-				writable: true,
-				value: _metadata
-			});
-		}
-		/**
-		* The slider can be customized with the following CSS variables:
-		*
-		* - `--a2ui-slider-track-color`: Color of the slider track. Defaults to `--a2ui-color-secondary`.
-		* - `--a2ui-slider-thumb-color`: Color of the slider thumb. Defaults to `--a2ui-color-primary`.
-		* - `--a2ui-slider-margin`: Outer margin of the component. Defaults to `--a2ui-spacing-m`.
-		* - `--a2ui-slider-label-font-size`: Font size of the label. Defaults to `--a2ui-label-font-size` then `--a2ui-font-size-s`.
-		* - `--a2ui-slider-label-font-weight`: Font weight of the label. Defaults to `--a2ui-label-font-weight` then `bold`.
-		*/
-		static {
-			this.styles = i$9`
-    :host {
-      display: flex;
-      flex-direction: column;
-      gap: var(--a2ui-spacing-xs, 0.25rem);
-      margin: var(--a2ui-slider-margin, var(--a2ui-spacing-m));
-    }
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .header label {
-      font-size: var(
-        --a2ui-slider-label-font-size,
-        var(--a2ui-label-font-size, var(--a2ui-font-size-s))
-      );
-      font-weight: var(--a2ui-slider-label-font-weight, var(--a2ui-label-font-weight, bold));
-    }
-    input[type='range'] {
-      width: 100%;
-      accent-color: var(--a2ui-slider-thumb-color, var(--a2ui-color-primary, #007bff));
-      background: var(--a2ui-slider-track-color, var(--a2ui-color-secondary, #e9ecef));
-    }
-  `;
-		}
-		createController() {
-			return new A2uiController(this, SliderApi);
-		}
-		render() {
-			const props = this.controller.props;
-			if (!props) return A;
-			return b`
-      <div class="header">
-        ${props.label ? b`<label>${props.label}</label>` : A}
-        <span>${props.value}</span>
-      </div>
-      <input
-        type="range"
-        min=${props.min ?? 0}
-        max=${props.max ?? 100}
-        .value=${props.value?.toString() || "0"}
-        @input=${(e) => props.setValue?.(Number(e.target.value))}
-      />
-    `;
-		}
-		static {
-			__runInitializers$4(_classThis, _classExtraInitializers);
-		}
-	};
-	return _classThis;
-})();
-const A2uiSlider = {
-	...SliderApi,
-	tagName: "a2ui-slider"
-};
-var __esDecorate$3 = function(ctor, descriptorIn, decorators, contextIn, initializers, extraInitializers) {
-	function accept(f) {
-		if (f !== void 0 && typeof f !== "function") throw new TypeError("Function expected");
-		return f;
-	}
-	var kind = contextIn.kind, key = kind === "getter" ? "get" : kind === "setter" ? "set" : "value";
-	var target = !descriptorIn && ctor ? contextIn["static"] ? ctor : ctor.prototype : null;
-	var descriptor = descriptorIn || (target ? Object.getOwnPropertyDescriptor(target, contextIn.name) : {});
-	var _, done = false;
-	for (var i = decorators.length - 1; i >= 0; i--) {
-		var context = {};
-		for (var p in contextIn) context[p] = p === "access" ? {} : contextIn[p];
-		for (var p in contextIn.access) context.access[p] = contextIn.access[p];
-		context.addInitializer = function(f) {
-			if (done) throw new TypeError("Cannot add initializers after decoration has completed");
-			extraInitializers.push(accept(f || null));
-		};
-		var result = (0, decorators[i])(kind === "accessor" ? {
-			get: descriptor.get,
-			set: descriptor.set
-		} : descriptor[key], context);
-		if (kind === "accessor") {
-			if (result === void 0) continue;
-			if (result === null || typeof result !== "object") throw new TypeError("Object expected");
-			if (_ = accept(result.get)) descriptor.get = _;
-			if (_ = accept(result.set)) descriptor.set = _;
-			if (_ = accept(result.init)) initializers.unshift(_);
-		} else if (_ = accept(result)) {
-			if (kind === "field") initializers.unshift(_);
-			else descriptor[key] = _;
-		}
-	}
-	if (target) Object.defineProperty(target, contextIn.name, descriptor);
-	done = true;
-};
-var __runInitializers$3 = function(thisArg, initializers, value) {
-	var useValue = arguments.length > 2;
-	for (var i = 0; i < initializers.length; i++) value = useValue ? initializers[i].call(thisArg, value) : initializers[i].call(thisArg);
-	return useValue ? value : void 0;
-};
-/**
-* Normalizes an incoming ISO or partial date/time value into a format accepted by HTML5 inputs.
-*
-* HTML5 input elements (like type="date", type="time", and type="datetime-local") strictly reject
-* timezone indicators (like "Z" or "+00:00") and trailing seconds/milliseconds in their .value property.
-* If these are present, the browser will reset the input to an empty string. This function strips
-* those specifiers using string splitting and substring manipulation without shifting timezones.
-*/
-function normalizeDateTimeValue(value, type) {
-	if (!value) return "";
-	const hasT = value.includes("T");
-	const split = value.split("T");
-	const datePart = (hasT ? split[0] : value)?.substring(0, 10) ?? "";
-	const timePart = (hasT ? split[1] : value)?.substring(0, 5) ?? "";
-	switch (type) {
-		case "date": return datePart;
-		case "time": return timePart;
-		case "datetime-local": return `${datePart}T${timePart}`;
-	}
-	return "";
-}
-(() => {
-	let _classDecorators = [t$5("a2ui-datetimeinput")];
-	let _classDescriptor;
-	let _classExtraInitializers = [];
-	let _classThis;
-	let _classSuper = BasicCatalogA2uiLitElement;
-	var A2uiDateTimeInputElement = class extends _classSuper {
-		static {
-			_classThis = this;
-		}
-		static {
-			const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(_classSuper[Symbol.metadata] ?? null) : void 0;
-			__esDecorate$3(null, _classDescriptor = { value: _classThis }, _classDecorators, {
-				kind: "class",
-				name: _classThis.name,
-				metadata: _metadata
-			}, null, _classExtraInitializers);
-			A2uiDateTimeInputElement = _classThis = _classDescriptor.value;
-			if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, {
-				enumerable: true,
-				configurable: true,
-				writable: true,
-				value: _metadata
-			});
-		}
-		/**
-		* The styles of the datetime input can be customized by redefining the following
-		* CSS variables:
-		*
-		* - `--a2ui-datetimeinput-label-font-size`: Font size of the label. Defaults to `--a2ui-label-font-size` then `--a2ui-font-size-s`.
-		* - `--a2ui-datetimeinput-label-font-weight`: Font weight of the label. Defaults to `--a2ui-label-font-weight` then `bold`.
-		*/
-		static {
-			this.styles = i$9`
-    :host {
-      display: flex;
-      flex-direction: column;
-      gap: var(--a2ui-spacing-xs, 0.25rem);
-    }
-    input {
-      background-color: var(--a2ui-datetimeinput-background, var(--a2ui-color-input, #fff));
-      color: var(--a2ui-datetimeinput-color, var(--a2ui-color-on-input, #333));
-      border: var(--a2ui-datetimeinput-border, var(--a2ui-border));
-      border-radius: var(--a2ui-datetimeinput-border-radius, var(--a2ui-border-radius));
-      padding: var(--a2ui-datetimeinput-padding, var(--a2ui-spacing-s));
-    }
-    .a2ui-date-time-input::-webkit-datetime-edit,
-    .a2ui-date-time-input::-webkit-datetime-edit-fields-wrapper {
-      color: var(--a2ui-datetimeinput-color, var(--a2ui-color-on-input, #333));
-    }
-    label {
-      font-size: var(
-        --a2ui-datetimeinput-label-font-size,
-        var(--a2ui-label-font-size, var(--a2ui-font-size-s))
-      );
-      font-weight: var(--a2ui-datetimeinput-label-font-weight, var(--a2ui-label-font-weight, bold));
-    }
-  `;
-		}
-		createController() {
-			return new A2uiController(this, DateTimeInputApi);
-		}
-		render() {
-			const props = this.controller.props;
-			if (!props) return A;
-			if (!(props.enableDate || props.enableTime)) return A;
-			const inputType = props.enableDate && props.enableTime ? "datetime-local" : props.enableDate ? "date" : "time";
-			const normalizedValue = normalizeDateTimeValue(props.value, inputType);
-			return b`
-      ${props.label ? b`<label>${props.label}</label>` : A}
-      <input
-        class="a2ui-date-time-input"
-        type=${inputType}
-        .value=${normalizedValue}
-        @input=${(e) => props.setValue?.(e.target.value)}
-      />
-    `;
-		}
-		static {
-			__runInitializers$3(_classThis, _classExtraInitializers);
-		}
-	};
-	return _classThis;
-})();
-const A2uiDateTimeInput = {
-	...DateTimeInputApi,
-	tagName: "a2ui-datetimeinput"
-};
-var __esDecorate$2 = function(ctor, descriptorIn, decorators, contextIn, initializers, extraInitializers) {
-	function accept(f) {
-		if (f !== void 0 && typeof f !== "function") throw new TypeError("Function expected");
-		return f;
-	}
-	var kind = contextIn.kind, key = kind === "getter" ? "get" : kind === "setter" ? "set" : "value";
-	var target = !descriptorIn && ctor ? contextIn["static"] ? ctor : ctor.prototype : null;
-	var descriptor = descriptorIn || (target ? Object.getOwnPropertyDescriptor(target, contextIn.name) : {});
-	var _, done = false;
-	for (var i = decorators.length - 1; i >= 0; i--) {
-		var context = {};
-		for (var p in contextIn) context[p] = p === "access" ? {} : contextIn[p];
-		for (var p in contextIn.access) context.access[p] = contextIn.access[p];
-		context.addInitializer = function(f) {
-			if (done) throw new TypeError("Cannot add initializers after decoration has completed");
-			extraInitializers.push(accept(f || null));
-		};
-		var result = (0, decorators[i])(kind === "accessor" ? {
-			get: descriptor.get,
-			set: descriptor.set
-		} : descriptor[key], context);
-		if (kind === "accessor") {
-			if (result === void 0) continue;
-			if (result === null || typeof result !== "object") throw new TypeError("Object expected");
-			if (_ = accept(result.get)) descriptor.get = _;
-			if (_ = accept(result.set)) descriptor.set = _;
-			if (_ = accept(result.init)) initializers.unshift(_);
-		} else if (_ = accept(result)) {
-			if (kind === "field") initializers.unshift(_);
-			else descriptor[key] = _;
-		}
-	}
-	if (target) Object.defineProperty(target, contextIn.name, descriptor);
-	done = true;
-};
-var __runInitializers$2 = function(thisArg, initializers, value) {
-	var useValue = arguments.length > 2;
-	for (var i = 0; i < initializers.length; i++) value = useValue ? initializers[i].call(thisArg, value) : initializers[i].call(thisArg);
-	return useValue ? value : void 0;
-};
-(() => {
-	let _classDecorators = [t$5("a2ui-choicepicker")];
-	let _classDescriptor;
-	let _classExtraInitializers = [];
-	let _classThis;
-	let _classSuper = BasicCatalogA2uiLitElement;
-	let _filter_decorators;
-	let _filter_initializers = [];
-	let _filter_extraInitializers = [];
-	var A2uiChoicePickerElement = class extends _classSuper {
-		static {
-			_classThis = this;
-		}
-		static {
-			const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(_classSuper[Symbol.metadata] ?? null) : void 0;
-			_filter_decorators = [r$4()];
-			__esDecorate$2(this, null, _filter_decorators, {
-				kind: "accessor",
-				name: "filter",
-				static: false,
-				private: false,
-				access: {
-					has: (obj) => "filter" in obj,
-					get: (obj) => obj.filter,
-					set: (obj, value) => {
-						obj.filter = value;
-					}
-				},
-				metadata: _metadata
-			}, _filter_initializers, _filter_extraInitializers);
-			__esDecorate$2(null, _classDescriptor = { value: _classThis }, _classDecorators, {
-				kind: "class",
-				name: _classThis.name,
-				metadata: _metadata
-			}, null, _classExtraInitializers);
-			A2uiChoicePickerElement = _classThis = _classDescriptor.value;
-			if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, {
-				enumerable: true,
-				configurable: true,
-				writable: true,
-				value: _metadata
-			});
-		}
-		/**
-		* The styles of the choice picker can be customized by redefining the following
-		* CSS variables:
-		*
-		* - `--a2ui-choicepicker-label-color`: Color of all labels.
-		* - `--a2ui-choicepicker-label-font-size`: Font size of all labels. Defaults to `--a2ui-label-font-size` then `--a2ui-font-size-s` for the main label.
-		* - `--a2ui-choicepicker-label-font-weight`: Font weight of the main label. Defaults to `--a2ui-label-font-weight` then `bold`.
-		* - `--a2ui-choicepicker-gap`: Spacing between options.
-		* - `--a2ui-choicepicker-filter-padding`: Padding for the filter input. Defaults to `--a2ui-spacing-xs` and `--a2ui-spacing-s` (4px 8px).
-		* - `--a2ui-choicepicker-chip-padding`: Padding for chips. Defaults to `--a2ui-spacing-s` and `--a2ui-spacing-m` (4px 8px).
-		* - `--a2ui-choicepicker-chip-border-radius`: Border radius for chips. Defaults to `999px`.
-		*/
-		static {
-			this.styles = i$9`
-    :host {
-      display: flex;
-      flex-direction: column;
-      gap: var(--a2ui-choicepicker-gap, var(--a2ui-spacing-xs, 0.25rem));
-      padding: var(--a2ui-choicepicker-padding, 0);
-    }
-    .options {
-      display: flex;
-      flex-direction: column;
-      gap: var(--a2ui-choicepicker-gap, var(--a2ui-spacing-xs, 0.25rem));
-    }
-    label {
-      color: var(--a2ui-choicepicker-label-color, inherit);
-      font-size: var(--a2ui-choicepicker-label-font-size, inherit);
-    }
-    :host > label {
-      font-size: var(
-        --a2ui-choicepicker-label-font-size,
-        var(--a2ui-label-font-size, var(--a2ui-font-size-s))
-      );
-      font-weight: var(--a2ui-choicepicker-label-font-weight, var(--a2ui-label-font-weight, bold));
-    }
-    .filter-input {
-      background-color: var(--a2ui-color-input, #fff);
-      color: var(--a2ui-color-on-input, #333);
-      border: var(--a2ui-textfield-border, var(--a2ui-border));
-      border-radius: var(--a2ui-textfield-border-radius, var(--a2ui-spacing-m));
-      padding: var(
-        --a2ui-choicepicker-filter-padding,
-        var(--a2ui-spacing-xs, 4px) var(--a2ui-spacing-s, 8px)
-      );
-      font-family: inherit;
-    }
-    .filter-input:focus {
-      outline: none;
-      border-color: var(--a2ui-textfield-color-border-focus, var(--a2ui-color-primary, #17e));
-    }
-    .chips {
-      display: flex;
-      flex-direction: row;
-      flex-wrap: wrap;
-      gap: var(--a2ui-choicepicker-gap, var(--a2ui-spacing-xs, 0.25rem));
-    }
-    .chip {
-      padding: var(
-        --a2ui-choicepicker-chip-padding,
-        var(--a2ui-spacing-s, 4px) var(--a2ui-spacing-m, 8px)
-      );
-      border-radius: var(--a2ui-choicepicker-chip-border-radius, 999px);
-      border: 1px solid var(--a2ui-color-border, #ccc);
-      background-color: var(--a2ui-color-surface, #fff);
-      color: var(--a2ui-color-on-surface, inherit);
-      cursor: pointer;
-      font-size: var(--a2ui-font-size-xs, 0.75rem);
-      font-family: inherit;
-    }
-    .chip.selected {
-      background-color: var(--a2ui-color-primary, #007bff);
-      color: var(--a2ui-color-on-primary, #fff);
-      border-color: var(--a2ui-color-primary, #007bff);
-    }
-  `;
-		}
-		#filter_accessor_storage = __runInitializers$2(this, _filter_initializers, "");
-		get filter() {
-			return this.#filter_accessor_storage;
-		}
-		set filter(value) {
-			this.#filter_accessor_storage = value;
-		}
-		createController() {
-			return new A2uiController(this, ChoicePickerApi);
-		}
-		render() {
-			const props = this.controller.props;
-			if (!props) return A;
-			const selected = Array.isArray(props.value) ? props.value : [];
-			const isMulti = props.variant === "multipleSelection";
-			const isChips = props.displayStyle === "chips";
-			const toggle = (val) => {
-				if (!props.setValue) return;
-				if (isMulti) {
-					if (selected.includes(val)) props.setValue(selected.filter((v) => v !== val));
-					else props.setValue([...selected, val]);
-				} else props.setValue([val]);
-			};
-			const options = (props.options || []).filter((opt) => !props.filterable || this.filter === "" || String(opt.label).toLowerCase().includes(this.filter.toLowerCase()));
-			return b`
-      ${props.label ? b`<label>${props.label}</label>` : A}
-      ${props.filterable ? b`
-            <input
-              type="text"
-              class="filter-input"
-              placeholder="Filter options..."
-              aria-label="Filter options"
-              .value=${this.filter}
-              @input=${(e) => this.filter = e.target.value}
-            />
-          ` : A}
-      <div class=${e({
-				options: true,
-				chips: isChips
-			})}>
-        ${options.map((opt) => isChips ? b`
-                <button
-                  class=${e({
-				chip: true,
-				selected: selected.includes(opt.value)
-			})}
-                  aria-pressed=${selected.includes(opt.value)}
-                  @click=${() => toggle(opt.value)}
-                >
-                  ${opt.label}
-                </button>
-              ` : b`
-                <label>
-                  <input
-                    type=${isMulti ? "checkbox" : "radio"}
-                    .checked=${selected.includes(opt.value)}
-                    @change=${() => toggle(opt.value)}
-                  />
-                  ${opt.label}
-                </label>
-              `)}
-      </div>
-    `;
-		}
-		constructor() {
-			super(...arguments);
-			__runInitializers$2(this, _filter_extraInitializers);
-		}
-		static {
-			__runInitializers$2(_classThis, _classExtraInitializers);
-		}
-	};
-	return _classThis;
-})();
-const A2uiChoicePicker = {
-	...ChoicePickerApi,
-	tagName: "a2ui-choicepicker"
-};
-var __esDecorate$1 = function(ctor, descriptorIn, decorators, contextIn, initializers, extraInitializers) {
-	function accept(f) {
-		if (f !== void 0 && typeof f !== "function") throw new TypeError("Function expected");
-		return f;
-	}
-	var kind = contextIn.kind, key = kind === "getter" ? "get" : kind === "setter" ? "set" : "value";
-	var target = !descriptorIn && ctor ? contextIn["static"] ? ctor : ctor.prototype : null;
-	var descriptor = descriptorIn || (target ? Object.getOwnPropertyDescriptor(target, contextIn.name) : {});
-	var _, done = false;
-	for (var i = decorators.length - 1; i >= 0; i--) {
-		var context = {};
-		for (var p in contextIn) context[p] = p === "access" ? {} : contextIn[p];
-		for (var p in contextIn.access) context.access[p] = contextIn.access[p];
-		context.addInitializer = function(f) {
-			if (done) throw new TypeError("Cannot add initializers after decoration has completed");
-			extraInitializers.push(accept(f || null));
-		};
-		var result = (0, decorators[i])(kind === "accessor" ? {
-			get: descriptor.get,
-			set: descriptor.set
-		} : descriptor[key], context);
-		if (kind === "accessor") {
-			if (result === void 0) continue;
-			if (result === null || typeof result !== "object") throw new TypeError("Object expected");
-			if (_ = accept(result.get)) descriptor.get = _;
-			if (_ = accept(result.set)) descriptor.set = _;
-			if (_ = accept(result.init)) initializers.unshift(_);
-		} else if (_ = accept(result)) {
-			if (kind === "field") initializers.unshift(_);
-			else descriptor[key] = _;
-		}
-	}
-	if (target) Object.defineProperty(target, contextIn.name, descriptor);
-	done = true;
-};
-var __runInitializers$1 = function(thisArg, initializers, value) {
-	var useValue = arguments.length > 2;
-	for (var i = 0; i < initializers.length; i++) value = useValue ? initializers[i].call(thisArg, value) : initializers[i].call(thisArg);
-	return useValue ? value : void 0;
-};
-(() => {
-	let _classDecorators = [t$5("a2ui-tabs")];
-	let _classDescriptor;
-	let _classExtraInitializers = [];
-	let _classThis;
-	let _classSuper = BasicCatalogA2uiLitElement;
-	let _activeIndex_decorators;
-	let _activeIndex_initializers = [];
-	let _activeIndex_extraInitializers = [];
-	var A2uiLitTabs = class extends _classSuper {
-		static {
-			_classThis = this;
-		}
-		static {
-			const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(_classSuper[Symbol.metadata] ?? null) : void 0;
-			_activeIndex_decorators = [r$4()];
-			__esDecorate$1(this, null, _activeIndex_decorators, {
-				kind: "accessor",
-				name: "activeIndex",
-				static: false,
-				private: false,
-				access: {
-					has: (obj) => "activeIndex" in obj,
-					get: (obj) => obj.activeIndex,
-					set: (obj, value) => {
-						obj.activeIndex = value;
-					}
-				},
-				metadata: _metadata
-			}, _activeIndex_initializers, _activeIndex_extraInitializers);
-			__esDecorate$1(null, _classDescriptor = { value: _classThis }, _classDecorators, {
-				kind: "class",
-				name: _classThis.name,
-				metadata: _metadata
-			}, null, _classExtraInitializers);
-			A2uiLitTabs = _classThis = _classDescriptor.value;
-			if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, {
-				enumerable: true,
-				configurable: true,
-				writable: true,
-				value: _metadata
-			});
-		}
-		/**
-		* The styles of the tabs can be customized by redefining the following
-		* CSS variables:
-		*
-		* - `--a2ui-tabs-header-background`: Default transparent.
-		* - `--a2ui-tabs-header-background-active`: Default `--a2ui-color-secondary`.
-		* - `--a2ui-tabs-header-color`: Default `--a2ui-color-on-surface`.
-		* - `--a2ui-tabs-header-color-active`: Default `--a2ui-color-on-secondary`.
-		* - `--a2ui-tabs-border`: Default `--a2ui-border-width` solid `--a2ui-color-border`.
-		* - `--a2ui-tabs-content-padding`: Default `0 var(--a2ui-spacing-m, 0.5rem)`.
-		*/
-		static {
-			this.styles = i$9`
-    :host {
-      display: block;
-    }
-    .a2ui-tabs-headers {
-      display: flex;
-      gap: var(--a2ui-spacing-xs, 0.25rem);
-      border-bottom: var(
-        --a2ui-tabs-border,
-        var(--a2ui-border-width, 1px) solid var(--a2ui-color-border, #ccc)
-      );
-      margin-bottom: var(--a2ui-spacing-m, 0.5rem);
-    }
-    .a2ui-tabs-header {
-      padding: var(--a2ui-spacing-m, 0.5rem) var(--a2ui-spacing-l, 1rem);
-      background: var(--a2ui-tabs-header-background, transparent);
-      color: var(--a2ui-tabs-header-color, var(--a2ui-color-on-surface));
-      border: none;
-      border-radius: var(--a2ui-border-radius, 0.25rem) var(--a2ui-border-radius, 0.25rem) 0 0;
-      cursor: pointer;
-      font-family: inherit;
-    }
-    .a2ui-tabs-header.active {
-      background: var(--a2ui-tabs-header-background-active, var(--a2ui-color-secondary, #eee));
-      color: var(--a2ui-tabs-header-color-active, var(--a2ui-color-on-secondary, #333));
-    }
-    .a2ui-tabs-content {
-      padding: var(--a2ui-tabs-content-padding, 0 var(--a2ui-spacing-m, 0.5rem));
-    }
-  `;
-		}
-		createController() {
-			return new A2uiController(this, TabsApi);
-		}
-		#activeIndex_accessor_storage = __runInitializers$1(this, _activeIndex_initializers, 0);
-		get activeIndex() {
-			return this.#activeIndex_accessor_storage;
-		}
-		set activeIndex(value) {
-			this.#activeIndex_accessor_storage = value;
-		}
-		render() {
-			const props = this.controller.props;
-			if (!props || !props.tabs) return A;
-			return b`
-      <div class="a2ui-tabs-headers">
-        ${props.tabs.map((tab, i) => b`
-            <button
-              class=${e({
-				"a2ui-tabs-header": true,
-				"a2ui-tab-button": true,
-				active: i === this.activeIndex
-			})}
-              @click=${() => this.activeIndex = i}
-            >
-              ${tab.title}
-            </button>
-          `)}
-      </div>
-      <div class="a2ui-tabs-content">
-        ${props.tabs[this.activeIndex] ? b`${this.renderNode(props.tabs[this.activeIndex].child)}` : A}
-      </div>
-    `;
-		}
-		constructor() {
-			super(...arguments);
-			__runInitializers$1(this, _activeIndex_extraInitializers);
-		}
-		static {
-			__runInitializers$1(_classThis, _classExtraInitializers);
-		}
-	};
-	return _classThis;
-})();
-const A2uiTabs = {
-	...TabsApi,
-	tagName: "a2ui-tabs"
-};
-var __esDecorate = function(ctor, descriptorIn, decorators, contextIn, initializers, extraInitializers) {
-	function accept(f) {
-		if (f !== void 0 && typeof f !== "function") throw new TypeError("Function expected");
-		return f;
-	}
-	var kind = contextIn.kind, key = kind === "getter" ? "get" : kind === "setter" ? "set" : "value";
-	var target = !descriptorIn && ctor ? contextIn["static"] ? ctor : ctor.prototype : null;
-	var descriptor = descriptorIn || (target ? Object.getOwnPropertyDescriptor(target, contextIn.name) : {});
-	var _, done = false;
-	for (var i = decorators.length - 1; i >= 0; i--) {
-		var context = {};
-		for (var p in contextIn) context[p] = p === "access" ? {} : contextIn[p];
-		for (var p in contextIn.access) context.access[p] = contextIn.access[p];
-		context.addInitializer = function(f) {
-			if (done) throw new TypeError("Cannot add initializers after decoration has completed");
-			extraInitializers.push(accept(f || null));
-		};
-		var result = (0, decorators[i])(kind === "accessor" ? {
-			get: descriptor.get,
-			set: descriptor.set
-		} : descriptor[key], context);
-		if (kind === "accessor") {
-			if (result === void 0) continue;
-			if (result === null || typeof result !== "object") throw new TypeError("Object expected");
-			if (_ = accept(result.get)) descriptor.get = _;
-			if (_ = accept(result.set)) descriptor.set = _;
-			if (_ = accept(result.init)) initializers.unshift(_);
-		} else if (_ = accept(result)) {
-			if (kind === "field") initializers.unshift(_);
-			else descriptor[key] = _;
-		}
-	}
-	if (target) Object.defineProperty(target, contextIn.name, descriptor);
-	done = true;
-};
-var __runInitializers = function(thisArg, initializers, value) {
-	var useValue = arguments.length > 2;
-	for (var i = 0; i < initializers.length; i++) value = useValue ? initializers[i].call(thisArg, value) : initializers[i].call(thisArg);
-	return useValue ? value : void 0;
-};
-(() => {
-	let _classDecorators = [t$5("a2ui-modal")];
-	let _classDescriptor;
-	let _classExtraInitializers = [];
-	let _classThis;
-	let _classSuper = BasicCatalogA2uiLitElement;
-	let _dialog_decorators;
-	let _dialog_initializers = [];
-	let _dialog_extraInitializers = [];
-	var A2uiLitModal = class extends _classSuper {
-		static {
-			_classThis = this;
-		}
-		static {
-			const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(_classSuper[Symbol.metadata] ?? null) : void 0;
-			_dialog_decorators = [e$7("dialog")];
-			__esDecorate(this, null, _dialog_decorators, {
-				kind: "accessor",
-				name: "dialog",
-				static: false,
-				private: false,
-				access: {
-					has: (obj) => "dialog" in obj,
-					get: (obj) => obj.dialog,
-					set: (obj, value) => {
-						obj.dialog = value;
-					}
-				},
-				metadata: _metadata
-			}, _dialog_initializers, _dialog_extraInitializers);
-			__esDecorate(null, _classDescriptor = { value: _classThis }, _classDecorators, {
-				kind: "class",
-				name: _classThis.name,
-				metadata: _metadata
-			}, null, _classExtraInitializers);
-			A2uiLitModal = _classThis = _classDescriptor.value;
-			if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, {
-				enumerable: true,
-				configurable: true,
-				writable: true,
-				value: _metadata
-			});
-		}
-		/**
-		* The styles of the modal can be customized by redefining the following
-		* CSS variables:
-		*
-		* - `--a2ui-modal-backdrop-bg`: Controls the backdrop color of the dialog.
-		* - `--a2ui-modal-padding`: Padding inside the dialog content area. Defaults to `24px`.
-		* - `--a2ui-modal-border-radius`: Border radius of the dialog. Defaults to `8px`.
-		*/
-		static {
-			this.styles = i$9`
-    :host {
-      display: inline-block;
-    }
-    dialog {
-      border: 1px solid var(--a2ui-color-border, #ccc);
-      border-radius: var(--a2ui-modal-border-radius, 8px);
-      padding: var(--a2ui-modal-padding, 24px);
-      min-width: 300px;
-      background: var(--a2ui-color-surface, #fff);
-    }
-    dialog::backdrop {
-      background: var(--a2ui-modal-backdrop-bg, rgba(0, 0, 0, 0.5));
-    }
-  `;
-		}
-		createController() {
-			return new A2uiController(this, ModalApi);
-		}
-		#dialog_accessor_storage = __runInitializers(this, _dialog_initializers, void 0);
-		get dialog() {
-			return this.#dialog_accessor_storage;
-		}
-		set dialog(value) {
-			this.#dialog_accessor_storage = value;
-		}
-		render() {
-			const props = this.controller.props;
-			if (!props) return A;
-			return b`
-      <div
-        @click=${() => this.dialog?.showModal()}
-        class="a2ui-modal-trigger"
-        style="display: contents;"
-      >
-        ${props.trigger ? b`${this.renderNode(props.trigger)}` : A}
-      </div>
-      <dialog class="a2ui-modal a2ui-modal-overlay">
-        <form method="dialog" style="text-align: right;">
-          <button class="a2ui-modal-close">×</button>
-        </form>
-        ${props.content ? b`${this.renderNode(props.content)}` : A}
-      </dialog>
-    `;
-		}
-		constructor() {
-			super(...arguments);
-			__runInitializers(this, _dialog_extraInitializers);
-		}
-		static {
-			__runInitializers(_classThis, _classExtraInitializers);
-		}
-	};
-	return _classThis;
-})();
-/**
-* The basic catalog for A2UI components in Lit.
-*
-* This catalog includes a wide range of components such as list, image, icon,
-* video, audio player, card, divider, checkbox, slider, date-time input, choice
-* picker, tabs, and modal. It also includes the basic functions from package
-* @a2ui/web_core.
-*/
-const basicCatalog = new Catalog("https://a2ui.org/specification/v0_9/catalogs/basic/catalog.json", [
-	A2uiText,
-	A2uiButton,
-	A2uiTextField,
-	A2uiRow,
-	A2uiColumn,
-	A2uiList,
-	A2uiImage,
-	A2uiIcon,
-	A2uiVideo,
-	A2uiAudioPlayer,
-	A2uiCard,
-	A2uiDivider,
-	A2uiCheckBox,
-	A2uiSlider,
-	A2uiDateTimeInput,
-	A2uiChoicePicker,
-	A2uiTabs,
-	{
-		...ModalApi,
-		tagName: "a2ui-modal"
-	}
-], BASIC_FUNCTIONS);
 /**
 * @license
 * Copyright 2017 Google LLC
@@ -16150,9 +13793,9 @@ const u = (e, s, t) => {
 	for (let l = s; l <= t; l++) r.set(e[l], l);
 	return r;
 };
-const c = e$3(class extends i$3 {
+const c = e$3(class extends i$2 {
 	constructor(e) {
-		if (super(e), e.type !== t$2.CHILD) throw Error("repeat() can only be used in text expressions");
+		if (super(e), e.type !== t$1.CHILD) throw Error("repeat() can only be used in text expressions");
 	}
 	dt(e, s, t) {
 		let r;
@@ -16186,19 +13829,1344 @@ const c = e$3(class extends i$3 {
 				u$1(e, p$4[k]), v$3[k] = e;
 			} else v$3[k] = u$1(t, p$4[k]), v(s, d[x], t), d[e] = null;
 			k++;
-		} else h$2(d[j]), j--;
-		else h$2(d[x]), x++;
+		} else h$1(d[j]), j--;
+		else h$1(d[x]), x++;
 		for (; k <= w;) {
 			const e = v(s, v$3[w + 1]);
 			u$1(e, p$4[k]), v$3[k++] = e;
 		}
 		for (; x <= j;) {
 			const e = d[x++];
-			null !== e && h$2(e);
+			null !== e && h$1(e);
 		}
-		return this.ut = a, p(s, v$3), E;
+		return this.ut = a, p(s, v$3), E$1;
 	}
 });
+var __decorate$14 = function(decorators, target, key, desc) {
+	var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+	if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+	else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+	return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+const JUSTIFY_MAP$1 = {
+	start: "flex-start",
+	center: "center",
+	end: "flex-end",
+	spaceBetween: "space-between",
+	spaceAround: "space-around",
+	spaceEvenly: "space-evenly",
+	stretch: "stretch"
+};
+const ALIGN_MAP$1 = {
+	start: "flex-start",
+	center: "center",
+	end: "flex-end",
+	stretch: "stretch",
+	baseline: "baseline"
+};
+function getChildKey$2(child) {
+	return typeof child === "object" && child !== null ? `${child.basePath ?? ""}/${child.id}` : String(child);
+}
+let A2uiBasicRowElement = class A2uiBasicRowElement extends BasicCatalogA2uiLitElement {
+	constructor() {
+		super(...arguments);
+		this.api = RowApi;
+	}
+	updated(changedProperties) {
+		super.updated(changedProperties);
+		const props = this.controller.props;
+		if (props) {
+			if (props.justify) this.style.justifyContent = JUSTIFY_MAP$1[props.justify] ?? "flex-start";
+			else this.style.removeProperty("justify-content");
+			if (props.align) this.style.alignItems = ALIGN_MAP$1[props.align] ?? "stretch";
+			else this.style.removeProperty("align-items");
+		}
+	}
+	render() {
+		const props = this.controller.props;
+		if (!props) return A;
+		const children = Array.isArray(props.children) ? props.children : [];
+		return b$1` ${c(children, getChildKey$2, (child) => b$1`${this.renderNode(child)}`)} `;
+	}
+};
+/**
+* The styles of the row can be customized by redefining the following
+* CSS variables:
+*
+* - `--a2ui-row-gap`: The gap between items in the row. Defaults to `--a2ui-spacing-m`.
+*/
+A2uiBasicRowElement.styles = i$9`
+    :host,
+    a2ui-basic-row {
+      display: flex;
+      flex-direction: row;
+      gap: var(--a2ui-row-gap, var(--a2ui-spacing-m));
+    }
+  `;
+A2uiBasicRowElement = __decorate$14([t$5("a2ui-basic-row")], A2uiBasicRowElement);
+const A2uiRow = {
+	...RowApi,
+	tagName: "a2ui-basic-row"
+};
+var __decorate$13 = function(decorators, target, key, desc) {
+	var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+	if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+	else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+	return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+const JUSTIFY_MAP = {
+	start: "flex-start",
+	center: "center",
+	end: "flex-end",
+	spaceBetween: "space-between",
+	spaceAround: "space-around",
+	spaceEvenly: "space-evenly",
+	stretch: "stretch"
+};
+const ALIGN_MAP = {
+	start: "flex-start",
+	center: "center",
+	end: "flex-end",
+	stretch: "stretch",
+	baseline: "baseline"
+};
+function getChildKey$1(child) {
+	return typeof child === "object" && child !== null ? `${child.basePath ?? ""}/${child.id}` : String(child);
+}
+let A2uiBasicColumnElement = class A2uiBasicColumnElement extends BasicCatalogA2uiLitElement {
+	constructor() {
+		super(...arguments);
+		this.api = ColumnApi;
+	}
+	updated(changedProperties) {
+		super.updated(changedProperties);
+		const props = this.controller.props;
+		if (props) {
+			if (props.justify) this.style.justifyContent = JUSTIFY_MAP[props.justify] ?? "flex-start";
+			else this.style.removeProperty("justify-content");
+			if (props.align) this.style.alignItems = ALIGN_MAP[props.align] ?? "stretch";
+			else this.style.removeProperty("align-items");
+		}
+	}
+	render() {
+		const props = this.controller.props;
+		if (!props) return A;
+		const children = Array.isArray(props.children) ? props.children : [];
+		return b$1` ${c(children, getChildKey$1, (child) => b$1`${this.renderNode(child)}`)} `;
+	}
+};
+/**
+* The styles of the column can be customized by redefining the following
+* CSS variables:
+*
+* - `--a2ui-column-gap`: The gap between items in the column. Defaults to `--a2ui-spacing-m`.
+* - `--a2ui-column-width`: The width of the column. Defaults to `100%`.
+*/
+A2uiBasicColumnElement.styles = i$9`
+    :host,
+    a2ui-basic-column {
+      display: flex;
+      flex-direction: column;
+      width: var(--a2ui-column-width, 100%);
+      gap: var(--a2ui-column-gap, var(--a2ui-spacing-m));
+    }
+  `;
+A2uiBasicColumnElement = __decorate$13([t$5("a2ui-basic-column")], A2uiBasicColumnElement);
+const A2uiColumn = {
+	...ColumnApi,
+	tagName: "a2ui-basic-column"
+};
+var __decorate$12 = function(decorators, target, key, desc) {
+	var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+	if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+	else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+	return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+function getChildKey(child) {
+	return typeof child === "object" && child !== null ? `${child.basePath ?? ""}/${child.id}` : String(child);
+}
+let A2uiListElement = class A2uiListElement extends BasicCatalogA2uiLitElement {
+	constructor() {
+		super(...arguments);
+		this.api = ListApi;
+	}
+	render() {
+		const props = this.controller.props;
+		if (!props) return A;
+		const children = Array.isArray(props.children) ? props.children : [];
+		const listStyle = props.listStyle;
+		const direction = props.direction || "vertical";
+		if (listStyle === "ordered") return b$1`
+        <ol class="a2ui-list ${direction}">
+          ${c(children, getChildKey, (child) => b$1`<li>${this.renderNode(child)}</li>`)}
+        </ol>
+      `;
+		if (listStyle === "unordered") return b$1`
+        <ul class="a2ui-list ${direction}">
+          ${c(children, getChildKey, (child) => b$1`<li>${this.renderNode(child)}</li>`)}
+        </ul>
+      `;
+		return b$1`
+      <div class="a2ui-list ${direction}">
+        ${c(children, getChildKey, (child) => b$1`<div class="a2ui-list-item-none">${this.renderNode(child)}</div>`)}
+      </div>
+    `;
+	}
+};
+A2uiListElement.styles = i$9`
+    .a2ui-list {
+      display: flex;
+      padding-inline-start: var(--a2ui-list-padding, var(--a2ui-spacing-l, 24px));
+      margin: 0;
+    }
+    .a2ui-list.vertical {
+      flex-direction: column;
+      gap: var(--a2ui-list-gap, var(--a2ui-spacing-s, 8px));
+    }
+    .a2ui-list.horizontal {
+      flex-direction: row;
+      gap: var(--a2ui-list-gap, var(--a2ui-spacing-m, 16px));
+      list-style-position: inside;
+    }
+    .a2ui-list-item-none {
+      display: block;
+    }
+    .horizontal .a2ui-list-item-none {
+      display: inline-block;
+    }
+  `;
+A2uiListElement = __decorate$12([t$5("a2ui-list")], A2uiListElement);
+const A2uiList = {
+	...ListApi,
+	tagName: "a2ui-list"
+};
+/**
+* @license
+* Copyright 2018 Google LLC
+* SPDX-License-Identifier: BSD-3-Clause
+*/ const n = "important";
+const i = " !" + n;
+const o = e$3(class extends i$2 {
+	constructor(t) {
+		if (super(t), t.type !== t$1.ATTRIBUTE || "style" !== t.name || t.strings?.length > 2) throw Error("The `styleMap` directive must be used in the `style` attribute and must be the only part in the attribute.");
+	}
+	render(t) {
+		return Object.keys(t).reduce((e, r) => {
+			const s = t[r];
+			return null == s ? e : e + `${r = r.includes("-") ? r : r.replace(/(?:^(webkit|moz|ms|o)|)(?=[A-Z])/g, "-$&").toLowerCase()}:${s};`;
+		}, "");
+	}
+	update(e, [r]) {
+		const { style: s } = e.element;
+		if (void 0 === this.ft) return this.ft = new Set(Object.keys(r)), this.render(r);
+		for (const t of this.ft) null == r[t] && (this.ft.delete(t), t.includes("-") ? s.removeProperty(t) : s[t] = null);
+		for (const t in r) {
+			const e = r[t];
+			if (null != e) {
+				this.ft.add(t);
+				const r = "string" == typeof e && e.endsWith(i);
+				t.includes("-") || r ? s.setProperty(t, r ? e.slice(0, -11) : e, r ? n : "") : s[t] = e;
+			}
+		}
+		return E$1;
+	}
+});
+var __decorate$11 = function(decorators, target, key, desc) {
+	var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+	if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+	else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+	return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+let A2uiImageElement = class A2uiImageElement extends BasicCatalogA2uiLitElement {
+	constructor() {
+		super(...arguments);
+		this.api = ImageApi;
+	}
+	render() {
+		const props = this.controller.props;
+		if (!props) return A;
+		const variant = props.variant || "default";
+		const fit = props.fit || "cover";
+		return b$1`<img
+      src=${props.url}
+      alt=${props.description || ""}
+      style=${o({ objectFit: fit })}
+      class="a2ui-image ${variant}"
+    />`;
+	}
+};
+/**
+* The styles of the image can be customized by redefining the following
+* CSS variables:
+*
+* - `--a2ui-image-border-radius`: Controls the rounded corners of the image. Defaults to `0`.
+* - `--a2ui-image-icon-size`: Controls the size of the `icon` variant. Defaults to `24px`.
+* - `--a2ui-image-avatar-size`: Controls the size of the `avatar` variant. Defaults to `40px`.
+* - `--a2ui-image-small-feature-size`: Controls the max-width of the `smallFeature` variant. Defaults to `100px`.
+* - `--a2ui-image-large-feature-size`: Controls the max-height of the `largeFeature` variant. Defaults to `400px`.
+* - `--a2ui-image-header-size`: Controls the height of the `header` variant. Defaults to `200px`.
+*/
+A2uiImageElement.styles = i$9`
+    .a2ui-image {
+      display: block;
+      max-width: 100%;
+      height: auto;
+      border-radius: var(--a2ui-image-border-radius, 0);
+    }
+    .a2ui-image.icon {
+      width: var(--a2ui-image-icon-size, 24px);
+      height: var(--a2ui-image-icon-size, 24px);
+    }
+    .a2ui-image.avatar {
+      width: var(--a2ui-image-avatar-size, 40px);
+      height: var(--a2ui-image-avatar-size, 40px);
+      border-radius: 50%;
+    }
+    .a2ui-image.smallFeature {
+      max-width: var(--a2ui-image-small-feature-size, 100px);
+    }
+    .a2ui-image.largeFeature {
+      max-height: var(--a2ui-image-large-feature-size, 400px);
+    }
+    .a2ui-image.header {
+      height: var(--a2ui-image-header-size, 200px);
+    }
+  `;
+A2uiImageElement = __decorate$11([t$5("a2ui-image")], A2uiImageElement);
+const A2uiImage = {
+	...ImageApi,
+	tagName: "a2ui-image"
+};
+var __decorate$10 = function(decorators, target, key, desc) {
+	var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+	if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+	else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+	return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+const ICON_NAME_OVERRIDES = {
+	play: "play_arrow",
+	rewind: "fast_rewind",
+	favoriteOff: "favorite_border",
+	starOff: "star_border"
+};
+function toMaterialIconName(name) {
+	if (ICON_NAME_OVERRIDES[name]) return ICON_NAME_OVERRIDES[name];
+	return name.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
+}
+let A2uiIconElement = class A2uiIconElement extends BasicCatalogA2uiLitElement {
+	constructor() {
+		super(...arguments);
+		this.api = IconApi;
+	}
+	render() {
+		const props = this.controller.props;
+		if (!props) return A;
+		const name = props.name;
+		if (typeof name === "object" && name !== null && "svgPath" in name) {
+			const svgPath = name.svgPath;
+			return b$1`
+        <svg class="a2ui-icon svg" viewBox="0 0 24 24">
+          <path d=${svgPath}></path>
+        </svg>
+      `;
+		}
+		const iconName = typeof name === "string" ? toMaterialIconName(name) : "";
+		return b$1`<i class="material-icons a2ui-icon">${iconName}</i>`;
+	}
+};
+/**
+* The icon component can be customized with the following CSS variables:
+*
+* - `--a2ui-icon-size`: Dimensions of the icon.
+* - `--a2ui-icon-color`: Color tint applied to the icon.
+* - `--a2ui-icon-font-family`: Override the font family for icons. Defaults to 'Material Icons', 'Material Symbols Outlined'.
+* - `--a2ui-icon-font-variation-settings`: Complete override for font-variation-settings.
+*/
+A2uiIconElement.styles = i$9`
+    .a2ui-icon {
+      display: inline-block;
+      width: var(--a2ui-icon-size, 24px);
+      height: var(--a2ui-icon-size, 24px);
+      font-size: var(--a2ui-icon-size, 24px);
+      font-style: normal;
+      font-weight: normal;
+      font-family: var(--a2ui-icon-font-family, 'Material Icons', 'Material Symbols Outlined');
+      color: var(
+        --a2ui-icon-color,
+        var(--a2ui-text-color-text, var(--a2ui-color-on-background, #333))
+      );
+      font-variation-settings: var(--a2ui-icon-font-variation-settings, 'FILL' 1);
+      line-height: 1;
+      text-transform: none;
+      letter-spacing: normal;
+      word-wrap: normal;
+      white-space: nowrap;
+      direction: ltr;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+      -moz-osx-font-smoothing: grayscale;
+      font-feature-settings: 'liga';
+      vertical-align: middle;
+    }
+    .a2ui-icon.svg {
+      fill: currentColor;
+    }
+  `;
+A2uiIconElement = __decorate$10([t$5("a2ui-icon")], A2uiIconElement);
+const A2uiIcon = {
+	...IconApi,
+	tagName: "a2ui-icon"
+};
+var __decorate$9 = function(decorators, target, key, desc) {
+	var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+	if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+	else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+	return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+let A2uiVideoElement = class A2uiVideoElement extends BasicCatalogA2uiLitElement {
+	constructor() {
+		super(...arguments);
+		this.api = VideoApi;
+	}
+	render() {
+		const props = this.controller.props;
+		if (!props) return A;
+		return b$1`
+      <div class="a2ui-video-container">
+        <video src=${props.url || A} controls class="a2ui-video">
+          Your browser does not support the video tag.
+        </video>
+      </div>
+    `;
+	}
+};
+/**
+* The styles of the video can be customized by redefining the following
+* CSS variables:
+*
+* - `--a2ui-video-border-radius`: Controls the rounded corners of the video. Defaults to `0`.
+*/
+A2uiVideoElement.styles = i$9`
+    .a2ui-video-container {
+      width: 100%;
+      max-width: 100%;
+    }
+    .a2ui-video {
+      width: 100%;
+      height: auto;
+      display: block;
+      border-radius: var(--a2ui-video-border-radius, 0);
+    }
+  `;
+A2uiVideoElement = __decorate$9([t$5("a2ui-video")], A2uiVideoElement);
+const A2uiVideo = {
+	...VideoApi,
+	tagName: "a2ui-video"
+};
+var __decorate$8 = function(decorators, target, key, desc) {
+	var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+	if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+	else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+	return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+let A2uiAudioPlayerElement = class A2uiAudioPlayerElement extends BasicCatalogA2uiLitElement {
+	constructor() {
+		super(...arguments);
+		this.api = AudioPlayerApi;
+	}
+	render() {
+		const props = this.controller.props;
+		if (!props) return A;
+		return b$1`
+      <div class="a2ui-audio-player">
+        ${props.description ? b$1`<div class="a2ui-audio-description">${props.description}</div>` : A}
+        <audio src=${props.url || A} controls class="a2ui-audio">
+          Your browser does not support the audio tag.
+        </audio>
+      </div>
+    `;
+	}
+};
+A2uiAudioPlayerElement.styles = i$9`
+    .a2ui-audio-player {
+      display: flex;
+      flex-direction: column;
+      gap: var(--a2ui-spacing-xs, 0.25rem);
+      background: var(--a2ui-audioplayer-background, transparent);
+      border-radius: var(--a2ui-audioplayer-border-radius, 0);
+      padding: var(--a2ui-audioplayer-padding, 0);
+      width: 100%;
+    }
+    .a2ui-audio-description {
+      font-size: var(--a2ui-font-size-s, 0.875rem);
+      color: var(
+        --a2ui-audioplayer-description-color,
+        var(--a2ui-text-caption-color, light-dark(#666, #aaa))
+      );
+    }
+    .a2ui-audio {
+      width: 100%;
+    }
+  `;
+A2uiAudioPlayerElement = __decorate$8([t$5("a2ui-audioplayer")], A2uiAudioPlayerElement);
+const A2uiAudioPlayer = {
+	...AudioPlayerApi,
+	tagName: "a2ui-audioplayer"
+};
+var __decorate$7 = function(decorators, target, key, desc) {
+	var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+	if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+	else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+	return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+let A2uiCardElement = class A2uiCardElement extends BasicCatalogA2uiLitElement {
+	constructor() {
+		super(...arguments);
+		this.api = CardApi;
+	}
+	render() {
+		const props = this.controller.props;
+		if (!props) return A;
+		return b$1`
+      <div class="a2ui-card">${props.child ? this.renderNode(props.child) : A}</div>
+    `;
+	}
+};
+/**
+* The styles of the card can be customized by redefining the following
+* CSS variables:
+*
+* - `--a2ui-card-border`: The styling for the card border. Defaults to `--a2ui-border-width` width and `--a2ui-color-border` color.
+* - `--a2ui-card-border-radius`: The border radius of the card. Defaults to `--a2ui-border-radius`.
+* - `--a2ui-card-padding`: The padding of the card. Defaults to `--a2ui-spacing-m`.
+* - `--a2ui-card-box-shadow`: The box shadow of the card. Defaults to `0 2px 4px rgba(0,0,0,0.1)`.
+* - `--a2ui-card-margin`: The outer margin of the card. Defaults to `--a2ui-spacing-m`.
+*/
+A2uiCardElement.styles = i$9`
+    .a2ui-card {
+      padding: var(--a2ui-card-padding, var(--a2ui-spacing-m, 16px));
+      border-radius: var(--a2ui-card-border-radius, var(--a2ui-border-radius, 8px));
+      box-shadow: var(--a2ui-card-box-shadow, 0 2px 4px rgba(0, 0, 0, 0.1));
+      background: var(--a2ui-card-background, var(--a2ui-color-surface, #fff));
+      color: var(--a2ui-color-on-surface, #333);
+      border: var(
+        --a2ui-card-border,
+        var(--a2ui-border-width, 1px) solid var(--a2ui-color-border, #ccc)
+      );
+      margin: var(--a2ui-card-margin, var(--a2ui-spacing-m, 16px));
+    }
+  `;
+A2uiCardElement = __decorate$7([t$5("a2ui-card")], A2uiCardElement);
+const A2uiCard = {
+	...CardApi,
+	tagName: "a2ui-card"
+};
+var __decorate$6 = function(decorators, target, key, desc) {
+	var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+	if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+	else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+	return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+let A2uiDividerElement = class A2uiDividerElement extends BasicCatalogA2uiLitElement {
+	constructor() {
+		super(...arguments);
+		this.api = DividerApi;
+	}
+	render() {
+		const props = this.controller.props;
+		if (!props) return A;
+		const axis = props.axis ?? "horizontal";
+		return b$1`<hr class=${e({
+			"a2ui-divider": true,
+			horizontal: axis === "horizontal",
+			vertical: axis === "vertical"
+		})} />`;
+	}
+};
+/**
+* The styles of the divider can be customized by redefining the following
+* CSS variables:
+*
+* - `--a2ui-divider-border`: The styling for the divider border. Defaults to `--a2ui-border-width` solid `--a2ui-color-border`.
+* - `--a2ui-divider-spacing`: The spacing around the divider. Defaults to `--a2ui-spacing-m`.
+*/
+A2uiDividerElement.styles = i$9`
+    .a2ui-divider {
+      border: 0;
+      border-top: var(
+        --a2ui-divider-border,
+        var(--a2ui-border-width, 1px) solid var(--a2ui-color-border, #ccc)
+      );
+      margin: var(--a2ui-divider-spacing, var(--a2ui-spacing-m, 16px)) 0;
+      width: 100%;
+    }
+    .a2ui-divider.vertical {
+      width: var(--a2ui-border-width, 1px);
+      height: 100%;
+      margin: 0 var(--a2ui-divider-spacing, var(--a2ui-spacing-m, 16px));
+      border-top: 0;
+      border-left: var(
+        --a2ui-divider-border,
+        var(--a2ui-border-width, 1px) solid var(--a2ui-color-border, #ccc)
+      );
+    }
+  `;
+A2uiDividerElement = __decorate$6([t$5("a2ui-divider")], A2uiDividerElement);
+const A2uiDivider = {
+	...DividerApi,
+	tagName: "a2ui-divider"
+};
+var __decorate$5 = function(decorators, target, key, desc) {
+	var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+	if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+	else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+	return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+let A2uiCheckBoxElement = class A2uiCheckBoxElement extends BasicCatalogA2uiLitElement {
+	constructor() {
+		super(...arguments);
+		this.api = CheckBoxApi;
+	}
+	render() {
+		const props = this.controller.props;
+		if (!props) return A;
+		const isInvalid = props.isValid === false;
+		const labelClasses = {
+			"a2ui-checkbox": true,
+			invalid: isInvalid
+		};
+		const inputClasses = { invalid: isInvalid };
+		return b$1`
+      <div class="container">
+        <label class=${e(labelClasses)}>
+          <input
+            type="checkbox"
+            class=${e(inputClasses)}
+            .checked=${props.value || false}
+            @change=${(e) => props.setValue?.(e.target.checked)}
+          />
+          <span class="a2ui-check-box-text">${props.label}</span>
+        </label>
+        ${isInvalid && props.validationErrors?.length ? props.validationErrors.map((msg) => b$1`<div class="error a2ui-error-message">${msg}</div>`) : A}
+      </div>
+    `;
+	}
+};
+/**
+* The styles of the checkbox can be customized by redefining the following
+* CSS variables:
+*
+* - `--a2ui-checkbox-size`: Size of the box. Defaults to `1rem`.
+* - `--a2ui-checkbox-border-radius`: Default corner rounding of the box.
+* - `--a2ui-checkbox-gap`: Spacing between the checkbox and its label. Defaults to `8px`.
+* - `--a2ui-checkbox-margin`: Outer margin of the component. Defaults to `--a2ui-spacing-m`.
+* - `--a2ui-checkbox-color-error`: Color for invalid state. Defaults to `red`.
+* - `--a2ui-checkbox-label-font-size`: Font size of the label. Defaults to `--a2ui-label-font-size` then `--a2ui-font-size-s`.
+* - `--a2ui-checkbox-label-font-weight`: Font weight of the label. Defaults to `--a2ui-label-font-weight` then `bold`.
+*/
+A2uiCheckBoxElement.styles = i$9`
+    :host,
+    a2ui-checkbox {
+      display: block;
+    }
+    .container {
+      display: flex;
+      flex-direction: column;
+      margin: var(--a2ui-checkbox-margin, var(--a2ui-spacing-m));
+    }
+    label.a2ui-checkbox {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--a2ui-checkbox-gap, var(--a2ui-spacing-s, 0.5rem));
+      font-size: var(
+        --a2ui-checkbox-label-font-size,
+        var(--a2ui-label-font-size, var(--a2ui-font-size-s))
+      );
+      font-weight: var(--a2ui-checkbox-label-font-weight, var(--a2ui-label-font-weight, bold));
+      cursor: pointer;
+    }
+    label.invalid {
+      color: var(--a2ui-checkbox-color-error, red);
+    }
+    input {
+      width: var(--a2ui-checkbox-size, 1rem);
+      height: var(--a2ui-checkbox-size, 1rem);
+      background: var(--a2ui-checkbox-background, inherit);
+      border: var(--a2ui-checkbox-border, var(--a2ui-border));
+      border-radius: var(--a2ui-checkbox-border-radius, 4px);
+    }
+    input.invalid {
+      outline: 1px solid var(--a2ui-checkbox-color-error, red);
+    }
+    .error,
+    .a2ui-error-message {
+      color: var(--a2ui-checkbox-color-error, red);
+      font-size: var(--a2ui-font-size-xs, 0.75rem);
+      margin-top: 4px;
+    }
+  `;
+A2uiCheckBoxElement = __decorate$5([t$5("a2ui-checkbox")], A2uiCheckBoxElement);
+const A2uiCheckBox = {
+	...CheckBoxApi,
+	tagName: "a2ui-checkbox"
+};
+var __decorate$4 = function(decorators, target, key, desc) {
+	var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+	if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+	else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+	return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+let A2uiSliderElement = class A2uiSliderElement extends BasicCatalogA2uiLitElement {
+	constructor() {
+		super(...arguments);
+		this.api = SliderApi;
+	}
+	render() {
+		const props = this.controller.props;
+		if (!props) return A;
+		return b$1`
+      <div class="a2ui-slider-container">
+        <div class="a2ui-slider-header">
+          <span class="a2ui-slider-label">${props.label}</span>
+          <span class="a2ui-slider-value">${props.value}</span>
+        </div>
+        <input
+          type="range"
+          min=${props.min ?? 0}
+          max=${props.max ?? 100}
+          .value=${props.value?.toString() || "0"}
+          @input=${(e) => props.setValue?.(Number(e.target.value))}
+          class="a2ui-slider"
+        />
+      </div>
+    `;
+	}
+};
+/**
+* The slider can be customized with the following CSS variables:
+*
+* - `--a2ui-slider-track-color`: Color of the slider track. Defaults to `--a2ui-color-secondary`.
+* - `--a2ui-slider-thumb-color`: Color of the slider thumb. Defaults to `--a2ui-color-primary`.
+* - `--a2ui-slider-margin`: Outer margin of the component. Defaults to `--a2ui-spacing-m`.
+* - `--a2ui-slider-label-font-size`: Font size of the label. Defaults to `--a2ui-label-font-size` then `--a2ui-font-size-s`.
+* - `--a2ui-slider-label-font-weight`: Font weight of the label. Defaults to `--a2ui-label-font-weight` then `bold`.
+*/
+A2uiSliderElement.styles = i$9`
+    .a2ui-slider-container {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: var(--a2ui-spacing-xs, 4px);
+      margin: var(--a2ui-slider-margin, var(--a2ui-spacing-m, 16px));
+    }
+    .a2ui-slider-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: var(
+        --a2ui-slider-label-font-size,
+        var(--a2ui-label-font-size, var(--a2ui-font-size-s, 14px))
+      );
+      font-weight: var(--a2ui-slider-label-font-weight, bold);
+      color: var(--a2ui-text-color-text, var(--a2ui-color-on-background, #333));
+    }
+    .a2ui-slider {
+      width: 100%;
+      cursor: pointer;
+      accent-color: var(--a2ui-slider-thumb-color, var(--a2ui-color-primary, #007bff));
+      background: var(--a2ui-slider-track-color, var(--a2ui-color-secondary, #e9ecef));
+    }
+  `;
+A2uiSliderElement = __decorate$4([t$5("a2ui-slider")], A2uiSliderElement);
+const A2uiSlider = {
+	...SliderApi,
+	tagName: "a2ui-slider"
+};
+var __decorate$3 = function(decorators, target, key, desc) {
+	var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+	if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+	else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+	return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+/**
+* Returns the current date formatted as YYYY-MM-DD in the user's local timezone.
+*/
+function getLocalIsoDate() {
+	const now = /* @__PURE__ */ new Date();
+	return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+/**
+* Normalizes an incoming ISO or partial date/time value into a format accepted by HTML5 inputs.
+*
+* HTML5 input elements (like type="date", type="time", and type="datetime-local") strictly reject
+* timezone indicators (like "Z" or "+00:00") and trailing seconds/milliseconds in their .value property.
+* If these are present, the browser will reset the input to an empty string. This function strips
+* those specifiers using string splitting and substring manipulation without shifting timezones.
+*/
+function normalizeDateTimeValue(value, type) {
+	if (!value) return "";
+	if (value.includes("T")) {
+		const [datePart, timePart] = value.split("T");
+		switch (type) {
+			case "date": return datePart?.substring(0, 10) ?? "";
+			case "time": return timePart?.substring(0, 5) ?? "";
+			case "datetime-local": return `${datePart?.substring(0, 10) ?? ""}T${timePart?.substring(0, 5) ?? ""}`;
+		}
+	}
+	if (type === "date") return value.includes("-") ? value.substring(0, 10) : "";
+	if (type === "time") return value.includes(":") ? value.substring(0, 5) : "";
+	return "";
+}
+let A2uiDateTimeInputElement = class A2uiDateTimeInputElement extends BasicCatalogA2uiLitElement {
+	constructor() {
+		super(...arguments);
+		this.api = DateTimeInputApi;
+	}
+	render() {
+		const props = this.controller.props;
+		if (!props) return A;
+		const enableDate = props.enableDate ?? true;
+		const enableTime = props.enableTime ?? false;
+		const rawValue = typeof props.value === "string" ? props.value : props.value ? String(props.value) : "";
+		const dateValue = normalizeDateTimeValue(rawValue, "date");
+		const timeValue = normalizeDateTimeValue(rawValue, "time");
+		const handleDateChange = (event) => {
+			const date = event.target.value;
+			if (enableTime) {
+				const time = rawValue.includes("T") ? rawValue.split("T")[1] : rawValue.includes(":") ? rawValue : "00:00:00";
+				props.setValue?.(`${date}T${time}`);
+			} else props.setValue?.(date);
+		};
+		const handleTimeChange = (event) => {
+			const time = event.target.value;
+			if (enableDate) {
+				const date = rawValue.includes("T") ? rawValue.split("T")[0] : rawValue.includes("-") ? rawValue : getLocalIsoDate();
+				props.setValue?.(`${date}T${time}:00`);
+			} else props.setValue?.(time);
+		};
+		return b$1`
+      <div class="a2ui-date-time-container">
+        ${props.label ? b$1`<label class="a2ui-date-time-label">${props.label}</label>` : A}
+        <div class="a2ui-date-time-inputs">
+          ${enableDate ? b$1`
+                <input
+                  type="date"
+                  .value=${dateValue}
+                  @change=${handleDateChange}
+                  class="a2ui-date-time-input"
+                />
+              ` : A}
+          ${enableTime ? b$1`
+                <input
+                  type="time"
+                  .value=${timeValue}
+                  @change=${handleTimeChange}
+                  class="a2ui-date-time-input"
+                />
+              ` : A}
+        </div>
+      </div>
+    `;
+	}
+};
+/**
+* The styles of the datetime input can be customized by redefining the following
+* CSS variables:
+*
+* - `--a2ui-datetimeinput-width`: Width of the component. Defaults to `100%`.
+* - `--a2ui-datetimeinput-background`: Controls the background of inputs.
+* - `--a2ui-datetimeinput-color`: Controls the text color of inputs.
+* - `--a2ui-datetimeinput-border`: Controls the border of inputs.
+* - `--a2ui-datetimeinput-border-radius`: Controls the border radius of inputs.
+* - `--a2ui-datetimeinput-padding`: Controls the padding of inputs.
+* - `--a2ui-datetimeinput-label-font-size`: Font size of the label. Defaults to `--a2ui-label-font-size` then `--a2ui-font-size-s`.
+* - `--a2ui-datetimeinput-label-font-weight`: Font weight of the label. Defaults to `--a2ui-label-font-weight` then `bold`.
+*/
+A2uiDateTimeInputElement.styles = i$9`
+    .a2ui-date-time-container {
+      display: flex;
+      flex-direction: column;
+      gap: var(--a2ui-spacing-xs, 4px);
+      width: var(--a2ui-datetimeinput-width, 100%);
+    }
+    input {
+      box-sizing: border-box;
+      width: 100%;
+    }
+    .a2ui-date-time-label {
+      font-size: var(
+        --a2ui-datetimeinput-label-font-size,
+        var(--a2ui-label-font-size, var(--a2ui-font-size-s, 14px))
+      );
+      font-weight: var(--a2ui-datetimeinput-label-font-weight, bold);
+      color: var(--a2ui-text-color-text, var(--a2ui-color-on-background, #333));
+    }
+    .a2ui-date-time-inputs {
+      display: flex;
+      gap: var(--a2ui-spacing-s, 8px);
+      width: 100%;
+    }
+    .a2ui-date-time-input {
+      padding: var(--a2ui-datetimeinput-padding, 8px);
+      border-radius: var(--a2ui-datetimeinput-border-radius, 4px);
+      border: var(--a2ui-datetimeinput-border, 1px solid var(--a2ui-color-border, #ccc));
+      background-color: var(--a2ui-datetimeinput-background, var(--a2ui-color-input, #fff));
+      color: var(--a2ui-datetimeinput-color, var(--a2ui-color-on-input, #333));
+      font-family: inherit;
+      flex: 1;
+    }
+    .a2ui-date-time-input::-webkit-datetime-edit,
+    .a2ui-date-time-input::-webkit-datetime-edit-fields-wrapper {
+      color: var(--a2ui-datetimeinput-color, var(--a2ui-color-on-input, #333));
+    }
+  `;
+A2uiDateTimeInputElement = __decorate$3([t$5("a2ui-datetimeinput")], A2uiDateTimeInputElement);
+const A2uiDateTimeInput = {
+	...DateTimeInputApi,
+	tagName: "a2ui-datetimeinput"
+};
+var __decorate$2 = function(decorators, target, key, desc) {
+	var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+	if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+	else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+	return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+let A2uiChoicePickerElement = class A2uiChoicePickerElement extends BasicCatalogA2uiLitElement {
+	constructor() {
+		super(...arguments);
+		this.filter = "";
+		this.api = ChoicePickerApi;
+	}
+	render() {
+		const props = this.controller?.props;
+		if (!props) return A;
+		const rawVal = props.value;
+		const selected = Array.isArray(rawVal) ? rawVal : typeof rawVal === "string" ? [rawVal] : [];
+		const isMulti = props.variant === "multipleSelection";
+		const isChips = props.displayStyle === "chips";
+		const toggle = (val) => {
+			const setter = props.setValue;
+			if (typeof setter !== "function") return;
+			if (isMulti) {
+				if (selected.includes(val)) setter(selected.filter((v) => v !== val));
+				else setter([...selected, val]);
+			} else setter([val]);
+		};
+		const options = (props.options || []).filter((opt) => !props.filterable || this.filter === "" || String(opt.label).toLowerCase().includes(this.filter.toLowerCase()));
+		const groupName = `a2ui-choice-${this.context?.dataContext?.surface?.id || "default"}-${this.context?.componentModel?.id || "choice-picker"}-${(this.context?.dataContext?.path || "/").replace(/[^a-zA-Z0-9-]/g, "_")}`;
+		return b$1`
+      ${props.label ? b$1`<label>${props.label}</label>` : A}
+      ${props.filterable ? b$1`
+            <input
+              type="text"
+              class="filter-input"
+              placeholder="Filter options..."
+              aria-label="Filter options"
+              .value=${this.filter}
+              @input=${(e) => this.filter = e.target.value}
+            />
+          ` : A}
+      <div
+        class=${e({
+			"a2ui-choice-picker": true,
+			options: true,
+			"a2ui-options-group": !isChips,
+			chips: isChips,
+			"a2ui-chips-group": isChips
+		})}
+      >
+        ${options.map((opt) => isChips ? b$1`
+                <button
+                  type="button"
+                  class=${e({
+			"a2ui-chip": true,
+			chip: true,
+			active: selected.includes(opt.value),
+			selected: selected.includes(opt.value)
+		})}
+                  aria-pressed=${selected.includes(opt.value)}
+                  @click=${() => toggle(opt.value)}
+                >
+                  ${opt.label}
+                </button>
+              ` : b$1`
+                <label class="a2ui-option-label">
+                  <input
+                    type=${isMulti ? "checkbox" : "radio"}
+                    name=${isMulti ? A : groupName}
+                    value=${opt.value}
+                    .checked=${selected.includes(opt.value)}
+                    @change=${() => toggle(opt.value)}
+                    class="a2ui-option-input"
+                  />
+                  <span class="a2ui-option-text">${opt.label}</span>
+                </label>
+              `)}
+      </div>
+    `;
+	}
+};
+/**
+* The styles of the choice picker can be customized by redefining the following
+* CSS variables:
+*
+* - `--a2ui-choicepicker-label-color`: Color of all labels.
+* - `--a2ui-choicepicker-label-font-size`: Font size of all labels. Defaults to `--a2ui-label-font-size` then `--a2ui-font-size-s` for the main label.
+* - `--a2ui-choicepicker-label-font-weight`: Font weight of the main label. Defaults to `--a2ui-label-font-weight` then `bold`.
+* - `--a2ui-choicepicker-gap`: Spacing between options.
+* - `--a2ui-choicepicker-filter-padding`: Padding for the filter input. Defaults to `--a2ui-spacing-xs` and `--a2ui-spacing-s` (4px 8px).
+* - `--a2ui-choicepicker-chip-padding`: Padding for chips. Defaults to `--a2ui-spacing-s` and `--a2ui-spacing-m` (4px 8px).
+* - `--a2ui-choicepicker-chip-border-radius`: Border radius for chips. Defaults to `999px`.
+*/
+A2uiChoicePickerElement.styles = i$9`
+    :host,
+    .a2ui-choice-picker {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      gap: var(--a2ui-choicepicker-gap, var(--a2ui-spacing-xs, 0.25rem));
+      padding: var(--a2ui-choicepicker-padding, 0);
+    }
+    .options,
+    .a2ui-options-group {
+      display: flex;
+      flex-direction: column;
+      gap: var(--a2ui-choicepicker-gap, var(--a2ui-spacing-xs, 0.25rem));
+    }
+    label,
+    .a2ui-option-label {
+      display: flex;
+      align-items: center;
+      gap: var(--a2ui-choicepicker-gap, var(--a2ui-spacing-xs, 0.25rem));
+      cursor: pointer;
+      color: var(--a2ui-text-color-text, var(--a2ui-choicepicker-label-color, inherit));
+      font-size: var(--a2ui-choicepicker-label-font-size, inherit);
+    }
+    :host,
+    a2ui-choicepicker > label {
+      font-size: var(
+        --a2ui-choicepicker-label-font-size,
+        var(--a2ui-label-font-size, var(--a2ui-font-size-s))
+      );
+      font-weight: var(--a2ui-choicepicker-label-font-weight, var(--a2ui-label-font-weight, bold));
+    }
+    .filter-input {
+      background-color: var(--a2ui-color-input, #fff);
+      color: var(--a2ui-color-on-input, #333);
+      border: var(
+        --a2ui-textfield-border,
+        var(--a2ui-border, 1px solid var(--a2ui-color-border, #ccc))
+      );
+      border-radius: var(--a2ui-textfield-border-radius, var(--a2ui-spacing-m, 4px));
+      padding: var(
+        --a2ui-choicepicker-filter-padding,
+        var(--a2ui-spacing-xs, 4px) var(--a2ui-spacing-s, 8px)
+      );
+      margin-bottom: var(--a2ui-choicepicker-filter-margin-bottom, var(--a2ui-spacing-s, 0.25rem));
+      font-family: inherit;
+    }
+    .filter-input:focus {
+      outline: none;
+      border-color: var(--a2ui-textfield-color-border-focus, var(--a2ui-color-primary, #17e));
+    }
+    .a2ui-option-input {
+      width: var(--a2ui-choicepicker-checkbox-size, 1rem);
+      height: var(--a2ui-choicepicker-checkbox-size, 1rem);
+    }
+    .chips,
+    .a2ui-chips-group {
+      display: flex;
+      flex-direction: row;
+      flex-wrap: wrap;
+      gap: var(--a2ui-choicepicker-gap, var(--a2ui-spacing-xs, 0.25rem));
+    }
+    .chip,
+    .a2ui-chip {
+      padding: var(
+        --a2ui-choicepicker-chip-padding,
+        var(--a2ui-spacing-s, 4px) var(--a2ui-spacing-m, 8px)
+      );
+      border-radius: var(--a2ui-choicepicker-chip-border-radius, 999px);
+      border: var(--a2ui-choicepicker-chip-border, 1px solid var(--a2ui-color-border, #ccc));
+      background-color: var(--a2ui-choicepicker-chip-background, var(--a2ui-color-surface, #fff));
+      color: var(--a2ui-color-on-surface, inherit);
+      cursor: pointer;
+      font-size: var(--a2ui-choicepicker-chip-font-size, var(--a2ui-font-size-xs, 0.75rem));
+      font-family: inherit;
+      font-weight: var(--a2ui-choicepicker-chip-font-weight, normal);
+      transition: all 0.2s;
+    }
+    .chip.selected,
+    .chip.active,
+    .a2ui-chip.selected,
+    .a2ui-chip.active {
+      background-color: var(
+        --a2ui-choicepicker-chip-background-selected,
+        var(--a2ui-color-primary, #007bff)
+      );
+      color: var(--a2ui-color-on-primary, #fff);
+      border-color: var(
+        --a2ui-choicepicker-chip-background-selected,
+        var(--a2ui-color-primary, #007bff)
+      );
+    }
+  `;
+__decorate$2([r$5()], A2uiChoicePickerElement.prototype, "filter", void 0);
+A2uiChoicePickerElement = __decorate$2([t$5("a2ui-choicepicker")], A2uiChoicePickerElement);
+const A2uiChoicePicker = {
+	...ChoicePickerApi,
+	tagName: "a2ui-choicepicker"
+};
+var __decorate$1 = function(decorators, target, key, desc) {
+	var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+	if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+	else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+	return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+let A2uiLitTabs = class A2uiLitTabs extends BasicCatalogA2uiLitElement {
+	constructor() {
+		super(...arguments);
+		this.api = TabsApi;
+		this.activeIndex = 0;
+	}
+	willUpdate(changedProperties) {
+		super.willUpdate(changedProperties);
+		const props = this.controller.props;
+		if (props?.tabs && this.activeIndex >= props.tabs.length) this.activeIndex = 0;
+	}
+	render() {
+		const props = this.controller.props;
+		if (!props || !props.tabs) return A;
+		return b$1`
+      <div class="a2ui-tabs">
+        <div class="a2ui-tab-bar">
+          ${props.tabs.map((tab, i) => b$1`
+              <button
+                class=${e({
+			"a2ui-tab-button": true,
+			active: i === this.activeIndex
+		})}
+                @click=${() => this.activeIndex = i}
+              >
+                ${tab.title}
+              </button>
+            `)}
+        </div>
+        <div class="a2ui-tab-content">
+          ${props.tabs[this.activeIndex] ? b$1`${this.renderNode(props.tabs[this.activeIndex].child)}` : A}
+        </div>
+      </div>
+    `;
+	}
+};
+/**
+* The styles of the tabs can be customized by redefining the following
+* CSS variables:
+*
+* - `--a2ui-tabs-border`: Controls the border of the tab bar. Defaults to `2px solid var(--a2ui-color-border, #eee)`.
+* - `--a2ui-tabs-header-background`: Controls the background of tab buttons. Defaults to `transparent`.
+* - `--a2ui-tabs-header-color`: Controls the text color of tab buttons. Defaults to `var(--a2ui-text-caption-color, #666)`.
+* - `--a2ui-tabs-header-background-active`: Controls the background of the active tab button. Defaults to `transparent`.
+* - `--a2ui-tabs-header-color-active`: Controls the text color of the active tab button. Defaults to `var(--a2ui-color-primary, #007bff)`.
+* - `--a2ui-tabs-content-padding`: Controls the padding of the tab content. Defaults to `var(--a2ui-spacing-m, 16px) 0`.
+*/
+A2uiLitTabs.styles = i$9`
+    .a2ui-tabs {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+    }
+    .a2ui-tab-bar {
+      display: flex;
+      border-bottom: var(--a2ui-tabs-border, 2px solid var(--a2ui-color-border, #eee));
+      gap: var(--a2ui-spacing-m, 16px);
+    }
+    .a2ui-tab-button {
+      padding: var(--a2ui-spacing-s, 8px) var(--a2ui-spacing-m, 16px);
+      border: none;
+      background: var(--a2ui-tabs-header-background, transparent);
+      cursor: pointer;
+      font-weight: 500;
+      color: var(--a2ui-tabs-header-color, var(--a2ui-text-caption-color, #666));
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+    }
+    .a2ui-tab-button.active {
+      background: var(--a2ui-tabs-header-background-active, transparent);
+      color: var(--a2ui-tabs-header-color-active, var(--a2ui-color-primary, #007bff));
+      border-bottom: 2px solid var(--a2ui-color-primary, #007bff);
+    }
+    .a2ui-tab-content {
+      padding: var(--a2ui-tabs-content-padding, var(--a2ui-spacing-m, 16px) 0);
+    }
+  `;
+__decorate$1([r$5()], A2uiLitTabs.prototype, "activeIndex", void 0);
+A2uiLitTabs = __decorate$1([t$5("a2ui-tabs")], A2uiLitTabs);
+const A2uiTabs = {
+	...TabsApi,
+	tagName: "a2ui-tabs"
+};
+var __decorate = function(decorators, target, key, desc) {
+	var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+	if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+	else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+	return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+let A2uiLitModal = class A2uiLitModal extends BasicCatalogA2uiLitElement {
+	constructor() {
+		super(...arguments);
+		this.isOpen = false;
+		this.api = ModalApi;
+	}
+	openModal() {
+		this.isOpen = true;
+	}
+	closeModal() {
+		this.isOpen = false;
+	}
+	render() {
+		const props = this.controller.props;
+		if (!props) return A;
+		return b$1`
+      <div class="a2ui-modal-wrapper">
+        <div @click=${() => this.openModal()} class="a2ui-modal-trigger">
+          ${props.trigger ? b$1`${this.renderNode(props.trigger)}` : A}
+        </div>
+        ${this.isOpen ? b$1`
+              <div class="a2ui-modal-overlay" @click=${() => this.closeModal()}>
+                <div
+                  class="a2ui-modal-content"
+                  role="dialog"
+                  aria-modal="true"
+                  @click=${(e) => e.stopPropagation()}
+                >
+                  <button
+                    type="button"
+                    class="a2ui-modal-close"
+                    aria-label="Close"
+                    @click=${() => this.closeModal()}
+                  >
+                    &times;
+                  </button>
+                  ${props.content ? b$1`${this.renderNode(props.content)}` : A}
+                </div>
+              </div>
+            ` : A}
+      </div>
+    `;
+	}
+};
+/**
+* The styles of the modal can be customized by redefining the following
+* CSS variables:
+*
+* - `--a2ui-modal-background`: Controls the background of the modal content.
+* - `--a2ui-modal-padding`: Controls the padding of the modal content.
+* - `--a2ui-modal-border-radius`: Controls the border radius of the modal content.
+* - `--a2ui-modal-box-shadow`: Controls the box shadow of the modal content.
+* - `--a2ui-modal-backdrop-bg`: Controls the background of the backdrop.
+*/
+A2uiLitModal.styles = i$9`
+    :host,
+    a2ui-modal {
+      display: inline-block;
+    }
+    .a2ui-modal-wrapper {
+      display: inline-block;
+    }
+    .a2ui-modal-trigger {
+      cursor: pointer;
+    }
+    .a2ui-modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: var(--a2ui-modal-backdrop-bg, rgba(0, 0, 0, 0.5));
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    .a2ui-modal-content {
+      background: var(--a2ui-modal-background, var(--a2ui-color-surface, #fff));
+      padding: var(--a2ui-modal-padding, var(--a2ui-spacing-xl, 32px));
+      border-radius: var(--a2ui-modal-border-radius, var(--a2ui-border-radius, 8px));
+      position: relative;
+      min-width: 300px;
+      max-width: 80%;
+      max-height: 80%;
+      overflow-y: auto;
+      box-shadow: var(--a2ui-modal-box-shadow, 0 10px 25px rgba(0, 0, 0, 0.2));
+    }
+    .a2ui-modal-close {
+      position: absolute;
+      top: 10px;
+      right: 15px;
+      border: none;
+      background: none;
+      font-size: 24px;
+      cursor: pointer;
+      color: var(--a2ui-text-caption-color, #999);
+    }
+    .a2ui-modal-close:hover {
+      color: var(--a2ui-text-color, #333);
+    }
+  `;
+__decorate([r$5()], A2uiLitModal.prototype, "isOpen", void 0);
+A2uiLitModal = __decorate([t$5("a2ui-modal")], A2uiLitModal);
+const A2uiModal = {
+	...ModalApi,
+	tagName: "a2ui-modal"
+};
+new Catalog("https://a2ui.org/specification/v0_9/catalogs/basic/catalog.json", [
+	A2uiText,
+	A2uiButton,
+	A2uiTextField,
+	A2uiRow,
+	A2uiColumn,
+	A2uiList,
+	A2uiImage,
+	A2uiIcon,
+	A2uiVideo,
+	A2uiAudioPlayer,
+	A2uiCard,
+	A2uiDivider,
+	A2uiCheckBox,
+	A2uiSlider,
+	A2uiDateTimeInput,
+	A2uiChoicePicker,
+	A2uiTabs,
+	A2uiModal
+], BASIC_FUNCTIONS);
+/**
+* The basic catalog for A2UI components in Lit.
+*
+* This catalog includes a wide range of components such as text, button,
+* text field, row, column, list, image, icon, video, audio player, card,
+* divider, checkbox, slider, date-time input, choice picker, tabs, and modal.
+* It also includes the basic functions.
+*/
+const basicCatalog = new Catalog("https://a2ui.org/specification/v0_9/catalogs/basic/catalog.json", [
+	A2uiAudioPlayer,
+	A2uiButton,
+	A2uiCard,
+	A2uiCheckBox,
+	A2uiChoicePicker,
+	A2uiColumn,
+	A2uiDateTimeInput,
+	A2uiDivider,
+	A2uiIcon,
+	A2uiImage,
+	A2uiList,
+	A2uiModal,
+	A2uiRow,
+	A2uiSlider,
+	A2uiTabs,
+	A2uiText,
+	A2uiTextField,
+	A2uiVideo
+], BASIC_FUNCTIONS);
 /** A2UI v0.9 Lit host used by sandboxed board documents. */
 const actionText = (action) => {
 	const context = action?.context && Object.keys(action.context).length ? action.context : void 0;
@@ -16291,9 +15259,9 @@ var OpenClawA2UIV09Host = class extends i$6 {
 		this.surfaces = Array.from(this.#processor.model.surfacesMap.entries());
 	}
 	render() {
-		return b`${this.error ? b`<div class="error" role="alert">${this.error}</div>` : ""}
+		return b$1`${this.error ? b$1`<div class="error" role="alert">${this.error}</div>` : ""}
       <section id="surfaces">
-        ${c(this.surfaces, ([surfaceId]) => surfaceId, ([, surface]) => b`<a2ui-surface .surface=${surface}></a2ui-surface>`)}
+        ${c(this.surfaces, ([surfaceId]) => surfaceId, ([, surface]) => b$1`<a2ui-surface .surface=${surface}></a2ui-surface>`)}
       </section>`;
 	}
 };

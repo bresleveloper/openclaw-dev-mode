@@ -1,7 +1,8 @@
-import { Ct as ProviderAuthMethod, cn as SecretInputMode, vn as LookupFn, wn as RuntimeEnv, xn as WizardPrompter } from "../../runtime-api-CkahAQr_.js";
-import { Lt as SecretInput, c as ModelProviderDeclarationConfig, i as ModelDefinitionConfig, n as OpenClawConfig } from "../../types.openclaw-mR7pAsVG.js";
-import "../../provider-onboard-Bdt0UN1E.js";
-import { _ as OLLAMA_DEFAULT_COST, b as resolveOllamaSetupDefaultBaseUrl, d as resolveOllamaCompatNumCtxEnabled, f as shouldInjectOllamaCompatNumCtx, g as OLLAMA_DEFAULT_CONTEXT_WINDOW, h as OLLAMA_DEFAULT_BASE_URL, l as createConfiguredOllamaCompatStreamWrapper, p as wrapOllamaCompatNumCtx, r as buildOllamaChatRequest, u as isOllamaCompatProvider, v as OLLAMA_DEFAULT_MAX_TOKENS, y as OLLAMA_DEFAULT_MODEL } from "../../stream-api-Dp-NqH-M.js";
+import { Cn as SecretInputMode, Mn as WizardPrompter } from "../../agent-harness-runtime-Du4B564s.js";
+import { Q as ModelDefinitionConfig, R as RuntimeEnv, X as OpenClawConfig, k as LookupFn, nt as ModelProviderDeclarationConfig, sn as SecretInput } from "../../runtime-types-LI_BBveH.js";
+import "../../ssrf-runtime-DBBZ0Uv6.js";
+import { _ as OLLAMA_DEFAULT_COST, b as resolveOllamaSetupDefaultBaseUrl, d as resolveOllamaCompatNumCtxEnabled, f as shouldInjectOllamaCompatNumCtx, g as OLLAMA_DEFAULT_CONTEXT_WINDOW, h as OLLAMA_DEFAULT_BASE_URL, l as createConfiguredOllamaCompatStreamWrapper, p as wrapOllamaCompatNumCtx, r as buildOllamaChatRequest, u as isOllamaCompatProvider, v as OLLAMA_DEFAULT_MAX_TOKENS, y as OLLAMA_DEFAULT_MODEL } from "../../stream-api-Y8IfSq32.js";
+import { z } from "zod";
 //#region extensions/ollama/src/provider-models.d.ts
 type OllamaTagModel = {
   name: string;
@@ -61,24 +62,9 @@ export declare function buildOllamaProvider(configuredBaseUrl?: string, opts?: {
   quiet?: boolean;
   discoveryMode?: "strict";
 }): Promise<ModelProviderDeclarationConfig>;
-declare namespace setup_runtime_d_exports {
-  export { buildOllamaProvider, checkOllamaCloudAuth, configureOllamaNonInteractive$1 as configureOllamaNonInteractive, ensureOllamaModelPulled$1 as ensureOllamaModelPulled, promptAndConfigureOllama$1 as promptAndConfigureOllama, resolveOllamaSetupDefaultBaseUrl, validateOllamaNonInteractive };
-}
-type OllamaSetupOptions = {
-  customBaseUrl?: string;
-  customModelId?: string;
-};
-type OllamaSetupResult = {
-  config: OpenClawConfig;
-  credential?: SecretInput;
-  credentialMode?: SecretInputMode;
-  defaultModel?: string;
-};
-declare function checkOllamaCloudAuth(baseUrl: string): Promise<{
-  signedIn: boolean;
-  signinUrl?: string;
-}>;
-declare function promptAndConfigureOllama$1(params: {
+//#endregion
+//#region extensions/ollama/src/setup.d.ts
+export declare const promptAndConfigureOllama: (params: {
   cfg: OpenClawConfig;
   env?: NodeJS.ProcessEnv;
   workspaceDir?: string;
@@ -87,25 +73,25 @@ declare function promptAndConfigureOllama$1(params: {
   secretInputMode?: SecretInputMode;
   allowSecretRefPrompt?: boolean;
   signal?: AbortSignal;
-}): Promise<OllamaSetupResult>;
-/** Checks existing host models without pulling or mutating state before reset. */
-declare function validateOllamaNonInteractive(ctx: Parameters<NonNullable<ProviderAuthMethod["validateNonInteractive"]>>[0]): Promise<boolean>;
-declare function configureOllamaNonInteractive$1(params: {
+}) => Promise<{
+  config: OpenClawConfig;
+  credential?: SecretInput;
+  credentialMode?: SecretInputMode;
+  defaultModel?: string;
+}>;
+export declare const configureOllamaNonInteractive: (params: {
   nextConfig: OpenClawConfig;
-  opts: OllamaSetupOptions;
+  opts: {
+    customBaseUrl?: string;
+    customModelId?: string;
+  };
   runtime: RuntimeEnv;
   agentDir?: string;
-}): Promise<OpenClawConfig>;
-declare function ensureOllamaModelPulled$1(params: {
+}) => Promise<OpenClawConfig>;
+export declare const ensureOllamaModelPulled: (params: {
   config: OpenClawConfig;
   model: string;
   prompter: WizardPrompter;
-}): Promise<void>;
-//#endregion
-//#region extensions/ollama/src/setup.d.ts
-type OllamaSetupRuntime = typeof setup_runtime_d_exports;
-export declare const promptAndConfigureOllama: OllamaSetupRuntime["promptAndConfigureOllama"];
-export declare const configureOllamaNonInteractive: OllamaSetupRuntime["configureOllamaNonInteractive"];
-export declare const ensureOllamaModelPulled: OllamaSetupRuntime["ensureOllamaModelPulled"];
+}) => Promise<void>;
 //#endregion
 export { OLLAMA_DEFAULT_BASE_URL, OLLAMA_DEFAULT_CONTEXT_WINDOW, OLLAMA_DEFAULT_COST, OLLAMA_DEFAULT_MAX_TOKENS, OLLAMA_DEFAULT_MODEL, type OllamaModelShowInfo, type OllamaModelWithContext, type OllamaTagModel, type OllamaTagsResponse, buildOllamaChatRequest, createConfiguredOllamaCompatStreamWrapper, isOllamaCompatProvider, resolveOllamaCompatNumCtxEnabled, resolveOllamaSetupDefaultBaseUrl, shouldInjectOllamaCompatNumCtx, wrapOllamaCompatNumCtx };

@@ -1,35 +1,18 @@
-import { f as sanitizeUntrustedFileName } from "../fs-safe-advanced-CJC-NYf3.mjs";
-import { d as normalizeMimeType } from "../mime-1zBUMwu6.mjs";
+import { d as normalizeMimeType } from "../mime-CGDYrRzL.mjs";
 import { t as buildOutboundMediaLoadOptions } from "../load-options-gEuoEu4c.mjs";
-import { n as loadWebMedia } from "../web-media-DlKZebGG.mjs";
-import "../web-media-DMjTswod.mjs";
+import { n as loadWebMedia } from "../web-media-DkANOAh-.mjs";
+import "../web-media-CrOXx0IK.mjs";
 import { randomBytes } from "node:crypto";
+import { createAsyncLock, sanitizeUntrustedFileName } from "@openclaw/fs-safe/advanced";
 //#region src/plugin-sdk/outbound-media.ts
 /** Load outbound media from a remote URL or approved local path using the shared web-media policy. */
 async function loadOutboundMediaFromUrl(mediaUrl, options = {}) {
-	return await loadWebMedia(mediaUrl, buildOutboundMediaLoadOptions({
-		maxBytes: options.maxBytes,
-		mediaAccess: options.mediaAccess,
-		mediaLocalRoots: options.mediaLocalRoots,
-		mediaReadFile: options.mediaReadFile,
-		workspaceDir: options.workspaceDir,
-		proxyUrl: options.proxyUrl,
-		fetchImpl: options.fetchImpl,
-		requestInit: options.requestInit,
-		optimizeImages: options.optimizeImages,
-		trustExplicitProxyDns: options.trustExplicitProxyDns
-	}));
+	return await loadWebMedia(mediaUrl, buildOutboundMediaLoadOptions(options));
 }
 const DEFAULT_HOSTED_OUTBOUND_MEDIA_RAW_CHUNK_BYTES = 36864;
 const DEFAULT_HOSTED_OUTBOUND_MEDIA_MAX_ENTRIES = 64;
 const DEFAULT_HOSTED_OUTBOUND_MEDIA_CHUNK_ROWS_PER_ENTRY_BUDGET = 512;
 const HOSTED_OUTBOUND_MEDIA_METADATA_TTL_GRACE_MS = 6e4;
-function createHostedOutboundMediaId() {
-	return randomBytes(12).toString("hex");
-}
-function createHostedOutboundMediaToken() {
-	return randomBytes(24).toString("hex");
-}
 function buildHostedOutboundMediaMetaKey(id) {
 	return `media:${id}:meta`;
 }
@@ -45,18 +28,6 @@ function isFutureHostedOutboundMediaExpiry(expiresAt, nowMs) {
 }
 function isRetainedHostedOutboundMediaExpiry(expiresAt, nowMs, postExpiryRetentionMs) {
 	return typeof expiresAt === "number" && Number.isSafeInteger(expiresAt) && (expiresAt > nowMs || nowMs - expiresAt < postExpiryRetentionMs);
-}
-function createHostedOutboundMediaMetaRecord(params) {
-	return {
-		id: params.id,
-		routePath: params.routePath,
-		token: params.token,
-		...params.contentType ? { contentType: params.contentType } : {},
-		...params.fileName ? { fileName: params.fileName } : {},
-		expiresAt: params.expiresAt,
-		chunkCount: params.chunkCount,
-		byteLength: params.byteLength
-	};
 }
 function createHostedOutboundMediaMetadata(meta) {
 	return {
@@ -86,34 +57,20 @@ function createHostedOutboundMediaStore(options) {
 	if (!Number.isSafeInteger(postExpiryRetentionMs) || postExpiryRetentionMs < 0) throw new Error("hosted outbound media postExpiryRetentionMs must be a non-negative integer");
 	if (options.maxTotalBytes !== void 0 && (!Number.isSafeInteger(options.maxTotalBytes) || options.maxTotalBytes < 1)) throw new Error("hosted outbound media maxTotalBytes must be a positive integer");
 	if (overflowPolicy !== "evict-oldest" && overflowPolicy !== "reject-new") throw new Error("hosted outbound media overflowPolicy must be evict-oldest or reject-new");
-	const createId = options.createId ?? createHostedOutboundMediaId;
-	const createToken = options.createToken ?? createHostedOutboundMediaToken;
+	const createId = options.createId ?? (() => randomBytes(12).toString("hex"));
+	const createToken = options.createToken ?? (() => randomBytes(24).toString("hex"));
 	const chunkPhysicalTtlMs = options.ttlMs + postExpiryRetentionMs;
 	const metadataPhysicalTtlMs = options.ttlMs + Math.max(postExpiryRetentionMs, Math.min(options.ttlMs, HOSTED_OUTBOUND_MEDIA_METADATA_TTL_GRACE_MS));
 	if (!Number.isSafeInteger(chunkPhysicalTtlMs) || chunkPhysicalTtlMs < 1 || !Number.isSafeInteger(metadataPhysicalTtlMs) || metadataPhysicalTtlMs < 1) throw new Error("hosted outbound media physical TTL must be a positive safe integer");
-	let capacityMutation = Promise.resolve();
+	const withCapacityMutation = createAsyncLock();
 	const activeReaders = /* @__PURE__ */ new Map();
 	const deferredDeletes = /* @__PURE__ */ new Set();
-	const deletingEntries = /* @__PURE__ */ new Set();
-	async function withCapacityMutation(operation) {
-		const result = capacityMutation.then(operation, operation);
-		capacityMutation = result.then(() => void 0, () => void 0);
-		return await result;
-	}
 	async function deleteEntry(id) {
 		deferredDeletes.add(id);
 		if ((activeReaders.get(id) ?? 0) > 0) return false;
-		deletingEntries.add(id);
-		try {
-			await deleteHostedOutboundMediaRows(id, options.metadataStore, options.chunkStore);
-			deferredDeletes.delete(id);
-			return true;
-		} finally {
-			deletingEntries.delete(id);
-		}
-	}
-	async function deleteEntryRows(id, chunkCount) {
-		await deleteHostedOutboundMediaRows(id, options.metadataStore, options.chunkStore, chunkCount);
+		await deleteHostedOutboundMediaRows(id, options.metadataStore, options.chunkStore);
+		deferredDeletes.delete(id);
+		return true;
 	}
 	async function readMetadataRecord(id, nowMs) {
 		const meta = await options.metadataStore.lookup(buildHostedOutboundMediaMetaKey(id));
@@ -151,11 +108,14 @@ function createHostedOutboundMediaStore(options) {
 			activeReaders.delete(id);
 			if (deferredDeletes.has(id)) await withCapacityMutation(async () => await deleteEntry(id));
 		};
-		if (deferredDeletes.has(id) || deletingEntries.has(id)) {
+		if (deferredDeletes.has(id)) {
 			await close();
 			return null;
 		}
-		const meta = await readMetadataRecord(id, nowMs);
+		const meta = await readMetadataRecord(id, nowMs).catch(async (error) => {
+			await close();
+			throw error;
+		});
 		if (!meta) {
 			await close();
 			return null;
@@ -179,11 +139,11 @@ function createHostedOutboundMediaStore(options) {
 		let entryCount = orderedRows.length;
 		let chunkCount = orderedRows.reduce((total, row) => total + row.value.chunkCount, 0);
 		let totalBytes = orderedRows.reduce((total, row) => total + row.value.byteLength, 0);
-		if (overflowPolicy === "reject-new" && (entryCount >= maxEntries || chunkCount + incomingChunkCount > maxChunkRows || options.maxTotalBytes !== void 0 && totalBytes + incomingByteLength > options.maxTotalBytes)) throw new Error(`hosted outbound media capacity is full (${entryCount}/${maxEntries} entries, ${chunkCount + incomingChunkCount}/${maxChunkRows} chunk rows, ${totalBytes + incomingByteLength}/${options.maxTotalBytes ?? "unbounded"} bytes)`);
+		const exceedsCapacity = () => entryCount >= maxEntries || chunkCount + incomingChunkCount > maxChunkRows || options.maxTotalBytes !== void 0 && totalBytes + incomingByteLength > options.maxTotalBytes;
+		if (overflowPolicy === "reject-new" && exceedsCapacity()) throw new Error(`hosted outbound media capacity is full (${entryCount}/${maxEntries} entries, ${chunkCount + incomingChunkCount}/${maxChunkRows} chunk rows, ${totalBytes + incomingByteLength}/${options.maxTotalBytes ?? "unbounded"} bytes)`);
 		for (const row of orderedRows) {
 			if (entryCount < maxEntries && chunkCount + incomingChunkCount <= maxChunkRows && (options.maxTotalBytes === void 0 || totalBytes + incomingByteLength <= options.maxTotalBytes)) break;
-			const id = parseHostedOutboundMediaMetaKey(row.key);
-			if (!id) continue;
+			const id = row.value.id;
 			if ((activeReaders.get(id) ?? 0) > 0) continue;
 			if (await deleteEntry(id)) {
 				entryCount -= 1;
@@ -191,7 +151,7 @@ function createHostedOutboundMediaStore(options) {
 				totalBytes -= row.value.byteLength;
 			}
 		}
-		if (entryCount >= maxEntries || chunkCount + incomingChunkCount > maxChunkRows || options.maxTotalBytes !== void 0 && totalBytes + incomingByteLength > options.maxTotalBytes) throw new Error("hosted outbound media capacity is full while active readers retain entries");
+		if (exceedsCapacity()) throw new Error("hosted outbound media capacity is full while active readers retain entries");
 	}
 	return {
 		async prepareUrl(params) {
@@ -219,18 +179,18 @@ function createHostedOutboundMediaStore(options) {
 							dataBase64: chunk.toString("base64")
 						}, { ttlMs: chunkPhysicalTtlMs });
 					}
-					await options.metadataStore.register(buildHostedOutboundMediaMetaKey(id), createHostedOutboundMediaMetaRecord({
+					await options.metadataStore.register(buildHostedOutboundMediaMetaKey(id), {
 						id,
 						routePath: params.routePath,
 						token,
-						contentType: media.contentType,
-						fileName: media.fileName,
+						...media.contentType ? { contentType: media.contentType } : {},
+						...media.fileName ? { fileName: media.fileName } : {},
 						expiresAt,
 						chunkCount,
 						byteLength: media.buffer.byteLength
-					}), { ttlMs: metadataPhysicalTtlMs });
+					}, { ttlMs: metadataPhysicalTtlMs });
 				} catch (error) {
-					await deleteEntryRows(id, chunkCount);
+					await deleteHostedOutboundMediaRows(id, options.metadataStore, options.chunkStore, chunkCount);
 					throw error;
 				}
 				return `${params.publicBaseUrl}${params.routePath}${id}?token=${token}`;
@@ -240,7 +200,7 @@ function createHostedOutboundMediaStore(options) {
 			const reader = await acquireReader(id, nowMs);
 			if (!reader) return null;
 			try {
-				return deferredDeletes.has(id) || deletingEntries.has(id) ? null : createHostedOutboundMediaMetadata(reader.meta);
+				return deferredDeletes.has(id) ? null : createHostedOutboundMediaMetadata(reader.meta);
 			} finally {
 				await reader.close();
 			}
@@ -300,7 +260,7 @@ function encodeHostedOutboundMediaFileName(fileName) {
 }
 /** Build download-only response headers for immutable hosted outbound media. */
 function buildHostedOutboundMediaResponseHeaders(metadata, options = {}) {
-	const contentType = normalizeMimeType(metadata.contentType?.split(";", 1)[0]?.trim()) ?? "application/octet-stream";
+	const contentType = normalizeMimeType(metadata.contentType) ?? "application/octet-stream";
 	const fileName = sanitizeUntrustedFileName(metadata.fileName ?? options.fallbackFileName ?? "attachment.bin", "attachment.bin");
 	const asciiFallback = fileName.replace(/[^\x20-\x7e]|[%"\\]/g, "_").trim() || "attachment.bin";
 	return {

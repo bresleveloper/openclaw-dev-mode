@@ -1,5 +1,5 @@
-import { r as asNullableRecord } from "../../record-coerce-DItp3I4t.mjs";
-import "../../string-coerce-runtime-C_MKhRVt.mjs";
+import { r as asNullableRecord } from "../../record-coerce-TIsquoVR.mjs";
+import "../../string-coerce-runtime-50qKeWeL.mjs";
 //#region extensions/file-transfer/doctor-contract-api.ts
 function hasLegacyPositivePolicy(value) {
 	const config = asNullableRecord(value);

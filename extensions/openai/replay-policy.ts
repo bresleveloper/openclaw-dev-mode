@@ -1,4 +1,3 @@
-// Openai plugin module implements replay policy behavior.
 import type {
   ProviderReplayPolicy,
   ProviderReplayPolicyContext,
@@ -27,6 +26,7 @@ export function buildOpenAIReplayPolicy(ctx: ProviderReplayPolicyContext): Provi
       ? {
           sanitizeToolCallIds: true,
           toolCallIdMode: "strict" as const,
+          duplicateToolCallIdStyle: "openai" as const,
         }
       : {
           sanitizeToolCallIds: false,

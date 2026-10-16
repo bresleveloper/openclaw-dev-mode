@@ -1,30 +1,23 @@
-import { n as OpenClawConfig } from "../../types.openclaw-DTrzhGcB.js";
-import "../../types-DxdHPaG-.js";
-import "../../group-policy-DKdVmM08.js";
+import { n as OpenClawConfig } from "../../types.openclaw-C-OasKBU.js";
+import "../../node-list-types-BtJ_nH3c.js";
+import "../../config-contracts-C9WIRZbi.js";
 import { Command } from "commander";
 //#region extensions/canvas/src/config.d.ts
-/** Enablement for Canvas-owned document and renderer routes. */
 type CanvasHostConfig = {
   enabled?: boolean;
 };
-/** Canvas plugin configuration shape. */
 type CanvasPluginConfig = {
   host?: CanvasHostConfig;
 };
-type CanvasPluginConfigSchema = {
-  parse: (value: unknown) => CanvasPluginConfig;
-};
-/** Parses raw Canvas plugin config into a typed, normalized shape. */
 export declare function parseCanvasPluginConfig(value: unknown): CanvasPluginConfig;
-/** Resolves Canvas route configuration from plugin-owned config. */
 export declare function resolveCanvasHostConfig(params: {
   config?: OpenClawConfig;
   pluginConfig?: Record<string, unknown>;
 }): CanvasHostConfig;
-/** Returns whether Canvas-owned document and renderer routes should be active. */
 export declare function isCanvasHostEnabled(config?: OpenClawConfig): boolean;
-/** Runtime config parser for Canvas plugin settings. */
-export declare const canvasConfigSchema: CanvasPluginConfigSchema;
+export declare const canvasConfigSchema: {
+  parse: typeof parseCanvasPluginConfig;
+};
 //#endregion
 //#region extensions/canvas/src/host/a2ui-route.d.ts
 type A2uiHttpRequest = {
@@ -48,15 +41,27 @@ export declare const CANVAS_HOST_PATH = "/__openclaw__/canvas";
 /** Handles one HTTP request for the hosted A2UI asset surface. */
 export declare function handleA2uiHttpRequest(req: A2uiHttpRequest, res: A2uiHttpResponse): Promise<boolean>;
 //#endregion
+//#region src/cli/nodes-cli/rpc.d.ts
+/** Attach shared Gateway connection/json options to a node command. */
+declare const nodesCallOpts: (cmd: Command, defaults?: {
+  timeoutMs?: number;
+}) => Command;
+/** Build a node.invoke payload with an idempotency key and optional timeout. */
+declare function buildNodeInvokeParams(params: {
+  nodeId: string;
+  command: string;
+  params?: unknown;
+  timeoutMs?: number;
+  idempotencyKey?: string;
+}): Record<string, unknown>;
+//#endregion
 //#region extensions/canvas/src/cli.d.ts
-/** Runtime output surface used by Canvas CLI commands. */
 type CanvasCliRuntime = {
   log: (message: string) => void;
   error: (message: string) => void;
   exit: (code: number) => void;
   writeJson: (value: unknown) => void;
 };
-/** Parent node/gateway options consumed by Canvas CLI commands. */
 type CanvasNodesRpcOpts = {
   url?: string;
   token?: string;
@@ -70,29 +75,20 @@ type CanvasNodesRpcOpts = {
   width?: string;
   height?: string;
 };
-/** Dependency bundle used to keep Canvas CLI commands testable. */
 type CanvasCliDependencies = {
   defaultRuntime: CanvasCliRuntime;
-  nodesCallOpts: (cmd: Command, defaults?: {
-    timeoutMs?: number;
-  }) => Command;
+  nodesCallOpts: typeof nodesCallOpts;
   runNodesCommand: (label: string, action: () => Promise<void>) => Promise<void> | void;
   getNodesTheme: () => {
     ok: (value: string) => string;
   };
   parseTimeoutMs: (raw: unknown) => number | undefined;
   resolveNodeId: (opts: CanvasNodesRpcOpts, query: string) => Promise<string>;
-  buildNodeInvokeParams: (params: {
-    nodeId: string;
-    command: string;
-    params?: Record<string, unknown>;
-    timeoutMs?: number;
-  }) => Record<string, unknown>;
+  buildNodeInvokeParams: typeof buildNodeInvokeParams;
   callGatewayCli: (method: string, opts: CanvasNodesRpcOpts, params?: unknown, callOpts?: {
     transportTimeoutMs?: number;
   }) => Promise<unknown>;
 };
-/** Registers Canvas subcommands under the nodes CLI command group. */
 export declare function registerNodesCanvasCommands(nodes: Command, deps: CanvasCliDependencies): void;
 //#endregion
 export type { CanvasCliDependencies, CanvasHostConfig, CanvasNodesRpcOpts, CanvasPluginConfig };

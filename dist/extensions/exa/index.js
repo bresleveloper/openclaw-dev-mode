@@ -1,4 +1,4 @@
-import { t as createExaWebSearchProvider } from "./.setup/exa-web-search-provider-BlNqLa7N.mjs";
+import { t as createExaWebSearchProvider } from "./.setup/exa-web-search-provider-DkWJpeaV.mjs";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 //#region extensions/exa/index.ts
 var exa_default = definePluginEntry({

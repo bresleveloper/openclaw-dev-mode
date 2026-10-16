@@ -1,37 +1,56 @@
 // Published updater config reads run in the candidate's dependency tree.
 import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-const target = new URL("./io.runtime-DshBIJTY.mjs", import.meta.url).href;
-const readerEntry = new URL(import.meta.url);
-readerEntry.searchParams.set("openclaw-config-read", "1");
+const target = new URL("./io.runtime-Ccl1QQQe.mjs", import.meta.url).href;
 const root = fileURLToPath(new URL("../", import.meta.url));
-const worker = "\nconst fs = require(\"node:fs\");\n(async () => {\n  try {\n    const request = JSON.parse(fs.readFileSync(0, \"utf8\"));\n    const runtime = await import(request.target);\n    const logs = [];\n    const options = request.options ?? {};\n    if (request.captureLogs) options.logger = Object.fromEntries([\"debug\", \"info\", \"warn\", \"error\"].map(level => [level, (...args) => logs.push({ level, args })]));\n    const owner = request.factory ? runtime.createConfigIO(options) : runtime;\n    const value = await owner[request.operation](...request.args);\n    fs.writeFileSync(3, JSON.stringify({ ok: true, value, logs }));\n  } catch (error) {\n    fs.writeFileSync(3, JSON.stringify({ ok: false, message: String(error) }));\n    process.exitCode = 1;\n  }\n})().catch(() => { process.exitCode = 1; });\n";
-const updating = process.env.OPENCLAW_UPDATE_IN_PROGRESS === "1" && new URL(import.meta.url).searchParams.get("openclaw-config-read") !== "1";
+const worker = "\nconst fs = require(\"node:fs\");\n// Reserve stdout for the response; config diagnostics must not corrupt its frame.\nglobalThis.console = new (require(\"node:console\").Console)(process.stderr, process.stderr);\nprocess.stdout.write = process.stderr.write.bind(process.stderr);\nfunction send(result) {\n  const payload = JSON.stringify(result);\n  fs.writeFileSync(1, Buffer.byteLength(payload) + \"\\n\" + payload);\n}\n(async () => {\n  try {\n    const request = JSON.parse(fs.readFileSync(0, \"utf8\"));\n    const runtime = await import(request.target);\n    const logs = [];\n    const options = request.options ?? {};\n    if (request.captureLogs) options.logger = Object.fromEntries([\"debug\", \"info\", \"warn\", \"error\"].map(level => [level, (...args) => logs.push({ level, args })]));\n    const owner = request.factory ? runtime.createConfigIO(options) : runtime;\n    const value = await owner[request.operation](...request.args);\n    send({ ok: true, value, logs });\n  } catch (error) {\n    send({ ok: false, message: String(error), code: typeof error?.code === \"string\" ? error.code : undefined });\n    process.exitCode = 1;\n  }\n})().catch(() => { process.exitCode = 1; });\n";
+const updating = process.env.OPENCLAW_UPDATE_IN_PROGRESS === "1" && process.env.OPENCLAW_CONFIG_READ_CHILD !== "1";
 const runtime = updating ? undefined : await import(target);
 const spawnOptions = {
     cwd: root,
     encoding: "utf8",
-    stdio: ["pipe", "pipe", "pipe", "pipe"],
+    stdio: ["pipe", "pipe", "pipe"],
     timeout: 20 * 60_000,
     killSignal: "SIGKILL",
     maxBuffer: 16 * 1024 * 1024,
 };
 function childEnv(operation, args, options) {
+  if (process.env.OPENCLAW_CONFIG_READ_CHILD === "1") {
+    const error = new Error("A config reader child cannot launch another reader.");
+    error.code = "candidate-config-read-recursion";
+    console.warn("[update:warning:" + error.code + "] " + error.message);
+    throw error;
+  }
   const selected = options?.env ?? (operation === "readCurrentConfigForPolicyCheck" ? args[0]?.env : undefined) ?? process.env;
-  return { ...selected, NODE_DISABLE_COMPILE_CACHE: "1" };
+  return { ...selected, NODE_DISABLE_COMPILE_CACHE: "1", OPENCLAW_CONFIG_READ_CHILD: "1" };
 }
 function input(operation, args, options, factory) {
   // A rollback replaces the alias too; never retain the removed candidate's hashed target.
-  return JSON.stringify({ target: readerEntry.href, operation, args, factory, options: options ? { ...options, logger: undefined } : undefined, captureLogs: Boolean(options?.logger) });
+  return JSON.stringify({ target: import.meta.url, operation, args, factory, options: options ? { ...options, logger: undefined } : undefined, captureLogs: Boolean(options?.logger) });
 }
-function finish(code, output, logger) {
+// Reader stderr may carry config diagnostics; report only the child's error and the exit facts.
+function failureReason(result, exit) {
+  if (result?.ok === false) {
+    const message = String(result.message);
+    return typeof result.code === "string" && !message.includes(result.code) ? message + " (" + result.code + ")" : message;
+  }
+  if (exit.tooLarge || exit.error?.code === "ENOBUFS") return "reader output exceeded " + spawnOptions.maxBuffer + " bytes";
+  if (exit.timedOut || exit.error?.code === "ETIMEDOUT") return "reader timed out after " + spawnOptions.timeout + " ms";
+  if (exit.error) return "reader process failed (" + (exit.error.code ?? exit.error.message) + ")";
+  if (exit.signal) return "reader process was terminated by " + exit.signal;
+  return "reader process exited with code " + exit.status + (result?.ok === true ? " after reporting success" : " without a result");
+}
+function finish(exit, output, logger) {
   let result;
-  try { result = JSON.parse(output || "null"); } catch {}
+  const frame = /^(\d+)\n([\s\S]*)$/.exec(output ?? "");
+  try { if (frame && Number(frame[1]) === Buffer.byteLength(frame[2])) result = JSON.parse(frame[2]); } catch {}
   for (const entry of result?.logs ?? []) logger?.[entry.level]?.(...entry.args);
-  if (code === 0 && result?.ok === true) return result.value;
-  const error = new Error("Candidate config read failed; the existing service definition was left unchanged. Retry with the updated CLI.");
+  if (exit.status === 0 && !exit.error && !exit.tooLarge && result?.ok === true) return result.value;
+  const characters = Array.from(failureReason(result, exit).replace(/[\s\u0000-\u001f\u007f]+/g, " ").trim());
+  const reason = characters.length > 500 ? characters.slice(0, 499).join("") + "…" : characters.join("");
+  const error = new Error("Candidate config read failed: " + reason + ". The existing service definition was left unchanged. Retry with the updated CLI.");
   error.code = "candidate-config-read-failed";
-  console.error("[update:warning:" + error.code + "] " + error.message);
+  console.warn("[update:warning:" + error.code + "] " + error.message);
   throw error;
 }
 function readSync(operation, args = [], options, factory = false) {
@@ -40,29 +59,30 @@ function readSync(operation, args = [], options, factory = false) {
     env: childEnv(operation, args, options),
     input: input(operation, args, options, factory),
   });
-  return finish(child.status, child.output?.[3], options?.logger);
+  return finish(child, child.stdout, options?.logger);
 }
 async function read(operation, args = [], options, factory = false) {
   const request = input(operation, args, options, factory);
+  const started = Date.now();
   const child = spawn(process.execPath, ["--eval", worker], { ...spawnOptions, env: childEnv(operation, args, options) });
   let output = "";
   let outputBytes = 0;
-  child.stdio[3].setEncoding("utf8");
-  child.stdio[3].on("data", chunk => {
+  child.stdout.setEncoding("utf8");
+  child.stdout.on("data", chunk => {
     outputBytes += Buffer.byteLength(chunk);
     if (outputBytes > spawnOptions.maxBuffer) child.kill("SIGKILL");
     else output += chunk;
   });
-  child.stdout.resume();
   child.stderr.resume();
   child.stdin.on("error", () => {});
   child.stdin.end(request);
-  let failed = false;
-  const code = await new Promise(resolve => {
-    child.once("error", () => { failed = true; });
-    child.once("close", resolve);
+  let error;
+  const exit = await new Promise(resolve => {
+    child.once("error", cause => { error = cause; });
+    child.once("close", (status, signal) => resolve({ status, signal }));
   });
-  return finish(failed || outputBytes > spawnOptions.maxBuffer ? null : code, output, options?.logger);
+  const timedOut = exit.signal === spawnOptions.killSignal && Date.now() - started >= spawnOptions.timeout;
+  return finish({ ...exit, error, timedOut, tooLarge: outputBytes > spawnOptions.maxBuffer }, output, options?.logger);
 }
 const readers = {
   createConfigIO: (options) => ({
@@ -91,11 +111,13 @@ const binding9 = select("readConfigFileSnapshotForRuntimeTransaction"); export {
 const binding10 = select("readConfigFileSnapshotForWrite"); export { binding10 as readConfigFileSnapshotForWrite };
 const binding11 = select("readConfigFileSnapshotWithPluginMetadata"); export { binding11 as readConfigFileSnapshotWithPluginMetadata };
 const binding12 = select("readCurrentConfigForPolicyCheck"); export { binding12 as readCurrentConfigForPolicyCheck };
-const binding13 = select("readCurrentConfigForResolution"); export { binding13 as readCurrentConfigForResolution };
-const binding14 = select("readSourceConfigBestEffort"); export { binding14 as readSourceConfigBestEffort };
-const binding15 = select("readSourceConfigSnapshot"); export { binding15 as readSourceConfigSnapshot };
-const binding16 = select("readSourceConfigSnapshotForWrite"); export { binding16 as readSourceConfigSnapshotForWrite };
-const binding17 = select("recoverConfigFromJsonRootSuffix"); export { binding17 as recoverConfigFromJsonRootSuffix };
-const binding18 = select("recoverConfigFromLastKnownGood"); export { binding18 as recoverConfigFromLastKnownGood };
-const binding19 = select("registerConfigWriteListener"); export { binding19 as registerConfigWriteListener };
-const binding20 = select("writeConfigFile"); export { binding20 as writeConfigFile };
+const binding13 = select("readCurrentConfigForPolicyCheckAsync"); export { binding13 as readCurrentConfigForPolicyCheckAsync };
+const binding14 = select("readCurrentConfigForPolicyCheckWithMigrations"); export { binding14 as readCurrentConfigForPolicyCheckWithMigrations };
+const binding15 = select("readCurrentConfigForResolution"); export { binding15 as readCurrentConfigForResolution };
+const binding16 = select("readSourceConfigBestEffort"); export { binding16 as readSourceConfigBestEffort };
+const binding17 = select("readSourceConfigSnapshot"); export { binding17 as readSourceConfigSnapshot };
+const binding18 = select("readSourceConfigSnapshotForWrite"); export { binding18 as readSourceConfigSnapshotForWrite };
+const binding19 = select("recoverConfigFromJsonRootSuffix"); export { binding19 as recoverConfigFromJsonRootSuffix };
+const binding20 = select("recoverConfigFromLastKnownGood"); export { binding20 as recoverConfigFromLastKnownGood };
+const binding21 = select("registerConfigWriteListener"); export { binding21 as registerConfigWriteListener };
+const binding22 = select("writeConfigFile"); export { binding22 as writeConfigFile };

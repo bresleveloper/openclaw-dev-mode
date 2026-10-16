@@ -1,7 +1,6 @@
-import { o as buildStaticBasetenModels, r as BASETEN_DEFAULT_MODEL_REF, t as BASETEN_BASE_URL } from "./.setup/models-CwKDnNIj.mjs";
+import { o as buildStaticBasetenModels, r as BASETEN_DEFAULT_MODEL_REF, t as BASETEN_BASE_URL } from "./.setup/models-BOkRtUeP.mjs";
 import { createModelCatalogPresetAppliers } from "openclaw/plugin-sdk/provider-onboard";
 //#region extensions/baseten/onboard.ts
-/** Baseten onboarding config helpers. */
 const { applyConfig } = createModelCatalogPresetAppliers({
 	primaryModelRef: BASETEN_DEFAULT_MODEL_REF,
 	resolveParams: (_cfg, catalogModels) => ({
@@ -11,11 +10,11 @@ const { applyConfig } = createModelCatalogPresetAppliers({
 		catalogModels,
 		aliases: [{
 			modelRef: BASETEN_DEFAULT_MODEL_REF,
-			alias: "Inkling"
+			alias: "DeepSeek V4.1 Flash"
 		}]
 	})
 });
-/** Applies Baseten's provider catalog, Inkling alias, and default model. */
+/** Applies Baseten's provider catalog and starter model without replacing an explicit primary. */
 const applyBasetenConfig = (cfg) => applyConfig(cfg, buildStaticBasetenModels());
 const applyBasetenSetupConfig = (cfg) => applyConfig(cfg, cfg.models?.mode === "replace" ? buildStaticBasetenModels() : []);
 //#endregion

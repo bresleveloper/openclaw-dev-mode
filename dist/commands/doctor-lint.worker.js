@@ -1,10 +1,11 @@
-import { r as defaultRuntime } from "../runtime-BC29JSZp.mjs";
-import { a as closeCliResources, r as runCliWithExitFinalization, s as runCliDisposer, t as exitCliAfterOutput } from "../one-shot-exit-ZY0is37U.mjs";
-import { a as withCliCommandCleanup, o as withCliProcessScope } from "../runtime-cleanup-scope-C0g6_AIJ.mjs";
+import { r as defaultRuntime } from "../runtime-DlO3PTAd.mjs";
+import { r as runCliDisposer, t as closeCliResources } from "../runtime-cleanup-BrX8Cb4t.mjs";
+import { r as runCliWithExitFinalization } from "../one-shot-exit-CSOrFNcy.mjs";
+import { t as enableConsoleCapture } from "../console-BnFs8ZzT.mjs";
 import { Jn as string, Lt as boolean, Nt as array, qn as strictObject, xn as literal } from "../schemas-BOYIvvln.mjs";
-import { t as enableConsoleCapture } from "../console-DwqfhE-H.mjs";
-import { r as resolveUpdateRehearsalRoot } from "../update-rehearsal-paths-5kPjh__X.mjs";
-import { a as withConsoleLogsRoutedToStderrForJson } from "../json-output-mode-DRPBa2uN.mjs";
+import { i as resolveUpdateRehearsalRoot } from "../update-rehearsal-paths-DTVdt0cq.mjs";
+import { a as withCliCommandCleanup, o as withCliProcessScope } from "../runtime-cleanup-scope-BktLDe8P.mjs";
+import { a as withConsoleLogsRoutedToStderrForJson } from "../json-output-mode-DhC0xNZP.mjs";
 import { t as scrubDoctorErrorMessage } from "../doctor-error-message-CBAGGfGW.mjs";
 //#region src/commands/doctor-lint-options.ts
 const DoctorLintCliOptionsSchema = strictObject({
@@ -35,14 +36,14 @@ async function runDoctorLintWorker() {
 	await withCliProcessScope(() => withCliCommandCleanup(false, async (cleanup) => {
 		let exitCode;
 		try {
-			const { runDoctorLintCliInProcess } = await import("../doctor-lint-CEelRppo.mjs");
+			const { runDoctorLintCliInProcess } = await import("../doctor-lint-runner-LygvR4jX.mjs");
 			exitCode = await runDoctorLintCliInProcess(defaultRuntime, opts, true);
 		} finally {
 			await closeCliResources(cleanup);
 			const resources = cleanup?.pluginResources;
 			if (resources) await runCliDisposer("plugin-registration-resources", () => resources.release());
 		}
-		exitCliAfterOutput(defaultRuntime, exitCode);
+		process.exitCode = exitCode;
 	}));
 }
 withConsoleLogsRoutedToStderrForJson(process.argv, () => runCliWithExitFinalization({

@@ -1,0 +1,2 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{r as t,t as n}from"./worker-chunk-yRdGI1Ui.mjs";import{a as r,r as i}from"./worker-chunk-C8wXWLRc.mjs";/* @__NO_SIDE_EFFECTS__ */
+function lazyCompile(e,n){let i,a=null,validate=(o=>{let s=n?.(o);if(s)return a=[s],!1;let c=i??=t(e),l=c.Check(o);return a=l?null:r(c.Errors(o)[1]),l});return Object.defineProperties(validate,{errors:{configurable:!0,enumerable:!0,get:()=>a,set:e=>{a=e??null}},schema:{configurable:!0,enumerable:!0,get:()=>e}}),validate}var a=e((()=>{i(),n()}));export{lazyCompile as n,a as t};

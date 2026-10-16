@@ -1,5 +1,6 @@
-import "../fs-safe-defaults-ypw0M2Xi.js";
-import { v as writeJsonSync } from "../json-files-6Aff0MDp.js";
+import "@openclaw/fs-safe/advanced";
+import "@openclaw/fs-safe/atomic";
+import { writeJsonSync } from "@openclaw/fs-safe/json";
 //#region src/plugin-sdk/json-store.d.ts
 /** Read small JSON blobs synchronously for token/state caches. */
 export declare function loadJsonFile<T = unknown>(filePath: string): T | undefined;

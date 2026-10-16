@@ -1,5 +1,5 @@
-import { _ as StructuredExtractionResult, a as ImagesDescriptionInput, b as VideoDescriptionResult, d as MediaUnderstandingProviderAuthResult, f as MediaUnderstandingProviderRequestAuth, g as StructuredExtractionRequest, h as StructuredExtractionInput, i as ImageDescriptionResult, l as MediaUnderstandingProvider, m as StructuredExtractionImageInput, n as AudioTranscriptionResult, o as ImagesDescriptionRequest, p as MediaUnderstandingProviderSyntheticAuthResult, r as ImageDescriptionRequest, s as ImagesDescriptionResult, t as AudioTranscriptionRequest, u as MediaUnderstandingProviderAuthContext, v as StructuredExtractionTextInput, y as VideoDescriptionRequest } from "../types-DtHZVXiQ.js";
-import { i as describeImagesWithModelPayloadTransform, n as describeImageWithModelPayloadTransform, r as describeImagesWithModel, t as describeImageWithModel } from "../image-runtime-DQcGDYS_.js";
+import { _ as StructuredExtractionResult, a as ImagesDescriptionInput, b as VideoDescriptionResult, d as MediaUnderstandingProviderAuthResult, f as MediaUnderstandingProviderRequestAuth, g as StructuredExtractionRequest, h as StructuredExtractionInput, i as ImageDescriptionResult, l as MediaUnderstandingProvider, m as StructuredExtractionImageInput, n as AudioTranscriptionResult, o as ImagesDescriptionRequest, p as MediaUnderstandingProviderSyntheticAuthResult, r as ImageDescriptionRequest, s as ImagesDescriptionResult, t as AudioTranscriptionRequest, u as MediaUnderstandingProviderAuthContext, v as StructuredExtractionTextInput, y as VideoDescriptionRequest } from "../types-BooLarQr.js";
+import { i as describeImagesWithModelPayloadTransform, n as describeImageWithModelPayloadTransform, r as describeImagesWithModel, t as describeImageWithModel } from "../image-runtime-Bw20D6XS.js";
 //#region packages/media-understanding-common/src/openai-compatible-video.d.ts
 /** Minimal OpenAI-compatible video response payload shape. */
 type OpenAiCompatibleVideoPayload = {
@@ -31,11 +31,11 @@ export declare function buildOpenAiCompatibleVideoRequestBody(params: {
       text: string;
       video_url?: undefined;
     } | {
-      text?: undefined;
       type: string;
       video_url: {
         url: string;
       };
+      text?: undefined;
     })[];
   }[];
 };

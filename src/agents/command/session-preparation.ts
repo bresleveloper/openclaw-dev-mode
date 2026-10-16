@@ -12,12 +12,60 @@ import { applyVerboseOverride } from "../../sessions/level-overrides.js";
 import { ensureSessionDiffBaseline } from "../../sessions/session-diff-baseline.js";
 import { recordSessionHumanDirectMessage } from "../../sessions/session-state-events.js";
 import { resolveEffectiveAgentSkillFilter } from "../../skills/discovery/agent-filter.js";
+import { resolveSessionSkillExecutionWorkspace } from "../../skills/loading/workspace-skill-roots.js";
+import type { DeliveryContext } from "../../utils/delivery-context.shared.js";
+import {
+  buildCurrentRunRestartRecoveryClaim,
+  prepareCommandHarnessCompletionRecovery,
+} from "../agent-command-restart-recovery.js";
+import { resolveAgentWorkspaceDir } from "../agent-scope-config.js";
 import { persistAgentSession } from "./attempt-execution.shared.js";
+import { prepareCommandConversationContext } from "./conversation-context.js";
 import { resolveAgentRunContext } from "./run-context.js";
 import { loadExecDefaultsRuntime, loadSkillsRuntime } from "./runtime-loaders.js";
 import type { AgentCommandOpts } from "./types.js";
 
 const log = createSubsystemLogger("agents/agent-command");
+
+export function prepareCommandSessionRecoveryEntry(
+  params: Omit<
+    Parameters<typeof prepareCommandHarnessCompletionRecovery>[0],
+    "hasDeliveryContext"
+  > & {
+    deliveryContext?: DeliveryContext;
+    now: number;
+    isSessionRollover: boolean;
+  },
+) {
+  const { entry, sessionId, runId, opts, now, isSessionRollover } = params;
+  const { harnessCompletion, guardedHarnessCompletion, sourceOptions, isCompletionCurrent } =
+    prepareCommandHarnessCompletionRecovery({
+      ...params,
+      hasDeliveryContext: Boolean(params.deliveryContext),
+    });
+  return {
+    guardedHarnessCompletion,
+    isCompletionCurrent,
+    nextEntry: {
+      ...entry,
+      sessionId,
+      updatedAt: now,
+      sessionStartedAt: isSessionRollover ? now : entry.sessionStartedAt,
+      lastInteractionAt: isSessionRollover ? now : entry.lastInteractionAt,
+      ...buildCurrentRunRestartRecoveryClaim({
+        deliveryContext: params.deliveryContext,
+        deliveryMediaUrls: opts.internalDeliveryMediaUrls,
+        disableMessageTool: opts.disableMessageTool,
+        entry,
+        forceRestartSafeTools: opts.forceRestartSafeTools,
+        runId,
+        harnessCompletion,
+        ...sourceOptions,
+        suppressTextDelivery: opts.internalDeliverySuppressText,
+      }),
+    },
+  };
+}
 
 export async function prepareCommandSessionDiffBaseline(
   params: Parameters<typeof ensureSessionDiffBaseline>[0] & {
@@ -52,7 +100,6 @@ export async function prepareEmbeddedSessionState(params: {
   sessionAgentId: string;
   lifecycleGeneration: string;
   runId: string;
-  workspaceDir: string;
   executionWorkspaceDir: string;
   watchSkills: boolean;
   isNewSession: boolean;
@@ -100,8 +147,11 @@ export async function prepareEmbeddedSessionState(params: {
     agentId: params.sessionAgentId,
   });
   const skillSnapshotState = await resolveReusableWorkspaceSkillSnapshot({
-    workspaceDir: params.workspaceDir,
-    executionWorkspaceDir: params.executionWorkspaceDir,
+    workspaceDir: resolveAgentWorkspaceDir(params.cfg, params.sessionAgentId),
+    ...resolveSessionSkillExecutionWorkspace(
+      sessionEntry?.worktree?.canonicalWorkspaceDir,
+      params.executionWorkspaceDir,
+    ),
     config: params.cfg,
     agentId: params.sessionAgentId,
     existingSnapshot: params.isNewSession ? undefined : currentSkillsSnapshot,
@@ -187,23 +237,40 @@ export async function prepareEmbeddedSessionState(params: {
     });
   }
   if (params.sessionKey && !params.isSubagentLaneTurn) {
-    recordSessionHumanDirectMessage({
-      sessionKey: params.sessionKey,
-      entry: sessionEntry,
-      agentId: params.sessionAgentId,
-      actor: params.sessionStateActor,
-      channel: params.opts.channel,
-      runId: params.runId,
-    });
+    const assertSignalCurrent = () => {
+      assertAgentRunLifecycleGenerationCurrent(params.lifecycleGeneration);
+      params.opts.abortSignal?.throwIfAborted();
+      params.opts.assertSourceCurrent?.();
+      params.opts.operatorAuthority?.assertCurrent();
+    };
+    await recordSessionHumanDirectMessage(
+      {
+        sessionKey: params.sessionKey,
+        entry: sessionEntry,
+        agentId: params.sessionAgentId,
+        actor: params.sessionStateActor,
+        channel: params.opts.channel,
+        runId: params.runId,
+      },
+      {
+        assertCurrent: assertSignalCurrent,
+      },
+    );
+    assertSignalCurrent();
   }
 
+  const runContext = resolveAgentRunContext(params.opts);
   return {
     sessionEntry,
     requestedThinkLevel,
     resolvedVerboseLevel,
     skillsSnapshot,
-    runContext: resolveAgentRunContext(params.opts),
+    runContext,
+    opts: await prepareCommandConversationContext({ ...params, sessionEntry, runContext }),
   };
 }
 
-export type EmbeddedSessionState = Awaited<ReturnType<typeof prepareEmbeddedSessionState>>;
+export type EmbeddedSessionState = Omit<
+  Awaited<ReturnType<typeof prepareEmbeddedSessionState>>,
+  "opts"
+>;

@@ -1,17 +1,19 @@
-import { T as positiveSecondsToSafeMilliseconds, k as resolveExpiresAtMsFromDurationSeconds } from "../../number-coercion-CLj0HTDM.mjs";
-import { i as extractErrorCode, n as collectErrorGraphCandidates } from "../../error-coercion-C787aVxk.mjs";
-import { c as shouldUseEnvHttpProxyForUrl } from "../../proxy-env-BwCPCI9p.mjs";
-import { g as readResponseTextLimited } from "../../provider-http-errors-CTY_-ABT.mjs";
-import { c as withTrustedEnvProxyGuardedFetchMode, i as fetchWithSsrFGuard } from "../../fetch-guard-EFfAF2PS.mjs";
-import { r as resolveOpenAICodexAccessTokenExpiry } from "../../provider-openai-chatgpt-auth-2jKJupls.mjs";
-import "../../error-runtime-Bf1fYXFh.mjs";
-import "../../fetch-runtime-CknSDlAV.mjs";
-import "../../number-runtime-CGwowceO.mjs";
-import { t as classifyTransientNetworkErrorCode } from "../../retry-runtime-BLMk_EI2.mjs";
-import "../../ssrf-runtime-Darh53Ay.mjs";
-import "../../provider-http-Dn9NddwC.mjs";
-import "../../provider-auth-DFHjplgz.mjs";
-import { t as trimNonEmptyString } from "../../openai-chatgpt-shared-CkH8x7Yx.mjs";
+import { l as normalizeOptionalString } from "../../string-coerce-1VuiLaaR.mjs";
+import { T as positiveSecondsToSafeMilliseconds, k as resolveExpiresAtMsFromDurationSeconds } from "../../number-coercion-CuVhdCBs.mjs";
+import { i as extractErrorCode, n as collectErrorGraphCandidates } from "../../error-coercion-CvJK4lmH.mjs";
+import { n as asNullableObjectRecord } from "../../record-coerce-TIsquoVR.mjs";
+import { g as readResponseTextLimited } from "../../provider-http-errors-DmewLLH7.mjs";
+import { s as shouldUseEnvHttpProxyForUrl } from "../../proxy-env-DlRjxK5F.mjs";
+import { s as withTrustedEnvProxyGuardedFetchMode } from "../../fetch-guard-DI6biu8d.mjs";
+import { r as resolveOpenAICodexAccessTokenExpiry } from "../../provider-openai-chatgpt-auth-fIvYFuQh.mjs";
+import "../../error-runtime-BmospGvZ.mjs";
+import "../../string-coerce-runtime-50qKeWeL.mjs";
+import "../../fetch-runtime-DT4gd-qk.mjs";
+import "../../number-runtime-CgyXj1A5.mjs";
+import { t as classifyTransientNetworkErrorCode } from "../../retry-runtime-CZf8_bHp.mjs";
+import "../../provider-http-CuRGJD0L.mjs";
+import "../../provider-auth-C3BBF7yn.mjs";
+import { n as withOpenAIOAuthResponse, t as createOpenAIAuthorizationCodeForm } from "../../openai-oauth-http.runtime-BqUOWv-L.mjs";
 //#region extensions/openai/openai-chatgpt-device-code.ts
 const OPENAI_AUTH_BASE_URL = "https://auth.openai.com";
 const OPENAI_CODEX_CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann";
@@ -33,8 +35,7 @@ function resolveOpenAICodexDeviceCodeHeaders(contentType) {
 }
 function parseJsonObject(text) {
 	try {
-		const parsed = JSON.parse(text);
-		return parsed && typeof parsed === "object" ? parsed : null;
+		return asNullableObjectRecord(JSON.parse(text));
 	} catch {
 		return null;
 	}
@@ -61,17 +62,14 @@ function rethrowIfDeviceCodeCallerAborted(signal, error) {
 }
 function formatDeviceCodeError(params) {
 	const body = parseJsonObject(params.bodyText);
-	const error = trimNonEmptyString(body?.error);
-	const description = trimNonEmptyString(body?.error_description);
+	const error = normalizeOptionalString(body?.error);
+	const description = normalizeOptionalString(body?.error_description);
 	const safeError = error ? sanitizeDeviceCodeErrorText(error) : void 0;
 	const safeDescription = description ? sanitizeDeviceCodeErrorText(description) : void 0;
 	if (safeError && safeDescription) return `${params.prefix}: ${safeError} (${safeDescription})`;
 	if (safeError) return `${params.prefix}: ${safeError}`;
 	const bodyText = sanitizeDeviceCodeErrorText(params.bodyText);
 	return bodyText ? `${params.prefix}: HTTP ${params.status} ${bodyText}` : `${params.prefix}: HTTP ${params.status}`;
-}
-async function readOpenAICodexDeviceBody(response, timeoutMs) {
-	return await readResponseTextLimited(response, response.ok ? OPENAI_CODEX_DEVICE_JSON_BODY_LIMIT_BYTES : OPENAI_CODEX_DEVICE_ERROR_BODY_LIMIT_BYTES, { chunkTimeoutMs: timeoutMs });
 }
 async function runOpenAICodexDeviceRequest(params) {
 	const guardedOptions = {
@@ -84,16 +82,11 @@ async function runOpenAICodexDeviceRequest(params) {
 		requireHttps: true,
 		auditContext: "openai-chatgpt-device-code"
 	};
-	const { response, release } = await fetchWithSsrFGuard(shouldUseEnvHttpProxyForUrl(params.url) ? withTrustedEnvProxyGuardedFetchMode(guardedOptions) : guardedOptions);
-	try {
-		return {
-			ok: response.ok,
-			status: response.status,
-			bodyText: await readOpenAICodexDeviceBody(response, params.timeoutMs)
-		};
-	} finally {
-		await release();
-	}
+	return await withOpenAIOAuthResponse(shouldUseEnvHttpProxyForUrl(params.url) ? withTrustedEnvProxyGuardedFetchMode(guardedOptions) : guardedOptions, async (response) => ({
+		ok: response.ok,
+		status: response.status,
+		bodyText: await readResponseTextLimited(response, response.ok ? OPENAI_CODEX_DEVICE_JSON_BODY_LIMIT_BYTES : OPENAI_CODEX_DEVICE_ERROR_BODY_LIMIT_BYTES, { chunkTimeoutMs: params.timeoutMs })
+	}));
 }
 async function fetchOpenAICodexDeviceCode(params) {
 	try {
@@ -130,8 +123,8 @@ async function requestOpenAICodexDeviceCode(fetchFn, signal, assertCurrent) {
 		}));
 	}
 	const body = parseJsonObject(result.bodyText);
-	const deviceAuthId = trimNonEmptyString(body?.device_auth_id);
-	const userCode = trimNonEmptyString(body?.user_code) ?? trimNonEmptyString(body?.usercode);
+	const deviceAuthId = normalizeOptionalString(body?.device_auth_id);
+	const userCode = normalizeOptionalString(body?.user_code) ?? normalizeOptionalString(body?.usercode);
 	if (!deviceAuthId || !userCode) throw new Error("OpenAI device code response was missing the device code or user code.");
 	return {
 		deviceAuthId,
@@ -172,8 +165,8 @@ async function pollOpenAICodexDeviceCode(params) {
 		}
 		if (result.ok) {
 			const body = parseJsonObject(result.bodyText);
-			const authorizationCode = trimNonEmptyString(body?.authorization_code);
-			const codeVerifier = trimNonEmptyString(body?.code_verifier);
+			const authorizationCode = normalizeOptionalString(body?.authorization_code);
+			const codeVerifier = normalizeOptionalString(body?.code_verifier);
 			if (!authorizationCode || !codeVerifier) throw new Error("OpenAI device authorization response was missing the exchange code.");
 			return {
 				authorizationCode,
@@ -200,12 +193,11 @@ async function exchangeOpenAICodexDeviceCode(params) {
 		init: {
 			method: "POST",
 			headers: resolveOpenAICodexDeviceCodeHeaders("application/x-www-form-urlencoded"),
-			body: new URLSearchParams({
-				grant_type: "authorization_code",
+			body: createOpenAIAuthorizationCodeForm({
 				code: params.authorizationCode,
-				redirect_uri: OPENAI_CODEX_DEVICE_CALLBACK_URL,
-				client_id: OPENAI_CODEX_CLIENT_ID,
-				code_verifier: params.codeVerifier
+				redirectUri: OPENAI_CODEX_DEVICE_CALLBACK_URL,
+				clientId: OPENAI_CODEX_CLIENT_ID,
+				verifier: params.codeVerifier
 			})
 		},
 		timeoutOperation: "token exchange",
@@ -218,8 +210,8 @@ async function exchangeOpenAICodexDeviceCode(params) {
 		bodyText: result.bodyText
 	}));
 	const body = parseJsonObject(result.bodyText);
-	const access = trimNonEmptyString(body?.access_token);
-	const refresh = trimNonEmptyString(body?.refresh_token);
+	const access = normalizeOptionalString(body?.access_token);
+	const refresh = normalizeOptionalString(body?.refresh_token);
 	if (!access || !refresh) throw new Error("OpenAI token exchange succeeded but did not return OAuth tokens.");
 	return {
 		access,

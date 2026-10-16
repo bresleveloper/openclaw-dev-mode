@@ -1,14 +1,14 @@
-import { a as asOptionalRecord } from "../../record-coerce-DItp3I4t.mjs";
-import { r as declareAgentWorkspaceAccess, s as registerAgentWorkspaceAccess } from "../../workspace-access-BNUXOhfF.mjs";
-import "../../string-coerce-runtime-C_MKhRVt.mjs";
-import { t as definePluginEntry } from "../../plugin-entry-BOulgRcx.mjs";
-import { i as createWorkspaceAttachmentPreparer } from "../../agent-workspace-runtime-CbeDm0nz.mjs";
+import { a as asOptionalRecord } from "../../record-coerce-TIsquoVR.mjs";
+import { r as declareAgentWorkspaceAccess, s as registerAgentWorkspaceAccess } from "../../workspace-access-CeRsYrid.mjs";
+import "../../string-coerce-runtime-50qKeWeL.mjs";
+import { i as createWorkspaceAttachmentPreparer } from "../../agent-workspace-runtime-Ck9Qkxiq.mjs";
+import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
 import { t as FILE_TRANSFER_NODE_INVOKE_COMMANDS } from "../../node-invoke-policy-commands-BEizdTVP.mjs";
-import { l as FILE_WRITE_TOOL_DESCRIPTOR, o as FILE_FETCH_TOOL_DESCRIPTOR, r as DIR_LIST_TOOL_DESCRIPTOR, t as DIR_FETCH_TOOL_DESCRIPTOR } from "../../descriptors-kcLNZgGx.mjs";
+import { i as FILE_FETCH_TOOL_DESCRIPTOR, r as DIR_LIST_TOOL_DESCRIPTOR, s as FILE_WRITE_TOOL_DESCRIPTOR, t as DIR_FETCH_TOOL_DESCRIPTOR } from "../../descriptors-D69ns4FR.mjs";
 import path from "node:path";
 //#region extensions/file-transfer/src/shared/lazy-node-invoke-policy.ts
 const loadFileTransferNodeInvokePolicy = async () => {
-	const { createFileTransferNodeInvokePolicy } = await import("../../node-invoke-policy-CfTdCyvV.mjs");
+	const { createFileTransferNodeInvokePolicy } = await import("../../node-invoke-policy-CkkzGyFJ.mjs");
 	return createFileTransferNodeInvokePolicy();
 };
 function createLazyFileTransferNodeInvokePolicy(loadPolicy = loadFileTransferNodeInvokePolicy) {
@@ -57,7 +57,12 @@ function registerNodeWorkspaces(api) {
 	};
 	api.registerService({
 		id: "file-transfer-workspaces",
-		reload: { configPrefixes: ["plugins.entries.file-transfer.config.workspaces", "agents"] },
+		reload: { configPrefixes: [
+			"plugins.entries.file-transfer.config.workspaces",
+			"agents.defaults.workspace",
+			"agents.entries.*.workspace",
+			"agents.ownership"
+		] },
 		async start(ctx) {
 			stop();
 			const controller = new AbortController();
@@ -79,9 +84,9 @@ function registerNodeWorkspaces(api) {
 				}
 				const invoke = ctx.invokeNode;
 				if (!invoke) throw new Error("Node workspaces require Gateway service node access");
-				const { createNodeWorkspaceBridge } = await import("../../workspace-bridge-7lqq4Jcl.mjs");
-				const { createNodeWorkspaceMemory } = await import("../../workspace-memory-zhW34_4U.mjs");
-				const { createNodeWorkspaceSkills } = await import("../../workspace-skills-DOpOpmlD.mjs");
+				const { createNodeWorkspaceBridge } = await import("../../workspace-bridge-De6K9qh7.mjs");
+				const { createNodeWorkspaceMemory } = await import("../../workspace-memory-QE-zyOxx.mjs");
+				const { createNodeWorkspaceSkills } = await import("../../workspace-skills-BVS4gNpk.mjs");
 				controller.signal.throwIfAborted();
 				for (const entry of bindings.values()) {
 					const bridge = createNodeWorkspaceBridge({
@@ -101,18 +106,18 @@ function registerNodeWorkspaces(api) {
 								...entry,
 								signal: controller.signal,
 								openDuplex: ctx.openNodeDuplex
+							}),
+							prepareTurnAttachments: createWorkspaceAttachmentPreparer({
+								remoteRoot: entry.remoteRoot,
+								createBridge: (assertCurrent, signal) => createNodeWorkspaceBridge({
+									...entry,
+									invoke,
+									signal: AbortSignal.any([controller.signal, signal]),
+									openDuplex: ctx.openNodeDuplex,
+									assertCurrent
+								})
 							})
 						} : {},
-						...ctx.openNodeDuplex ? { prepareTurnAttachments: createWorkspaceAttachmentPreparer({
-							remoteRoot: entry.remoteRoot,
-							createBridge: (assertCurrent, signal) => createNodeWorkspaceBridge({
-								...entry,
-								invoke,
-								signal: AbortSignal.any([controller.signal, signal]),
-								openDuplex: ctx.openNodeDuplex,
-								assertCurrent
-							})
-						}) } : {},
 						bridge,
 						outboundMedia: {
 							localRoots: [entry.workspaceDir],
@@ -139,14 +144,10 @@ function readNodeCommandParams(paramsJSON) {
 }
 function createLazyTool(descriptor, loadTool) {
 	let toolPromise;
-	const loadOnce = () => {
-		toolPromise ??= loadTool();
-		return toolPromise;
-	};
 	return {
 		...descriptor,
 		async execute(toolCallId, args, signal, onUpdate) {
-			return await (await loadOnce()).execute(toolCallId, args, signal, onUpdate);
+			return await (await (toolPromise ??= loadTool())).execute(toolCallId, args, signal, onUpdate);
 		}
 	};
 }
@@ -157,10 +158,11 @@ var file_transfer_default = definePluginEntry({
 	nodeHostCommands: [
 		{
 			command: "file.stat",
+			hasActiveWork: () => false,
 			cap: "file",
 			dangerous: true,
 			handle: async (paramsJSON) => {
-				const { handleFileStat } = await import("../../file-stat-CakAQZVx.mjs");
+				const { handleFileStat } = await import("../../file-stat-BbvfygJ3.mjs");
 				const params = asOptionalRecord(readNodeCommandParams(paramsJSON)) ?? {};
 				return JSON.stringify(await handleFileStat(params));
 			}
@@ -172,7 +174,7 @@ var file_transfer_default = definePluginEntry({
 			cap: "file",
 			dangerous: true,
 			handle: async (paramsJSON, io) => {
-				const { handleFileFetch } = await import("../../file-fetch-CqlbqKgy.mjs");
+				const { handleFileFetch } = await import("../../file-fetch-B4bncYOg.mjs");
 				const result = await handleFileFetch(readNodeCommandParams(paramsJSON), io);
 				return JSON.stringify(result);
 			}
@@ -183,7 +185,7 @@ var file_transfer_default = definePluginEntry({
 			cap: "file",
 			dangerous: true,
 			handle: async (paramsJSON) => {
-				const { handleDirList } = await import("../../dir-list-BMt-44Xb.mjs");
+				const { handleDirList } = await import("../../dir-list-DzjCat6w.mjs");
 				const result = await handleDirList(readNodeCommandParams(paramsJSON));
 				return JSON.stringify(result);
 			}
@@ -194,18 +196,19 @@ var file_transfer_default = definePluginEntry({
 			cap: "file",
 			dangerous: true,
 			handle: async (paramsJSON) => {
-				const { handleDirFetch } = await import("../../dir-fetch-UVLB6Ep5.mjs");
+				const { handleDirFetch } = await import("../../dir-fetch-s1ei0hIN.mjs");
 				const result = await handleDirFetch(readNodeCommandParams(paramsJSON));
 				return JSON.stringify(result);
 			}
 		},
 		{
 			command: "file.create",
+			hasActiveWork: () => false,
 			cap: "file",
 			dangerous: true,
 			duplex: true,
 			handle: async (paramsJSON, io) => {
-				const { handleFileCreate } = await import("../../file-create-CqPI4pg_.mjs");
+				const { handleFileCreate } = await import("../../file-create-BTRmWRfL.mjs");
 				const params = asOptionalRecord(readNodeCommandParams(paramsJSON)) ?? {};
 				return JSON.stringify(await handleFileCreate(params, io));
 			}
@@ -216,52 +219,37 @@ var file_transfer_default = definePluginEntry({
 			cap: "file",
 			dangerous: true,
 			handle: async (paramsJSON) => {
-				const { handleFileWrite } = await import("../../file-write-CiIhV7qh.mjs");
+				const { handleFileWrite } = await import("../../file-write-CI6zOGEd.mjs");
 				const result = await handleFileWrite(readNodeCommandParams(paramsJSON));
 				return JSON.stringify(result);
 			}
 		}
 	],
 	register(api) {
-		api.registerNodeHostCommand({
-			command: "workspace.memory",
-			cap: "file",
-			dangerous: true,
-			duplex: true,
-			handle: async (...args) => {
-				const { createWorkspaceMemoryCommand } = await import("../../workspace-memory-BGcusjXr.mjs");
-				return await createWorkspaceMemoryCommand(api).handle(...args);
-			}
-		});
-		api.registerNodeInvokePolicy({
-			commands: ["workspace.memory"],
-			dangerous: true,
-			async handle(ctx) {
-				const { createWorkspaceMemoryPolicy } = await import("../../workspace-memory-policy-Bj4Pppjh.mjs");
-				return await createWorkspaceMemoryPolicy().handle(ctx);
-			}
-		});
-		api.registerNodeHostCommand({
-			command: "workspace.skills",
-			cap: "file",
-			dangerous: true,
-			duplex: true,
-			handle: async (...args) => {
-				const { createWorkspaceSkillsCommand } = await import("../../workspace-memory-BGcusjXr.mjs");
-				return await createWorkspaceSkillsCommand(api).handle(...args);
-			}
-		});
-		api.registerNodeInvokePolicy({
-			commands: ["workspace.skills"],
-			dangerous: true,
-			async handle(ctx) {
-				const { createWorkspaceSkillsPolicy } = await import("../../workspace-memory-policy-Bj4Pppjh.mjs");
-				return await createWorkspaceSkillsPolicy().handle(ctx);
-			}
-		});
+		for (const kind of ["memory", "skills"]) {
+			api.registerNodeHostCommand({
+				command: `workspace.${kind}`,
+				hasActiveWork: () => false,
+				cap: "file",
+				dangerous: true,
+				duplex: true,
+				handle: async (...args) => {
+					const { createWorkspaceCommand } = await import("../../workspace-memory-ccffLwVj.mjs");
+					return await createWorkspaceCommand(api, kind).handle(...args);
+				}
+			});
+			api.registerNodeInvokePolicy({
+				commands: [`workspace.${kind}`],
+				dangerous: true,
+				async handle(ctx) {
+					const { createWorkspaceWorkerPolicy } = await import("../../workspace-memory-policy-lU1sqsVy.mjs");
+					return await createWorkspaceWorkerPolicy(kind).handle(ctx);
+				}
+			});
+		}
 		registerNodeWorkspaces(api);
 		api.registerCli(async ({ program }) => {
-			const { registerFileTransferCli } = await import("../../cli-BaFbrUTy.mjs");
+			const { registerFileTransferCli } = await import("../../cli-veiHTAdT.mjs");
 			registerFileTransferCli(program);
 		}, { descriptors: [{
 			name: "file-transfer",
@@ -270,19 +258,19 @@ var file_transfer_default = definePluginEntry({
 		}] });
 		api.registerNodeInvokePolicy(createLazyFileTransferNodeInvokePolicy());
 		api.registerTool(createLazyTool(FILE_FETCH_TOOL_DESCRIPTOR, async () => {
-			const { createFileFetchTool } = await import("../../file-fetch-tool-DM3OMUV8.mjs");
+			const { createFileFetchTool } = await import("../../file-fetch-tool-Cqwq5kVQ.mjs");
 			return createFileFetchTool();
 		}));
 		api.registerTool(createLazyTool(DIR_LIST_TOOL_DESCRIPTOR, async () => {
-			const { createDirListTool } = await import("../../dir-list-tool-B0zkUOdk.mjs");
+			const { createDirListTool } = await import("../../dir-list-tool-B2gSk8Gw.mjs");
 			return createDirListTool();
 		}));
 		api.registerTool(createLazyTool(DIR_FETCH_TOOL_DESCRIPTOR, async () => {
-			const { createDirFetchTool } = await import("../../dir-fetch-tool-CIXzaYLl.mjs");
+			const { createDirFetchTool } = await import("../../dir-fetch-tool-DQH6xfLD.mjs");
 			return createDirFetchTool();
 		}));
 		api.registerTool(createLazyTool(FILE_WRITE_TOOL_DESCRIPTOR, async () => {
-			const { createFileWriteTool } = await import("../../file-write-tool-BIxgMkhd.mjs");
+			const { createFileWriteTool } = await import("../../file-write-tool-CxATLh4e.mjs");
 			return createFileWriteTool();
 		}));
 	}

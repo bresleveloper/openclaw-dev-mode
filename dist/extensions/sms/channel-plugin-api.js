@@ -1,6 +1,6 @@
 import { t as getSmsRuntime } from "./.setup/runtime-BBlPgBIF.mjs";
-import { C as normalizeSmsAllowFrom, S as looksLikeSmsPhoneNumber, _ as isSmsAccountConfigured, a as listTwilioIncomingPhoneNumbers, b as resolveSmsAccount, c as resolveTwilioInboundSender, d as respondTwiml, f as retrieveTwilioMessagingService, g as inspectSmsAccount, h as assertSmsCredentialOwnerAvailable, i as buildTwilioInboundMessage, l as resolveTwilioMessageSid, m as verifyTwilioSignature, o as listTwilioMessages, p as sendSmsViaTwilio, r as TWIML_CONTENT_TYPE, s as readTwilioWebhookForm, t as TWILIO_MESSAGE_BODY_MAX_LENGTH, u as resolveTwilioWebhookSignatureUrl, v as listSmsAccountIds, w as normalizeSmsPhoneNumber, x as resolveTwilioStatusCallbackUrl, y as resolveDefaultSmsAccountId } from "./.setup/twilio-J4cwlx0M.mjs";
-import { n as collectRuntimeConfigAssignments, r as secretTargetRegistryEntries } from "./.setup/secret-contract-Cp0f-YPc.mjs";
+import { C as normalizeSmsAllowFrom, S as looksLikeSmsPhoneNumber, _ as isSmsAccountConfigured, a as listTwilioIncomingPhoneNumbers, b as resolveSmsAccount, c as resolveTwilioInboundSender, d as respondTwiml, f as retrieveTwilioMessagingService, g as inspectSmsAccount, h as assertSmsCredentialOwnerAvailable, i as buildTwilioInboundMessage, l as resolveTwilioMessageSid, m as verifyTwilioSignature, o as listTwilioMessages, p as sendSmsViaTwilio, r as TWIML_CONTENT_TYPE, s as readTwilioWebhookForm, t as TWILIO_MESSAGE_BODY_MAX_LENGTH, u as resolveTwilioWebhookSignatureUrl, v as listSmsAccountIds, w as normalizeSmsPhoneNumber, x as resolveTwilioStatusCallbackUrl, y as resolveDefaultSmsAccountId } from "./.setup/twilio-DLNDolQb.mjs";
+import { n as collectRuntimeConfigAssignments, r as secretTargetRegistryEntries } from "./.setup/secret-contract-BEWVid4f.mjs";
 import { DEFAULT_ACCOUNT_ID } from "openclaw/plugin-sdk/account-id";
 import { createHybridChannelConfigAdapter, createScopedDmSecurityResolver } from "openclaw/plugin-sdk/channel-config-helpers";
 import { buildChannelOutboundSessionRoute, createChatChannelPlugin } from "openclaw/plugin-sdk/channel-core";
@@ -17,12 +17,12 @@ import { AllowFromListSchema, DmPolicySchema, buildChannelConfigSchema, buildMul
 import { requireChannelOpenAllowFrom } from "openclaw/plugin-sdk/extension-shared";
 import { z } from "zod";
 import { createHash } from "node:crypto";
-import { channelBlockedPatch, channelReadyPatch, channelStoppedPatch } from "openclaw/plugin-sdk/gateway-runtime";
+import { withTimeout } from "openclaw/plugin-sdk/text-utility-runtime";
 import { createFixedWindowRateLimiter, isRequestBodyLimitError, registerPluginHttpRoute, resolveRequestClientIp } from "openclaw/plugin-sdk/webhook-ingress";
+import { channelBlockedPatch, channelReadyPatch, channelStoppedPatch } from "openclaw/plugin-sdk/gateway-runtime";
 import { createWebhookInFlightLimiter, runDetachedWebhookWork, sendHttpRequestRejection } from "openclaw/plugin-sdk/webhook-request-guards";
 import { createChannelPairingChallengeIssuer } from "openclaw/plugin-sdk/channel-pairing";
 import { createChannelPartialDeliveryError } from "openclaw/plugin-sdk/channel-inbound";
-import { withTimeout } from "openclaw/plugin-sdk/text-utility-runtime";
 //#region extensions/sms/src/config-schema.ts
 const SecretInputSchema = buildSecretInputSchema();
 const SmsAccountConfigSchema = z.object({
@@ -130,9 +130,6 @@ let deliveryStoreRuntime;
 function firstTrimmed(form, key) {
 	return form[key]?.trim() ?? "";
 }
-function resolveMessageSid(form) {
-	return firstTrimmed(form, "MessageSid") || firstTrimmed(form, "SmsSid") || firstTrimmed(form, "SmsMessageSid");
-}
 function normalizeDeliveryStatus(rawStatus) {
 	const status = rawStatus.trim().toLowerCase();
 	return INBOUND_MESSAGE_STATUSES.has(status) ? "" : status;
@@ -172,7 +169,7 @@ function isTwilioDeliveryStatusForm(form) {
 	return Boolean(resolveDeliveryStatus(form));
 }
 function parseSmsDeliveryObservation(form, nowMs = Date.now()) {
-	const messageSid = resolveMessageSid(form);
+	const messageSid = resolveTwilioMessageSid(form);
 	const status = resolveDeliveryStatus(form);
 	if (!messageSid || !status) return null;
 	const errorCode = firstTrimmed(form, "ErrorCode");
@@ -196,16 +193,12 @@ function parseSmsDeliveryObservation(form, nowMs = Date.now()) {
 	};
 }
 function reduceDeliveryStatus(current, observation) {
-	if (!current) return {
-		status: observation.status,
-		...observation.errorCode ? { errorCode: observation.errorCode } : {}
-	};
-	if (current.status === "conflicted") return {
+	if (current?.status === "conflicted") return {
 		status: current.status,
 		...current.errorCode ? { errorCode: current.errorCode } : {},
 		conflict: true
 	};
-	if (current.status === observation.status) {
+	if (current?.status === observation.status) {
 		const errorCode = current.errorCode ?? observation.errorCode;
 		return {
 			status: current.status,
@@ -213,9 +206,9 @@ function reduceDeliveryStatus(current, observation) {
 			...current.conflict ? { conflict: true } : {}
 		};
 	}
-	const currentTerminal = TERMINAL_DELIVERY_STATUSES.has(current.status);
+	const currentTerminal = current && TERMINAL_DELIVERY_STATUSES.has(current.status);
 	const nextTerminal = TERMINAL_DELIVERY_STATUSES.has(observation.status);
-	if (currentTerminal && nextTerminal && current.status !== observation.status) {
+	if (currentTerminal && nextTerminal) {
 		const errorCode = observation.errorCode ?? current.errorCode;
 		return {
 			status: "conflicted",
@@ -223,24 +216,11 @@ function reduceDeliveryStatus(current, observation) {
 			conflict: true
 		};
 	}
-	if (currentTerminal) return {
-		status: current.status,
-		...current.errorCode ? { errorCode: current.errorCode } : {},
-		...current.conflict ? { conflict: true } : {}
-	};
-	if (nextTerminal) return {
-		status: observation.status,
-		...observation.errorCode ? { errorCode: observation.errorCode } : {}
-	};
-	const currentRank = DELIVERY_STATUS_RANK[current.status] ?? -1;
-	if ((DELIVERY_STATUS_RANK[observation.status] ?? -1) > currentRank) return {
-		status: observation.status,
-		...observation.errorCode ? { errorCode: observation.errorCode } : {}
-	};
+	const selected = !current || !currentTerminal && (nextTerminal || (DELIVERY_STATUS_RANK[observation.status] ?? -1) > (DELIVERY_STATUS_RANK[current.status] ?? -1)) ? observation : current;
 	return {
-		status: current.status,
-		...current.errorCode ? { errorCode: current.errorCode } : {},
-		...current.conflict ? { conflict: true } : {}
+		status: selected.status,
+		...selected.errorCode ? { errorCode: selected.errorCode } : {},
+		...selected === current && current.conflict ? { conflict: true } : {}
 	};
 }
 function mergeSmsDeliveryObservation(params) {
@@ -358,15 +338,14 @@ function createSmsMessageReceipt(params) {
 	});
 	return receipt;
 }
-function createSmsDeliveryProgressResult(result, kind) {
+function createSmsSendResult(params) {
+	const first = params.results[0];
+	if (!first) throw new Error("SMS send did not return a Twilio Message SID.");
 	return {
 		channel: "sms",
-		messageId: result.sid,
-		chatId: result.to,
-		receipt: createSmsMessageReceipt({
-			results: [result],
-			kind
-		})
+		messageId: first.sid,
+		chatId: first.to,
+		receipt: createSmsMessageReceipt(params)
 	};
 }
 function throwSmsPartialDeliveryError(error, results, kind) {
@@ -427,17 +406,6 @@ async function sendSmsProviderMessage(params) {
 	await recordInitialDeliveryBestEffort(params.account, result);
 	return result;
 }
-function logInitialDeliveryPersistenceFailure(result, error) {
-	try {
-		getSmsRuntime().logging.getChildLogger({
-			plugin: "sms",
-			feature: "delivery-status"
-		}).warn("SMS delivery initial state could not be persisted.", {
-			messageSid: result.sid,
-			errorType: error instanceof Error ? error.name : typeof error
-		});
-	} catch {}
-}
 async function recordInitialDeliveryBestEffort(account, result) {
 	try {
 		await recordInitialSmsDeliveryResult({
@@ -445,7 +413,15 @@ async function recordInitialDeliveryBestEffort(account, result) {
 			result
 		});
 	} catch (error) {
-		logInitialDeliveryPersistenceFailure(result, error);
+		try {
+			getSmsRuntime().logging.getChildLogger({
+				plugin: "sms",
+				feature: "delivery-status"
+			}).warn("SMS delivery initial state could not be persisted.", {
+				messageSid: result.sid,
+				errorType: error instanceof Error ? error.name : typeof error
+			});
+		} catch {}
 	}
 }
 async function sendSmsTextChunks(params) {
@@ -454,20 +430,26 @@ async function sendSmsTextChunks(params) {
 		configuredLimit: params.account.textChunkLimit
 	});
 	if (chunks.length === 0) throw new Error("SMS send requires non-empty text.");
+	return await sendSmsMessages(params, chunks.map((text) => ({ text })), "text");
+}
+async function sendSmsMessages(params, messages, kind) {
 	const results = [];
 	try {
-		for (const text of chunks) {
+		for (const [index, message] of messages.entries()) {
 			const result = await sendSmsProviderMessage({
 				account: params.account,
 				to: params.to,
-				text,
+				...message,
 				onPlatformSendDispatch: params.onPlatformSendDispatch
 			});
 			results.push(result);
-			await params.onDeliveryResult?.(createSmsDeliveryProgressResult(result, "text"));
+			await params.onDeliveryResult?.(createSmsSendResult({
+				results: [result],
+				kind: index === 0 ? kind : "text"
+			}));
 		}
 	} catch (error) {
-		throwSmsPartialDeliveryError(error, results, "text");
+		throwSmsPartialDeliveryError(error, results, kind);
 	}
 	return results;
 }
@@ -479,7 +461,7 @@ async function prepareSmsMediaAttempt(params) {
 	});
 	let hostedMedia;
 	try {
-		const { prepareHostedSmsMedia } = await import("./.setup/media-jI34WkPd.mjs");
+		const { prepareHostedSmsMedia } = await import("./.setup/media-fLUYh_H2.mjs");
 		assertSmsCredentialOwnerAvailable(params.account);
 		const prepared = await prepareHostedSmsMedia({
 			account: params.account,
@@ -504,31 +486,10 @@ async function prepareSmsMediaAttempt(params) {
 	};
 }
 async function sendPreparedSmsMediaAttempt(params) {
-	const results = [];
-	try {
-		const mediaResult = await sendSmsProviderMessage({
-			account: params.account,
-			to: params.to,
-			...params.attempt.caption ? { text: params.attempt.caption } : {},
-			mediaUrls: [params.attempt.hostedMediaUrl],
-			onPlatformSendDispatch: params.onPlatformSendDispatch
-		});
-		results.push(mediaResult);
-		await params.onDeliveryResult?.(createSmsDeliveryProgressResult(mediaResult, "media"));
-		for (const text of params.attempt.remainingChunks) {
-			const result = await sendSmsProviderMessage({
-				account: params.account,
-				to: params.to,
-				text,
-				onPlatformSendDispatch: params.onPlatformSendDispatch
-			});
-			results.push(result);
-			await params.onDeliveryResult?.(createSmsDeliveryProgressResult(result, "text"));
-		}
-	} catch (error) {
-		throwSmsPartialDeliveryError(error, results, "media");
-	}
-	return results;
+	return await sendSmsMessages(params, [{
+		...params.attempt.caption ? { text: params.attempt.caption } : {},
+		mediaUrls: [params.attempt.hostedMediaUrl]
+	}, ...params.attempt.remainingChunks.map((text) => ({ text }))], "media");
 }
 //#endregion
 //#region extensions/sms/src/inbound.ts
@@ -611,7 +572,7 @@ async function dispatchSmsInboundEvent(params) {
 		params.log?.warn?.(`SMS sender ${from} is not authorized`);
 		return;
 	}
-	const materialized = params.msg.media.length > 0 || (params.msg.unavailableMediaCount ?? 0) > 0 ? await (await import("./.setup/media-jI34WkPd.mjs")).materializeSmsInboundMedia({
+	const materialized = params.msg.media.length > 0 || (params.msg.unavailableMediaCount ?? 0) > 0 ? await (await import("./.setup/media-fLUYh_H2.mjs")).materializeSmsInboundMedia({
 		account: params.account,
 		msg: params.msg,
 		mediaRuntime: params.channelRuntime,
@@ -762,10 +723,8 @@ async function dispatchSmsInboundEvent(params) {
 				}
 			}
 		});
+	} finally {
 		if (adoptionState === "pending" || adoptionState === "abandoned") await materialized.cleanup();
-	} catch (error) {
-		if (adoptionState === "pending" || adoptionState === "abandoned") await materialized.cleanup();
-		throw error;
 	}
 }
 //#endregion
@@ -1116,7 +1075,7 @@ async function registerSmsWebhookRoute(params) {
 			throwOnFailure: true,
 			log: (msg) => params.log?.info?.(msg),
 			handler: async (req, res) => {
-				const { tryHandleHostedSmsMediaRequest } = await import("./.setup/media-jI34WkPd.mjs");
+				const { tryHandleHostedSmsMediaRequest } = await import("./.setup/media-fLUYh_H2.mjs");
 				if (await tryHandleHostedSmsMediaRequest(req, res, params.account.accountId)) return true;
 				return await webhookHandler(req, res);
 			}
@@ -1216,33 +1175,30 @@ function compareTwilioWebhook(account, phoneNumber) {
 		status: "number-not-found",
 		expectedNumber: account.fromNumber
 	};
-	const configuredMethod = phoneNumber.smsMethod.toUpperCase();
+	const summary = {
+		phoneNumber: phoneNumber.phoneNumber || account.fromNumber,
+		expectedUrl: account.publicWebhookUrl,
+		configuredMethod: phoneNumber.smsMethod.toUpperCase()
+	};
 	if (!phoneNumber.smsUrl) return {
 		status: "missing",
-		phoneNumber: phoneNumber.phoneNumber || account.fromNumber,
-		expectedUrl: account.publicWebhookUrl,
-		configuredMethod
+		...summary
 	};
-	if (configuredMethod && configuredMethod !== "POST") return {
+	const configured = {
+		...summary,
+		configuredUrl: phoneNumber.smsUrl
+	};
+	if (summary.configuredMethod && summary.configuredMethod !== "POST") return {
 		status: "method-mismatch",
-		phoneNumber: phoneNumber.phoneNumber || account.fromNumber,
-		expectedUrl: account.publicWebhookUrl,
-		configuredUrl: phoneNumber.smsUrl,
-		configuredMethod
+		...configured
 	};
 	if (phoneNumber.smsUrl !== account.publicWebhookUrl) return {
 		status: "url-mismatch",
-		phoneNumber: phoneNumber.phoneNumber || account.fromNumber,
-		expectedUrl: account.publicWebhookUrl,
-		configuredUrl: phoneNumber.smsUrl,
-		configuredMethod
+		...configured
 	};
 	return {
 		status: "matches",
-		phoneNumber: phoneNumber.phoneNumber || account.fromNumber,
-		expectedUrl: account.publicWebhookUrl,
-		configuredUrl: phoneNumber.smsUrl,
-		configuredMethod,
+		...configured,
 		voiceUrl: phoneNumber.voiceUrl
 	};
 }
@@ -1251,33 +1207,30 @@ function compareTwilioMessagingService(account, service) {
 		status: "unavailable",
 		reason: "Twilio Messaging Service defers inbound webhooks to sender phone numbers; configure fromNumber or disable defer-to-sender before probing."
 	};
-	const configuredMethod = service.inboundMethod.toUpperCase();
+	const summary = {
+		serviceSid: service.sid || account.messagingServiceSid,
+		expectedUrl: account.publicWebhookUrl,
+		configuredMethod: service.inboundMethod.toUpperCase()
+	};
 	if (!service.inboundRequestUrl) return {
 		status: "messaging-service-missing",
-		serviceSid: service.sid || account.messagingServiceSid,
-		expectedUrl: account.publicWebhookUrl,
-		configuredMethod
+		...summary
 	};
-	if (configuredMethod && configuredMethod !== "POST") return {
+	const configured = {
+		...summary,
+		configuredUrl: service.inboundRequestUrl
+	};
+	if (summary.configuredMethod && summary.configuredMethod !== "POST") return {
 		status: "messaging-service-method-mismatch",
-		serviceSid: service.sid || account.messagingServiceSid,
-		expectedUrl: account.publicWebhookUrl,
-		configuredUrl: service.inboundRequestUrl,
-		configuredMethod
+		...configured
 	};
 	if (service.inboundRequestUrl !== account.publicWebhookUrl) return {
 		status: "messaging-service-url-mismatch",
-		serviceSid: service.sid || account.messagingServiceSid,
-		expectedUrl: account.publicWebhookUrl,
-		configuredUrl: service.inboundRequestUrl,
-		configuredMethod
+		...configured
 	};
 	return {
 		status: "messaging-service-matches",
-		serviceSid: service.sid || account.messagingServiceSid,
-		expectedUrl: account.publicWebhookUrl,
-		configuredUrl: service.inboundRequestUrl,
-		configuredMethod
+		...configured
 	};
 }
 function recentInboundSummary(messages) {
@@ -1594,17 +1547,6 @@ const smsSetupContract = defineChannelSetupContract({
 	},
 	adapter: { applyAccountConfig: applySmsAccountConfig }
 });
-function createSmsReceipt(params) {
-	const first = params.results[0];
-	if (!first) throw new Error("SMS send did not return a Twilio Message SID.");
-	const receipt = createSmsMessageReceipt(params);
-	return {
-		channel: CHANNEL_ID,
-		messageId: first.sid,
-		chatId: first.to,
-		receipt
-	};
-}
 function resolveSmsTextChunkLimit(params) {
 	return resolveSmsAccount(params.cfg, params.accountId).textChunkLimit || params.fallbackLimit || 1500;
 }
@@ -1612,7 +1554,7 @@ async function sendSmsText(ctx) {
 	const account = resolveSmsAccount(ctx.cfg, ctx.accountId);
 	const to = normalizeSmsPhoneNumber(ctx.to) || account.defaultTo;
 	if (!looksLikeSmsPhoneNumber(to)) throw new Error(`Invalid SMS target: ${ctx.to}`);
-	return createSmsReceipt({
+	return createSmsSendResult({
 		results: await sendSmsTextChunks({
 			account,
 			to,
@@ -1658,7 +1600,7 @@ async function sendPreparedSmsAttachment(ctx) {
 	preparedSmsAttachmentAttempts.delete(ctx);
 	if (!preparation) throw new Error("SMS message lifecycle did not prepare the MMS attachment.");
 	const prepared = await preparation;
-	return createSmsReceipt({
+	return createSmsSendResult({
 		results: await sendPreparedSmsMediaAttempt({
 			...prepared,
 			onPlatformSendDispatch: async () => {
@@ -1690,8 +1632,8 @@ const smsMessageAdapter = defineChannelMessageAdapter({
 				await attemptToken.attempt.cleanupHostedMedia();
 			}
 		},
-		text: async (ctx) => await sendSmsText(ctx),
-		media: async (ctx) => await sendPreparedSmsAttachment(ctx)
+		text: sendSmsText,
+		media: sendPreparedSmsAttachment
 	}
 });
 function resolveSmsOutboundSessionRoute(params) {
@@ -1753,9 +1695,9 @@ const smsPlugin = createChatChannelPlugin({
 		},
 		messaging: {
 			targetPrefixes: ["twilio-sms"],
-			normalizeTarget: (target) => normalizeSmsPhoneNumber(target),
-			inferTargetChatType: ({ to }) => looksLikeSmsPhoneNumber(normalizeSmsPhoneNumber(to)) ? "direct" : void 0,
-			resolveOutboundSessionRoute: (params) => resolveSmsOutboundSessionRoute(params),
+			normalizeTarget: normalizeSmsPhoneNumber,
+			inferTargetChatType: ({ to }) => looksLikeSmsPhoneNumber(to) ? "direct" : void 0,
+			resolveOutboundSessionRoute: resolveSmsOutboundSessionRoute,
 			targetResolver: {
 				looksLikeId: looksLikeSmsPhoneNumber,
 				hint: "<+15551234567>"

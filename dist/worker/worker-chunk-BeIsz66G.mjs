@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function createDeferredEventBuffer(e,t){let n=[];return{push(e){n.push(e),t?.()},flush(){for(let t of n)e.push(t);n=[]},discard(){n=[]}}}var t=e((()=>{}));export{t as n,createDeferredEventBuffer as t};

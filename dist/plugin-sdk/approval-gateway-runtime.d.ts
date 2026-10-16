@@ -1,3 +1,3 @@
-import { i as ApprovalResolveResult } from "../approvals-B-zk4kd_.js";
-import { t as resolveApprovalOverGateway } from "../approval-gateway-runtime-zcCb0-3W.js";
+import { o as ApprovalResolveResult } from "../exec-approvals-D599mwQY.js";
+import { t as resolveApprovalOverGateway } from "../approval-gateway-runtime-BeglNVLf.js";
 export { type ApprovalResolveResult, resolveApprovalOverGateway };

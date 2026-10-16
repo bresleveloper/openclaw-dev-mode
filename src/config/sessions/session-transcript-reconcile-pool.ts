@@ -2,7 +2,9 @@ import { MessageChannel } from "node:worker_threads";
 import { toStringifiedError } from "@openclaw/normalization-core/error-coercion";
 import { runtimeProcessEntrypoints } from "../../infra/runtime-process-entrypoints.js";
 import { resolveRuntimeWorkerUrl } from "../../infra/runtime-worker-url.js";
+import { readDatabasePathIdentitySync } from "../../infra/sqlite-worker-identity.js";
 import { WorkerTaskPool } from "../../infra/worker-task-pool.js";
+import { createSubsystemLogger } from "../../logging/subsystem.js";
 import { createDeferredCore } from "../../shared/deferred.js";
 import { resolveGlobalSingleton } from "../../shared/global-singleton.js";
 import { registerOpenClawAgentDatabaseAsyncResource } from "../../state/openclaw-agent-db-resources.js";
@@ -20,15 +22,18 @@ import type {
 type ReconcilePool = WorkerTaskPool<SessionTranscriptReconcileWorkerTask, void>;
 type ReconcileRuntime = {
   pool?: ReconcilePool;
-  operations: Set<Promise<unknown>>;
+  operations: Map<Promise<unknown>, AbortController>;
+  tasks: Map<AbortController, string>;
   generation: number;
   stopped: boolean;
   closing?: Promise<void>;
 };
 const MAX_WORKERS = 1;
+const CLOSE_GRACE_MS = 5_000;
+const log = createSubsystemLogger("sessions/transcript-index");
 const runtime = resolveGlobalSingleton<ReconcileRuntime>(
   Symbol.for("openclaw.sessionTranscriptReconcilePool"),
-  () => ({ operations: new Set(), generation: 0, stopped: false }),
+  () => ({ operations: new Map(), tasks: new Map(), generation: 0, stopped: false }),
   () => closeSessionTranscriptReconcileWorkerPool(),
 );
 
@@ -37,7 +42,9 @@ export type SessionTranscriptReconcileOperation = {
   retainLeaseForCleanup(
     lease: Extract<SessionTranscriptReconcileWorkerInput, { mode: "release" }>,
   ): void;
-  startTask: typeof startReconcileWorkerTask;
+  startTask(
+    input: SessionTranscriptReconcileWorkerInput,
+  ): ReturnType<typeof startReconcileWorkerTask>;
 };
 
 export function captureSessionTranscriptReconcileGeneration(): number {
@@ -69,7 +76,7 @@ export function runSessionTranscriptReconcileOperation<T>(
       unregister?.();
     }
   });
-  runtime.operations.add(promise);
+  runtime.operations.set(promise, controller);
   try {
     unregister =
       owner &&
@@ -87,7 +94,7 @@ export function runSessionTranscriptReconcileOperation<T>(
                 unregister?.();
               }
             });
-          runtime.operations.add(closing);
+          runtime.operations.set(closing, controller);
           return closing.finally(() => runtime.operations.delete(closing));
         },
       });
@@ -105,7 +112,10 @@ export function runSessionTranscriptReconcileOperation<T>(
           if (input.mode !== "release") {
             controller.signal.throwIfAborted();
           }
-          return startReconcileWorkerTask(input);
+          return startReconcileWorkerTask(
+            input,
+            input.mode === "release" ? undefined : controller.signal,
+          );
         },
       }),
     );
@@ -118,7 +128,7 @@ export function runSessionTranscriptReconcileOperation<T>(
 async function releaseReconcileWorkerLease(
   input: Extract<SessionTranscriptReconcileWorkerInput, { mode: "release" }>,
 ): Promise<void> {
-  const task = startReconcileWorkerTask(input);
+  const task = await startReconcileWorkerTask(input);
   try {
     const cleanup = await task.leaseRelease;
     if (cleanup.failure) {
@@ -137,10 +147,22 @@ export function closeSessionTranscriptReconcileWorkerPool(): Promise<void> {
   }
   runtime.stopped = true;
   runtime.generation++;
+  const deadline = setTimeout(() => {
+    const error = new Error("Session transcript reconciliation shutdown grace expired");
+    log.warn(
+      `${error.message}; cancelling ${runtime.operations.size} operations; terminating workers: ${[...runtime.tasks.values()].join(", ") || "none"}`,
+    );
+    for (const controller of runtime.operations.values()) {
+      controller.abort(error);
+    }
+    for (const controller of runtime.tasks.keys()) {
+      controller.abort(error);
+    }
+  }, CLOSE_GRACE_MS);
   runtime.closing = Promise.resolve()
     .then(async () => {
       while (runtime.operations.size) {
-        await Promise.allSettled(runtime.operations);
+        await Promise.allSettled(runtime.operations.keys());
       }
       await runtime.pool?.close();
       runtime.pool = undefined;
@@ -149,6 +171,7 @@ export function closeSessionTranscriptReconcileWorkerPool(): Promise<void> {
       runtime.stopped = false;
     })
     .finally(() => {
+      clearTimeout(deadline);
       runtime.closing = undefined;
     });
   return runtime.closing;
@@ -166,19 +189,34 @@ export function getSessionTranscriptReconcileWorkerPoolSnapshot() {
   );
 }
 
-function startReconcileWorkerTask(input: SessionTranscriptReconcileWorkerInput) {
+async function startReconcileWorkerTask(
+  input: SessionTranscriptReconcileWorkerInput,
+  signal?: AbortSignal,
+) {
   const owner =
     input.mode === "memory"
       ? undefined
       : {
           actorId: `transcript:${input.mode}:${input.leaseId}`,
           context: captureOpenClawStateWorkerContext({
+            initializationAgentPaths: [input.path],
             env: {
               OPENCLAW_STATE_DIR: input.stateDir,
               ...(input.externallySupervised ? { OPENCLAW_SUPERVISOR_MODE: "external" } : {}),
             },
           }),
         };
+  const sourceIdentity =
+    input.mode === "disk" ? readDatabasePathIdentitySync(input.path).key : undefined;
+  if (owner && input.mode === "disk" && owner.context.admission.identity.key.startsWith("path:")) {
+    // Finish canonical first creation before publishing a task that could claim an agent lease.
+    const { runOpenClawStateWorkerOperation } =
+      await import("../../state/openclaw-state-worker-store.js");
+    await runOpenClawStateWorkerOperation(owner.context, async () => undefined, {
+      signal,
+    });
+  }
+  signal?.throwIfAborted();
   const pool = (runtime.pool ??= new WorkerTaskPool<SessionTranscriptReconcileWorkerTask, void>({
     workerUrl: resolveRuntimeWorkerUrl(runtimeProcessEntrypoints.sessionTranscriptReconcile),
     workerOptions: { resourceLimits: { maxOldGenerationSizeMb: 512 } },
@@ -188,6 +226,12 @@ function startReconcileWorkerTask(input: SessionTranscriptReconcileWorkerInput) 
   }));
   const { port1: port, port2 } = new MessageChannel();
   const controller = new AbortController();
+  runtime.tasks.set(
+    controller,
+    input.mode === "memory"
+      ? "memory"
+      : `transcript:${input.mode}:${input.leaseId} (${input.path})`,
+  );
   const closed = new Promise<void>((resolve) => {
     port.once("close", resolve);
   });
@@ -208,22 +252,28 @@ function startReconcileWorkerTask(input: SessionTranscriptReconcileWorkerInput) 
       ? 2 *
         (owner.actorId.length +
           owner.context.admission.databasePath.length +
-          owner.context.environment.OPENCLAW_STATE_DIR.length +
-          owner.context.coordinatorRuntime.directory.length)
+          owner.context.environment.OPENCLAW_STATE_DIR.length)
       : 0) +
     (input.mode === "memory"
       ? input.sessionIds.reduce((bytes, id) => bytes + 2 * id.length, 0)
-      : 2 * (input.stateDir.length + input.leaseId.length) +
-        (input.mode === "disk" ? 2 * (input.path.length + input.agentId.length) : 0));
+      : 2 * (input.stateDir.length + input.leaseId.length + input.path.length) +
+        (input.mode === "disk" ? 2 * input.agentId.length : 0));
   let poolCompletion: Promise<void> | undefined;
   const execute = async (coordination?: SqliteMutationWorkerCoordination) => {
     poolCompletion = pool.run(
-      { input, port: port2, coordination },
+      {
+        input,
+        port: port2,
+        coordination,
+        sourceIdentity,
+      },
       {
         inputBytes,
         transferList: (task) => [
           task.port,
-          ...(task.coordination?.stateLifecycle ? [task.coordination.stateLifecycle] : []),
+          ...(task.coordination?.reconciliation
+            ? [task.coordination.reconciliation.admission]
+            : []),
         ],
         signal: controller.signal,
       },
@@ -238,13 +288,22 @@ function startReconcileWorkerTask(input: SessionTranscriptReconcileWorkerInput) 
   const completion = (
     !owner
       ? execute()
-      : withSqliteWorkerLifecycleCoordination(owner.context, owner.actorId, execute, async () => {
-          controller.abort();
-          await poolCompletion?.catch(() => {});
-          port2.close();
-          await closed;
-        })
-  ).finally(() => port2.close());
+      : withSqliteWorkerLifecycleCoordination(
+          owner.context,
+          owner.actorId,
+          execute,
+          async () => {
+            controller.abort();
+            await poolCompletion?.catch(() => {});
+            port2.close();
+            await closed;
+          },
+          "reconciliation",
+        )
+  ).finally(() => {
+    runtime.tasks.delete(controller);
+    port2.close();
+  });
   const leaseRelease = Promise.allSettled([completion, closed]).then(([result]) => {
     if (result.status === "rejected") {
       failure ??= toStringifiedError(result.reason);

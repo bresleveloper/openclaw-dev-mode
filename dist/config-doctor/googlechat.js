@@ -1,5 +1,4 @@
-import { a as asNullableRecord } from "./string-coerce-Dyy0qgLy.js";
-import { l as normalizeChannelConfigEntries, n as defineKeyMoveMigration, s as defineChannelAliasMigration, x as hasLegacyAccountStreamingAliases } from "./runtime-doctor-migrations-8XPPImoy.js";
+import { S as normalizeChannelConfigEntries, a as defineChannelAliasMigration, b as hasLegacyAccountStreamingAliases, k as asNullableRecord, n as defineKeyMoveMigration } from "./runtime-doctor-migrations-BhouWAUC.js";
 //#region extensions/googlechat/src/doctor-contract.ts
 const streamingAliasMigration = defineChannelAliasMigration({
 	channelId: "googlechat",
@@ -98,15 +97,12 @@ const legacyConfigRules = [
 	},
 	...streamingAliasMigration.legacyConfigRules
 ];
-function normalizeRetiredGoogleChatKeys(cfg) {
-	return normalizeChannelConfigEntries({
+function normalizeCompatibilityConfig({ cfg }) {
+	const retired = normalizeChannelConfigEntries({
 		cfg,
 		channelId: "googlechat",
 		normalizeEntry: normalizeGoogleChatEntry
 	});
-}
-function normalizeCompatibilityConfig({ cfg }) {
-	const retired = normalizeRetiredGoogleChatKeys(cfg);
 	return streamingAliasMigration.normalizeChannelConfig({
 		cfg: retired.config,
 		changes: retired.changes

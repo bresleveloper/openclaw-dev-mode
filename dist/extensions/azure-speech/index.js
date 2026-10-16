@@ -1,11 +1,6 @@
-import { t as definePluginEntry } from "../../plugin-entry-BOulgRcx.mjs";
-import { t as buildAzureSpeechProvider } from "../../speech-provider-bky87Pvm.mjs";
+import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
+import { t as buildAzureSpeechProvider } from "../../speech-provider-DDy23Uv5.mjs";
 //#region extensions/azure-speech/index.ts
-/**
-* Azure Speech plugin entry. It registers the Azure text-to-speech provider for
-* message voice output and voice-note generation.
-*/
-/** Plugin entry for Azure Speech TTS. */
 var azure_speech_default = definePluginEntry({
 	id: "azure-speech",
 	name: "Azure Speech",

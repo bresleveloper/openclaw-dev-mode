@@ -17,12 +17,10 @@ function normalizeGradiumProviderConfig(rawConfig) {
 	};
 }
 function readGradiumProviderConfig(config) {
-	const defaults = normalizeGradiumProviderConfig({});
-	return {
-		apiKey: normalizeOptionalString(config.apiKey) ?? defaults.apiKey,
-		baseUrl: normalizeGradiumBaseUrl(normalizeOptionalString(config.baseUrl) ?? defaults.baseUrl),
-		voiceId: normalizeOptionalString(config.voiceId) ?? defaults.voiceId
-	};
+	return normalizeGradiumProviderConfig({ gradium: {
+		...config,
+		apiKey: normalizeOptionalString(config.apiKey)
+	} });
 }
 function resolveGradiumApiKey(configApiKey) {
 	return resolveSpeechProviderApiKey(normalizeOptionalString(configApiKey), process.env.GRADIUM_API_KEY);
@@ -52,22 +50,20 @@ function isGradiumProviderConfigured(config) {
 	}
 }
 function parseDirectiveToken(ctx) {
-	switch (ctx.key) {
-		case "voice":
-		case "voice_id":
-		case "voiceid":
-		case "gradium_voice":
-		case "gradiumvoice":
-			if (!ctx.policy.allowVoice) return { handled: true };
-			return {
-				handled: true,
-				overrides: {
-					...ctx.currentOverrides,
-					voiceId: ctx.value
-				}
-			};
-		default: return { handled: false };
-	}
+	if (![
+		"voice",
+		"voice_id",
+		"voiceid",
+		"gradium_voice",
+		"gradiumvoice"
+	].includes(ctx.key)) return { handled: false };
+	return ctx.policy.allowVoice ? {
+		handled: true,
+		overrides: {
+			...ctx.currentOverrides,
+			voiceId: ctx.value
+		}
+	} : { handled: true };
 }
 function buildGradiumSpeechProvider() {
 	return {
@@ -92,14 +88,11 @@ function buildGradiumSpeechProvider() {
 				voiceCompatible: wantsVoiceNote
 			};
 		},
-		synthesizeTelephony: async (req) => {
-			const outputFormat = "ulaw_8000";
-			return {
-				audioBuffer: await synthesizeGradium(req, outputFormat),
-				outputFormat,
-				sampleRate: 8e3
-			};
-		}
+		synthesizeTelephony: async (req) => ({
+			audioBuffer: await synthesizeGradium(req, "ulaw_8000"),
+			outputFormat: "ulaw_8000",
+			sampleRate: 8e3
+		})
 	};
 }
 //#endregion

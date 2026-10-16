@@ -1,6 +1,5 @@
-import { a as FEATHERLESS_DEFAULT_MODEL_REF, c as FEATHERLESS_DYNAMIC_MAX_TOKENS, d as openclaw_plugin_default, i as FEATHERLESS_DEFAULT_MODEL_ID, o as FEATHERLESS_DYNAMIC_COMPAT, s as FEATHERLESS_DYNAMIC_CONTEXT_WINDOW, t as FEATHERLESS_BASE_URL, u as isFeatherlessCatalogModelId } from "./.setup/models-J3WOft2N.mjs";
+import { a as FEATHERLESS_DEFAULT_MODEL_REF, c as FEATHERLESS_DYNAMIC_MAX_TOKENS, d as isFeatherlessCatalogModelId, f as openclaw_plugin_default, i as FEATHERLESS_DEFAULT_MODEL_ID, o as FEATHERLESS_DYNAMIC_COMPAT, s as FEATHERLESS_DYNAMIC_CONTEXT_WINDOW, t as FEATHERLESS_BASE_URL } from "./.setup/models-BN2vG1Qe.mjs";
 import { applyFeatherlessConnectionConfig } from "./onboard.js";
-import "./provider-catalog.js";
 import { readConfiguredProviderCatalogEntries } from "openclaw/plugin-sdk/provider-catalog-shared";
 import { defineSingleProviderPluginEntry } from "openclaw/plugin-sdk/provider-entry";
 import { buildProviderReplayFamilyHooks, resolveFamilyForwardCompatModel } from "openclaw/plugin-sdk/provider-model-shared";
@@ -33,15 +32,6 @@ function resolveFeatherlessDynamicModel(ctx) {
 		synthesize: true
 	});
 }
-function normalizeFeatherlessResolvedModel(model) {
-	return {
-		...model,
-		compat: {
-			...FEATHERLESS_DYNAMIC_COMPAT,
-			...model.compat
-		}
-	};
-}
 var featherless_default = defineSingleProviderPluginEntry({
 	id: PROVIDER_ID,
 	name: "Featherless AI Provider",
@@ -72,13 +62,19 @@ var featherless_default = defineSingleProviderPluginEntry({
 			config,
 			providerId: PROVIDER_ID
 		}),
-		normalizeResolvedModel: ({ model }) => normalizeFeatherlessResolvedModel(model),
+		normalizeResolvedModel: ({ model }) => ({
+			...model,
+			compat: {
+				...FEATHERLESS_DYNAMIC_COMPAT,
+				...model.compat
+			}
+		}),
 		...buildProviderReplayFamilyHooks({
 			family: "openai-compatible",
 			dropReasoningFromHistory: false
 		}),
 		...buildProviderToolCompatFamilyHooks("openai"),
-		resolveDynamicModel: (ctx) => resolveFeatherlessDynamicModel(ctx),
+		resolveDynamicModel: resolveFeatherlessDynamicModel,
 		isModernModelRef: () => true
 	}
 });

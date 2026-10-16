@@ -1,2 +1,2 @@
-import { r as deleteTelegramUpdateOffset } from "../../update-offset-store-nORl6cFs.mjs";
+import { t as deleteTelegramUpdateOffset } from "../../update-offset-store-CNfvKiuP.mjs";
 export { deleteTelegramUpdateOffset };

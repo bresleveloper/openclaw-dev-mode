@@ -1,4 +1,4 @@
-import { F as buildQwenModelCatalogForBaseUrl, O as QWEN_TOKEN_PLAN_MODEL_CATALOG } from "./.setup/models-DIZ7f-Lx.mjs";
+import { F as buildQwenModelCatalogForBaseUrl, O as QWEN_TOKEN_PLAN_MODEL_CATALOG } from "./.setup/models-NTrSBQ85.mjs";
 //#region extensions/qwen/provider-catalog.ts
 function buildQwenProvider(params) {
 	const baseUrl = params?.baseUrl ?? "https://coding-intl.dashscope.aliyuncs.com/v1";

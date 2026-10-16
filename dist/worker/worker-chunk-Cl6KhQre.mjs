@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";async function runBestEffortCleanup(e){try{return await e.cleanup()}catch(t){try{e.onError?.(t)}catch{}return}}var t=e((()=>{}));export{runBestEffortCleanup as n,t};

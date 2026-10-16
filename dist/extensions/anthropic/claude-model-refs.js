@@ -1,2 +1,2 @@
-import { i as resolveKnownAnthropicModelRef, n as parseAnthropicModelRef, r as resolveClaudeCliAnthropicModelRefs, t as normalizeAnthropicProviderId } from "../../claude-model-refs-DZFsoBtq.mjs";
-export { normalizeAnthropicProviderId, parseAnthropicModelRef, resolveClaudeCliAnthropicModelRefs, resolveKnownAnthropicModelRef };
+import { a as resolveKnownAnthropicModelRef, i as resolveClaudeCliAnthropicModelRefs, n as normalizeAnthropicProviderId, o as splitTrailingModelAuthProfile, r as parseAnthropicModelRef, t as modelEntryWithClaudeCliRuntime } from "../../claude-model-refs-BrOsU52V.mjs";
+export { modelEntryWithClaudeCliRuntime, normalizeAnthropicProviderId, parseAnthropicModelRef, resolveClaudeCliAnthropicModelRefs, resolveKnownAnthropicModelRef, splitTrailingModelAuthProfile };

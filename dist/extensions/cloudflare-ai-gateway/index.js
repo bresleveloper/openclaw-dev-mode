@@ -7,27 +7,26 @@ import { applyAuthProfileConfig, buildApiKeyCredential, ensureAuthProfileStore, 
 import { captureProviderApiKey, persistProviderApiKey } from "openclaw/plugin-sdk/provider-auth-api-key";
 import { normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
 //#region extensions/cloudflare-ai-gateway/index.ts
-/**
-* Bundled provider plugin entry for Cloudflare AI Gateway setup, catalog
-* discovery, failover classification, and stream wrapping.
-*/
 const PROVIDER_ID = "cloudflare-ai-gateway";
 const PROVIDER_ENV_VAR = "CLOUDFLARE_AI_GATEWAY_API_KEY";
 const PROFILE_ID = "cloudflare-ai-gateway:default";
-function readRequiredTextInput(value) {
-	return normalizeOptionalString(value) ?? "";
-}
 async function resolveCloudflareGatewayMetadataInteractive(ctx) {
 	let accountId = normalizeOptionalString(ctx.accountId) ?? "";
 	let gatewayId = normalizeOptionalString(ctx.gatewayId) ?? "";
-	if (!accountId) accountId = readRequiredTextInput(await ctx.prompter.text({
-		message: "Enter Cloudflare Account ID",
-		validate: (val) => readRequiredTextInput(val) ? void 0 : "Account ID is required"
-	}));
-	if (!gatewayId) gatewayId = readRequiredTextInput(await ctx.prompter.text({
-		message: "Enter Cloudflare AI Gateway ID",
-		validate: (val) => readRequiredTextInput(val) ? void 0 : "Gateway ID is required"
-	}));
+	if (!accountId) {
+		const value = await ctx.prompter.text({
+			message: "Enter Cloudflare Account ID",
+			validate: (val) => normalizeOptionalString(val) ? void 0 : "Account ID is required"
+		});
+		accountId = normalizeOptionalString(value) ?? "";
+	}
+	if (!gatewayId) {
+		const value = await ctx.prompter.text({
+			message: "Enter Cloudflare AI Gateway ID",
+			validate: (val) => normalizeOptionalString(val) ? void 0 : "Gateway ID is required"
+		});
+		gatewayId = normalizeOptionalString(value) ?? "";
+	}
 	return {
 		accountId,
 		gatewayId
@@ -74,20 +73,17 @@ var cloudflare_ai_gateway_default = definePluginEntry({
 					return {
 						profiles: [{
 							profileId: PROFILE_ID,
-							credential: buildApiKeyCredential(PROVIDER_ID, input, {
-								accountId: metadata.accountId,
-								gatewayId: metadata.gatewayId
-							}, mode ? { secretInputMode: mode } : void 0)
+							credential: buildApiKeyCredential(PROVIDER_ID, input, metadata, mode ? { secretInputMode: mode } : void 0)
 						}],
 						configPatch: applyCloudflareAiGatewayProviderConnectionConfig(ctx.config, metadata),
 						defaultModel: CLOUDFLARE_AI_GATEWAY_DEFAULT_MODEL_REF
 					};
 				},
 				runNonInteractive: async (ctx) => {
-					const authStore = ensureAuthProfileStore(ctx.agentDir, { allowKeychainPrompt: false });
-					const storedMetadata = authStore.profiles[PROFILE_ID]?.type === "api_key" ? {
-						accountId: normalizeOptionalString(authStore.profiles[PROFILE_ID]?.metadata?.accountId),
-						gatewayId: normalizeOptionalString(authStore.profiles[PROFILE_ID]?.metadata?.gatewayId)
+					const credential = ensureAuthProfileStore(ctx.agentDir, { allowKeychainPrompt: false }).profiles[PROFILE_ID];
+					const storedMetadata = credential?.type === "api_key" ? {
+						accountId: normalizeOptionalString(credential.metadata?.accountId),
+						gatewayId: normalizeOptionalString(credential.metadata?.gatewayId)
 					} : {};
 					const accountId = normalizeOptionalSecretInput(ctx.opts.cloudflareAiGatewayAccountId) ?? storedMetadata.accountId;
 					const gatewayId = normalizeOptionalSecretInput(ctx.opts.cloudflareAiGatewayGatewayId) ?? storedMetadata.gatewayId;

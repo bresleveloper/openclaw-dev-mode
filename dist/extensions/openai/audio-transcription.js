@@ -1,14 +1,14 @@
-import { n as findNormalizedProviderValue } from "../../provider-id-DCtsDflE.mjs";
-import { o as hasConfiguredSecretInput } from "../../types.secrets-B5xWSzLp.mjs";
-import { B as isProviderAuthError, V as requireApiKey } from "../../loader-runtime-load-DexWjDHZ.mjs";
-import { r as providerOperationRetryConfig } from "../../operation-retry-Dopl7EnK.mjs";
-import { n as executeWithApiKeyRotation, t as collectProviderApiKeysForExecution } from "../../api-key-rotation-7uaSZOty.mjs";
-import { t as transcribeOpenAiCompatibleAudio } from "../../media-understanding-DgWYlNMh.mjs";
-import { a as resolveApiKeyForProvider } from "../../provider-auth-runtime-BWjBKWym.mjs";
-import "../../provider-http-Dn9NddwC.mjs";
-import "../../provider-auth-DFHjplgz.mjs";
-import { i as classifyOpenAIBaseUrl, t as OPENAI_API_BASE_URL } from "../../base-url-CsNC9nJ8.mjs";
-import { n as OPENAI_DEFAULT_AUDIO_TRANSCRIPTION_MODEL } from "../../default-models-DOFL1mMC.mjs";
+import { o as hasConfiguredSecretInput } from "../../types.secrets-DsPRn9Dz.mjs";
+import { n as findNormalizedProviderValue } from "../../provider-id-D1VImdKk.mjs";
+import { A as requireApiKey, k as isProviderAuthError } from "../../model-auth-provider-config-U8dA4bob.mjs";
+import { r as providerOperationRetryConfig } from "../../operation-retry-Ci68Y-og.mjs";
+import { n as executeWithApiKeyRotation, t as collectProviderApiKeysForExecution } from "../../api-key-rotation-CbsHhrCM.mjs";
+import { t as transcribeOpenAiCompatibleAudio } from "../../media-understanding-Gz4-cycm.mjs";
+import { a as resolveApiKeyForProvider } from "../../provider-auth-runtime-CpGmMxRN.mjs";
+import "../../provider-http-CuRGJD0L.mjs";
+import "../../provider-auth-C3BBF7yn.mjs";
+import { i as classifyOpenAIBaseUrl, t as OPENAI_API_BASE_URL } from "../../base-url-BUR_8zW8.mjs";
+import { n as OPENAI_DEFAULT_AUDIO_TRANSCRIPTION_MODEL } from "../../default-models-CYEf1QuY.mjs";
 //#region extensions/openai/audio-transcription.ts
 async function transcribeOpenAiAudio(params) {
 	return await transcribeOpenAiCompatibleAudio({
@@ -25,6 +25,7 @@ const transcribeOpenAiAudioWithContext = async (context) => {
 	const nativeEndpoint = endpointKind === "unresolved" || endpointKind === "platform" || endpointKind === "chatgpt";
 	const params = {
 		provider: "openai",
+		capability: "audio-transcription",
 		cfg: !context.profile && providerConfig && hasConfiguredKey && (!providerConfig.auth || providerConfig.auth === "api-key") ? {
 			...context.cfg,
 			models: {

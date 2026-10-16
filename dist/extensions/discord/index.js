@@ -1,7 +1,5 @@
-import { t as registerDiscordActivities } from "./.setup/activities-api-COU4-0nR.mjs";
 import { registerDiscordSubagentHooks } from "./subagent-hooks-api.js";
-import { registerDiscordTranscriptSourceProvider } from "./transcripts-source-api.js";
-import { defineBundledChannelEntry } from "openclaw/plugin-sdk/channel-entry-contract";
+import { defineBundledChannelEntry, loadBundledEntryExportSync } from "openclaw/plugin-sdk/channel-entry-contract";
 //#region extensions/discord/index.ts
 var discord_default = defineBundledChannelEntry({
 	id: "discord",
@@ -21,11 +19,17 @@ var discord_default = defineBundledChannelEntry({
 		exportName: "inspectDiscordReadOnlyAccount"
 	},
 	registerFull(api) {
-		registerDiscordActivities(api);
+		loadBundledEntryExportSync(import.meta.url, {
+			specifier: "./activities-api.js",
+			exportName: "registerDiscordActivities"
+		})(api);
 		registerDiscordSubagentHooks(api);
 	},
 	registerCapabilities(api) {
-		registerDiscordTranscriptSourceProvider(api);
+		loadBundledEntryExportSync(import.meta.url, {
+			specifier: "./transcripts-source-api.js",
+			exportName: "registerDiscordTranscriptSourceProvider"
+		})(api);
 	}
 });
 //#endregion

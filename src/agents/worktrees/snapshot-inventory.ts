@@ -16,12 +16,19 @@ import {
   parseGitIndexPaths,
   parseGitTreePaths,
   rawPathExists,
+  rawPathStat,
   splitNullBuffer,
   type GitIndexPath,
   type GitTreePath,
 } from "./git-path-inventory.js";
 import type { GitWorktreeOperations } from "./git-worktree-operations.js";
-import { commandError, requireGit, requireGitBuffer, runGit } from "./git.js";
+import {
+  commandError,
+  requireGit,
+  requireGitBuffer,
+  resolveGitMetadataPath,
+  runGit,
+} from "./git.js";
 import {
   captureExactState,
   exactSnapshotPrefix,
@@ -153,14 +160,12 @@ async function inspectOtherPaths(
   for (let offset = 0; offset < replaced.length; offset += 64) {
     const batch = replaced.slice(offset, offset + 64);
     const stats = await Promise.allSettled(
-      batch.map((entry) => fs.lstat(checkoutPathFromGitBytes(checkoutPath, entry))),
+      batch.map((entry) => rawPathStat(checkoutPathFromGitBytes(checkoutPath, entry))),
     );
     for (const [index, result] of stats.entries()) {
       if (result.status === "rejected") {
-        if (!isMissingPathError(result.reason)) {
-          throw result.reason;
-        }
-      } else if (result.value.isDirectory()) {
+        throw result.reason;
+      } else if (result.value?.isDirectory()) {
         untracked.push(Buffer.concat([batch[index]!, Buffer.from("/")]));
       }
     }
@@ -178,17 +183,6 @@ async function inspectOtherPaths(
       skip: ignoredKeys,
     })) || (await walkCollapsedPaths(checkoutPath, ignored, { visitFile: options.ignored }))
   );
-}
-
-async function rawDirectoryExists(target: string | Buffer): Promise<boolean> {
-  try {
-    return (await fs.lstat(target)).isDirectory();
-  } catch (error) {
-    if (isMissingPathError(error)) {
-      return false;
-    }
-    throw error;
-  }
 }
 
 async function collectSnapshotInventory(input: SnapshotInput): Promise<SnapshotInventory> {
@@ -228,7 +222,7 @@ async function collectSnapshotInventory(input: SnapshotInput): Promise<SnapshotI
     // for Git to drop by name; its untracked children arrive through the listing.
     if (
       !headKeys.has(gitPathKey(entry.path)) &&
-      (await rawDirectoryExists(checkoutPathFromGitBytes(input.checkoutPath, entry.path)))
+      (await rawPathStat(checkoutPathFromGitBytes(input.checkoutPath, entry.path)))?.isDirectory()
     ) {
       continue;
     }
@@ -302,12 +296,7 @@ async function seedSnapshotIndex(
   inventory: SnapshotInventory,
   indexEnv: SnapshotIndexEnvironment,
 ): Promise<void> {
-  const source = path.resolve(
-    input.checkoutPath,
-    normalizeGitPathForFilesystem(
-      await requireGit(input.checkoutPath, ["rev-parse", "--git-path", "index"]),
-    ),
-  );
+  const source = await resolveGitMetadataPath(input.checkoutPath, "index");
   const destination = indexEnv.GIT_INDEX_FILE;
   try {
     const stat = await fs.stat(source);
@@ -397,19 +386,26 @@ async function prepareSnapshotIndex(
   const missing = new Set<string>();
   let gitBytes = 0;
   let provisionedBytes = 0;
-  for (const [key, value] of unique) {
-    try {
-      const stat = await fs.lstat(checkoutPathFromGitBytes(input.checkoutPath, value));
-      if (provisioned.has(key)) {
-        provisionedBytes += stat.size;
-      } else {
-        gitBytes += stat.size;
+  const candidates = [...unique];
+  // Large deletion sets need bounded filesystem batches, as cleanup inspection does.
+  // Join every read before reporting the first error or releasing snapshot custody.
+  for (let offset = 0; offset < candidates.length; offset += 64) {
+    const batch = candidates.slice(offset, offset + 64);
+    const stats = await Promise.allSettled(
+      batch.map(([, value]) => rawPathStat(checkoutPathFromGitBytes(input.checkoutPath, value))),
+    );
+    for (const [index, result] of stats.entries()) {
+      const key = batch[index]![0];
+      if (result.status === "rejected") {
+        throw result.reason;
       }
-    } catch (error) {
-      if (!isMissingPathError(error)) {
-        throw error;
-      }
-      if (tracked.has(key)) {
+      if (result.value) {
+        if (provisioned.has(key)) {
+          provisionedBytes += result.value.size;
+        } else {
+          gitBytes += result.value.size;
+        }
+      } else if (tracked.has(key)) {
         missing.add(key);
       }
     }

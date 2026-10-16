@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{isMarkedAsUntransferable as t}from"node:worker_threads";function ownedWorkerBytes(e){return e.buffer instanceof ArrayBuffer&&e.byteOffset===0&&e.byteLength===e.buffer.byteLength&&!t(e.buffer)?new Uint8Array(e.buffer):Uint8Array.from(e)}var n=e((()=>{}));export{ownedWorkerBytes as n,n as t};

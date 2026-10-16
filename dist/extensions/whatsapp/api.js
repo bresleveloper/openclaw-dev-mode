@@ -1,20 +1,20 @@
-import { a as resolveWhatsAppAccount, i as listWhatsAppAuthDirs, n as hasAnyWhatsAppAuth, o as resolveWhatsAppAuthDir, r as listEnabledWhatsAppAccounts, s as resolveWhatsAppMediaMaxBytes, t as DEFAULT_WHATSAPP_MEDIA_MAX_MB } from "./.setup/accounts-D_NGDjCx.mjs";
+import { a as resolveWhatsAppAccount, i as listWhatsAppAuthDirs, n as hasAnyWhatsAppAuth, o as resolveWhatsAppAuthDir, r as listEnabledWhatsAppAccounts, s as resolveWhatsAppMediaMaxBytes, t as DEFAULT_WHATSAPP_MEDIA_MAX_MB } from "./.setup/accounts-F0vHuze2.mjs";
 import { r as resolveDefaultWhatsAppAccountId, t as listAccountIds } from "./.setup/account-ids-CB5SOWjc.mjs";
 import { a as normalizeWhatsAppAllowFromEntries, c as normalizeWhatsAppTarget, i as looksLikeWhatsAppTargetId, r as isWhatsAppUserTarget, s as normalizeWhatsAppMessagingTarget, t as isWhatsAppGroupJid } from "./.setup/normalize-target-BGra1ZnM.mjs";
-import { t as resolveWhatsAppOutboundTarget } from "./.setup/resolve-outbound-target-C2eUvsTc.mjs";
-import { c as toWhatsappJid, i as markdownToWhatsApp, l as toWhatsappJidWithLid, n as isSelfChatMode, r as jidToE164, s as resolveJidToE164, t as assertWebChannel } from "./.setup/targets-runtime-RBjx3pg_.mjs";
-import { n as resolveUserPath, t as normalizeE164 } from "./.setup/text-runtime-CHl0iPYe.mjs";
-import { n as WHATSAPP_LEGACY_OUTBOUND_SEND_DEP_KEYS, t as whatsappPlugin } from "./.setup/channel-B3wKfJ8K.mjs";
-import { i as resolveWhatsAppGroupToolPolicy, r as resolveWhatsAppGroupRequireMention } from "./.setup/shared-DLXzimjT.mjs";
+import { t as resolveWhatsAppOutboundTarget } from "./.setup/resolve-outbound-target-CzyNKmrl.mjs";
+import { c as toWhatsappJid, i as markdownToWhatsApp, l as toWhatsappJidWithLid, n as isSelfChatMode, r as jidToE164, s as resolveJidToE164, t as assertWebChannel } from "./.setup/targets-runtime-Dls-Xh4F.mjs";
+import { n as WHATSAPP_LEGACY_OUTBOUND_SEND_DEP_KEYS, t as whatsappPlugin } from "./.setup/channel-Cd6IvxSf.mjs";
+import { i as resolveWhatsAppGroupToolPolicy, r as resolveWhatsAppGroupRequireMention } from "./.setup/shared-D-J6Lh6J.mjs";
 import { t as whatsappCommandPolicy } from "./.setup/command-policy-BIOSHySD.mjs";
-import { t as whatsappSetupPlugin } from "./.setup/channel.setup-CFNN3GG1.mjs";
+import { t as whatsappSetupPlugin } from "./.setup/channel.setup-CAPl5FTS.mjs";
 import { t as DEFAULT_WEB_MEDIA_BYTES } from "./.setup/constants-C7m81BNe.mjs";
-import { a as waitForWaConnection, o as DEFAULT_WHATSAPP_SOCKET_TIMING, r as createWaSocket, s as createWhatsAppSocketOperationTimeoutAdapter } from "./.setup/socket-close-YDZcXb67.mjs";
-import { n as getStatusCode, t as formatError } from "./.setup/session-errors-JuazczrA.mjs";
-import { n as listWhatsAppDirectoryGroupsFromConfig, r as listWhatsAppDirectoryPeersFromConfig } from "./.setup/directory-config-DOMURvI_.mjs";
-import { _ as resolveInboundMediaMimetype, c as extractContextInfo, m as findMessageSection, o as describeReplyContext, p as extractText, t as createWebSendApi, u as extractLocationData } from "./.setup/send-api-B4DOt2RJ.mjs";
+import { d as DEFAULT_WHATSAPP_SOCKET_TIMING, f as createWhatsAppSocketOperationTimeoutAdapter, i as waitForWaConnection, r as createWaSocket } from "./.setup/socket-close-ecLUztyz.mjs";
+import { n as getStatusCode, t as formatError } from "./.setup/session-errors-B8UcAnZN.mjs";
+import { n as listWhatsAppDirectoryGroupsFromConfig, r as listWhatsAppDirectoryPeersFromConfig } from "./.setup/directory-config-CvCiwMmt.mjs";
+import { _ as resolveInboundMediaMimetype, c as extractContextInfo, m as findMessageSection, o as describeReplyContext, p as extractText, t as createWebSendApi, u as extractLocationData } from "./.setup/send-api-B03VDwZ1.mjs";
 import { asBoolean, isRecord, normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { formatLocationText } from "openclaw/plugin-sdk/channel-inbound";
+import { normalizeE164, resolveUserPath } from "openclaw/plugin-sdk/text-utility-runtime";
 //#region extensions/whatsapp/src/qa-driver.runtime.ts
 function readReaction(message) {
 	const reaction = findMessageSection(message ?? void 0, ["reactionMessage"])?.value;
@@ -155,7 +155,7 @@ async function startWhatsAppQaDriverSession(params) {
 		settlePendingNotifications(waiterError);
 		for (const waiter of waiters) {
 			removeWaiter(waiter);
-			if (waiterError) waiter.reject(waiterError);
+			waiter.reject(waiterError);
 		}
 		removeMessageListener();
 		sock.end(void 0);

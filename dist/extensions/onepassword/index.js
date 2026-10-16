@@ -1,17 +1,17 @@
-import { i as extractErrorCode } from "../../error-coercion-C787aVxk.mjs";
-import { c as isRecord, t as asNonArrayRecord } from "../../record-coerce-DItp3I4t.mjs";
-import { l as normalizePluginsConfig, u as resolveEffectiveEnableState } from "../../config-state-BEAL5gWH.mjs";
-import { n as runExec } from "../../exec-shcN2-sN.mjs";
-import "../../error-runtime-Bf1fYXFh.mjs";
+import { g as readStringValue } from "../../string-coerce-1VuiLaaR.mjs";
+import { i as extractErrorCode } from "../../error-coercion-CvJK4lmH.mjs";
+import { c as isRecord, o as asRecord, t as asNonArrayRecord, u as readStringField } from "../../record-coerce-TIsquoVR.mjs";
+import { n as runExec } from "../../exec-DJvyCA0D.mjs";
+import { f as resolveEffectiveEnableState, n as createNormalizedPluginsConfig } from "../../config-state-DY_WJYue.mjs";
+import "../../error-runtime-BmospGvZ.mjs";
+import "../../string-coerce-runtime-50qKeWeL.mjs";
 import { t as jsonResult } from "../../tool-results-BCM3fdVS.mjs";
-import "../../string-coerce-runtime-C_MKhRVt.mjs";
-import { c as tryReadSecretFileSync } from "../../secret-file-BqGFHdII.mjs";
-import "../../secret-file-runtime-C-pb0auB.mjs";
-import { t as definePluginEntry } from "../../plugin-entry-BOulgRcx.mjs";
-import { n as resolveLivePluginConfigObject } from "../../plugin-config-runtime-CaI6yWBc.mjs";
-import "../../channel-secret-basic-runtime-jo9e3YPL.mjs";
-import "../../process-runtime-BF3dUvYO.mjs";
-import { t as resolveTrustedOnePasswordCli } from "../../onepassword-op-path-CX5JE67M.mjs";
+import "../../process-runtime-CYiH_oPH.mjs";
+import { c as tryReadSecretFileSync } from "../../secret-file-B_nJw6pE.mjs";
+import "../../secret-file-runtime-DMbN7rMd.mjs";
+import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
+import { n as resolveLivePluginConfigObject } from "../../plugin-config-runtime-DKh00pJ1.mjs";
+import { t as resolveTrustedOnePasswordCli } from "../../onepassword-op-path-E5eCu6G9.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import fs$1 from "node:fs/promises";
@@ -26,10 +26,7 @@ function requiredString(record, key) {
 	return value.trim();
 }
 function readOptionalOnePasswordString(record, key) {
-	const value = record[key];
-	if (value === void 0) return;
-	if (typeof value !== "string" || !value.trim()) throw new Error(`1Password config ${key} must be a non-empty string`);
-	return value.trim();
+	return record[key] === void 0 ? void 0 : requiredString(record, key);
 }
 function readPolicy(value, label, fallback) {
 	if (value === void 0) return fallback;
@@ -102,24 +99,50 @@ var OnePasswordError = class extends Error {
 //#endregion
 //#region extensions/onepassword/src/pending-authorization.ts
 const AUTHORIZATION_NONCE_PARAM = "authorizationNonce";
-function consumeUniquePendingAuthorization(store, request) {
+const pendingWrites = /* @__PURE__ */ new Map();
+function matchesRequest(candidate, request) {
+	return candidate.agentId === request.agentId && candidate.toolCallId === request.toolCallId && candidate.slug === request.slug && candidate.reason === request.reason;
+}
+async function registerPendingAuthorization(store, nonce, authorization, ttlMs) {
+	const completion = store.register(nonce, authorization, { ttlMs });
+	const { agentId, toolCallId, slug, reason } = authorization;
+	pendingWrites.set(nonce, {
+		request: {
+			agentId,
+			toolCallId,
+			slug,
+			reason
+		},
+		completion
+	});
+	try {
+		await completion;
+	} finally {
+		pendingWrites.delete(nonce);
+	}
+}
+async function consumePendingAuthorization(store, request, nonce) {
+	const pendingWrite = nonce !== void 0 ? pendingWrites.get(nonce) : void 0;
+	const writes = nonce !== void 0 ? pendingWrite ? [pendingWrite.completion] : [] : [...pendingWrites.values()].filter((write) => matchesRequest(write.request, request)).map((write) => write.completion);
+	const settled = await Promise.allSettled(writes);
+	for (const result of settled) if (result.status === "rejected") throw result.reason;
+	return nonce !== void 0 ? await store.consume(nonce) : await consumeUniquePendingAuthorization(store, request);
+}
+async function consumeUniquePendingAuthorization(store, request) {
 	let match;
-	for (const entry of store.entries()) {
+	for (const entry of await store.entries()) {
 		const candidate = entry.value;
-		if (candidate.agentId !== request.agentId || candidate.toolCallId !== request.toolCallId || candidate.slug !== request.slug || candidate.reason !== request.reason) continue;
+		if (!matchesRequest(candidate, request)) continue;
 		if (match !== void 0) return;
 		match = entry.key;
 	}
-	return match === void 0 ? void 0 : store.consume(match);
+	const consumed = match === void 0 ? void 0 : await store.consume(match);
+	return consumed && matchesRequest(consumed, request) ? consumed : void 0;
 }
 //#endregion
 //#region extensions/onepassword/src/broker.ts
 const APPROVAL_TIMEOUT_MS = 6e5;
 const PENDING_AUTHORIZATION_TTL_MS = APPROVAL_TIMEOUT_MS;
-function textParam(params, key) {
-	const value = params[key];
-	return typeof value === "string" ? value.trim() : void 0;
-}
 var BrokerError = class extends Error {
 	constructor(code, message) {
 		super(message);
@@ -127,9 +150,6 @@ var BrokerError = class extends Error {
 		this.code = code;
 	}
 };
-function internalError(code, message) {
-	return new BrokerError(code, message);
-}
 function fingerprintOnePasswordTarget(item) {
 	return createHash("sha256").update(JSON.stringify([
 		item.vault,
@@ -142,11 +162,11 @@ function standingGrantKey(agentId, slug) {
 }
 function parseToolInput(params) {
 	if (params.action === "list") return { action: "list" };
-	if (params.action !== "get") throw internalError("INVALID_ACTION", "action must be list or get");
-	const reason = textParam(params, "reason");
-	if (!reason || reason.length > 300) throw internalError("INVALID_REASON", "reason is required and must be at most 300 characters");
-	const slug = textParam(params, "slug");
-	if (!slug || !SLUG_PATTERN.test(slug)) throw internalError("INVALID_SLUG", "slug must match ^[a-z0-9][a-z0-9-]{0,63}$");
+	if (params.action !== "get") throw new BrokerError("INVALID_ACTION", "action must be list or get");
+	const reason = readStringValue(params.reason)?.trim();
+	if (!reason || reason.length > 300) throw new BrokerError("INVALID_REASON", "reason is required and must be at most 300 characters");
+	const slug = readStringValue(params.slug)?.trim();
+	if (!slug || !SLUG_PATTERN.test(slug)) throw new BrokerError("INVALID_SLUG", "slug must match ^[a-z0-9][a-z0-9-]{0,63}$");
 	return {
 		action: "get",
 		slug,
@@ -154,8 +174,7 @@ function parseToolInput(params) {
 	};
 }
 function errorCode(error) {
-	if (error instanceof OnePasswordError) return error.code;
-	if (error instanceof BrokerError) return error.code;
+	if (error instanceof OnePasswordError || error instanceof BrokerError) return error.code;
 }
 var OnePasswordBroker = class {
 	constructor(options) {
@@ -173,7 +192,7 @@ var OnePasswordBroker = class {
 		const config = this.resolveConfig();
 		if (!config) {
 			this.observeConfigFingerprint(null);
-			throw internalError("POLICY_CHANGED", "1Password broker is no longer configured");
+			throw new BrokerError("POLICY_CHANGED", "1Password broker is no longer configured");
 		}
 		const fingerprint = createHash("sha256").update(JSON.stringify(config)).digest("hex");
 		this.observeConfigFingerprint(fingerprint);
@@ -181,9 +200,6 @@ var OnePasswordBroker = class {
 			config,
 			fingerprint
 		};
-	}
-	registerPending(nonce, authorization) {
-		this.stores.pending.register(nonce, authorization, { ttlMs: PENDING_AUTHORIZATION_TTL_MS });
 	}
 	context(event, ctx, input) {
 		return {
@@ -223,8 +239,8 @@ var OnePasswordBroker = class {
 			input = parseToolInput(event.params);
 		} catch (error) {
 			const context = this.context(event, ctx, {
-				slug: textParam(event.params, "slug"),
-				reason: textParam(event.params, "reason")
+				slug: readStringValue(event.params.slug)?.trim(),
+				reason: readStringValue(event.params.reason)?.trim()
 			});
 			await this.audit(context, "error", { errorCode: errorCode(error) ?? "INVALID_ACTION" });
 			return {
@@ -273,26 +289,21 @@ var OnePasswordBroker = class {
 			...event.params,
 			[AUTHORIZATION_NONCE_PARAM]: nonce
 		};
+		const authorize = (outcome, persistGrant = false) => registerPendingAuthorization(this.stores.pending, nonce, {
+			...context,
+			outcome,
+			persistGrant,
+			configFingerprint,
+			targetFingerprint: fingerprintOnePasswordTarget(item)
+		}, PENDING_AUTHORIZATION_TTL_MS);
 		if (item.policy === "auto") {
-			this.registerPending(nonce, {
-				...context,
-				outcome: "auto",
-				persistGrant: false,
-				configFingerprint,
-				targetFingerprint: fingerprintOnePasswordTarget(item)
-			});
+			await authorize("auto");
 			return { params: authorizedParams };
 		}
 		const grantKey = context.agentId === "unknown" ? void 0 : standingGrantKey(context.agentId, input.slug);
 		const grant = grantKey ? await this.stores.grants.lookup(grantKey) : void 0;
 		if (grant && grant.agentId === context.agentId && grant.slug === input.slug && grant.expiresAtMs > this.now() && grant.targetFingerprint === fingerprintOnePasswordTarget(item)) {
-			this.registerPending(nonce, {
-				...context,
-				outcome: "grant",
-				persistGrant: false,
-				configFingerprint,
-				targetFingerprint: fingerprintOnePasswordTarget(item)
-			});
+			await authorize("grant");
 			return { params: authorizedParams };
 		}
 		if (grant && grantKey) await this.stores.grants.delete(grantKey);
@@ -310,13 +321,7 @@ var OnePasswordBroker = class {
 				],
 				onResolution: async (decision) => {
 					if (decision === "allow-once" || decision === "allow-always") {
-						this.registerPending(nonce, {
-							...context,
-							outcome: "approved",
-							persistGrant: decision === "allow-always" && context.agentId !== "unknown",
-							configFingerprint,
-							targetFingerprint: fingerprintOnePasswordTarget(item)
-						});
+						await authorize("approved", decision === "allow-always" && context.agentId !== "unknown");
 						return;
 					}
 					if (decision === "deny") {
@@ -368,10 +373,16 @@ var OnePasswordBroker = class {
 			slug: input.slug,
 			reason: input.reason
 		};
-		const authorization = nonce !== void 0 ? this.stores.pending.consume(nonce) : consumeUniquePendingAuthorization(this.stores.pending, fallbackContext);
+		let authorization;
+		try {
+			authorization = await consumePendingAuthorization(this.stores.pending, fallbackContext, nonce);
+		} catch (error) {
+			await this.audit(fallbackContext, "error", { errorCode: errorCode(error) });
+			throw error;
+		}
 		if (!authorization || authorization.slug !== input.slug || authorization.reason !== input.reason) {
 			await this.audit(fallbackContext, "error", { errorCode: "POLICY_NOT_EVALUATED" });
-			throw internalError("POLICY_NOT_EVALUATED", "1Password policy was not evaluated for this request");
+			throw new BrokerError("POLICY_NOT_EVALUATED", "1Password policy was not evaluated for this request");
 		}
 		let config;
 		let configFingerprint;
@@ -383,23 +394,23 @@ var OnePasswordBroker = class {
 		}
 		if (!Object.hasOwn(config.items, input.slug)) {
 			await this.audit(authorization, "error", { errorCode: "UNKNOWN_SLUG" });
-			throw internalError("UNKNOWN_SLUG", `Unknown 1Password slug: ${input.slug}`);
+			throw new BrokerError("UNKNOWN_SLUG", `Unknown 1Password slug: ${input.slug}`);
 		}
 		const item = config.items[input.slug];
 		if (!item) throw new Error(`Missing 1Password config for registered slug: ${input.slug}`);
 		if (item.policy === "deny") {
 			await this.audit(authorization, "policy-denied");
-			throw internalError("POLICY_CHANGED", `1Password access denied by policy for ${input.slug}`);
+			throw new BrokerError("POLICY_CHANGED", `1Password access denied by policy for ${input.slug}`);
 		}
 		if (authorization.outcome === "auto" && item.policy !== "auto" || authorization.outcome !== "auto" && item.policy !== "approve" || authorization.configFingerprint !== configFingerprint || authorization.targetFingerprint !== fingerprintOnePasswordTarget(item)) {
 			await this.audit(authorization, "error", { errorCode: "POLICY_CHANGED" });
-			throw internalError("POLICY_CHANGED", "1Password policy changed before tool execution");
+			throw new BrokerError("POLICY_CHANGED", "1Password policy changed before tool execution");
 		}
 		if (authorization.outcome === "grant") {
 			const grant = await this.stores.grants.lookup(standingGrantKey(authorization.agentId, input.slug));
 			if (!grant || grant.agentId !== authorization.agentId || grant.slug !== input.slug || grant.expiresAtMs <= this.now() || grant.targetFingerprint !== fingerprintOnePasswordTarget(item)) {
 				await this.audit(authorization, "error", { errorCode: "GRANT_EXPIRED" });
-				throw internalError("GRANT_EXPIRED", "1Password standing grant expired before tool execution");
+				throw new BrokerError("GRANT_EXPIRED", "1Password standing grant expired before tool execution");
 			}
 		}
 		if (authorization.persistGrant) {
@@ -478,12 +489,9 @@ function resolveOpBinary(configuredPath, pathEnv) {
 		if (isExecutable(candidate)) return candidate;
 	}
 }
-function errorRecord(error) {
-	return error && typeof error === "object" ? error : {};
-}
 function classifyOpError(error) {
 	if (error instanceof OnePasswordError) return error;
-	const record = errorRecord(error);
+	const record = asRecord(error);
 	const normalized = (typeof record.stderr === "string" ? record.stderr : "").toLowerCase();
 	if (record.code === "ENOENT") return new OnePasswordError("OP_NOT_FOUND", "1Password CLI executable was not found");
 	if (record.killed === true || record.timedOut === true || record.code === "ETIMEDOUT" || record.signal === "SIGTERM") return new OnePasswordError("TIMEOUT", "1Password CLI request timed out");
@@ -497,7 +505,7 @@ function parseField(stdout, requestedField, itemTitle) {
 	let field;
 	try {
 		const parsed = JSON.parse(stdout);
-		if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("field response is not an object");
+		if (!isRecord(parsed)) throw new Error("field response is not an object");
 		field = parsed;
 	} catch (error) {
 		throw new OnePasswordError("OP_ERROR", "1Password CLI returned invalid JSON", { cause: error });
@@ -612,7 +620,7 @@ const OnePasswordToolSchema = {
 	}
 };
 function errorResult(error) {
-	const code = error instanceof OnePasswordError ? error.code : error && typeof error === "object" && "code" in error && typeof error.code === "string" ? error.code : "OP_ERROR";
+	const code = readStringField(asRecord(error), "code") ?? "OP_ERROR";
 	const message = error instanceof Error ? error.message : "1Password request failed";
 	return jsonResult({
 		ok: false,
@@ -637,11 +645,7 @@ function redactPersistedOnePasswordResult(event) {
 	};
 	return { message: {
 		...event.message,
-		content: [{
-			type: "text",
-			text: JSON.stringify(persisted, null, 2)
-		}],
-		details: persisted
+		...jsonResult(persisted)
 	} };
 }
 function createOnePasswordTool(broker, invocation) {
@@ -651,7 +655,7 @@ function createOnePasswordTool(broker, invocation) {
 		description: "List curated 1Password secret slugs or retrieve one secret under its configured access policy.",
 		parameters: OnePasswordToolSchema,
 		execute: async (toolCallId, rawParams) => {
-			const params = rawParams && typeof rawParams === "object" && !Array.isArray(rawParams) ? rawParams : {};
+			const params = asNonArrayRecord(rawParams);
 			try {
 				const input = parseToolInput(params);
 				if (input.action === "list") return jsonResult({
@@ -688,7 +692,7 @@ var onepassword_default = definePluginEntry({
 			return resolveEffectiveEnableState({
 				id: "onepassword",
 				origin: "bundled",
-				config: normalizePluginsConfig(liveConfig.plugins),
+				config: createNormalizedPluginsConfig(liveConfig.plugins),
 				rootConfig: liveConfig,
 				enabledByDefault: livePluginConfig !== void 0
 			}).enabled ? parseOnePasswordConfig(livePluginConfig) : void 0;
@@ -703,7 +707,7 @@ var onepassword_default = definePluginEntry({
 			maxEntries: MAX_AUDIT_ROWS,
 			overflowPolicy: "evict-oldest"
 		});
-		const pending = api.runtime.state.openSyncKeyedStore({
+		const pending = api.runtime.state.openKeyedStore({
 			namespace: "pending",
 			maxEntries: 512,
 			overflowPolicy: "evict-oldest"
@@ -736,8 +740,8 @@ var onepassword_default = definePluginEntry({
 			}
 		}) : void 0;
 		api.registerCli(async ({ program, config }) => {
-			const { registerOnePasswordCommands } = await import("../../cli-8gJ7xoBx.mjs");
-			const { registerOnePasswordSecretRefCommands } = await import("../../secret-ref-cli-Ba9ANiwe.mjs");
+			const { registerOnePasswordCommands } = await import("../../cli-CY63BOmX.mjs");
+			const { registerOnePasswordSecretRefCommands } = await import("../../secret-ref-cli-DE7frNd5.mjs");
 			registerOnePasswordCommands({
 				program,
 				resolveConfig: resolveCurrentConfig,

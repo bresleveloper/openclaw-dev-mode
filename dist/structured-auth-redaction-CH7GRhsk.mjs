@@ -1,0 +1,245 @@
+//#region packages/acp-core/src/structured-auth-redaction.ts
+const HTTP_AUTH_SCHEME_PATTERN = "[A-Za-z0-9!#$%&'*+.^_`|~-]+";
+const HTTP_AUTH_OPAQUE_CREDENTIAL_PATTERN = String.raw`(?:\[REDACTED\]|[^\s\\"',;&#?<>)}\]]+)`;
+const HTTP_AUTH_SERIALIZED_TAB_PATTERN = String.raw`\\{1,64}t`;
+const HTTP_AUTH_SERIALIZED_INDENT_PATTERN = String.raw`(?:[ \t]+|${HTTP_AUTH_SERIALIZED_TAB_PATTERN})`;
+const HTTP_AUTH_OPTIONAL_VALUE_WHITESPACE_PATTERN = String.raw`(?:[ \t]*\r?\n${HTTP_AUTH_SERIALIZED_INDENT_PATTERN}|[ \t]*\\{1,64}r\\{1,64}n${HTTP_AUTH_SERIALIZED_INDENT_PATTERN}|[ \t]*\\{1,64}n${HTTP_AUTH_SERIALIZED_INDENT_PATTERN}|[ \t]*${HTTP_AUTH_SERIALIZED_TAB_PATTERN}[ \t]*|[ \t]*)`;
+const HTTP_AUTH_REQUIRED_VALUE_WHITESPACE_PATTERN = String.raw`(?:[ \t]*\r?\n${HTTP_AUTH_SERIALIZED_INDENT_PATTERN}|[ \t]*\\{1,64}r\\{1,64}n${HTTP_AUTH_SERIALIZED_INDENT_PATTERN}|[ \t]*\\{1,64}n${HTTP_AUTH_SERIALIZED_INDENT_PATTERN}|[ \t]*${HTTP_AUTH_SERIALIZED_TAB_PATTERN}[ \t]*|[ \t]+)`;
+const HTTP_AUTH_LEGACY_VALUE_WHITESPACE_PATTERN = String.raw`(?:[ \t\r\n]*|[ \t]*\\{1,64}r\\{1,64}n(?:[ \t]*|${HTTP_AUTH_SERIALIZED_TAB_PATTERN})|[ \t]*\\{1,64}n(?:[ \t]*|${HTTP_AUTH_SERIALIZED_TAB_PATTERN})|[ \t]*${HTTP_AUTH_SERIALIZED_TAB_PATTERN}[ \t]*)`;
+const HTTP_AUTH_HEADER_BOUNDARY_PATTERN = String.raw`(^|[^A-Za-z0-9_-]|\\{1,64}[rn])`;
+const HTTP_AUTH_SERIALIZED_QUOTE_PATTERN = String.raw`(?:\\{1,64}["']|["']|)`;
+const CREDENTIAL_STYLE_HEADER_REDACT_PATTERN = String.raw`${HTTP_AUTH_HEADER_BOUNDARY_PATTERN}(?:x-goog-api-key|api-key|apikey|x-api-token|x-access-token)${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}[ \t]*[:=]${HTTP_AUTH_OPTIONAL_VALUE_WHITESPACE_PATTERN}${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}([^\s\\"',;]+)`;
+const STRUCTURED_AUTH_HEADER_RE = new RegExp(String.raw`${HTTP_AUTH_HEADER_BOUNDARY_PATTERN}(?:Proxy-)?Authorization${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}[ \t]*[:=]${HTTP_AUTH_OPTIONAL_VALUE_WHITESPACE_PATTERN}${HTTP_AUTH_SERIALIZED_QUOTE_PATTERN}(${HTTP_AUTH_SCHEME_PATTERN})${HTTP_AUTH_REQUIRED_VALUE_WHITESPACE_PATTERN}`, "giu");
+const AUTH_PARAM_TOKEN_RE = /^[A-Za-z0-9!#$%&'*+.^_`|~-]+/u;
+const AWS_SCOPE_VALUE_RE = /^[A-Za-z0-9!#$%&'*+.^_`|~:/-]+/u;
+function skipHorizontalWhitespace(value, start) {
+	let cursor = start;
+	while (value[cursor] === " " || value[cursor] === "	") cursor += 1;
+	return cursor;
+}
+function skipSerializedBackslashes(value, start) {
+	let cursor = start;
+	while (cursor - start < 64 && value[cursor] === "\\") cursor += 1;
+	return cursor;
+}
+function readSerializedLineEnd(value, start) {
+	const cursor = skipSerializedBackslashes(value, start);
+	if (cursor === start) return null;
+	if (value[cursor] === "n") return cursor + 1;
+	if (value[cursor] !== "r") return null;
+	const lineEnd = skipSerializedBackslashes(value, cursor + 1);
+	return lineEnd > cursor + 1 && value[lineEnd] === "n" ? lineEnd + 1 : null;
+}
+function readSerializedTabEnd(value, start) {
+	const cursor = skipSerializedBackslashes(value, start);
+	return cursor > start && value[cursor] === "t" ? cursor + 1 : null;
+}
+function skipAuthWhitespace(value, start) {
+	let cursor = start;
+	for (;;) {
+		cursor = skipHorizontalWhitespace(value, cursor);
+		const tabEnd = readSerializedTabEnd(value, cursor);
+		if (tabEnd !== null) {
+			cursor = tabEnd;
+			continue;
+		}
+		const lineEnd = value[cursor] === "\r" && value[cursor + 1] === "\n" ? cursor + 2 : value[cursor] === "\n" ? cursor + 1 : readSerializedLineEnd(value, cursor);
+		if (lineEnd === null || value[lineEnd] !== " " && value[lineEnd] !== "	" && readSerializedTabEnd(value, lineEnd) === null) return cursor;
+		cursor = lineEnd;
+	}
+}
+function readAuthParamName(value, start) {
+	const match = AUTH_PARAM_TOKEN_RE.exec(value.slice(start));
+	return match ? {
+		name: match[0].toLowerCase(),
+		end: start + match[0].length
+	} : null;
+}
+function isAuthHeaderStart(value, index) {
+	const previous = value[index - 1];
+	let serializedLineBoundary = false;
+	if (previous === "n" || previous === "r") {
+		let slashCursor = index - 2;
+		let slashCount = 0;
+		while (slashCount < 64 && value[slashCursor] === "\\") {
+			slashCount += 1;
+			slashCursor -= 1;
+		}
+		serializedLineBoundary = slashCount > 0;
+	}
+	if (!serializedLineBoundary && previous !== void 0 && /[A-Za-z0-9_-]/u.test(previous)) return false;
+	const proxyName = "proxy-authorization";
+	const directName = "authorization";
+	const candidate = value.slice(index, index + 19).toLowerCase();
+	const name = candidate === proxyName ? proxyName : candidate.startsWith(directName) ? directName : null;
+	if (!name) return false;
+	const quoteStart = index + name.length;
+	let cursor = skipSerializedBackslashes(value, quoteStart);
+	if (value[cursor] === "\"" || value[cursor] === "'") cursor += 1;
+	else if (cursor > quoteStart) return false;
+	cursor = skipHorizontalWhitespace(value, cursor);
+	return value[cursor] === ":" || value[cursor] === "=";
+}
+function findNextAuthParamStart(value, start) {
+	let cursor = start;
+	for (;;) {
+		cursor = skipAuthWhitespace(value, cursor);
+		if (cursor > start && isAuthHeaderStart(value, cursor)) return null;
+		if (cursor >= value.length || value[cursor] === "\r" || value[cursor] === "\n" || value[cursor] === ";") return null;
+		if (value[cursor] === ",") {
+			cursor += 1;
+			continue;
+		}
+		const param = readAuthParamName(value, cursor);
+		if (param) {
+			const equals = skipAuthWhitespace(value, param.end);
+			if (value[equals] === "=" && value[equals + 1] !== "=") return cursor;
+		}
+		while (cursor < value.length) {
+			const whitespaceEnd = skipAuthWhitespace(value, cursor);
+			if (whitespaceEnd > cursor) {
+				cursor = whitespaceEnd;
+				continue;
+			}
+			if (cursor > start && isAuthHeaderStart(value, cursor)) return null;
+			const char = value[cursor];
+			if (char === "\r" || char === "\n" || char === ";") return null;
+			cursor += 1;
+			if (char === ",") break;
+		}
+	}
+}
+function usesAuthParams(scheme) {
+	return scheme === "digest" || scheme === "hawk" || scheme.startsWith("aws4-");
+}
+function isAuthFieldEnd(char) {
+	return char === void 0 || char === "\r" || char === "\n" || char === ";" || char === "\\" || char === "\"" || char === "'" || char === "}" || char === "]";
+}
+function findAuthFieldEnd(value, start) {
+	let cursor = start;
+	while (cursor < value.length) {
+		const whitespaceEnd = skipAuthWhitespace(value, cursor);
+		if (whitespaceEnd > cursor) {
+			cursor = whitespaceEnd;
+			continue;
+		}
+		if (cursor > start && isAuthHeaderStart(value, cursor)) break;
+		if (isAuthFieldEnd(value[cursor])) break;
+		cursor += 1;
+	}
+	return cursor;
+}
+function readParamValue(value, start, options) {
+	let escapedQuoteSlashCount = 0;
+	while (value[start + escapedQuoteSlashCount] === "\\") escapedQuoteSlashCount += 1;
+	const escapedQuotes = escapedQuoteSlashCount > 0 && value[start + escapedQuoteSlashCount] === "\"";
+	const quote = value[start] === "\"" || value[start] === "'" ? value[start] : void 0;
+	if (quote || escapedQuotes) {
+		let cursor = start + (escapedQuotes ? escapedQuoteSlashCount + 1 : 1);
+		while (cursor < value.length) {
+			if (value[cursor] === "\r" || value[cursor] === "\n") {
+				const whitespaceEnd = skipAuthWhitespace(value, cursor);
+				if (whitespaceEnd === cursor) break;
+				cursor = whitespaceEnd;
+				continue;
+			}
+			if (escapedQuotes && value[cursor] === "\\") {
+				let slashEnd = cursor + 1;
+				while (value[slashEnd] === "\\") slashEnd += 1;
+				if (value[slashEnd] === "\"") {
+					if ((slashEnd - cursor) % (2 * (escapedQuoteSlashCount + 1)) === escapedQuoteSlashCount) return slashEnd + 1;
+					cursor = slashEnd + 1;
+					continue;
+				}
+				cursor = slashEnd;
+				continue;
+			}
+			if (!escapedQuotes && value[cursor] === "\\" && cursor + 1 < value.length) {
+				cursor += 2;
+				continue;
+			}
+			if (!escapedQuotes && value[cursor] === quote) return cursor + 1;
+			cursor += 1;
+		}
+		return cursor > start + 1 ? cursor : null;
+	}
+	if (options.signedHeaders) {
+		const match = /^:?[A-Za-z0-9!#$%&'*+.^_`|~-]+(?:;:?[A-Za-z0-9!#$%&'*+.^_`|~-]+)*/u.exec(value.slice(start));
+		if (!match) return null;
+		const end = start + match[0].length;
+		const next = value[end];
+		return next === void 0 || next === "," || next === " " || next === "	" || next === "\r" || next === "\n" ? end : null;
+	}
+	const match = (options.awsScope ? AWS_SCOPE_VALUE_RE : AUTH_PARAM_TOKEN_RE).exec(value.slice(start));
+	return match ? start + match[0].length : null;
+}
+function findStructuredAuthParamRanges(value) {
+	const ranges = [];
+	for (const header of value.matchAll(STRUCTURED_AUTH_HEADER_RE)) {
+		const scheme = (header[2] ?? "").toLowerCase();
+		let cursor = (header.index ?? 0) + header[0].length;
+		const rangeStart = cursor;
+		let rangeEnd = cursor;
+		const directParam = readAuthParamName(value, cursor);
+		const directEquals = directParam ? skipAuthWhitespace(value, directParam.end) : void 0;
+		if (!directParam || directEquals === void 0 || value[directEquals] !== "=" || value[directEquals + 1] === "=") {
+			if (value[skipAuthWhitespace(value, cursor)] !== "," && !usesAuthParams(scheme)) continue;
+			const firstParamStart = findNextAuthParamStart(value, cursor);
+			if (firstParamStart === null) continue;
+			cursor = firstParamStart;
+		}
+		for (;;) {
+			const param = readAuthParamName(value, cursor);
+			if (!param) break;
+			cursor = skipAuthWhitespace(value, param.end);
+			if (value[cursor] !== "=") break;
+			cursor = skipAuthWhitespace(value, cursor + 1);
+			const valueEnd = readParamValue(value, cursor, {
+				awsScope: scheme.startsWith("aws4-") && param.name === "credential",
+				signedHeaders: param.name === "signedheaders"
+			});
+			if (valueEnd === null) {
+				const nextParamStart = findNextAuthParamStart(value, cursor);
+				if (nextParamStart !== null) {
+					cursor = nextParamStart;
+					continue;
+				}
+				rangeEnd = Math.max(rangeEnd, findAuthFieldEnd(value, cursor));
+				break;
+			}
+			rangeEnd = valueEnd;
+			const separator = skipAuthWhitespace(value, valueEnd);
+			if (value[separator] !== ",") {
+				if (!isAuthFieldEnd(value[separator])) {
+					const nextParamStart = findNextAuthParamStart(value, separator);
+					if (nextParamStart !== null) {
+						cursor = nextParamStart;
+						continue;
+					}
+					rangeEnd = Math.max(rangeEnd, findAuthFieldEnd(value, separator));
+				}
+				break;
+			}
+			const nextParamStart = findNextAuthParamStart(value, separator + 1);
+			if (nextParamStart === null) break;
+			cursor = nextParamStart;
+		}
+		if (rangeEnd > rangeStart) ranges.push({
+			start: rangeStart,
+			end: rangeEnd
+		});
+	}
+	return ranges;
+}
+function redactStructuredAuthHeaders(value, replacement) {
+	const parts = [];
+	let cursor = 0;
+	for (const range of findStructuredAuthParamRanges(value)) {
+		if (parts.length === 0 || range.start > cursor) parts.push(value.slice(cursor, range.start), replacement);
+		cursor = Math.max(cursor, range.end);
+	}
+	parts.push(value.slice(cursor));
+	return parts.join("");
+}
+//#endregion
+export { HTTP_AUTH_OPTIONAL_VALUE_WHITESPACE_PATTERN as a, HTTP_AUTH_SERIALIZED_QUOTE_PATTERN as c, HTTP_AUTH_OPAQUE_CREDENTIAL_PATTERN as i, findStructuredAuthParamRanges as l, HTTP_AUTH_HEADER_BOUNDARY_PATTERN as n, HTTP_AUTH_REQUIRED_VALUE_WHITESPACE_PATTERN as o, HTTP_AUTH_LEGACY_VALUE_WHITESPACE_PATTERN as r, HTTP_AUTH_SCHEME_PATTERN as s, CREDENTIAL_STYLE_HEADER_REDACT_PATTERN as t, redactStructuredAuthHeaders as u };

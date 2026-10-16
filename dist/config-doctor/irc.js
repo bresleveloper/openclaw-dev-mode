@@ -1,5 +1,4 @@
-import { a as asNullableRecord } from "./string-coerce-Dyy0qgLy.js";
-import { s as defineChannelAliasMigration, u as stripRetiredChannelKeys } from "./runtime-doctor-migrations-8XPPImoy.js";
+import { a as defineChannelAliasMigration, k as asNullableRecord, o as stripRetiredChannelKeys } from "./runtime-doctor-migrations-BhouWAUC.js";
 //#region extensions/irc/config-doctor-api.ts
 const streamingAliasMigration = defineChannelAliasMigration({
 	channelId: "irc",

@@ -1,2 +1,2 @@
-import { t as createChannelDmPolicy } from "../channel-dm-policy-Ba3T4ueO.mjs";
+import { t as createChannelDmPolicy } from "../channel-dm-policy-COI4bLVD.mjs";
 export { createChannelDmPolicy };

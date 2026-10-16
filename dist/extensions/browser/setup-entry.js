@@ -1,8 +1,8 @@
-import { t as readBrowserHostConfig } from "../../extension-host-config-CDXJz0PV.mjs";
-import { n as runBrowserExtensionSetup, r as normalizeExtensionInstallWaitMs, u as NativeHostSetupContextError } from "../../extension-setup-DH4GiATz.mjs";
+import { t as readBrowserHostConfig } from "../../extension-host-config-CRJsBkxu.mjs";
+import { n as runBrowserExtensionSetup, r as normalizeExtensionInstallWaitMs, u as NativeHostSetupContextError } from "../../extension-setup-CPyqa3AS.mjs";
 import { fileURLToPath } from "node:url";
-import { parseArgs } from "node:util";
 import path from "node:path";
+import { parseArgs } from "node:util";
 //#region extensions/browser/setup-entry.ts
 async function main() {
 	const { values } = parseArgs({

@@ -8,6 +8,7 @@ import { buildOpenAICompatibleLiveProviderCatalog } from "openclaw/plugin-sdk/pr
 import { applyModelCompatPatch, buildProviderReplayFamilyHooks } from "openclaw/plugin-sdk/provider-model-shared";
 import { createDeepSeekV4OpenAICompatibleThinkingWrapper } from "openclaw/plugin-sdk/provider-stream-shared";
 import { PROVIDER_LABELS } from "openclaw/plugin-sdk/provider-usage";
+import { normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
 //#region extensions/xiaomi/index.ts
 const PAYG_FLAG_NAME = "--xiaomi-api-key";
 const PAYG_OPTION_KEY = "xiaomiApiKey";
@@ -34,20 +35,11 @@ const XIAOMI_PROVIDER_HOOKS = {
 	resolveThinkingProfile: ({ modelId }) => resolveMiMoThinkingProfile(modelId),
 	isModernModelRef: ({ modelId }) => Boolean(resolveMiMoThinkingProfile(modelId))
 };
-function trimConfiguredBaseUrl(ctx, providerId) {
-	const configuredProvider = ctx.config.models?.providers?.[providerId];
-	return (typeof configuredProvider?.baseUrl === "string" ? configuredProvider.baseUrl.trim() : "") || void 0;
-}
-function hasConfiguredProviderEntry(ctx, providerId) {
-	const configuredProvider = ctx.config.models?.providers?.[providerId];
-	return Boolean(configuredProvider && typeof configuredProvider === "object");
-}
 async function resolveXiaomiCatalog(params) {
 	const auth = params.ctx.resolveProviderApiKey(params.providerId);
 	if (!auth.apiKey) return null;
-	if (params.requireConfiguredProvider === true && !hasConfiguredProviderEntry(params.ctx, params.providerId)) return null;
-	const explicitBaseUrl = trimConfiguredBaseUrl(params.ctx, params.providerId);
-	if (params.requireBaseUrl === true && !explicitBaseUrl) return null;
+	const explicitBaseUrl = normalizeOptionalString(params.ctx.config.models?.providers?.[params.providerId]?.baseUrl);
+	if (params.requiresRegion && !explicitBaseUrl) return null;
 	return await buildOpenAICompatibleLiveProviderCatalog({
 		discoveryMode: "strict",
 		providerId: params.providerId,
@@ -60,24 +52,17 @@ async function resolveXiaomiCatalog(params) {
 		profileId: auth.profileId
 	});
 }
-function buildXiaomiKeyMismatchMessage(params) {
-	const normalized = params.actualKey.trim().toLowerCase();
-	const expectedPrefix = params.expectedKind === "payg" ? "sk-" : "tp-";
-	const kindLabel = params.expectedKind === "payg" ? "pay-as-you-go" : "Token Plan";
+function assertCompatibleXiaomiKey(actualKey, expectedKind) {
+	const normalized = actualKey.trim().toLowerCase();
+	const expectedPrefix = expectedKind === "payg" ? "sk-" : "tp-";
+	const kindLabel = expectedKind === "payg" ? "pay-as-you-go" : "Token Plan";
 	if (normalized.startsWith(expectedPrefix)) return;
-	if (params.expectedKind === "payg" && normalized.startsWith("tp-")) return "This looks like a Xiaomi MiMo Token Plan key (tp-...). Re-run onboarding with one of: --auth-choice xiaomi-token-plan-cn, --auth-choice xiaomi-token-plan-sgp, or --auth-choice xiaomi-token-plan-ams.";
-	if (params.expectedKind === "token-plan" && normalized.startsWith("sk-")) return `This looks like a Xiaomi MiMo pay-as-you-go key (sk-...). Re-run onboarding with --auth-choice xiaomi-api-key or pass ${PAYG_FLAG_NAME}.`;
-	return `Xiaomi MiMo ${kindLabel} keys must start with "${expectedPrefix}". The entered key does not match the expected format.`;
-}
-function assertCompatibleXiaomiKey(params) {
-	const message = buildXiaomiKeyMismatchMessage(params);
-	if (message) throw new Error(message);
-}
-function resolveProfileId(providerId) {
-	return `${providerId}:default`;
+	if (expectedKind === "payg" && normalized.startsWith("tp-")) throw new Error("This looks like a Xiaomi MiMo Token Plan key (tp-...). Re-run onboarding with one of: --auth-choice xiaomi-token-plan-cn, --auth-choice xiaomi-token-plan-sgp, or --auth-choice xiaomi-token-plan-ams.");
+	if (expectedKind === "token-plan" && normalized.startsWith("sk-")) throw new Error(`This looks like a Xiaomi MiMo pay-as-you-go key (sk-...). Re-run onboarding with --auth-choice xiaomi-api-key or pass ${PAYG_FLAG_NAME}.`);
+	throw new Error(`Xiaomi MiMo ${kindLabel} keys must start with "${expectedPrefix}". The entered key does not match the expected format.`);
 }
 async function runXiaomiApiKeyAuth(ctx, params) {
-	const profileId = resolveProfileId(params.providerId);
+	const profileId = `${params.providerId}:default`;
 	const { apiKey, input, mode } = await captureProviderApiKey(ctx, {
 		token: normalizeOptionalSecretInput(ctx.opts?.[params.optionKey]) ?? normalizeOptionalSecretInput(ctx.opts?.token),
 		tokenProvider: normalizeOptionalSecretInput(ctx.opts?.[params.optionKey]) ? params.providerId : normalizeOptionalSecretInput(ctx.opts?.tokenProvider),
@@ -88,10 +73,7 @@ async function runXiaomiApiKeyAuth(ctx, params) {
 		promptMessage: params.promptMessage,
 		missingInputMessage: `Missing Xiaomi API key for provider "${params.providerId}".`
 	});
-	assertCompatibleXiaomiKey({
-		actualKey: apiKey,
-		expectedKind: params.expectedKind
-	});
+	assertCompatibleXiaomiKey(apiKey, params.expectedKind);
 	return {
 		profiles: [{
 			profileId,
@@ -109,11 +91,8 @@ async function runXiaomiApiKeyAuthNonInteractive(ctx, params) {
 		envVar: params.envVar
 	});
 	if (!resolved) return null;
-	assertCompatibleXiaomiKey({
-		actualKey: resolved.key,
-		expectedKind: params.expectedKind
-	});
-	const profileId = resolveProfileId(params.providerId);
+	assertCompatibleXiaomiKey(resolved.key, params.expectedKind);
+	const profileId = `${params.providerId}:default`;
 	if (!await persistProviderApiKey(ctx, profileId, {
 		provider: params.providerId,
 		resolved
@@ -200,8 +179,7 @@ var xiaomi_default = definePluginEntry({
 					ctx,
 					providerId: provider.id,
 					buildProvider: provider.buildProvider,
-					requireConfiguredProvider: provider.requiresRegion,
-					requireBaseUrl: provider.requiresRegion
+					requiresRegion: provider.requiresRegion
 				})
 			},
 			staticCatalog: {

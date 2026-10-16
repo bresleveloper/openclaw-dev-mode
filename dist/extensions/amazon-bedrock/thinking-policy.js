@@ -7,6 +7,9 @@ const BASE_CLAUDE_THINKING_LEVELS = [
 	{ id: "medium" },
 	{ id: "high" }
 ];
+function isClaude5BedrockModel(model) {
+	return Boolean(resolveClaudeFable5ModelIdentity(model) || resolveClaudeMythos5ModelIdentity(model) || resolveClaudeOpus5ModelIdentity(model) || resolveClaudeSonnet5ModelIdentity(model));
+}
 function isOpus5BedrockModelRef(modelRef) {
 	return /(?:^|[/.:])(?:(?:us|eu|ap|apac|au|jp|global)\.)?(?:anthropic\.)?claude-opus-5(?:$|[-.:/])/i.test(modelRef);
 }
@@ -30,20 +33,11 @@ function isLatestAdaptiveBedrockModelRef(modelId, params) {
 		params
 	};
 	const canonicalModelId = resolveClaudeModelIdentity(modelRef);
-	return resolveClaudeFable5ModelIdentity(modelRef) !== void 0 || resolveClaudeMythos5ModelIdentity(modelRef) !== void 0 || resolveClaudeOpus5ModelIdentity(modelRef) !== void 0 || resolveClaudeSonnet5ModelIdentity(modelRef) !== void 0 || [modelId, canonicalModelId].some((candidate) => isOpus47OrNewerBedrockModelRef(candidate) || isMythosPreviewBedrockModelRef(candidate));
+	return isClaude5BedrockModel(modelRef) || [modelId, canonicalModelId].some((candidate) => isOpus47OrNewerBedrockModelRef(candidate) || isMythosPreviewBedrockModelRef(candidate));
 }
 /** Return whether a Bedrock Claude ref supports max effort. */
 function supportsBedrockNativeMaxEffort(modelId, params) {
-	if (resolveClaudeFable5ModelIdentity({
-		id: modelId,
-		params
-	}) || resolveClaudeMythos5ModelIdentity({
-		id: modelId,
-		params
-	}) || resolveClaudeOpus5ModelIdentity({
-		id: modelId,
-		params
-	}) || resolveClaudeSonnet5ModelIdentity({
+	if (isClaude5BedrockModel({
 		id: modelId,
 		params
 	})) return true;
@@ -91,42 +85,26 @@ function resolveBedrockClaudeThinkingProfile(modelId, params) {
 		id: trimmed,
 		params
 	});
-	if (fableModelId || resolveClaudeMythos5ModelIdentity({
+	const preserveWhenCatalogReasoningFalse = Boolean(fableModelId || resolveClaudeMythos5ModelIdentity({
 		id: trimmed,
 		params
 	}) || resolveClaudeSonnet5ModelIdentity({
 		id: trimmed,
 		params
-	})) return {
-		levels: [
-			...BASE_CLAUDE_THINKING_LEVELS,
-			{ id: "xhigh" },
-			{ id: "adaptive" },
-			{ id: "max" }
-		],
-		defaultLevel: fableModelId ? resolveClaudeThinkingProfile(fableModelId).defaultLevel : "high",
-		preserveWhenCatalogReasoningFalse: true
-	};
-	if (resolveClaudeOpus5ModelIdentity({
+	}));
+	const claude5 = preserveWhenCatalogReasoningFalse || resolveClaudeOpus5ModelIdentity({
 		id: trimmed,
 		params
-	})) return {
+	}) !== void 0;
+	if (claude5 || modelRefs.some(isOpus47Or48BedrockModelRef)) return {
 		levels: [
 			...BASE_CLAUDE_THINKING_LEVELS,
 			{ id: "xhigh" },
 			{ id: "adaptive" },
 			{ id: "max" }
 		],
-		defaultLevel: "high"
-	};
-	if (modelRefs.some(isOpus47Or48BedrockModelRef)) return {
-		levels: [
-			...BASE_CLAUDE_THINKING_LEVELS,
-			{ id: "xhigh" },
-			{ id: "adaptive" },
-			{ id: "max" }
-		],
-		defaultLevel: "off"
+		defaultLevel: fableModelId ? resolveClaudeThinkingProfile(fableModelId).defaultLevel : claude5 ? "high" : "off",
+		...preserveWhenCatalogReasoningFalse ? { preserveWhenCatalogReasoningFalse } : {}
 	};
 	if (modelRefs.some(isOpus46BedrockModelRef)) return {
 		levels: [
@@ -136,15 +114,11 @@ function resolveBedrockClaudeThinkingProfile(modelId, params) {
 		],
 		defaultLevel: "adaptive"
 	};
-	if (modelRefs.some(isMythosPreviewBedrockModelRef)) return {
-		levels: [...BASE_CLAUDE_THINKING_LEVELS, { id: "adaptive" }],
-		defaultLevel: "adaptive"
-	};
-	if (modelRefs.some((modelRef) => /claude-sonnet-4(?:\.|-)6(?:$|[-.])/i.test(modelRef))) return {
+	if (modelRefs.some((modelRef) => isMythosPreviewBedrockModelRef(modelRef) || /claude-sonnet-4(?:\.|-)6(?:$|[-.])/i.test(modelRef))) return {
 		levels: [...BASE_CLAUDE_THINKING_LEVELS, { id: "adaptive" }],
 		defaultLevel: "adaptive"
 	};
 	return { levels: BASE_CLAUDE_THINKING_LEVELS };
 }
 //#endregion
-export { isLatestAdaptiveBedrockModelRef, isOpus47OrNewerBedrockModelRef, resolveBedrockClaudeThinkingProfile, resolveBedrockNativeThinkingLevelMap, supportsBedrockNativeMaxEffort };
+export { isClaude5BedrockModel, isLatestAdaptiveBedrockModelRef, isOpus47OrNewerBedrockModelRef, resolveBedrockClaudeThinkingProfile, resolveBedrockNativeThinkingLevelMap, supportsBedrockNativeMaxEffort };

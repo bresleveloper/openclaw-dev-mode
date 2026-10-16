@@ -1,4 +1,4 @@
-import { t as openclaw_plugin_default } from "./.setup/openclaw.plugin-CZNy9Kfm.mjs";
+import { t as openclaw_plugin_default } from "./.setup/openclaw.plugin-DX_vVKdi.mjs";
 import { MOONSHOT_BASE_URL, MOONSHOT_CN_BASE_URL, isNativeMoonshotBaseUrl } from "./provider-policy-api.js";
 import { applyProviderNativeStreamingUsageCompat, buildManifestModelProviderConfig, readManifestProviderDefaultModelRef } from "openclaw/plugin-sdk/provider-catalog-shared";
 //#region extensions/moonshot/provider-catalog.ts

@@ -1,13 +1,13 @@
-import { c as isRecord } from "../../../record-coerce-DItp3I4t.mjs";
-import { t as _usingCtx } from "../../../usingCtx-CoYZqMqE.mjs";
-import { n as serveWorkerTasks } from "../../../worker-task-server-CwtaNZgU.mjs";
-import { a as normalizeSourceStack, i as buildUserSource, n as SOURCE_LOCATION_KEY, o as CODE_MODE_CONTROLLER_SOURCE, r as USER_SOURCE_FILE, t as prepareSource } from "../../../code-mode-source-Bw0nRM9I.mjs";
-import { a as captureCodeModeValue, i as captureCodeModeOutput, n as EMPTY_CODE_MODE_OUTPUT, r as boundCodeModeError } from "../../../code-mode-json-Cek5lI0P.mjs";
+import { c as isRecord } from "../../../record-coerce-TIsquoVR.mjs";
+import { t as _usingCtx } from "../../../usingCtx-DwOBYOJf.mjs";
+import { n as serveWorkerTasks } from "../../../worker-task-server-BC_7U18u.mjs";
+import { a as normalizeSourceStack, i as buildUserSource, n as SOURCE_LOCATION_KEY, o as CODE_MODE_CONTROLLER_SOURCE, r as USER_SOURCE_FILE, t as prepareSource } from "../../../code-mode-source-f8CZaGjY.mjs";
+import { a as captureCodeModeValue, i as captureCodeModeOutput, n as EMPTY_CODE_MODE_OUTPUT, r as boundCodeModeError } from "../../../code-mode-json-DLneEPkt.mjs";
 import { n as ToolInputError } from "../../../tool-input-error-mjW74R8m.mjs";
-import "../../../worker-task-server-WYdiFYES.mjs";
-import "../../../string-coerce-runtime-C_MKhRVt.mjs";
-import "../../../code-mode-executor-runtime-yvGkOpkE.mjs";
-//#region node_modules/.pnpm/quickjs-wasi@3.6.0/node_modules/quickjs-wasi/dist/wasi-shim.js
+import "../../../worker-task-server-OcaoXQUy.mjs";
+import "../../../string-coerce-runtime-50qKeWeL.mjs";
+import "../../../code-mode-executor-runtime-QLmhmUPX.mjs";
+//#region node_modules/.pnpm/quickjs-wasi@3.6.2/node_modules/quickjs-wasi/dist/wasi-shim.js
 /**
 * Minimal WASI shim for running QuickJS in any WebAssembly environment.
 *
@@ -90,7 +90,7 @@ function createWasiShim(memoryAccessor) {
 	};
 }
 //#endregion
-//#region node_modules/.pnpm/quickjs-wasi@3.6.0/node_modules/quickjs-wasi/dist/extensions.js
+//#region node_modules/.pnpm/quickjs-wasi@3.6.2/node_modules/quickjs-wasi/dist/extensions.js
 /**
 * WASM Dynamic Linking - Extension Loader
 *
@@ -352,10 +352,10 @@ async function restoreExtensions(descriptors, extensionMeta, mainExports, wasiBu
 	return loaded;
 }
 //#endregion
-//#region node_modules/.pnpm/quickjs-wasi@3.6.0/node_modules/quickjs-wasi/dist/version.js
-const VERSION = "3.6.0";
+//#region node_modules/.pnpm/quickjs-wasi@3.6.2/node_modules/quickjs-wasi/dist/version.js
+const VERSION = "3.6.2";
 //#endregion
-//#region node_modules/.pnpm/quickjs-wasi@3.6.0/node_modules/quickjs-wasi/dist/index.js
+//#region node_modules/.pnpm/quickjs-wasi@3.6.2/node_modules/quickjs-wasi/dist/index.js
 /**
 * QuickJS WASM - A snapshotable JavaScript runtime via WebAssembly.
 *
@@ -2764,8 +2764,9 @@ function readSourceLocation(vm) {
 //#region extensions/code-mode-quickjs/src/code-mode.worker.ts
 /** QuickJS worker for Code Mode guest execution and suspended VM snapshots. */
 var CodeModeWorkerFailure = class extends Error {
-	constructor(code, message) {
+	constructor(code, message, failurePhase) {
 		super(message);
+		this.failurePhase = failurePhase;
 		this.name = "CodeModeWorkerFailure";
 		this.code = code;
 	}
@@ -2795,7 +2796,7 @@ function createHostRequestHandler(params) {
 			throw params.bridge.admissionFailure;
 		}
 		const method = methodHandle.toString();
-		if (method !== "search" && method !== "describe" && method !== "callValue" && method !== "resultSave" && method !== "resultLoad" && method !== "resultDelete" && method !== "nodes" && method !== "yield" && method !== "namespace" && method !== "agentSpawn" && method !== "agentWait" && method !== "skillsList" && method !== "skillsRead" && method !== "sleep" && method !== "swarmNote") throw new Error("unsupported code mode bridge method");
+		if (method !== "search" && method !== "describe" && method !== "callValue" && method !== "resultSave" && method !== "resultLoad" && method !== "resultDelete" && method !== "nodes" && method !== "yield" && method !== "namespace" && method !== "agentSpawn" && method !== "agentWait" && method !== "skillsList" && method !== "skillsSearch" && method !== "skillsRead" && method !== "sleep" && method !== "swarmNote") throw new Error("unsupported code mode bridge method");
 		const args = JSON.parse(argsHandle.toString());
 		if (!Array.isArray(args)) throw new Error("invalid code mode bridge arguments: expected an array");
 		const id = bridgeIdHandle?.toString();
@@ -2915,12 +2916,12 @@ function captureWorkerResult(result, config, retainFinalValue = false) {
 		output
 	};
 }
-function failedWorkerResult(code, error, output = []) {
+function failedWorkerResult(code, error, output = [], failurePhase) {
 	return {
 		status: "failed",
 		code,
 		error,
-		failurePhase: code === "invalid_input" ? "input" : "guest",
+		failurePhase: failurePhase ?? (code === "invalid_input" ? "input" : "guest"),
 		bridgeDispatchStarted: false,
 		output
 	};
@@ -2929,16 +2930,16 @@ function workerFailureResult(params) {
 	const timedOut = params.didTimeout() || isQuickJsInterruptedError(params.error);
 	const output = params.output.length > 0 ? params.output : takeOutputSafely(params.vm);
 	if (timedOut) return failedWorkerResult("timeout", "code mode timeout exceeded", output);
-	if (params.error instanceof CodeModeWorkerFailure) return failedWorkerResult(params.error.code, params.error.message, output);
+	if (params.error instanceof CodeModeWorkerFailure) return failedWorkerResult(params.error.code, params.error.message, output, params.error.failurePhase);
 	return failedWorkerResult(params.error instanceof ToolInputError ? "invalid_input" : "internal_error", errorMessage(params.error, readSourceLocation(params.vm)), output);
 }
 async function readCompletedResult(vm, resultHandle) {
 	const settled = await vm.resolvePromise(resultHandle);
 	if ("error" in settled) return settled.error.consume((error) => {
 		const dumped = vm.dump(error);
-		if (dumped instanceof Error && dumped.name === "ReferenceError" && /^(?:require|module|process) is not defined$/u.test(dumped.message)) throw new CodeModeWorkerFailure("invalid_input", "code mode module access is disabled.");
-		const text = dumped instanceof Error ? formatQuickJsError(dumped.name, dumped.message, dumped.stack, readSourceLocation(vm)) : errorMessage(dumped);
-		throw new Error(text);
+		const bridgeError = vm.global.getProp("__openclawIsBridgeError").consume((check) => vm.callFunction(check, vm.undefined, error).consume((value) => vm.dump(value) === true));
+		if (!bridgeError && dumped instanceof Error && dumped.name === "ReferenceError" && /^(?:require|module|process) is not defined$/u.test(dumped.message)) throw new CodeModeWorkerFailure("invalid_input", "code mode module access is disabled.");
+		throw new CodeModeWorkerFailure("internal_error", dumped instanceof Error ? formatQuickJsError(dumped.name, dumped.message, dumped.stack, readSourceLocation(vm)) : errorMessage(dumped), bridgeError ? "bridge" : void 0);
 	});
 	return settled.value.consume((value) => JSON.parse(value.toString()));
 }

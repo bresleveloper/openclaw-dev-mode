@@ -30,31 +30,14 @@ function buildComfyImageGenerationProvider() {
 		async generateImage(req) {
 			if ((req.inputImages?.length ?? 0) > 1) throw new Error("Comfy image generation currently supports at most one reference image");
 			const result = await runComfyWorkflow({
-				cfg: req.cfg,
-				agentDir: req.agentDir,
-				authStore: req.authStore,
-				prompt: req.prompt,
-				model: req.model,
-				timeoutMs: req.timeoutMs,
+				...req,
 				capability: "image",
-				outputKinds: ["images"],
 				inputImage: req.inputImages?.[0]
 			});
 			return {
-				images: result.assets.map((asset) => ({
-					buffer: asset.buffer,
-					mimeType: asset.mimeType,
-					fileName: asset.fileName,
-					metadata: {
-						nodeId: asset.nodeId,
-						promptId: result.promptId
-					}
-				})),
+				images: result.assets,
 				model: result.model,
-				metadata: {
-					promptId: result.promptId,
-					outputNodeIds: result.outputNodeIds
-				}
+				metadata: result.metadata
 			};
 		}
 	};

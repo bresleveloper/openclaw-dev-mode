@@ -29,10 +29,7 @@ import { readProcessTreeCpuMs, readProcessTreeRssBytes } from "./process-tree-cp
 
 export type { QaGatewayChildCommand } from "./gateway-child-command.js";
 export type { QaGatewayStopResult, QaGatewayStopOptions } from "./gateway-child-lifecycle.js";
-export type {
-  QaGatewayChildListeningContext,
-  QaGatewayChildStateMutationContext,
-} from "./gateway-child-setup.js";
+export type { QaGatewayChildListeningContext } from "./gateway-child-setup.js";
 export type { QaCliBackendAuthMode } from "./providers/env.js";
 export type QaGatewayChild = Awaited<ReturnType<typeof startOwnedGatewayChild>>;
 
@@ -112,7 +109,7 @@ async function startOwnedGatewayChild(
       cwd: gatewayCwd,
       env: prepared?.env ?? launch.env,
       detached: process.platform !== "win32",
-      stdio: ["ignore", "pipe", "pipe"],
+      stdio: ["pipe", "pipe", "pipe"],
     });
     // Register synchronously: acceptance/readiness may reject with descendants
     // still alive, and replacement must immediately supersede its stopped parent.
@@ -252,11 +249,11 @@ async function startOwnedGatewayChild(
     tempRoot,
     configPath,
     runtimeEnv: runningEnv,
-    // Verified launchers implement a Gateway-only process boundary, not a direct CLI.
-    cliCommand:
-      params.command && !params.command.processBoundary
-        ? { executablePath: nodeExecPath, argsPrefix: [...cliArgsPrefix], cwd: gatewayCwd }
-        : undefined,
+    // Keep companion CLI calls inside the same packaged/runtime wrapper as the Gateway.
+    // Process-boundary launchers also own the isolated runtime UID and state permissions.
+    cliCommand: params.command
+      ? { executablePath: nodeExecPath, argsPrefix: [...cliArgsPrefix], cwd: gatewayCwd }
+      : undefined,
     logs,
     ...createQaGatewayChildLogAccess(output),
     runCli(args: readonly string[]) {

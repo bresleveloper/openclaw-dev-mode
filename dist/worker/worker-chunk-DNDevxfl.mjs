@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function ensurePluginAllowlisted(e,t){let n=e.plugins?.allow;return!Array.isArray(n)||n.includes(t)?e:{...e,plugins:{...e.plugins,allow:[...n,t]}}}var t=e((()=>{}));export{t as n,ensurePluginAllowlisted as t};

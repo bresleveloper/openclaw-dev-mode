@@ -1,3 +1,4 @@
+import { asOptionalObjectRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { createPayloadPatchStreamWrapper, normalizeOpenAICompatibleReasoningReplay } from "openclaw/plugin-sdk/provider-stream-shared";
 //#region extensions/venice/stream.ts
 function isVeniceDeepSeekV4ModelId(modelId) {
@@ -19,9 +20,9 @@ function stringifyHistoricalValue(value) {
 	}
 }
 function describeHistoricalToolCall(toolCall) {
-	const fn = toolCall.function && typeof toolCall.function === "object" ? toolCall.function : {};
-	const name = typeof fn.name === "string" && fn.name.length > 0 ? fn.name : "unknown_tool";
-	const args = stringifyHistoricalValue(fn.arguments) || "{}";
+	const fn = asOptionalObjectRecord(toolCall.function);
+	const name = typeof fn?.name === "string" && fn.name.length > 0 ? fn.name : "unknown_tool";
+	const args = stringifyHistoricalValue(fn?.arguments) || "{}";
 	return {
 		...typeof toolCall.id === "string" ? { id: toolCall.id } : {},
 		name,
@@ -53,11 +54,11 @@ function applyVeniceGeminiToolHistoryCompatibility(payload, context, model) {
 	let historicalBatchIndex = 0;
 	let pendingDowngradedToolCalls;
 	for (const message of payload.messages) {
-		if (!message || typeof message !== "object") {
+		const record = asOptionalObjectRecord(message);
+		if (!record) {
 			pendingDowngradedToolCalls = void 0;
 			continue;
 		}
-		const record = message;
 		if (record.role === "tool") {
 			const toolCallId = typeof record.tool_call_id === "string" ? record.tool_call_id : void 0;
 			if (!toolCallId) continue;
@@ -80,8 +81,8 @@ function applyVeniceGeminiToolHistoryCompatibility(payload, context, model) {
 		let shouldDowngradeBatch = false;
 		const describedCalls = [];
 		for (const [toolCallIndex, toolCall] of record.tool_calls.entries()) {
-			if (!toolCall || typeof toolCall !== "object") continue;
-			const toolCallRecord = toolCall;
+			const toolCallRecord = asOptionalObjectRecord(toolCall);
+			if (!toolCallRecord) continue;
 			const historicalCall = historicalBatch?.[toolCallIndex];
 			const describedCall = describeHistoricalToolCall(toolCallRecord);
 			const signature = historicalCall && historicalCall.id === toolCallRecord.id && historicalCall.name === describedCall.name ? historicalCall.thoughtSignature : void 0;
@@ -100,7 +101,7 @@ function applyVeniceGeminiToolHistoryCompatibility(payload, context, model) {
 		delete record.tool_calls;
 	}
 }
-function createVeniceStreamWrapper(baseStreamFn, thinkingLevel) {
+function createVeniceStreamWrapper(baseStreamFn) {
 	return createPayloadPatchStreamWrapper(baseStreamFn, ({ payload, context, model }) => {
 		if (model.provider === "venice" && isVeniceDeepSeekV4ModelId(model.id)) {
 			delete payload.thinking;

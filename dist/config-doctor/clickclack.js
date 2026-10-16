@@ -1,5 +1,4 @@
-import { a as asNullableRecord } from "./string-coerce-Dyy0qgLy.js";
-import "./runtime-doctor-migrations-8XPPImoy.js";
+import { k as asNullableRecord } from "./runtime-doctor-migrations-BhouWAUC.js";
 //#region extensions/clickclack/src/doctor-contract.ts
 function stripTimeoutSeconds(value) {
 	const record = asNullableRecord(value);

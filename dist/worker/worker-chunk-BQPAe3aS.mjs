@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{m as t,r as n}from"./worker-chunk-Bksr9R-F.mjs";function normalizeManifestPlatforms(e){return t(e).filter(e=>r.has(e))}var r,i=e((()=>{n(),r=/* @__PURE__ */ new Set([`aix`,`android`,`darwin`,`freebsd`,`haiku`,`linux`,`openbsd`,`sunos`,`win32`,`cygwin`,`netbsd`])}));export{normalizeManifestPlatforms as n,i as t};

@@ -8,14 +8,12 @@ import { isPathInside } from "../../../infra/path-guards.js";
 import { resolveUpdateRehearsalRoot } from "../../../infra/update-rehearsal-paths.js";
 import { normalizePluginsConfig } from "../../../plugins/config-state.js";
 import { withPluginMetadataSnapshotScope } from "../../../plugins/current-plugin-metadata-snapshot.js";
+import { createBlockedPluginDiagnosticLookup } from "../../../plugins/discovery-availability.js";
 import { resolvePluginDoctorContractArtifact } from "../../../plugins/doctor-contract-artifact.js";
 import { createInstalledPluginIndexScopeLookup } from "../../../plugins/installed-plugin-index-scope-lookup.js";
 import { resolveInstalledPluginIndexStateDatabaseOptions } from "../../../plugins/installed-plugin-index-store-path.js";
 import { loadManifestMetadataSnapshot } from "../../../plugins/manifest-contract-eligibility.js";
-import {
-  isActivatedManifestOwner,
-  passesManifestOwnerBasePolicy,
-} from "../../../plugins/manifest-owner-policy.js";
+import { passesManifestOwnerBasePolicy } from "../../../plugins/manifest-owner-policy.js";
 import { isPayloadMissing } from "../../../plugins/payload-verification.js";
 import { createPluginCache, withPluginCache } from "../../../plugins/plugin-cache.js";
 import {
@@ -88,6 +86,11 @@ export async function inspectPluginMigrationAvailability(params: {
             configuredChannelOwnerPluginIds: context.configuredChannelOwnerPluginIds,
             blockedPluginIds,
           });
+          const findBlockedPluginDiagnostic = createBlockedPluginDiagnosticLookup({
+            diagnostics: metadata.diagnostics,
+            config: params.cfg,
+            env,
+          });
           const inspectedIds = new Set([...selected, ...(params.retainedPluginIds ?? [])]);
           const requiredPluginIds: string[] = [];
           const inspectionRequiredPluginIds: string[] = [];
@@ -121,13 +124,15 @@ export async function inspectPluginMigrationAvailability(params: {
           const inspectionRequiredIds = new Set(inspectionRequiredPluginIds);
           const statelessPluginIds: string[] = [];
           const normalizedConfig = normalizePluginsConfig(params.cfg.plugins);
-          const pending = [...selected].toSorted().flatMap((pluginId) => {
+          const pending = [...inspectedIds].toSorted().flatMap((pluginId) => {
             if (!passesManifestOwnerBasePolicy({ plugin: { id: pluginId }, normalizedConfig })) {
               return [];
             }
             const plugin = metadata.plugins.find((candidate) => candidate.id === pluginId);
             const bundled = context.bundledPluginsById.has(pluginId);
+            const blocked = plugin ? undefined : findBlockedPluginDiagnostic(pluginId);
             const unavailable =
+              Boolean(blocked) ||
               !context.knownIds.has(pluginId) ||
               (Object.hasOwn(context.records, pluginId) &&
                 isPayloadMissing(env, context.records[pluginId]?.installPath)) ||
@@ -138,7 +143,7 @@ export async function inspectPluginMigrationAvailability(params: {
             // package convergence would hide its Doctor contract from the canary. Ordinary
             // config paths stay deferred because their source may be stale during an update.
             const availableWithoutPackageConvergence =
-              bundled ||
+              (bundled && !blocked) ||
               (plugin?.origin === "config" &&
                 rehearsalRoot !== undefined &&
                 isPathInside(rehearsalRoot, plugin.rootDir) &&
@@ -146,12 +151,16 @@ export async function inspectPluginMigrationAvailability(params: {
             if (
               (availableWithoutPackageConvergence || (!params.deferInstallation && !unavailable)) &&
               plugin &&
-              statelessCandidates.has(pluginId) &&
-              isActivatedManifestOwner({ plugin, normalizedConfig, rootConfig: params.cfg })
+              statelessCandidates.has(pluginId)
             ) {
+              // Installation-only confirmation reads metadata; it need not activate a channel.
               statelessPluginIds.push(pluginId);
             }
-            if (availableWithoutPackageConvergence || (!params.deferInstallation && !unavailable)) {
+            if (
+              !selected.has(pluginId) ||
+              availableWithoutPackageConvergence ||
+              (!params.deferInstallation && !unavailable)
+            ) {
               return [];
             }
             return [
@@ -166,10 +175,12 @@ export async function inspectPluginMigrationAvailability(params: {
                   pluginId,
                   compatibilityMigrationPaths: plugin?.configContracts?.compatibilityMigrationPaths,
                 }),
-                reason: params.deferInstallation
-                  ? "Package convergence must wait until the updating parent releases its install records."
-                  : "The configured plugin package is missing or has not converged.",
-                command: "openclaw update repair",
+                reason: blocked
+                  ? "The configured plugin is present but blocked. Fix the blocked plugin path before retrying its data/settings upgrade."
+                  : params.deferInstallation
+                    ? "Package convergence must wait until the updating parent releases its install records."
+                    : "The configured plugin package is missing or has not converged.",
+                command: blocked ? "openclaw doctor --fix" : "openclaw update repair",
               },
             ];
           });

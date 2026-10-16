@@ -1,3 +1,4 @@
+import { buildNovitaVideoGenerationProvider } from "./video-generation-provider.js";
 import { readConfiguredProviderCatalogEntries } from "openclaw/plugin-sdk/provider-catalog-shared";
 import { defineSingleProviderPluginEntry } from "openclaw/plugin-sdk/provider-entry";
 import { buildProviderReplayFamilyHooks } from "openclaw/plugin-sdk/provider-model-shared";
@@ -13,6 +14,11 @@ var openclaw_plugin_default = {
 		"novita-ai",
 		"novitaai"
 	],
+	contracts: { "videoGenerationProviders": ["novita"] },
+	videoGenerationProviderMetadata: { "novita": {
+		"authSignals": [{ "provider": "novita" }],
+		"referenceAudioInputs": true
+	} },
 	providerAuthAliases: {
 		"novita-ai": "novita",
 		"novitaai": "novita"
@@ -214,6 +220,9 @@ var novita_default = defineSingleProviderPluginEntry({
 			dropReasoningFromHistory: false
 		}),
 		...buildProviderToolCompatFamilyHooks("openai")
+	},
+	register(api) {
+		api.registerVideoGenerationProvider(buildNovitaVideoGenerationProvider());
 	}
 });
 //#endregion

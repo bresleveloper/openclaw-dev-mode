@@ -1,2 +1,2 @@
-import { t as alibabaVideoGenerationProvider } from "../../video-generation-provider-B9tcfbI1.mjs";
+import { t as alibabaVideoGenerationProvider } from "../../video-generation-provider-Bsgp6itT.mjs";
 export { alibabaVideoGenerationProvider };

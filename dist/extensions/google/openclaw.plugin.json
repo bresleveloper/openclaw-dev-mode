@@ -850,7 +850,7 @@
   "modelPricing": {
     "providers": {
       "google-gemini-cli": {
-        "openRouter": {
+        "modelsDev": {
           "provider": "google"
         },
         "liteLLM": {

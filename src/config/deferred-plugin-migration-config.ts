@@ -10,7 +10,6 @@ import { parseConcreteConfigPath, toDotPath } from "../shared/dot-path.js";
 import { parseConfigPathArrayIndex } from "../shared/path-array-index.js";
 import { applyUnsetPathsForWrite } from "./config-path-mutation.js";
 import type { ConfigWriteOptions } from "./io.types.js";
-import { inheritLegacyDefaultAgentId } from "./legacy.default-agent-owner.js";
 import type { OpenClawConfig } from "./types.js";
 
 const snapshotMigrationFacts = new WeakMap<object, readonly DeferredPluginMigration[]>();
@@ -100,15 +99,30 @@ function restorePath(source: unknown, candidate: unknown, segments: readonly str
   return next;
 }
 
+function retainedPluginPaths(
+  pending: DeferredPluginMigration,
+  nextConfig: OpenClawConfig,
+  unsetPaths?: readonly (readonly string[])[],
+): readonly string[][] {
+  const entryPath = ["plugins", "entries", pending.pluginId];
+  const entryRemoved =
+    unsetPaths?.some((path) => isDeepStrictEqual(path, entryPath)) &&
+    readPathValue(nextConfig, entryPath) === undefined;
+  return (pending.configPaths ?? []).filter(
+    (path) => !entryRemoved || !entryPath.every((segment, index) => path[index] === segment),
+  );
+}
+
 /** Explicit edits must not report success after preservation restores their old values. */
 export function assertDeferredPluginMigrationConfigEditAllowed(params: {
   sourceConfig: unknown;
   nextConfig: OpenClawConfig;
   pending: readonly DeferredPluginMigration[];
   editedPaths: readonly (readonly string[])[];
+  unsetPaths?: readonly (readonly string[])[];
 }): void {
   for (const pending of params.pending) {
-    for (const retainedPath of pending.configPaths ?? []) {
+    for (const retainedPath of retainedPluginPaths(pending, params.nextConfig, params.unsetPaths)) {
       const intersects = params.editedPaths.some(
         (editedPath) =>
           retainedPath.every((segment, index) => editedPath[index] === segment) ||
@@ -137,23 +151,25 @@ export function preserveDeferredPluginMigrationConfig(params: {
   writeOptions?: Pick<ConfigWriteOptions, "explicitSetPaths" | "unsetPaths" | "auditOrigin">;
 }): OpenClawConfig {
   const { explicitSetPaths, unsetPaths, auditOrigin } = params.writeOptions ?? {};
+  const nextConfig = applyUnsetPathsForWrite(params.nextConfig, unsetPaths);
   if (params.pending.length > 0) {
     assertDeferredPluginMigrationConfigEditAllowed({
       ...params,
-      nextConfig: applyUnsetPathsForWrite(params.nextConfig, unsetPaths),
+      nextConfig,
+      unsetPaths,
       editedPaths:
         auditOrigin === "config-rpc" ? [[]] : [...(explicitSetPaths ?? []), ...(unsetPaths ?? [])],
     });
   }
   let next: unknown = params.nextConfig;
   for (const pending of params.pending) {
-    for (const path of pending.configPaths ?? []) {
+    for (const path of retainedPluginPaths(pending, nextConfig, unsetPaths)) {
       if (path.length > 0) {
         next = restorePath(params.sourceConfig, next, path);
       }
     }
   }
-  return isRecord(next) ? inheritLegacyDefaultAgentId(params.nextConfig, next) : params.nextConfig;
+  return isRecord(next) ? next : params.nextConfig;
 }
 
 /** Retained plugin-owned legacy fields are inert until their migration owner becomes available. */
@@ -162,12 +178,9 @@ export function omitDeferredPluginMigrationConfig(
   pending: readonly DeferredPluginMigration[] | undefined,
 ): unknown {
   return isRecord(raw)
-    ? inheritLegacyDefaultAgentId(
+    ? applyUnsetPathsForWrite(
         raw,
-        applyUnsetPathsForWrite(
-          raw,
-          pending?.flatMap((entry) => entry.validationExcludedPaths ?? []),
-        ),
+        pending?.flatMap((entry) => entry.validationExcludedPaths ?? []),
       )
     : raw;
 }

@@ -180,8 +180,8 @@
   "modelPricing": {
     "providers": {
       "zai": {
-        "openRouter": {
-          "provider": "z-ai"
+        "modelsDev": {
+          "provider": "zai"
         },
         "liteLLM": {
           "provider": "zai"
@@ -269,9 +269,21 @@
     "mediaUnderstandingProviders": [
       "zai"
     ],
+    "videoGenerationProviders": [
+      "zai"
+    ],
     "usageProviders": [
       "zai"
     ]
+  },
+  "videoGenerationProviderMetadata": {
+    "zai": {
+      "authSignals": [
+        {
+          "provider": "zai"
+        }
+      ]
+    }
   },
   "mediaUnderstandingProviderMetadata": {
     "zai": {

@@ -1,0 +1,47 @@
+import { o as normalizeLowercaseStringOrEmpty } from "./string-coerce-1VuiLaaR.mjs";
+import { u as toErrorObject } from "./error-coercion-CvJK4lmH.mjs";
+import "./errors-O33D01XW.mjs";
+import { n as isYes } from "./global-state-BAD7XgmL.mjs";
+import "./globals-BXbZ1A_g.mjs";
+import { stdin, stdout } from "node:process";
+import readline from "node:readline/promises";
+//#region src/cli/prompt.ts
+/** Signals that an interactive prompt lost stdin before a complete answer arrived. */
+var PromptInputClosedError = class extends Error {
+	constructor() {
+		super("Prompt input closed before an answer was received.");
+		this.name = "PromptInputClosedError";
+	}
+};
+function questionUntilClose(rl, question) {
+	return new Promise((resolve, reject) => {
+		let settled = false;
+		const finish = (complete) => {
+			if (settled) return;
+			settled = true;
+			rl.off("close", onClose);
+			complete();
+		};
+		const onClose = () => finish(() => reject(new PromptInputClosedError()));
+		rl.once("close", onClose);
+		rl.question(question).then((answer) => finish(() => resolve(answer)), (error) => finish(() => reject(toErrorObject(error, "Non-Error rejection"))));
+	});
+}
+/** Prompts for yes/no input, honoring global `--yes` before opening stdin. */
+async function promptYesNo(question, defaultYes = false) {
+	if (isYes()) return true;
+	const answer = normalizeLowercaseStringOrEmpty(await promptText(`${question}${defaultYes ? " [Y/n] " : " [y/N] "}`));
+	if (!answer) return defaultYes;
+	return answer.startsWith("y");
+}
+async function promptText(question) {
+	const rl = readline.createInterface({
+		input: stdin,
+		output: stdout
+	});
+	return await questionUntilClose(rl, question).finally(() => {
+		rl.close();
+	});
+}
+//#endregion
+export { promptText as n, promptYesNo as r, PromptInputClosedError as t };

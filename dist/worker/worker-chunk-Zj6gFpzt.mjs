@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{d as t,t as n}from"./worker-chunk-CY1CrHY4.mjs";function formatTokenCount(e){if(e===void 0||!Number.isFinite(e))return`0`;let n=Math.max(0,e);return t(n,{thousandsPrecision:n>=1e4?0:1})}var r=e((()=>{n()}));export{r as n,formatTokenCount as t};

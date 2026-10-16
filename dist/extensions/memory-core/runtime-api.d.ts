@@ -1,5 +1,6 @@
-import { $ as MemorySearchResult, C as RepairDreamingArtifactsResult, G as MemoryEmbeddingProviderRuntime, H as MemoryEmbeddingProviderAdapter, K as MemoryPluginRuntime, Q as MemorySearchManager, S as DreamingArtifactsAuditSummary, T as ShortTermDreamingStatsEntry, U as MemoryEmbeddingProviderCreateOptions, V as MemoryEmbeddingProvider, W as MemoryEmbeddingProviderCreateResult, X as MemoryOriginClass, Y as MemoryExtraPath, _ as removeGroundedShortTermCandidates, b as RepairShortTermPromotionArtifactsResult, d as configureMemoryCoreDreamingState, g as auditShortTermPromotionArtifacts, v as repairShortTermPromotionArtifacts, w as ShortTermDreamingStats, x as ShortTermAuditSummary, y as loadShortTermPromotionDreamingStats } from "../../runtime-api-BQqQOWYL.js";
-import { q as OpenClawConfig$1 } from "../../runtime-types-3YLzQ8ua.js";
+import { n as OpenClawConfig$1 } from "../../types.openclaw-DA3BMvaX.js";
+import { A as ShortTermAuditSummary, D as repairShortTermPromotionArtifacts, E as removeGroundedShortTermCandidates, H as ConversationRecallContext, K as MemorySearchManager, M as RepairDreamingArtifactsResult, N as ShortTermDreamingStats, O as loadShortTermPromotionDreamingStats, P as ShortTermDreamingStatsEntry, T as auditShortTermPromotionArtifacts, U as MemoryExtraPath, W as MemoryOriginClass, _ as MemoryEmbeddingProviderRuntime, b as configureMemoryCoreDreamingState, g as MemoryEmbeddingProviderCreateResult, h as MemoryEmbeddingProviderCreateOptions, j as DreamingArtifactsAuditSummary, k as RepairShortTermPromotionArtifactsResult, m as MemoryEmbeddingProviderAdapter, p as MemoryEmbeddingProvider, q as MemorySearchResult, v as MemoryPluginRuntime, y as MemoryCoreOpenKeyedStore } from "../../cli-backend.types-BeWYryLP.js";
+import "../../health-CmgFZOuS.js";
 //#region packages/memory-host-sdk/src/host/config-utils.d.ts
 type DmScope = "main" | "per-peer" | "per-channel-peer" | "per-account-channel-peer";
 /** Citation injection behavior for memory search results. */
@@ -27,8 +28,6 @@ type SecretInput = string | {
 };
 /** Agent-level config fields consumed by memory host helpers. */
 type AgentConfig = {
-  id?: string;
-  default?: boolean;
   workspace?: string;
   memory?: {
     search?: MemorySearchConfig;
@@ -43,8 +42,7 @@ type OpenClawConfig = {
       workspace?: string;
       contextLimits?: AgentContextLimitsConfig;
     };
-    entries?: Record<string, Omit<AgentConfig, "id">>;
-    list?: AgentConfig[];
+    entries?: Record<string, AgentConfig>;
   };
   session?: {
     dmScope?: DmScope;
@@ -107,6 +105,13 @@ type MemoryCoreAcquireLocalService = (target: {
   release: () => void;
 } | undefined>;
 //#endregion
+//#region extensions/memory-core/src/memory/runtime-host.d.ts
+type MemoryCoreRuntimeHost = {
+  acquireLocalService?: MemoryCoreAcquireLocalService;
+  openKeyedStore?: MemoryCoreOpenKeyedStore;
+  runInBackgroundContext?: <T>(run: () => T) => T;
+};
+//#endregion
 //#region extensions/memory-core/src/memory/search-manager.d.ts
 type MemorySearchManagerPurpose = "default" | "status" | "cli";
 type MemorySearchManagerParams = {
@@ -115,6 +120,7 @@ type MemorySearchManagerParams = {
   purpose?: MemorySearchManagerPurpose;
   inspectSources?: boolean;
   acquireLocalService?: MemoryCoreAcquireLocalService;
+  runInBackgroundContext?: MemoryCoreRuntimeHost["runInBackgroundContext"];
 };
 type MemorySearchManagerResult = {
   manager: MemorySearchManager | null;
@@ -148,7 +154,7 @@ type MemoryManagerLifecycle = {
 declare function prepareMemoryManagerReload(change: ReloadChange, lifecycle?: MemoryManagerLifecycle): ReloadHandle;
 //#endregion
 //#region extensions/memory-core/src/runtime-provider.d.ts
-export declare const memoryRuntime: {
+export declare function createMemoryRuntime(host: MemoryCoreRuntimeHost): {
   prepareReload: typeof prepareMemoryManagerReload;
   getMemorySearchManager(params: {
     cfg: OpenClawConfig$1;
@@ -171,6 +177,8 @@ export declare const memoryRuntime: {
     requesterSessionKey: string | undefined;
     sandboxed: boolean;
     hits: MemorySearchResult[];
+    trustedAgentScope?: boolean;
+    conversationRecall?: ConversationRecallContext;
   }): Promise<MemorySearchResult[]>;
   supportsWorkspaceMemoryReadSources: true;
   classifyWorkspaceMemoryPaths: (params: {
@@ -196,20 +204,18 @@ type MemoryManagerProviderFactory = (adapter: MemoryEmbeddingProviderAdapter, cr
 //#endregion
 //#region extensions/memory-core/src/memory/embeddings.d.ts
 type EmbeddingProvider = MemoryEmbeddingProvider;
-type EmbeddingProviderRequest = string;
-type EmbeddingProviderFallback = string;
 type EmbeddingProviderRuntime = MemoryEmbeddingProviderRuntime;
 type EmbeddingProviderResult = {
   provider: EmbeddingProvider | null;
-  requestedProvider: EmbeddingProviderRequest;
+  requestedProvider: string;
   fallbackFrom?: string;
   fallbackReason?: string;
   providerUnavailableReason?: string;
   runtime?: EmbeddingProviderRuntime;
 };
 type CreateEmbeddingProviderOptions = Omit<MemoryEmbeddingProviderCreateOptions, "dimensions"> & {
-  provider: EmbeddingProviderRequest;
-  fallback: EmbeddingProviderFallback;
+  provider: string;
+  fallback: string;
   outputDimensionality?: number;
   acquireLocalService?: MemoryCoreAcquireLocalService;
   createProvider?: MemoryManagerProviderFactory;

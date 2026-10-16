@@ -1,7 +1,7 @@
-import { d as normalizeStringEntries, y as uniqueStrings } from "../../string-normalization-_gRhJUDw.mjs";
-import "../../string-coerce-runtime-C_MKhRVt.mjs";
-import { t as definePluginEntry } from "../../plugin-entry-BOulgRcx.mjs";
-import "../../runtime-api-C1QhMyxy.mjs";
+import { h as normalizeUniqueStringEntries } from "../../string-normalization-CECOqf64.mjs";
+import "../../string-coerce-runtime-50qKeWeL.mjs";
+import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
+import "../../runtime-api-BqbNDvaK.mjs";
 //#region extensions/copilot-proxy/index.ts
 const DEFAULT_BASE_URL = "http://localhost:3000/v1";
 const DEFAULT_API_KEY = "n/a";
@@ -17,18 +17,15 @@ const DEFAULT_MODEL_IDS = [
 function normalizeBaseUrl(value) {
 	const trimmed = value.trim();
 	if (!trimmed) return DEFAULT_BASE_URL;
-	let normalized = trimmed;
-	while (normalized.endsWith("/")) normalized = normalized.slice(0, -1);
-	if (!normalized.endsWith("/v1")) normalized = `${normalized}/v1`;
-	return normalized;
+	const normalized = trimmed.replace(/\/+$/, "");
+	return normalized.endsWith("/v1") ? normalized : `${normalized}/v1`;
 }
 function validateBaseUrl(value) {
 	const normalized = normalizeBaseUrl(value);
 	return URL.canParse(normalized) ? void 0 : "Enter a valid URL";
 }
 function parseModelIds(input) {
-	const parsed = normalizeStringEntries(input.split(/[\n,]/));
-	return uniqueStrings(parsed);
+	return normalizeUniqueStringEntries(input.split(/[\n,]/));
 }
 function buildModelDefinition(modelId) {
 	return {

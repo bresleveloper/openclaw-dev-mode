@@ -1,3 +1,3 @@
-import { t as createRealtimeTranscriptionWebSocketSession } from "../websocket-session-DAhMrtO4.mjs";
-import "../realtime-transcription-session-C0Zt1QIp.mjs";
+import { t as createRealtimeTranscriptionWebSocketSession } from "../websocket-session-BG_eV0-T.mjs";
+import "../realtime-transcription-session-B5nZlbjV.mjs";
 export { createRealtimeTranscriptionWebSocketSession };

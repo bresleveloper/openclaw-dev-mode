@@ -1,4 +1,4 @@
-import { t as createCodexCatalogDecoder } from "./.setup/client-catalog-response-BMgt_4q4.mjs";
+import { t as createCodexCatalogDecoder } from "./.setup/client-catalog-response-CogGEXrN.mjs";
 import { serveWorkerTasks } from "openclaw/plugin-sdk/worker-task-server";
 //#region extensions/codex/catalog-page.worker.ts
 const decode = createCodexCatalogDecoder();

@@ -1,8 +1,8 @@
-import { d as toStringifiedError } from "../error-coercion-C787aVxk.mjs";
-import { t as openNodeSqliteDatabase } from "../node-sqlite-BO6jRFcG.mjs";
+import { d as toStringifiedError } from "../error-coercion-CvJK4lmH.mjs";
+import { t as openNodeSqliteDatabase } from "../node-sqlite-XIcwmOrl.mjs";
 import { i as setSqliteBusyTimeout } from "../sqlite-busy-timeout-DYrW2wFu.mjs";
-import { n as readSqliteIntegrityFileIdentity } from "../sqlite-file-generation-bF3ZcoQs.mjs";
-import { n as assertSqliteIntegrity } from "../sqlite-integrity-B4lhf3Iz.mjs";
+import { n as readSqliteIntegrityFileIdentity } from "../sqlite-file-generation-C_XgOkXx.mjs";
+import { n as assertSqliteIntegrity } from "../sqlite-integrity-GtqcmwG3.mjs";
 import { t as configureSqliteMaintenanceCache } from "../sqlite-maintenance-cache-AYpxl8JZ.mjs";
 import { performance } from "node:perf_hooks";
 import { on } from "node:events";
@@ -33,6 +33,7 @@ async function check(input) {
 	let database;
 	let failure;
 	let checkElapsedMs;
+	const timing = {};
 	try {
 		await sendPhase("opening");
 		readSqliteIntegrityFileIdentity(input.pathname, input.identity);
@@ -43,7 +44,7 @@ async function check(input) {
 		await sendPhase("checking");
 		const startedAt = performance.now();
 		try {
-			assertSqliteIntegrity(database, input.databaseLabel);
+			assertSqliteIntegrity(database, input.databaseLabel, "integrity_check", input.tables, timing);
 		} finally {
 			checkElapsedMs = performance.now() - startedAt;
 		}
@@ -71,6 +72,7 @@ async function check(input) {
 		}
 	};
 	if (checkElapsedMs !== void 0) result.checkElapsedMs = checkElapsedMs;
+	if (timing.tables) result.tables = timing.tables;
 	return result;
 }
 for await (const [input] of on(process, "message")) {

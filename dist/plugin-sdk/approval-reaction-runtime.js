@@ -1,16 +1,16 @@
-import { c as isRecord } from "../record-coerce-DItp3I4t.mjs";
-import { t as pruneMapToMaxSize } from "../map-size-CNcWiFKu.mjs";
+import { c as isRecord } from "../record-coerce-TIsquoVR.mjs";
+import { t as pruneMapToMaxSize } from "../map-size-BlrH_CnE.mjs";
 import { t as formatFencedCodeBlock } from "../markdown-code-Buzx6wvi.mjs";
-import { t as isApprovalNotFoundError } from "../approval-errors-BPkaCbRr.mjs";
-import "../error-runtime-Bf1fYXFh.mjs";
-import { n as summarizeApprovalScope } from "../approval-scope-CfvRogZm.mjs";
+import { t as isApprovalNotFoundError } from "../approval-errors-Ccn5PiLn.mjs";
+import "../error-runtime-BmospGvZ.mjs";
+import { n as summarizeApprovalScope } from "../approval-scope-D8jXLqpU.mjs";
 import { n as sanitizeForPromptLiteral } from "../sanitize-for-prompt-bzCyHFCH.mjs";
-import { t as formatApprovalDisplayPath } from "../approval-display-paths-DlQSsCnq.mjs";
-import { a as buildExecApprovalPendingReplyPayload, f as formatExecApprovalExpiresIn } from "../exec-approval-reply-JrbmAI0a.mjs";
-import { s as normalizeApprovalRequest } from "../approval-request-account-binding-mUxlfAXW.mjs";
-import { c as shouldSuppressLocalNativeExecApprovalPrompt } from "../approval-native-helpers-BeJEvL1G.mjs";
-import { r as buildPluginApprovalPendingReplyPayload, t as buildApprovalPendingReplyPayload } from "../approval-renderers-B8HQp3Cd.mjs";
-import { n as buildPendingApprovalView } from "../approval-view-model-CjHytguY.mjs";
+import { t as formatApprovalDisplayPath } from "../approval-display-paths-DyUJ1OWu.mjs";
+import { a as buildExecApprovalPendingReplyPayload, f as formatExecApprovalExpiresIn } from "../exec-approval-reply-Df1HgEq-.mjs";
+import { c as normalizeApprovalRequest } from "../approval-request-account-binding-I7l4AwjN.mjs";
+import { c as shouldSuppressLocalNativeExecApprovalPrompt } from "../approval-native-helpers-thg_F7Ol.mjs";
+import { n as buildPendingApprovalView } from "../approval-view-model-TGisah2K.mjs";
+import { r as buildPluginApprovalPendingReplyPayload, t as buildApprovalPendingReplyPayload } from "../approval-renderers-WuEQu7Ju.mjs";
 //#region src/plugin-sdk/approval-reaction-binding.ts
 /** Build the private marker revalidated after channel delivery. */
 function buildApprovalReactionDeliveredBindingMarker(binding) {
@@ -48,7 +48,7 @@ function readApprovalReactionDeliveryMetadata(payload, options = {}) {
 	const approvalId = options.trimApprovalId ? record.approvalId.trim() : record.approvalId;
 	const approvalSlug = typeof record.approvalSlug === "string" ? record.approvalSlug.trim() : "";
 	const allowedDecisions = readApprovalReactionDecisionList(record.allowedDecisions);
-	if (!approvalId || !options.trimApprovalId && approvalId !== approvalId.trim() || options.requireApprovalSlug && !approvalSlug || record.approvalKind !== "exec" && record.approvalKind !== "plugin" || !allowedDecisions) return null;
+	if (!approvalId || !options.trimApprovalId && approvalId !== approvalId.trim() || options.requireApprovalSlug && !approvalSlug || record.approvalKind !== "exec" && record.approvalKind !== "plugin" && record.approvalKind !== "system-agent" || !allowedDecisions) return null;
 	return {
 		approvalId,
 		approvalKind: record.approvalKind,
@@ -80,7 +80,7 @@ function readApprovalReactionDeliveredBinding(params) {
 //#region src/plugin-sdk/approval-reaction-runtime.ts
 /** Validate the shared persisted fields without changing transport-owned metadata. */
 function readApprovalReactionTargetRecord(target) {
-	if (!isRecord(target) || typeof target.approvalId !== "string" || target.approvalKind !== "exec" && target.approvalKind !== "plugin") return null;
+	if (!isRecord(target) || typeof target.approvalId !== "string" || target.approvalKind !== "exec" && target.approvalKind !== "plugin" && target.approvalKind !== "system-agent") return null;
 	const allowedDecisions = readApprovalReactionDecisionList(target.allowedDecisions);
 	return allowedDecisions ? {
 		approvalId: target.approvalId,
@@ -142,13 +142,9 @@ const APPROVAL_REACTION_BINDINGS = [
 const APPROVAL_REACTION_ORDER = APPROVAL_REACTION_BINDINGS.map((binding) => binding.decision);
 const VARIATION_SELECTOR_RE = /[\uFE0E\uFE0F]/gu;
 const FITZPATRICK_MODIFIER_RE = /[\u{1F3FB}-\u{1F3FF}]/gu;
-function normalizeDecisionList(allowedDecisions) {
-	const allowed = new Set(allowedDecisions);
-	return APPROVAL_REACTION_ORDER.filter((decision) => allowed.has(decision));
-}
 /** List the canonical reaction bindings allowed for a specific approval request. */
 function listApprovalReactionBindings(params) {
-	const allowed = new Set(normalizeDecisionList(params.allowedDecisions));
+	const allowed = new Set(params.allowedDecisions);
 	return APPROVAL_REACTION_BINDINGS.filter((binding) => allowed.has(binding.decision)).map((binding) => ({
 		decision: binding.decision,
 		emoji: binding.emoji,
@@ -202,7 +198,8 @@ function resolveApprovalReactionDecision(params) {
 	};
 	return null;
 }
-function resolveApprovalReactionTargetInternal(params) {
+/** Resolve an explicitly typed target without deriving ownership from its id. */
+function resolveTypedApprovalReactionTarget(params) {
 	const target = params.target;
 	if (!target) return null;
 	const decision = resolveApprovalReactionDecision({
@@ -210,43 +207,30 @@ function resolveApprovalReactionTargetInternal(params) {
 		allowedDecisions: target.allowedDecisions
 	});
 	if (!decision) return null;
-	const approvalId = params.allowLegacyKindInference ? target.approvalId.trim() : target.approvalId;
+	const approvalId = target.approvalId;
 	const approvalKind = target.approvalKind;
 	if (!approvalId) return null;
-	const resolvedKind = approvalKind === "exec" || approvalKind === "plugin" ? approvalKind : params.allowLegacyKindInference ? approvalId.startsWith("plugin:") ? "plugin" : "exec" : null;
-	if (!resolvedKind) return null;
+	if (approvalKind !== "exec" && approvalKind !== "plugin" && approvalKind !== "system-agent") return null;
 	return {
 		approvalId,
-		approvalKind: resolvedKind,
+		approvalKind,
 		decision: decision.decision,
 		normalizedEmoji: decision.normalizedEmoji,
 		...target.route === void 0 ? {} : { route: target.route }
 	};
 }
-/** Resolve an explicitly typed target without deriving ownership from its id. */
-function resolveTypedApprovalReactionTarget(params) {
-	return resolveApprovalReactionTargetInternal({
-		...params,
-		allowLegacyKindInference: false
-	});
-}
 function formatSeverity(value) {
 	return value === "critical" ? "Critical" : value === "info" ? "Info" : "Warning";
-}
-function buildDecisionText(allowedDecisions) {
-	return allowedDecisions.join("|");
 }
 function buildManualInstructionSection(params) {
 	const lines = [];
 	if (!params.allowedDecisions.includes("allow-always")) lines.push(params.approvalKind === "exec" ? "Allow Always is unavailable for this command." : "Allow Always is unavailable because the effective policy requires approval every time.");
-	if (params.allowedDecisions.length > 0) lines.push(`Reply with: /approve ${params.approvalId} ${buildDecisionText(params.allowedDecisions)}`);
+	if (params.allowedDecisions.length > 0) lines.push(`Reply with: /approve ${params.approvalId} ${params.allowedDecisions.join("|")}`);
 	return lines;
 }
-function buildCommandActionInstructionSection(actions) {
-	return actions.flatMap((action) => action.command.trim() ? [`${action.label}: ${action.command}`] : []);
-}
 function listDecisionActions(actions) {
-	return normalizeDecisionList(actions.flatMap((action) => "decision" in action && action.decision ? [action.decision] : []));
+	const allowed = new Set(actions.flatMap((action) => "decision" in action && action.decision ? [action.decision] : []));
+	return APPROVAL_REACTION_ORDER.filter((decision) => allowed.has(decision));
 }
 function buildApprovalReactionPromptText(params) {
 	const { view } = params;
@@ -291,7 +275,7 @@ function buildApprovalReactionPromptText(params) {
 		sections.push(details.join("\n"));
 	}
 	if (params.reactionHint) sections.push(params.reactionHint);
-	const commandInstructions = buildCommandActionInstructionSection(view.actions);
+	const commandInstructions = view.actions.flatMap((action) => action.command.trim() ? [`${action.label}: ${action.command}`] : []);
 	if (commandInstructions.length > 0) sections.push(commandInstructions.join("\n"));
 	const manualInstructions = buildManualInstructionSection({
 		approvalKind: view.approvalKind,
@@ -305,18 +289,6 @@ function withoutPresentation(payload) {
 	const { presentation: _presentation, interactive: _interactive, ...rest } = payload;
 	return rest;
 }
-function buildMetadataPayload(params) {
-	const sessionKey = params.request.request.sessionKey ?? null;
-	return withoutPresentation(buildApprovalPendingReplyPayload({
-		approvalKind: params.view.approvalKind,
-		approvalId: params.view.approvalId,
-		approvalSlug: params.view.approvalId.slice(0, 8),
-		text: params.text,
-		agentId: params.view.agentId ?? null,
-		allowedDecisions: params.allowedDecisions,
-		sessionKey
-	}));
-}
 /** Build an approval prompt payload with reaction bindings for a prepared view. */
 function buildApprovalPendingPromptPayload(params) {
 	const allowedDecisions = listDecisionActions(params.view.actions);
@@ -327,12 +299,15 @@ function buildApprovalPendingPromptPayload(params) {
 		reactionHint: buildApprovalReactionHint({ allowedDecisions })
 	});
 	return {
-		...buildMetadataPayload({
-			request: params.request,
-			view: params.view,
+		...withoutPresentation(buildApprovalPendingReplyPayload({
+			approvalKind: params.view.approvalKind,
+			approvalId: params.view.approvalId,
+			approvalSlug: params.view.approvalId.slice(0, 8),
 			text,
-			allowedDecisions
-		}),
+			agentId: params.view.agentId ?? null,
+			allowedDecisions,
+			sessionKey: params.request.request.sessionKey ?? null
+		})),
 		allowedDecisions,
 		reactionBindings
 	};

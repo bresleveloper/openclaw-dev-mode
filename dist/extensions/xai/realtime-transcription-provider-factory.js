@@ -1,9 +1,9 @@
-import { c as isRecord } from "../../record-coerce-DItp3I4t.mjs";
-import { l as normalizeOptionalString } from "../../string-coerce-CIXf7egm.mjs";
-import "../../string-coerce-runtime-C_MKhRVt.mjs";
-import { t as XAI_BASE_URL } from "../../model-definitions-DA8Fbxqz.mjs";
-import { m as normalizeXaiRealtimeTranscriptionProviderConfig, u as createXaiRealtimeTranscriptionProviderMetadata } from "../../capability-provider-metadata-factory-CGFzChAW.mjs";
-import { n as xaiUserAgentHeaderFor } from "../../xai-user-agent-TIf__5zk.mjs";
+import { l as normalizeOptionalString } from "../../string-coerce-1VuiLaaR.mjs";
+import { c as isRecord } from "../../record-coerce-TIsquoVR.mjs";
+import "../../string-coerce-runtime-50qKeWeL.mjs";
+import { g as normalizeXaiRealtimeBaseUrl } from "../../realtime-voice-config-CSKz551Y.mjs";
+import { m as normalizeXaiRealtimeTranscriptionProviderConfig, u as createXaiRealtimeTranscriptionProviderMetadata } from "../../capability-provider-metadata-factory-C2QQ6-HN.mjs";
+import { n as xaiUserAgentHeaderFor } from "../../xai-user-agent-DDm_lbFO.mjs";
 //#region extensions/xai/realtime-transcription-provider-factory.ts
 const XAI_REALTIME_STT_DEFAULT_SAMPLE_RATE = 8e3;
 const XAI_REALTIME_STT_DEFAULT_ENCODING = "mulaw";
@@ -13,9 +13,6 @@ const XAI_REALTIME_STT_CLOSE_TIMEOUT_MS = 5e3;
 const XAI_REALTIME_STT_MAX_RECONNECT_ATTEMPTS = 5;
 const XAI_REALTIME_STT_RECONNECT_DELAY_MS = 1e3;
 const XAI_REALTIME_STT_MAX_QUEUED_BYTES = 2097152;
-function normalizeXaiRealtimeBaseUrl(value) {
-	return normalizeOptionalString(value ?? process.env.XAI_BASE_URL) ?? XAI_BASE_URL;
-}
 function toXaiRealtimeWsUrl(config) {
 	const url = new URL(normalizeXaiRealtimeBaseUrl(config.baseUrl));
 	url.protocol = url.protocol === "http:" ? "ws:" : "wss:";
@@ -86,7 +83,7 @@ function createXaiRealtimeTranscriptionSession(config, createRealtimeTranscripti
 		url: () => toXaiRealtimeWsUrl(config),
 		headers: async () => {
 			return {
-				Authorization: `Bearer ${config.resolveApiKey ? await config.resolveApiKey() : config.apiKey}`,
+				Authorization: `Bearer ${await config.resolveApiKey()}`,
 				...xaiUserAgentHeaderFor(config.baseUrl)
 			};
 		},
@@ -112,10 +109,8 @@ function buildXaiRealtimeTranscriptionProvider(runtime) {
 		...createXaiRealtimeTranscriptionProviderMetadata(runtime),
 		createSession: (req) => {
 			const config = normalizeXaiRealtimeTranscriptionProviderConfig(req.providerConfig);
-			const seedApiKey = normalizeOptionalString(config.apiKey) ?? normalizeOptionalString(process.env.XAI_API_KEY);
 			return createXaiRealtimeTranscriptionSession({
 				...req,
-				apiKey: seedApiKey ?? "",
 				resolveApiKey: () => resolveXaiRealtimeApiKey(config.apiKey, req.cfg, runtime.resolveApiKeyForProvider),
 				baseUrl: normalizeXaiRealtimeBaseUrl(config.baseUrl),
 				sampleRate: config.sampleRate ?? XAI_REALTIME_STT_DEFAULT_SAMPLE_RATE,

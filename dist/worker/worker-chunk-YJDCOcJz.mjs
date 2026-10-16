@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function resolveIdentityOperatorScopes(e,t){let n=t?.[e];if(n!==void 0||!e.includes(`@`))return n??[];let r=e.toLowerCase();return Object.entries(t??{}).find(([e])=>e.includes(`@`)&&e.toLowerCase()===r)?.[1]??[]}var t=e((()=>{}));export{resolveIdentityOperatorScopes as n,t};

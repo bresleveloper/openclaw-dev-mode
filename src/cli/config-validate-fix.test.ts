@@ -185,7 +185,7 @@ describe("config validate --fix", () => {
     await expect(run("--fix")).rejects.toThrow(ExitError);
 
     expect(logs()).toContain("Nothing for doctor's config repairs to fix in /tmp/openclaw.json.");
-    expect(errors()).toContain("config is invalid");
+    expect(errors()).toContain("needs correction");
     expect(errors()).toContain("gateway.port");
   });
 

@@ -1,7 +1,7 @@
 import { createLazyCliRuntimeLoader, createLiveTransportQaCliRegistration, runLiveTransportQaSuiteCommand } from "openclaw/plugin-sdk/qa-runner-runtime";
 //#region extensions/buzz/src/qa/cli.ts
 const DEFAULT_BUZZ_QA_SCENARIOS = ["channel-canary", "channel-mention-gating"];
-const loadBuzzQaAdapterRuntime = createLazyCliRuntimeLoader(() => import("./.setup/adapter.runtime-FIC9NMFI.mjs"));
+const loadBuzzQaAdapterRuntime = createLazyCliRuntimeLoader(() => import("./.setup/adapter.runtime-DE9Zjy2H.mjs"));
 async function runQaBuzz(options) {
 	await runLiveTransportQaSuiteCommand({
 		channelId: "buzz",

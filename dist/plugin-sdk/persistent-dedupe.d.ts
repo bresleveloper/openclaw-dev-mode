@@ -1,4 +1,29 @@
-import { r as FileLockOptions } from "../file-lock-xrL5_hu3.js";
+//#region src/plugin-sdk/file-lock.d.ts
+/** Retry and stale-recovery policy for acquiring a filesystem lock. */
+type FileLockOptions = {
+  /** Retry policy used while waiting for another process or logical holder to release. */
+  retries: {
+    retries: number;
+    factor: number;
+    minTimeout: number;
+    maxTimeout: number;
+    randomize?: boolean;
+  };
+  /** Milliseconds used to classify contended sidecars as stale. */
+  stale: number;
+  /** Fail closed for security-sensitive state; generic locks retain shipped stale recovery.
+   * Definite-only recovery additionally refuses ownerless/invalid-age payloads. */
+  staleRecovery?: "fail-closed" | "remove-if-unchanged" | "remove-if-definitely-stale";
+  /**
+   * Logical operation identity for intentional nested acquisition.
+   * Reuse one key only within that call chain; omit it for ordinary contention.
+   */
+  reentrantOwner?: string;
+  /** Restrictive host guard, checked again at stale removal and release. It can
+   * only refuse, never authorize reclamation that the provider would reject. */
+  assertResourceUnborrowed?: (targetPath: string) => void;
+};
+//#endregion
 //#region src/plugin-sdk/persistent-dedupe.types.d.ts
 type PersistentDedupeEntry = {
   key: string;

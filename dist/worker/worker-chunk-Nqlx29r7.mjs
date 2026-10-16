@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{AsyncLocalStorage as t}from"node:async_hooks";function resolveNoteOutput(){return n.getStore()?.()??process.stdout}var n,r=e((()=>{n=new t}));export{resolveNoteOutput as n,r as t};

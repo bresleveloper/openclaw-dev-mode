@@ -1,35 +1,19 @@
 import { resolveBedrockCachePoint, resolveBedrockPromptCachePolicy } from "./bedrock-options.js";
-import { resolveBedrockClaudeThinkingProfile, supportsBedrockNativeMaxEffort } from "./thinking-policy.js";
-import { bindsClaudeThinkingPrefix, requiresClaudeMandatoryAdaptiveThinking, resolveClaudeFable5ModelIdentity, resolveClaudeModelIdentity, resolveClaudeMythos5ModelIdentity, resolveClaudeOpus5ModelIdentity, resolveClaudeSonnet5ModelIdentity, supportsClaudeAdaptiveThinking, supportsClaudeNativeXhighEffort } from "openclaw/plugin-sdk/provider-model-shared";
+import { resolveBedrockRuntimeAuth } from "./aws-credential-refresh.js";
+import { isClaude5BedrockModel, resolveBedrockClaudeThinkingProfile, supportsBedrockNativeMaxEffort } from "./thinking-policy.js";
+import { AssistantMessageEventStream, adjustMaxTokensForThinking, buildBaseOptions, calculateCost, clampReasoning, createHttpProxyAgentsForTarget, createToolArgumentPreviewSchedule, hasRuntimeContextMarker, parseStreamingJson, sanitizeSurrogates, transformMessages } from "openclaw/plugin-sdk/llm";
+import { bindsClaudeThinkingPrefix, requiresClaudeMandatoryAdaptiveThinking, resolveClaudeFable5ModelIdentity, resolveClaudeModelIdentity, resolveClaudeOpus5ModelIdentity, resolveClaudeSonnet5ModelIdentity, supportsClaudeAdaptiveThinking, supportsClaudeNativeXhighEffort } from "openclaw/plugin-sdk/provider-model-shared";
 import { applyAnthropicRefusal, createDeferredEventBuffer, notifyLlmRequestActivity } from "openclaw/plugin-sdk/provider-stream-shared";
-import { describeToolResultMediaPlaceholder, failTransportStream, finalizeTerminalToolCallArguments, notifyProviderHttpMetadata, splitSystemPromptCacheBoundary, stripSystemPromptCacheBoundary } from "openclaw/plugin-sdk/provider-transport-runtime";
-import { isRecord, normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
+import { buildAssistantMessage, coerceTransportToolCallArguments, createEmptyTransportUsage, describeToolResultMediaPlaceholder, failTransportStream, finalizeTerminalToolCallArguments, notifyProviderHttpMetadata, splitSystemPromptCacheBoundary, stripSystemPromptCacheBoundary } from "openclaw/plugin-sdk/provider-transport-runtime";
+import { asOptionalRecord, isRecord, normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { BedrockRuntimeClient, BedrockRuntimeServiceException, CacheTTL, ConversationRole, ConverseStreamCommand, ImageFormat, StopReason, ToolResultStatus } from "@aws-sdk/client-bedrock-runtime";
 import { NodeHttpHandler } from "@smithy/node-http-handler";
 import { expectDefined } from "openclaw/plugin-sdk/expect-runtime";
-import { AssistantMessageEventStream, adjustMaxTokensForThinking, buildBaseOptions, calculateCost, clampReasoning, createHttpProxyAgentsForTarget, createToolArgumentPreviewSchedule, parseStreamingJson, sanitizeSurrogates, transformMessages } from "openclaw/plugin-sdk/llm";
 import { canonicalizeBase64 } from "openclaw/plugin-sdk/media-runtime";
 //#region extensions/amazon-bedrock/stream.runtime.ts
-/**
-* Amazon Bedrock Converse streaming runtime. It maps OpenClaw messages/tools,
-* thinking, cache points, images, and usage into Bedrock Converse Stream calls.
-*/
-function usesClaudeFable5BedrockContract(model) {
-	return resolveClaudeFable5ModelIdentity(model) !== void 0;
-}
-function usesClaudeOpus5BedrockContract(model) {
-	return resolveClaudeOpus5ModelIdentity(model) !== void 0;
-}
-function usesClaudeSonnet5BedrockContract(model) {
-	return resolveClaudeSonnet5ModelIdentity(model) !== void 0;
-}
-function usesClaudeStreamingRefusalBedrockContract(model) {
-	return usesClaudeFable5BedrockContract(model) || resolveClaudeMythos5ModelIdentity(model) !== void 0 || usesClaudeOpus5BedrockContract(model) || usesClaudeSonnet5BedrockContract(model);
-}
 function readBedrockStopDetails(fields) {
-	if (!fields || typeof fields !== "object" || Array.isArray(fields)) return;
-	const record = fields;
-	return record.stop_details ?? record.stopDetails;
+	const record = asOptionalRecord(fields);
+	return record?.stop_details ?? record?.stopDetails;
 }
 function normalizeAdaptiveClaudeToolChoice(toolChoice) {
 	if (toolChoice === "any" || typeof toolChoice === "object" && toolChoice?.type === "tool") return "auto";
@@ -44,67 +28,47 @@ function resolveAdaptiveBedrockMaxTokens(model, baseMaxTokens) {
 	if (baseMaxTokens !== void 0) return baseMaxTokens;
 	return OPENCLAW_FALLBACK_MODEL_MAX_TOKENS.has(model.maxTokens) ? void 0 : model.maxTokens;
 }
-/** Stream a Bedrock Converse request using Bedrock-specific options. */
 const streamBedrock = (model, context, options = {}) => {
 	const stream = new AssistantMessageEventStream();
 	(async () => {
-		const output = {
-			role: "assistant",
-			content: [],
-			api: "bedrock-converse-stream",
-			provider: model.provider,
-			model: model.id,
-			usage: {
-				input: 0,
-				output: 0,
-				cacheRead: 0,
-				cacheWrite: 0,
-				totalTokens: 0,
-				cost: {
-					input: 0,
-					output: 0,
-					cacheRead: 0,
-					cacheWrite: 0,
-					total: 0
-				}
+		const output = buildAssistantMessage({
+			model: {
+				api: "bedrock-converse-stream",
+				provider: model.provider,
+				id: model.id
 			},
-			stopReason: "stop",
-			timestamp: Date.now()
-		};
+			content: [],
+			usage: createEmptyTransportUsage(),
+			stopReason: "stop"
+		});
 		const blocks = output.content;
 		const pendingToolCallEnds = [];
 		const toolArgumentPreviewSchedules = /* @__PURE__ */ new WeakMap();
 		const redactedReasoningChunks = /* @__PURE__ */ new Map();
-		const fable5 = usesClaudeFable5BedrockContract(model);
-		const refusalBuffer = usesClaudeStreamingRefusalBedrockContract(model) ? createDeferredEventBuffer(stream) : void 0;
+		const fable5 = resolveClaudeFable5ModelIdentity(model) !== void 0;
+		const refusalBuffer = isClaude5BedrockModel(model) ? createDeferredEventBuffer(stream) : void 0;
 		const eventSink = refusalBuffer ?? stream;
-		const config = { profile: options.profile };
+		const config = {
+			profile: options.profile,
+			...resolveBedrockRuntimeAuth(options.bearerToken)
+		};
 		const configuredRegion = getConfiguredBedrockRegion(options);
 		const requestRegion = options.region || getBedrockModelArnRegion(model.id) || configuredRegion;
 		const hasConfiguredProfile = hasConfiguredBedrockProfile(options);
 		const endpointRegion = getStandardBedrockEndpointRegion(model.baseUrl);
-		const useExplicitEndpoint = shouldUseExplicitBedrockEndpoint(model.baseUrl, requestRegion, hasConfiguredProfile);
+		const useExplicitEndpoint = !endpointRegion || !requestRegion && !hasConfiguredProfile;
 		if (useExplicitEndpoint) config.endpoint = model.baseUrl;
-		const bearerToken = options.bearerToken || process.env.AWS_BEARER_TOKEN_BEDROCK || void 0;
-		const useBearerToken = bearerToken !== void 0 && process.env.AWS_BEDROCK_SKIP_AUTH !== "1";
 		if (typeof process !== "undefined" && (process.versions?.node || process.versions?.bun)) {
 			if (requestRegion) config.region = requestRegion;
 			else if (endpointRegion && useExplicitEndpoint) config.region = endpointRegion;
 			else if (!hasConfiguredProfile) config.region = "us-east-1";
-			if (process.env.AWS_BEDROCK_SKIP_AUTH === "1") config.credentials = {
-				accessKeyId: "dummy-access-key",
-				secretAccessKey: "dummy-secret-key"
-			};
 			const proxyAgents = createHttpProxyAgentsForTarget(model.baseUrl);
 			if (proxyAgents) config.requestHandler = new NodeHttpHandler(proxyAgents);
 			else if (process.env.AWS_BEDROCK_FORCE_HTTP1 === "1") config.requestHandler = new NodeHttpHandler();
 		} else config.region = requestRegion || (endpointRegion && useExplicitEndpoint ? endpointRegion : void 0) || "us-east-1";
-		if (useBearerToken) {
-			config.token = { token: bearerToken };
-			config.authSchemePreference = ["httpBearerAuth"];
-		}
 		let client;
 		try {
+			options.signal?.throwIfAborted();
 			client = new BedrockRuntimeClient(config);
 			const cacheRetention = resolveCacheRetention(model, options.cacheRetention);
 			const cachePoint = resolveBedrockCachePoint(model, cacheRetention);
@@ -121,10 +85,11 @@ const streamBedrock = (model, context, options = {}) => {
 				},
 				toolConfig: convertToolConfig(context.tools, fable5 || sendsAdaptiveThinking ? normalizeAdaptiveClaudeToolChoice(options.toolChoice) : options.toolChoice),
 				additionalModelRequestFields,
-				...usesClaudeStreamingRefusalBedrockContract(model) ? { additionalModelResponseFieldPaths: ["/stop_details"] } : {},
+				...isClaude5BedrockModel(model) ? { additionalModelResponseFieldPaths: ["/stop_details"] } : {},
 				...options.requestMetadata !== void 0 && { requestMetadata: options.requestMetadata }
 			};
 			const nextCommandInput = await options?.onPayload?.(commandInput, model);
+			options.signal?.throwIfAborted();
 			if (nextCommandInput !== void 0) commandInput = nextCommandInput;
 			const command = new ConverseStreamCommand(commandInput);
 			const response = await client.send(command, { abortSignal: options.signal });
@@ -221,14 +186,6 @@ const BEDROCK_ERROR_PREFIXES = {
 	ThrottlingException: "Throttling error",
 	ServiceUnavailableException: "Service unavailable"
 };
-/**
-* Format a Bedrock error with a human-readable prefix.
-* AWS SDK exceptions (both from `client.send()` and from stream event items)
-* extend BedrockRuntimeServiceException. We map the `.name` to a stable
-* human-readable prefix so downstream consumers (retry logic, context-overflow
-* detection) can distinguish error categories via simple string matching.
-* The shared transport owner projects errorType, errorCode, and diagnostics.
-*/
 function formatBedrockError(error) {
 	const message = error instanceof Error ? error.message : JSON.stringify(error);
 	if (error instanceof BedrockRuntimeServiceException) return `${BEDROCK_ERROR_PREFIXES[error.name] ?? error.name}: ${message}`;
@@ -241,53 +198,32 @@ function resolveSimpleBedrockOptions(model, options) {
 		...options,
 		...buildBaseOptions(model, options, void 0)
 	};
-	if (requiresMandatoryAdaptiveThinking(model)) return {
-		...base,
-		maxTokens: resolveAdaptiveBedrockMaxTokens(model, base.maxTokens),
-		reasoning: options?.reasoning,
-		thinkingBudgets: options?.thinkingBudgets
-	};
-	if (!options?.reasoning) {
-		const reasoning = usesClaudeOpus5BedrockContract(model) ? "high" : void 0;
-		return {
-			...base,
-			...reasoning !== void 0 || supportsAdaptiveThinking(model) ? { maxTokens: resolveAdaptiveBedrockMaxTokens(model, base.maxTokens) } : {},
-			reasoning
-		};
+	if (requiresMandatoryAdaptiveThinking(model)) {
+		base.maxTokens = resolveAdaptiveBedrockMaxTokens(model, base.maxTokens);
+		base.reasoning = options?.reasoning;
+		base.thinkingBudgets = options?.thinkingBudgets;
+		return base;
 	}
-	if (options.reasoning === "off") return {
-		...base,
-		...supportsAdaptiveThinking(model) ? { maxTokens: resolveAdaptiveBedrockMaxTokens(model, base.maxTokens) } : {},
-		reasoning: "off"
-	};
+	if (!options?.reasoning || options.reasoning === "off") {
+		base.reasoning = options?.reasoning === "off" ? "off" : resolveClaudeOpus5ModelIdentity(model) !== void 0 ? "high" : void 0;
+		if (base.reasoning === "high" || supportsAdaptiveThinking(model)) base.maxTokens = resolveAdaptiveBedrockMaxTokens(model, base.maxTokens);
+		return base;
+	}
+	base.reasoning = options.reasoning;
+	base.thinkingBudgets = options.thinkingBudgets;
 	if (isAnthropicClaudeModel(model)) {
-		if (supportsAdaptiveThinking(model)) return {
-			...base,
-			maxTokens: resolveAdaptiveBedrockMaxTokens(model, base.maxTokens),
-			reasoning: options.reasoning,
-			thinkingBudgets: options.thinkingBudgets
-		};
-		const adjusted = adjustMaxTokensForThinking(base.maxTokens, model.maxTokens, options.reasoning, options.thinkingBudgets);
-		if (adjusted.thinkingBudget < 1024) return {
-			...base,
-			maxTokens: adjusted.maxTokens,
-			reasoning: "off"
-		};
-		return {
-			...base,
-			maxTokens: adjusted.maxTokens,
-			reasoning: options.reasoning,
-			thinkingBudgets: {
+		if (supportsAdaptiveThinking(model)) base.maxTokens = resolveAdaptiveBedrockMaxTokens(model, base.maxTokens);
+		else {
+			const adjusted = adjustMaxTokensForThinking(base.maxTokens, model.maxTokens, options.reasoning, options.thinkingBudgets);
+			base.maxTokens = adjusted.maxTokens;
+			if (adjusted.thinkingBudget < 1024) base.reasoning = "off";
+			else base.thinkingBudgets = {
 				...options.thinkingBudgets,
 				[clampReasoning(options.reasoning)]: adjusted.thinkingBudget
-			}
-		};
+			};
+		}
 	}
-	return {
-		...base,
-		reasoning: options.reasoning,
-		thinkingBudgets: options.thinkingBudgets
-	};
+	return base;
 }
 function handleContentBlockStart(event, blocks, output, stream, toolArgumentPreviewSchedules) {
 	const index = event.contentBlockIndex;
@@ -351,41 +287,38 @@ function handleContentBlockDelta(event, blocks, output, stream, redactedReasonin
 			partial: output
 		});
 	} else if (delta?.reasoningContent) {
-		let thinkingBlock = block;
-		let thinkingIndex = index;
-		if (!thinkingBlock) {
-			const newBlock = {
+		if (!block) {
+			block = {
 				type: "thinking",
 				thinking: "",
 				thinkingSignature: "",
 				index: contentBlockIndex
 			};
-			output.content.push(newBlock);
-			thinkingIndex = blocks.length - 1;
-			thinkingBlock = blocks[thinkingIndex];
+			output.content.push(block);
+			index = blocks.length - 1;
 			stream.push({
 				type: "thinking_start",
-				contentIndex: thinkingIndex,
+				contentIndex: index,
 				partial: output
 			});
 		}
-		if (thinkingBlock?.type === "thinking") {
+		if (block.type === "thinking") {
 			if (delta.reasoningContent.text) {
-				thinkingBlock.thinking += delta.reasoningContent.text;
+				block.thinking += delta.reasoningContent.text;
 				stream.push({
 					type: "thinking_delta",
-					contentIndex: thinkingIndex,
+					contentIndex: index,
 					delta: delta.reasoningContent.text,
 					partial: output
 				});
 			}
-			if (delta.reasoningContent.signature) thinkingBlock.thinkingSignature = (thinkingBlock.thinkingSignature || "") + delta.reasoningContent.signature;
+			if (delta.reasoningContent.signature) block.thinkingSignature = (block.thinkingSignature || "") + delta.reasoningContent.signature;
 			if (delta.reasoningContent.redactedContent) {
 				const chunks = redactedReasoningChunks.get(contentBlockIndex);
 				if (chunks) chunks.push(delta.reasoningContent.redactedContent);
 				else redactedReasoningChunks.set(contentBlockIndex, [delta.reasoningContent.redactedContent]);
-				thinkingBlock.thinking = "[Reasoning redacted]";
-				thinkingBlock.redacted = true;
+				block.thinking = "[Reasoning redacted]";
+				block.redacted = true;
 			}
 		}
 	}
@@ -477,7 +410,7 @@ function supportsAdaptiveThinking(model) {
 }
 function requiresMandatoryAdaptiveThinking(model) {
 	const profileModelId = resolveClaudeProfileNameModelId(model.name);
-	return requiresClaudeMandatoryAdaptiveThinking(model) || requiresClaudeMandatoryAdaptiveThinking({ id: profileModelId }) || isClaudeMythosPreviewModelId(resolveClaudeModelIdentity(model)) || usesClaudeSonnet5BedrockContract(model) || resolveClaudeSonnet5ModelIdentity({ id: profileModelId }) !== void 0;
+	return requiresClaudeMandatoryAdaptiveThinking(model) || requiresClaudeMandatoryAdaptiveThinking({ id: profileModelId }) || isClaudeMythosPreviewModelId(resolveClaudeModelIdentity(model)) || resolveClaudeSonnet5ModelIdentity(model) !== void 0 || resolveClaudeSonnet5ModelIdentity({ id: profileModelId }) !== void 0;
 }
 function resolveMandatoryAdaptiveDefault(model) {
 	const defaultLevel = resolveBedrockClaudeThinkingProfile(model.id, model.params).defaultLevel ?? resolveBedrockClaudeThinkingProfile(resolveClaudeProfileNameModelId(model.name) ?? "").defaultLevel;
@@ -534,17 +467,6 @@ function isAnthropicClaudeModel(model) {
 	const name = model.name?.toLowerCase() ?? "";
 	return id.includes("anthropic.claude") || id.includes("anthropic/claude") || name.includes("anthropic.claude") || name.includes("anthropic/claude") || name.includes("claude");
 }
-/**
-* Check if the model supports thinking signatures in reasoningContent.
-* Only Anthropic Claude models support the signature field.
-* Other models (OpenAI, Qwen, Minimax, Moonshot, etc.) reject it with:
-* "This model doesn't support the reasoningContent.reasoningText.signature field"
-*
-* Checks both model ID and model name to support application inference profiles.
-*/
-function supportsThinkingSignature(model) {
-	return isAnthropicClaudeModel(model);
-}
 function buildSystemPrompt(systemPrompt, cacheRetention, cachePoint) {
 	if (!systemPrompt) return;
 	if (cacheRetention === "none") return [{ text: sanitizeSurrogates(stripSystemPromptCacheBoundary(systemPrompt)) }];
@@ -556,8 +478,7 @@ function buildSystemPrompt(systemPrompt, cacheRetention, cachePoint) {
 	return blocks.length > 0 ? blocks : void 0;
 }
 function normalizeToolCallId(id) {
-	const sanitized = id.replace(/[^a-zA-Z0-9_-]/g, "_");
-	return sanitized.length > 64 ? sanitized.slice(0, 64) : sanitized;
+	return id.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 64);
 }
 function createBedrockToolResult(message) {
 	const content = [];
@@ -594,7 +515,7 @@ function convertMessages(context, model, cachePoint) {
 					default: continue;
 				}
 				if (content.length === 0) continue;
-				if (m.runtimeContextCarrier === true && !bindsClaudeThinkingPrefix(model) && firstVolatileMessageIndex === void 0) firstVolatileMessageIndex = result.length;
+				if (hasRuntimeContextMarker(m) && !bindsClaudeThinkingPrefix(model) && firstVolatileMessageIndex === void 0) firstVolatileMessageIndex = result.length;
 				result.push({
 					role: ConversationRole.USER,
 					content
@@ -613,29 +534,27 @@ function convertMessages(context, model, cachePoint) {
 						contentBlocks.push({ toolUse: {
 							toolUseId: c.id,
 							name: c.name,
-							input: c.arguments
+							input: coerceTransportToolCallArguments(c.arguments)
 						} });
 						break;
 					case "thinking": {
 						if (c.redacted) {
-							if (!supportsThinkingSignature(model)) continue;
+							if (!isAnthropicClaudeModel(model)) continue;
 							if (!c.thinkingSignature) throw new Error("Bedrock redacted reasoning block is missing its opaque signature");
 							contentBlocks.push({ reasoningContent: { redactedContent: decodeBedrockBase64(c.thinkingSignature, "Bedrock redacted reasoning block has a malformed opaque signature") } });
 							break;
 						}
 						const thinkingSignature = c.thinkingSignature;
 						const normalizedThinkingSignature = thinkingSignature?.trim();
-						const supportsSignature = supportsThinkingSignature(model);
+						const supportsSignature = isAnthropicClaudeModel(model);
 						const hasNativeThinkingSignature = supportsSignature && Boolean(normalizedThinkingSignature) && normalizedThinkingSignature !== "reasoning_content";
 						if (c.thinking.trim().length === 0 && !hasNativeThinkingSignature) continue;
-						if (supportsSignature) {
-							if (normalizedThinkingSignature === "reasoning_content") continue;
-							if (!thinkingSignature || !normalizedThinkingSignature) contentBlocks.push({ text: sanitizeSurrogates(c.thinking) });
-							else contentBlocks.push({ reasoningContent: { reasoningText: {
-								text: c.thinking,
-								signature: thinkingSignature
-							} } });
-						} else contentBlocks.push({ text: sanitizeSurrogates(c.thinking) });
+						if (supportsSignature && normalizedThinkingSignature === "reasoning_content") continue;
+						if (hasNativeThinkingSignature) contentBlocks.push({ reasoningContent: { reasoningText: {
+							text: c.thinking,
+							signature: thinkingSignature
+						} } });
+						else contentBlocks.push({ text: sanitizeSurrogates(c.thinking) });
 						break;
 					}
 					default: continue;
@@ -648,8 +567,7 @@ function convertMessages(context, model, cachePoint) {
 				break;
 			}
 			case "toolResult": {
-				const toolResults = [];
-				toolResults.push(createBedrockToolResult(m));
+				const toolResults = [createBedrockToolResult(m)];
 				let j = i + 1;
 				while (true) {
 					const nextMsg = transformedMessages.at(j);
@@ -721,13 +639,6 @@ function mapStopReason(reason) {
 		case StopReason.MAX_TOKENS:
 		case StopReason.MODEL_CONTEXT_WINDOW_EXCEEDED: return { stopReason: "length" };
 		case StopReason.TOOL_USE: return { stopReason: "toolUse" };
-		case StopReason.CONTENT_FILTERED:
-		case StopReason.GUARDRAIL_INTERVENED:
-		case StopReason.MALFORMED_MODEL_OUTPUT:
-		case StopReason.MALFORMED_TOOL_USE: return {
-			stopReason: "error",
-			errorMessage: reason
-		};
 		default: return reason ? {
 			stopReason: "error",
 			errorMessage: reason
@@ -747,17 +658,7 @@ function hasConfiguredBedrockProfile(options) {
 	return Boolean(process.env.AWS_PROFILE);
 }
 function getStandardBedrockEndpointRegion(baseUrl) {
-	if (!baseUrl) return;
-	try {
-		const { hostname } = new URL(baseUrl);
-		return hostname.toLowerCase().match(/^bedrock-runtime(?:-fips)?\.([a-z0-9-]+)\.amazonaws\.com(?:\.cn)?$/)?.[1];
-	} catch {
-		return;
-	}
-}
-function shouldUseExplicitBedrockEndpoint(baseUrl, configuredRegion, hasConfiguredProfile) {
-	if (!getStandardBedrockEndpointRegion(baseUrl)) return true;
-	return !configuredRegion && !hasConfiguredProfile;
+	return (baseUrl ? URL.parse(baseUrl)?.hostname : void 0)?.toLowerCase().match(/^bedrock-runtime(?:-fips)?\.([a-z0-9-]+)\.amazonaws\.com(?:\.cn)?$/)?.[1];
 }
 function isGovCloudBedrockTarget(model, options) {
 	if (getConfiguredBedrockRegion(options)?.toLowerCase().startsWith("us-gov-")) return true;
@@ -768,53 +669,45 @@ function buildAdditionalModelRequestFields(model, options) {
 	const mandatoryAdaptiveThinking = requiresMandatoryAdaptiveThinking(model);
 	const reasoning = options.reasoning === "off" ? mandatoryAdaptiveThinking ? "low" : "off" : options.reasoning ?? (mandatoryAdaptiveThinking ? resolveMandatoryAdaptiveDefault(model) : void 0);
 	if (reasoning === "off") return;
-	if (!reasoning || !model.reasoning && !usesClaudeFable5BedrockContract(model) && !supportsAdaptiveThinking(model)) return;
+	if (!reasoning || !model.reasoning && resolveClaudeFable5ModelIdentity(model) === void 0 && !supportsAdaptiveThinking(model)) return;
 	if (isAnthropicClaudeModel(model)) {
 		const display = isGovCloudBedrockTarget(model, options) ? void 0 : options.thinkingDisplay ?? "summarized";
-		const result = supportsAdaptiveThinking(model) ? {
+		if (supportsAdaptiveThinking(model)) return {
 			thinking: {
 				type: "adaptive",
 				...display !== void 0 ? { display } : {}
 			},
 			output_config: { effort: mapThinkingLevelToEffort(model, reasoning) }
-		} : (() => {
-			const defaultBudgets = {
-				minimal: 1024,
-				low: 2048,
-				medium: 8192,
-				high: 16384,
-				xhigh: 16384,
-				max: 16384
-			};
-			const level = reasoning === "xhigh" ? "high" : reasoning;
-			return { thinking: {
+		};
+		const defaultBudgets = {
+			minimal: 1024,
+			low: 2048,
+			medium: 8192,
+			high: 16384,
+			xhigh: 16384,
+			max: 16384
+		};
+		const level = reasoning === "xhigh" ? "high" : reasoning;
+		return {
+			thinking: {
 				type: "enabled",
 				budget_tokens: options.thinkingBudgets?.[level] ?? defaultBudgets[reasoning],
 				...display !== void 0 ? { display } : {}
-			} };
-		})();
-		if (!supportsAdaptiveThinking(model) && (options.interleavedThinking ?? true)) result.anthropic_beta = ["interleaved-thinking-2025-05-14"];
-		return result;
+			},
+			...options.interleavedThinking ?? true ? { anthropic_beta: ["interleaved-thinking-2025-05-14"] } : {}
+		};
 	}
 }
+const BEDROCK_IMAGE_FORMATS = /* @__PURE__ */ new Map([
+	["image/jpeg", ImageFormat.JPEG],
+	["image/jpg", ImageFormat.JPEG],
+	["image/png", ImageFormat.PNG],
+	["image/gif", ImageFormat.GIF],
+	["image/webp", ImageFormat.WEBP]
+]);
 function createImageBlock(mimeType, data) {
-	let format;
-	switch (mimeType) {
-		case "image/jpeg":
-		case "image/jpg":
-			format = ImageFormat.JPEG;
-			break;
-		case "image/png":
-			format = ImageFormat.PNG;
-			break;
-		case "image/gif":
-			format = ImageFormat.GIF;
-			break;
-		case "image/webp":
-			format = ImageFormat.WEBP;
-			break;
-		default: throw new Error(`Unknown image type: ${mimeType}`);
-	}
+	const format = BEDROCK_IMAGE_FORMATS.get(mimeType);
+	if (!format) throw new Error(`Unknown image type: ${mimeType}`);
 	return {
 		source: { bytes: decodeBedrockBase64(data, "Amazon Bedrock image content has malformed base64") },
 		format

@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function resolveEffectiveComputerUseDescriptor(e){return e.commands.includes(`computer.act`)&&e.commands.includes(`screen.snapshot`)?e.declared:void 0}var t=e((()=>{}));export{resolveEffectiveComputerUseDescriptor as n,t};

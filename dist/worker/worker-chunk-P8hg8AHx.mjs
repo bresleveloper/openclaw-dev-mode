@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function resolveChatAttachmentFrameBudgetBytes(e){return Math.max(0,Math.floor((e-t)*3/4))}var t,n=e((()=>{t=262144}));export{resolveChatAttachmentFrameBudgetBytes as n,n as t};

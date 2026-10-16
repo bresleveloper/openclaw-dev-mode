@@ -1,9 +1,6 @@
-import { a as removeAckReactionAfterReply, c as resolveAckReaction, i as createAckReactionHandle, n as AckReactionHandle, o as removeAckReactionHandleAfterReply, r as AckReactionScope, s as shouldAckReaction, t as AckReactionGateParams } from "../ack-reactions-D5jcz0iU.js";
+import { a as removeAckReactionAfterReply, c as resolveAckReaction, i as createAckReactionHandle, n as AckReactionHandle, o as removeAckReactionHandleAfterReply, r as AckReactionScope, s as shouldAckReaction, t as AckReactionGateParams } from "../ack-reactions-NdNCdtJ_.js";
 import { i as logTypingFailure, n as logAckFailure, t as LogFn } from "../logging-qxfDduLa.js";
 //#region src/infra/outbound/target-errors.d.ts
-/**
- * Builds an Error for missing outbound target failures.
- */
 export declare function missingTargetError(provider: string, hint?: string): Error;
 //#endregion
 //#region src/channels/status-reactions.d.ts
@@ -17,29 +14,9 @@ type StatusReactionAdapter = {
   removeReaction?: (emoji: string) => Promise<void>;
 };
 /** Optional emoji overrides for each status reaction state. */
-type StatusReactionEmojis = {
-  queued?: string;
-  thinking?: string;
-  tool?: string;
-  coding?: string;
-  web?: string;
-  deploy?: string;
-  build?: string;
-  concierge?: string;
-  done?: string;
-  error?: string;
-  stallSoft?: string;
-  stallHard?: string;
-  compacting?: string;
-};
+type StatusReactionEmojis = Partial<typeof DEFAULT_EMOJIS>;
 /** Timing controls for debounced status reactions and stall warnings. */
-type StatusReactionTiming = {
-  debounceMs?: number;
-  stallSoftMs?: number;
-  stallHardMs?: number;
-  doneHoldMs?: number;
-  errorHoldMs?: number;
-};
+type StatusReactionTiming = Partial<typeof DEFAULT_TIMING>;
 /** Controller API for agent status reaction state transitions. */
 type StatusReactionController = {
   setQueued: () => Promise<void> | void;
@@ -54,9 +31,29 @@ type StatusReactionController = {
   restoreInitial: () => Promise<void>;
 };
 /** Default emoji set used by status reaction controllers. */
-export declare const DEFAULT_EMOJIS: Required<StatusReactionEmojis>;
+export declare const DEFAULT_EMOJIS: {
+  queued: string;
+  thinking: string;
+  tool: string;
+  coding: string;
+  web: string;
+  deploy: string;
+  build: string;
+  concierge: string;
+  done: string;
+  error: string;
+  stallSoft: string;
+  stallHard: string;
+  compacting: string;
+};
 /** Default debounce, stall, and terminal hold timings for status reactions. */
-export declare const DEFAULT_TIMING: Required<StatusReactionTiming>;
+export declare const DEFAULT_TIMING: {
+  debounceMs: number;
+  stallSoftMs: number;
+  stallHardMs: number;
+  doneHoldMs: number;
+  errorHoldMs: number;
+};
 /** Tool-name tokens mapped to the coding status reaction. */
 export declare const CODING_TOOL_TOKENS: string[];
 /** Tool-name tokens mapped to the web status reaction. */
@@ -69,17 +66,7 @@ export declare const BUILD_TOOL_TOKENS: string[];
 export declare const CONCIERGE_TOOL_TOKENS: string[];
 /** Resolves the appropriate emoji for a tool invocation. */
 export declare function resolveToolEmoji(toolName: string | undefined, emojis: Required<StatusReactionEmojis>, emojiOverrides?: StatusReactionEmojis): string;
-/**
- * Create a status reaction controller.
- *
- * Features:
- * - Promise chain serialization (prevents concurrent API calls)
- * - Debouncing (intermediate states debounce, terminal states are immediate)
- * - Stall timers (soft/hard warnings on inactivity)
- * - Terminal state protection (done/error mark finished, subsequent updates ignored)
- * - Defers reaction removals until final cleanup to avoid visible flicker on
- *   platforms without atomic reaction replacement
- */
+/** Defer reaction removal until cleanup to avoid flicker without atomic replacement. */
 export declare function createStatusReactionController(params: {
   enabled: boolean;
   adapter: StatusReactionAdapter;

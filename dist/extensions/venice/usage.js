@@ -1,15 +1,8 @@
 import { readProviderJsonObjectResponse } from "openclaw/plugin-sdk/provider-http";
-import { buildUsageHttpErrorSnapshot, parseProviderUsageNonNegativeNumber } from "openclaw/plugin-sdk/provider-usage";
+import { buildUsageErrorSnapshot, buildUsageHttpErrorSnapshot, parseProviderUsageNonNegativeNumber } from "openclaw/plugin-sdk/provider-usage";
 //#region extensions/venice/usage.ts
 const VENICE_BALANCE_URL = "https://api.venice.ai/api/v1/billing/balance";
 const VENICE_USAGE_RESPONSE_MAX_BYTES = 1048576;
-async function readPayload(response, timeoutMs) {
-	return await readProviderJsonObjectResponse(response, "Venice usage", {
-		maxBytes: VENICE_USAGE_RESPONSE_MAX_BYTES,
-		chunkTimeoutMs: timeoutMs,
-		onIdleTimeout: ({ chunkTimeoutMs }) => /* @__PURE__ */ new Error(`Venice usage response stalled for ${chunkTimeoutMs}ms`)
-	});
-}
 async function fetchVeniceUsage(params) {
 	let response;
 	try {
@@ -21,12 +14,7 @@ async function fetchVeniceUsage(params) {
 			signal: AbortSignal.timeout(params.timeoutMs)
 		});
 	} catch {
-		return {
-			provider: "venice",
-			displayName: "Venice",
-			windows: [],
-			error: "Usage unavailable"
-		};
+		return buildUsageErrorSnapshot("venice", "Usage unavailable");
 	}
 	if (!response.ok) {
 		await response.body?.cancel().catch(() => void 0);
@@ -37,14 +25,13 @@ async function fetchVeniceUsage(params) {
 	}
 	let data;
 	try {
-		data = await readPayload(response, params.timeoutMs);
+		data = await readProviderJsonObjectResponse(response, "Venice usage", {
+			maxBytes: VENICE_USAGE_RESPONSE_MAX_BYTES,
+			chunkTimeoutMs: params.timeoutMs,
+			onIdleTimeout: ({ chunkTimeoutMs }) => /* @__PURE__ */ new Error(`Venice usage response stalled for ${chunkTimeoutMs}ms`)
+		});
 	} catch {
-		return {
-			provider: "venice",
-			displayName: "Venice",
-			windows: [],
-			error: "Malformed usage response"
-		};
+		return buildUsageErrorSnapshot("venice", "Malformed usage response");
 	}
 	const diem = parseProviderUsageNonNegativeNumber(data.balances?.diem);
 	const usd = parseProviderUsageNonNegativeNumber(data.balances?.usd);

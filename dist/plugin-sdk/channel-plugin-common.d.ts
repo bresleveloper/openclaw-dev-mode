@@ -1,11 +1,26 @@
-import { Ju as emptyPluginConfigSchema, Ns as OpenClawPluginApi, ui as PluginRuntime } from "../agent-harness-runtime-wMciqZ6Z.js";
-import { g as ChannelMessageActionContext } from "../types.core-BfkZpaZ6.js";
+import { l as buildChannelConfigSchema } from "../zod-schema.implicit-mentions-BfiN-dfC.js";
+import { Ss as OpenClawPluginApi, jl as emptyPluginConfigSchema, ma as PluginRuntime } from "../agent-harness-runtime-DZjstJNb.js";
+import { g as ChannelMessageActionContext, x as ChannelMeta } from "../types.core-Bra2QBA5.js";
+import { n as ChatChannelId } from "../channel-id.types-CM2F8b5e.js";
 import { n as normalizeAccountId, t as DEFAULT_ACCOUNT_ID } from "../account-id-Dh6XMgGH.js";
-import { t as ChannelPlugin } from "../types.plugin-DWwKnMgs.js";
-import { i as buildChannelConfigSchema } from "../config-schema-edRW2Mnr.js";
-import { o as migrateBaseNameToDefaultAccount, t as applyAccountNameToChannelSection } from "../setup-helpers-CulguIXb.js";
-import { i as setAccountEnabledInConfigSection, r as deleteAccountFromConfigSection, t as clearAccountEntryFields } from "../config-helpers-DGVsqE1f.js";
-import { n as formatPairingApproveHint } from "../helpers-BjSTA4Z3.js";
+import { n as ChannelPlugin } from "../types.plugin-BiZwy65L.js";
+import "../types.public-DpLTXZT0.js";
+import { n as formatPairingApproveHint } from "../helpers-gk1rbVRv.js";
+import { i as setAccountEnabledInConfigSection, r as deleteAccountFromConfigSection, t as clearAccountEntryFields } from "../config-helpers-B3C2dCc9.js";
+import { o as migrateBaseNameToDefaultAccount, t as applyAccountNameToChannelSection } from "../setup-helpers-Bi7ML6Fn.js";
 import { t as PAIRING_APPROVED_MESSAGE } from "../pairing-message-CFs8lRw3.js";
-import { t as getChatChannelMeta } from "../channel-plugin-common-CqA8Q2LE.js";
-export { type ChannelMessageActionContext, type ChannelPlugin, DEFAULT_ACCOUNT_ID, type OpenClawPluginApi, PAIRING_APPROVED_MESSAGE, type PluginRuntime, applyAccountNameToChannelSection, buildChannelConfigSchema, clearAccountEntryFields, deleteAccountFromConfigSection, emptyPluginConfigSchema, formatPairingApproveHint, getChatChannelMeta, migrateBaseNameToDefaultAccount, normalizeAccountId, setAccountEnabledInConfigSection };
+//#region src/channels/chat-meta-shared.d.ts
+/**
+ * Metadata shown for built-in chat channels in setup, status, and selection UIs.
+ */
+type ChatChannelMeta = ChannelMeta;
+//#endregion
+//#region src/channels/chat-meta.d.ts
+/**
+ * Returns metadata for one built-in chat channel id.
+ * Shipped plugin-SDK contract: callers pass bundled ids, so absence is an invariant
+ * violation; drift-tolerant core paths use findChatChannelMeta instead.
+ */
+export declare function getChatChannelMeta(id: ChatChannelId): ChatChannelMeta;
+//#endregion
+export { type ChannelMessageActionContext, type ChannelPlugin, DEFAULT_ACCOUNT_ID, type OpenClawPluginApi, PAIRING_APPROVED_MESSAGE, type PluginRuntime, applyAccountNameToChannelSection, buildChannelConfigSchema, clearAccountEntryFields, deleteAccountFromConfigSection, emptyPluginConfigSchema, formatPairingApproveHint, migrateBaseNameToDefaultAccount, normalizeAccountId, setAccountEnabledInConfigSection };

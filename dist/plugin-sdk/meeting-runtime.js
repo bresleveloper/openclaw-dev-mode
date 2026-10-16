@@ -1,34 +1,42 @@
-import { C as parseStrictNonNegativeInteger, P as resolvePositiveTimerTimeoutMs, a as addTimerTimeoutGraceMs, f as asSafeIntegerInRange, u as asPositiveFiniteNumber } from "../number-coercion-CLj0HTDM.mjs";
-import { a as asOptionalRecord, o as asRecord } from "../record-coerce-DItp3I4t.mjs";
-import { c as normalizeOptionalLowercaseString, h as readNonEmptyStringPreservingWhitespace, l as normalizeOptionalString, m as readNonBlankString } from "../string-coerce-CIXf7egm.mjs";
-import { s as normalizeOptionalTrimmedStringList, y as uniqueStrings } from "../string-normalization-_gRhJUDw.mjs";
+import { c as normalizeOptionalLowercaseString, h as readNonEmptyStringPreservingWhitespace, l as normalizeOptionalString, m as readNonBlankString } from "../string-coerce-1VuiLaaR.mjs";
+import { P as resolvePositiveTimerTimeoutMs, a as addTimerTimeoutGraceMs, f as asSafeIntegerInRange, u as asPositiveFiniteNumber } from "../number-coercion-CuVhdCBs.mjs";
+import { t as coerceErrorMessage } from "../error-coercion-CvJK4lmH.mjs";
+import { t as createDeferredCore } from "../deferred-D0La5CRk.mjs";
+import { r as createLazyRuntimeModule } from "../lazy-runtime-CJrzFzqU.mjs";
+import { a as asOptionalRecord, o as asRecord } from "../record-coerce-TIsquoVR.mjs";
+import { s as normalizeOptionalTrimmedStringList, y as uniqueStrings } from "../string-normalization-CECOqf64.mjs";
 import { r as truncateUtf16Safe } from "../utf16-slice-D_ngcYKd.mjs";
-import { r as createLazyRuntimeModule } from "../lazy-runtime-BPNHa36e.mjs";
+import { h as sleep } from "../utils-DgZn2dLu.mjs";
+import { s as raceWithTimeout } from "../src-D1BHGNTj.mjs";
+import { t as formatErrorMessage } from "../errors-O33D01XW.mjs";
 import { Fn as object, Jn as string, Lt as boolean, Nt as array, Pn as number, Sn as looseObject, or as union, sr as unknown } from "../schemas-BOYIvvln.mjs";
-import { h as sleep } from "../utils-aKqR_F_U.mjs";
-import { n as normalizeAgentId } from "../agent-id-GA8mwdTG.mjs";
-import { m as resolveDefaultAgentId } from "../agent-scope-config-IQKOEtZ4.mjs";
-import { A as parseAgentSessionKey } from "../session-key-CBvmC8zz.mjs";
-import { t as formatErrorMessage } from "../errors-DnjwnOju.mjs";
-import { t as KeyedAsyncQueue } from "../keyed-async-queue-CTreGrmR.mjs";
-import { n as callGatewayFromCli } from "../gateway-rpc-DXO3PHhc.mjs";
+import { a as PluginStateStoreError } from "../openclaw-state-worker-error-Cmtk9G4_.mjs";
 import { n as truncateUtf8Suffix } from "../utf8-truncate-_hf7tp13.mjs";
-import { t as ErrorCodes } from "../gateway-error-details-D85F07e9.mjs";
-import { f as errorShape } from "../error-codes-DvB36bCj.mjs";
-import { r as onDecodedOutput } from "../decoded-output-CqBjhNN5.mjs";
-import { t as canonicalizeBase64 } from "../base64-B5EyWEOm.mjs";
+import { t as KeyedAsyncQueue } from "../keyed-async-queue-CTreGrmR.mjs";
+import { n as normalizeAgentId } from "../agent-id-D1-Q6vR4.mjs";
+import { g as resolveDefaultAgentId } from "../agent-scope-config-CDYpzA0r.mjs";
+import { M as parseAgentSessionKey } from "../session-key-C09ow4h0.mjs";
+import { n as callGatewayFromCli } from "../gateway-rpc-Cl_Z2Z7Q.mjs";
+import { r as onDecodedOutput } from "../decoded-output-QlGZ46Aj.mjs";
+import "../plugin-state-store.kernel-DUORZ5yM.mjs";
+import { t as ErrorCodes } from "../gateway-error-details-DIefe7Zy.mjs";
+import { f as errorShape } from "../error-codes-Dh56LniQ.mjs";
+import { t as canonicalizeBase64 } from "../base64-CU53EX1R.mjs";
 import { t as jsonResult } from "../tool-results-BCM3fdVS.mjs";
-import { d as readPositiveIntegerParam, l as readNonNegativeIntegerParam } from "../common-XfKigJno.mjs";
-import { t as resolveTranscriptsConfig } from "../config-qnAcplqt.mjs";
-import { n as getRealtimeTranscriptionProvider, r as listRealtimeTranscriptionProviders } from "../provider-registry-Br-YjXry.mjs";
-import { C as resolveRealtimeVoiceBargeIn, b as consultRealtimeVoiceAgent, d as resolveConfiguredRealtimeVoiceProvider, t as createRealtimeVoiceSessionHarness } from "../realtime-session-harness-C_EBMqLx.mjs";
-import { A as REALTIME_VOICE_AUDIO_FORMAT_PCM16_24KHZ, D as resolveRealtimeVoiceAgentConsultTools, E as resolveRealtimeVoiceAgentConsultToolPolicy, O as resolveRealtimeVoiceAgentConsultToolsAllow, k as REALTIME_VOICE_AUDIO_FORMAT_G711_ULAW_8KHZ, x as buildRealtimeVoiceAgentConsultWorkingResponse } from "../agent-run-control-shared-DXVEJ-0Y.mjs";
-import { a as convertPcmToMulaw8k, i as readPcm16AudioStats, l as resamplePcm, n as createSpeechThresholdGate, r as isRealtimeVoiceAudioAudible, s as mulawToPcm } from "../audio-energy-CUNIcCl_.mjs";
-import { t as MeetingSessionTranscriptStore } from "../session-transcript-store--EhAbY95.mjs";
+import { c as readNonNegativeIntegerParam, u as readPositiveIntegerParam } from "../common-Dyxcwsy8.mjs";
+import { t as resolveTranscriptsConfig } from "../config-B42acf6V.mjs";
+import { n as getRealtimeTranscriptionProvider, r as listRealtimeTranscriptionProviders } from "../provider-registry-5wFx4IyL.mjs";
+import { S as resolveRealtimeVoiceBargeIn, d as resolveConfiguredRealtimeVoiceProvider, t as createRealtimeVoiceSessionHarness, y as consultRealtimeVoiceAgent } from "../realtime-session-harness-D7rELioe.mjs";
+import { A as REALTIME_VOICE_AUDIO_FORMAT_PCM16_24KHZ, D as resolveRealtimeVoiceAgentConsultTools, E as resolveRealtimeVoiceAgentConsultToolPolicy, O as resolveRealtimeVoiceAgentConsultToolsAllow, k as REALTIME_VOICE_AUDIO_FORMAT_G711_ULAW_8KHZ, x as buildRealtimeVoiceAgentConsultWorkingResponse } from "../agent-run-control-shared-HQwazRP4.mjs";
+import { a as convertPcmToMulaw8k, i as readPcm16AudioStats, l as resamplePcm, n as createSpeechThresholdGate, r as isRealtimeVoiceAudioAudible, s as mulawToPcm } from "../audio-energy-DXFUFDyy.mjs";
+import { a as createMeetingStatusCallSource, i as createMeetingStatusPreludeSource, n as createMeetingPageScripts } from "../page-script-source-BCpP1rNj.mjs";
+import { a as snapshotMeetingObservation, i as normalizeMeetingObservationProvenance, o as snapshotMeetingTranscript, r as meetingCaptionParticipationSources, s as meetingCaptionSourceSchema, t as MeetingSessionTranscriptStore } from "../session-transcript-store-FjmK_UEB.mjs";
 import { t as createMeetingTranscriptSourceProvider } from "../transcripts-bridge-BhkdwJIv.mjs";
+import { t as registerMeetingPluginCli } from "../plugin-cli-B8jd8x_k.mjs";
 import { spawn, spawnSync } from "node:child_process";
+import { createHash, randomUUID } from "node:crypto";
 import { Readable } from "node:stream";
-import { randomUUID } from "node:crypto";
+import { Type } from "typebox";
 //#region src/meeting-bot/realtime-audio-format.ts
 function resolveMeetingRealtimeAudioFormat(audioFormat) {
 	return audioFormat === "g711-ulaw-8khz" ? REALTIME_VOICE_AUDIO_FORMAT_G711_ULAW_8KHZ : REALTIME_VOICE_AUDIO_FORMAT_PCM16_24KHZ;
@@ -46,8 +54,8 @@ function convertMeetingTtsAudioForBridge(audio, sampleRate, audioFormat, outputF
 function sourceTelephonyTtsFormat(outputFormat, platformName) {
 	const normalized = outputFormat?.trim().toLowerCase().replaceAll("_", "-") ?? "";
 	if (!normalized || normalized === "pcm" || normalized.startsWith("pcm-") || normalized.includes("pcm16") || normalized.includes("16bit-mono-pcm")) return "pcm";
-	if (normalized === "mulaw" || normalized === "ulaw" || normalized.includes("mu-law") || normalized.includes("mulaw") || normalized.includes("ulaw")) return "mulaw";
-	if (normalized === "alaw" || normalized.includes("a-law") || normalized.includes("alaw")) return "alaw";
+	if (normalized.includes("mu-law") || normalized.includes("mulaw") || normalized.includes("ulaw")) return "mulaw";
+	if (normalized.includes("a-law") || normalized.includes("alaw")) return "alaw";
 	throw new Error(`Unsupported telephony TTS output format for ${platformName}: ${outputFormat}`);
 }
 function decodeMeetingTelephonyTtsAudio(audio, sourceFormat) {
@@ -124,21 +132,14 @@ function formatMeetingRealtimeVoiceModelLog(params) {
 	return [
 		`${params.logScope} realtime voice bridge starting: strategy=${formatLogValue(params.strategy)}`,
 		`provider=${formatLogValue(params.provider.id)}`,
-		`model=${formatLogValue(resolveProviderModelForLog({
-			provider: params.provider,
-			providerConfig: params.providerConfig,
-			fallbackModel: params.fallbackModel
-		}))}`,
+		`model=${formatLogValue(resolveProviderModelForLog(params))}`,
 		`audioFormat=${formatLogValue(params.audioFormat)}`
 	].join(" ");
 }
 function formatMeetingAgentAudioModelLog(params) {
 	return [
 		`${params.logScope} agent audio bridge starting: transcriptionProvider=${formatLogValue(params.provider.id)}`,
-		`transcriptionModel=${formatLogValue(resolveProviderModelForLog({
-			provider: params.provider,
-			providerConfig: params.providerConfig
-		}))}`,
+		`transcriptionModel=${formatLogValue(resolveProviderModelForLog(params))}`,
 		"tts=telephony",
 		`audioFormat=${formatLogValue(params.audioFormat)}`
 	].join(" ");
@@ -1147,6 +1148,30 @@ async function startMeetingAgentRealtimeEngine(params) {
 }
 //#endregion
 //#region src/meeting-bot/bridge-process.ts
+function writeMeetingOutputChunk(waiters, process, stdin, audio) {
+	return new Promise((resolve, reject) => {
+		let settled = false;
+		const finish = (error) => {
+			if (settled) return;
+			settled = true;
+			waiters.delete(waiter);
+			if (error) reject(error);
+			else resolve();
+		};
+		const waiter = {
+			process,
+			release: () => finish()
+		};
+		waiters.add(waiter);
+		try {
+			stdin.write(audio, (error) => finish(error ?? void 0));
+		} catch (error) {
+			finish(error instanceof Error ? error : new Error(formatErrorMessage(error)));
+			return;
+		}
+		if (stdin.destroyed || stdin.writableEnded) finish(/* @__PURE__ */ new Error("audio output stream is closed"));
+	});
+}
 function hasExited(proc) {
 	return proc.exitCode !== null || proc.signalCode !== null;
 }
@@ -1440,11 +1465,18 @@ function createLocalMeetingRealtimeAudioTransport(params) {
 		"pipe"
 	] });
 	let outputProcess = spawnOutputProcess();
-	const inputProcess = spawnFn(input.command, input.args, { stdio: [
-		"ignore",
-		"pipe",
-		"pipe"
-	] });
+	let inputProcess;
+	try {
+		inputProcess = spawnFn(input.command, input.args, { stdio: [
+			"ignore",
+			"pipe",
+			"pipe"
+		] });
+	} catch (error) {
+		outputProcess.on("error", () => {});
+		terminateMeetingBridgeProcess(outputProcess, { graceMs: LOCAL_BRIDGE_TERMINATION_GRACE_MS });
+		throw error;
+	}
 	let bargeInInputProcess;
 	let stopped = false;
 	let inputStarted = false;
@@ -1468,12 +1500,11 @@ function createLocalMeetingRealtimeAudioTransport(params) {
 		signalFatal();
 	};
 	const attachOutputProcessHandlers = (proc) => {
-		proc.on("error", (error) => {
+		const onOutputError = (error) => {
 			if (proc === outputProcess) fail("audio output command")(error);
-		});
-		proc.stdin?.on?.("error", (error) => {
-			if (proc === outputProcess) fail("audio output command")(error);
-		});
+		};
+		proc.on("error", onOutputError);
+		proc.stdin?.on?.("error", onOutputError);
 		proc.on("exit", (code, signal) => {
 			if (proc === outputProcess && !stopped) {
 				params.logger.warn(`${params.logScope} audio output command exited (${code ?? signal ?? "done"})`);
@@ -1489,30 +1520,8 @@ function createLocalMeetingRealtimeAudioTransport(params) {
 			if (proc === outputProcess) fail("audio output command stderr")(error);
 		});
 	};
-	const writeOutputChunk = (proc, stdin, audio) => new Promise((resolve, reject) => {
-		let settled = false;
-		const finish = (error) => {
-			if (settled) return;
-			settled = true;
-			outputWriteWaiters.delete(waiter);
-			if (error) reject(error);
-			else resolve();
-		};
-		const waiter = {
-			proc,
-			release: () => finish()
-		};
-		outputWriteWaiters.add(waiter);
-		try {
-			stdin.write(audio, (error) => finish(error ?? void 0));
-		} catch (error) {
-			finish(error instanceof Error ? error : new Error(formatErrorMessage(error)));
-			return;
-		}
-		if (stdin.destroyed || stdin.writableEnded) finish(/* @__PURE__ */ new Error("audio output stream is closed"));
-	});
 	const releaseOutputWriteWaiters = (proc) => {
-		for (const waiter of outputWriteWaiters) if (!proc || waiter.proc === proc) waiter.release();
+		for (const waiter of outputWriteWaiters) if (!proc || waiter.process === proc) waiter.release();
 	};
 	const stop = () => {
 		stopPromise ??= (async () => {
@@ -1568,7 +1577,7 @@ function createLocalMeetingRealtimeAudioTransport(params) {
 			if (!stdin) return;
 			outputLoopbackVerifier.recordOutput(audio);
 			try {
-				await writeOutputChunk(proc, stdin, audio);
+				await writeMeetingOutputChunk(outputWriteWaiters, proc, stdin, audio);
 			} catch (error) {
 				if (stopped || proc !== outputProcess || fatalSignaled) return;
 				fail("audio output command")(error instanceof Error ? error : new Error(formatErrorMessage(error)));
@@ -1666,6 +1675,16 @@ function createNodeMeetingRealtimeAudioTransport(params) {
 	let outputGenerationSupported = false;
 	let legacyOutputTail = Promise.resolve();
 	const outputLoopbackVerifier = createMeetingOutputLoopbackVerifier({ audioFormat: params.audioFormat ?? "pcm16-24khz" });
+	const invoke = (action, payload = {}, timeoutMs = 5e3) => params.runtime.nodes.invoke({
+		nodeId: params.nodeId,
+		command: params.commandName,
+		params: {
+			action,
+			bridgeId: params.bridgeId,
+			...payload
+		},
+		timeoutMs
+	});
 	const runOutputCommand = (task) => {
 		if (outputGenerationSupported) return task();
 		const result = legacyOutputTail.then(task, task);
@@ -1690,16 +1709,7 @@ function createNodeMeetingRealtimeAudioTransport(params) {
 				for (;;) {
 					if (stopped) break;
 					try {
-						const raw = await params.runtime.nodes.invoke({
-							nodeId: params.nodeId,
-							command: params.commandName,
-							params: {
-								action: "pullAudio",
-								bridgeId: params.bridgeId,
-								timeoutMs: 250
-							},
-							timeoutMs: 2e3
-						});
+						const raw = await invoke("pullAudio", { timeoutMs: 250 }, 2e3);
 						if (stopped) break;
 						const rawRecord = asOptionalRecord(raw);
 						const result = asOptionalRecord(rawRecord?.payload ?? raw) ?? {};
@@ -1725,9 +1735,7 @@ function createNodeMeetingRealtimeAudioTransport(params) {
 							signalFatal();
 							break;
 						}
-						await new Promise((resolve) => {
-							setTimeout(resolve, 250);
-						});
+						await sleep(250);
 					}
 				}
 			})();
@@ -1738,15 +1746,7 @@ function createNodeMeetingRealtimeAudioTransport(params) {
 			stopped = true;
 			outputLoopbackVerifier.cancelOutput();
 			try {
-				await params.runtime.nodes.invoke({
-					nodeId: params.nodeId,
-					command: params.commandName,
-					params: {
-						action: "stop",
-						bridgeId: params.bridgeId
-					},
-					timeoutMs: 5e3
-				});
+				await invoke("stop");
 			} catch (error) {
 				params.logger.debug?.(`${params.logScope} node audio bridge stop ignored: ${formatErrorMessage(error)}`);
 			}
@@ -1758,16 +1758,9 @@ function createNodeMeetingRealtimeAudioTransport(params) {
 			try {
 				await runOutputCommand(async () => {
 					if (stopped) return;
-					await params.runtime.nodes.invoke({
-						nodeId: params.nodeId,
-						command: params.commandName,
-						params: {
-							action: "pushAudio",
-							bridgeId: params.bridgeId,
-							base64: audio.toString("base64"),
-							...outputGenerationSupported ? { outputGeneration: generation } : {}
-						},
-						timeoutMs: 5e3
+					await invoke("pushAudio", {
+						base64: audio.toString("base64"),
+						...outputGenerationSupported ? { outputGeneration: generation } : {}
 					});
 				});
 			} catch (error) {
@@ -1781,16 +1774,7 @@ function createNodeMeetingRealtimeAudioTransport(params) {
 			outputLoopbackVerifier.cancelOutput();
 			await runOutputCommand(async () => {
 				if (stopped) return;
-				await params.runtime.nodes.invoke({
-					nodeId: params.nodeId,
-					command: params.commandName,
-					params: {
-						action: "clearAudio",
-						bridgeId: params.bridgeId,
-						...outputGenerationSupported ? { outputGeneration } : {}
-					},
-					timeoutMs: 5e3
-				});
+				await invoke("clearAudio", outputGenerationSupported ? { outputGeneration } : {});
 			});
 		},
 		dispose: async () => {
@@ -1812,6 +1796,283 @@ function createNodeMeetingRealtimeAudioTransport(params) {
 	});
 	return transport;
 }
+//#endregion
+//#region src/meeting-bot/participation.ts
+const SOURCE_LIFETIME_MS = 12e4;
+const MAX_SOURCES = 1024;
+function fingerprint(value) {
+	const canonical = (input) => {
+		if (Array.isArray(input)) return input.map(canonical);
+		if (input && typeof input === "object") return Object.fromEntries(Object.entries(input).toSorted(([a], [b]) => a.localeCompare(b)).map(([key, item]) => [key, canonical(item)]));
+		return input;
+	};
+	return createHash("sha256").update(JSON.stringify(canonical(value))).digest("hex");
+}
+/** The live session owns authority; persisted claims only prevent replay of that authority. */
+var MeetingParticipation = class {
+	#closed = /* @__PURE__ */ new Set();
+	#orders = /* @__PURE__ */ new Map();
+	#identities = /* @__PURE__ */ new Map();
+	#sources = /* @__PURE__ */ new Map();
+	#epochs = /* @__PURE__ */ new Map();
+	constructor(options) {
+		this.options = options;
+	}
+	close(sessionId) {
+		this.#closed.add(sessionId);
+		this.#sources.delete(sessionId);
+		this.#identities.delete(sessionId);
+		this.#epochs.delete(sessionId);
+	}
+	observeEpoch(sessionId, kind, observedEpoch) {
+		if (this.#closed.has(sessionId) || !this.options.current(sessionId) || !observedEpoch) return false;
+		let epochs = this.#epochs.get(sessionId);
+		if (!epochs) this.#epochs.set(sessionId, epochs = /* @__PURE__ */ new Map());
+		const epoch = epochs.get(kind);
+		if (epoch?.seen.has(observedEpoch) && epoch.current !== observedEpoch) return false;
+		if (epoch) {
+			epoch.current = observedEpoch;
+			epoch.seen.add(observedEpoch);
+		} else epochs.set(kind, {
+			current: observedEpoch,
+			seen: /* @__PURE__ */ new Set([observedEpoch])
+		});
+		const sources = this.#sources.get(sessionId);
+		for (const [key, source] of sources ?? []) if (source.kind === kind && source.epoch !== observedEpoch) sources?.delete(key);
+		return true;
+	}
+	observe(sessionId, source) {
+		const current = this.#closed.has(sessionId) ? void 0 : this.options.current(sessionId);
+		if (!current) return;
+		if (!source.id || !this.observeEpoch(sessionId, source.kind, source.epoch)) return;
+		let sources = this.#sources.get(sessionId);
+		if (!sources) this.#sources.set(sessionId, sources = /* @__PURE__ */ new Map());
+		for (const [key, existing] of sources) if (Date.now() - existing.observedAt > SOURCE_LIFETIME_MS) sources.delete(key);
+		const key = fingerprint([
+			source.kind,
+			source.epoch,
+			source.id
+		]);
+		const previous = sources.get(key);
+		let identities = this.#identities.get(sessionId);
+		if (!identities) this.#identities.set(sessionId, identities = /* @__PURE__ */ new Map());
+		let identity = identities.get(key);
+		if (!identity) {
+			if (identities.size >= 1e4) return;
+			const order = (this.#orders.get(sessionId) ?? 0) + 1;
+			this.#orders.set(sessionId, order);
+			identities.set(key, identity = {
+				order,
+				observedAt: Date.now(),
+				assertOwnerCurrent: current.assertCurrent.bind(current),
+				seenRevisions: /* @__PURE__ */ new Set()
+			});
+		}
+		identity.ownEcho ||= source.ownEcho;
+		if (identity.ownEcho) {
+			sources.delete(key);
+			return;
+		}
+		if (identity.seenRevisions.has(source.revision) && identity.revision !== source.revision) return;
+		identity.revision = source.revision;
+		identity.seenRevisions.add(source.revision);
+		if (identity.seenRevisions.size > 128) {
+			sources.delete(key);
+			return;
+		}
+		try {
+			identity.assertOwnerCurrent();
+		} catch {
+			sources.delete(key);
+			return;
+		}
+		if (Date.now() - identity.observedAt > SOURCE_LIFETIME_MS) return;
+		if (!source.finalized || !source.revision || !source.text?.trim() || source.text.length > 16384) {
+			sources.delete(key);
+			return;
+		}
+		if (previous?.revision === source.revision && previous.text === source.text) return previous.sourceId;
+		let evictionKey;
+		if (!previous && sources.size >= MAX_SOURCES) {
+			let oldestOrder = identity.order;
+			for (const [liveKey, liveSource] of sources) if (liveSource.order < oldestOrder) {
+				evictionKey = liveKey;
+				oldestOrder = liveSource.order;
+			}
+			if (evictionKey === void 0) return;
+		}
+		const entry = {
+			...source,
+			sourceId: randomUUID(),
+			order: identity.order,
+			...identity.sourceId ? { replacesSourceId: identity.sourceId } : {},
+			observedAt: identity.observedAt,
+			assertOwnerCurrent: identity.assertOwnerCurrent
+		};
+		identity.sourceId = entry.sourceId;
+		sources.set(key, entry);
+		if (evictionKey !== void 0) sources.delete(evictionKey);
+		return entry.sourceId;
+	}
+	context(sessionId) {
+		const current = this.#closed.has(sessionId) ? void 0 : this.options.current(sessionId);
+		return {
+			sessionId,
+			active: Boolean(current),
+			sourceOrder: current ? this.#orders.get(sessionId) ?? 0 : 0,
+			capabilities: current ? [...this.options.capabilities(current.session)] : [],
+			sources: current ? [...this.#sources.get(sessionId)?.values() ?? []].filter((source) => this.#isSourceCurrent(source)).map(({ observedAt: _at, assertOwnerCurrent: _assert, ...source }) => source) : []
+		};
+	}
+	inspect(sessionId, sourceId) {
+		const current = this.#closed.has(sessionId) ? void 0 : this.options.current(sessionId);
+		const source = this.#findSource(sessionId, sourceId);
+		if (!current || !source) return;
+		const { observedAt: _at, assertOwnerCurrent: _assert, ...snapshot } = source;
+		return {
+			source: snapshot,
+			assertCurrent: () => {
+				if (this.#closed.has(sessionId) || this.#findSource(sessionId, sourceId) !== source) throw new Error("The participation source is no longer current.");
+				current.assertCurrent();
+			}
+		};
+	}
+	async execute(sessionId, input) {
+		const request = structuredClone(input);
+		const result = (status, message) => ({
+			requestId: request.requestId,
+			status,
+			message
+		});
+		const validToken = (value) => typeof value === "string" && value.trim().length > 0 && Buffer.byteLength(value, "utf8") <= 128;
+		if (!validToken(sessionId) || !validToken(request.requestId) || !request.action || !validToken(request.action.type) || request.sourceId !== void 0 && !validToken(request.sourceId) || request.correctionOf !== void 0 && !validToken(request.correctionOf)) return result("rejected", "Session, request, action, and source identifiers must be non-empty strings of at most 128 UTF-8 bytes.");
+		const store = this.options.store;
+		const key = `${sessionId}:request:${request.requestId}`;
+		const digest = fingerprint(request);
+		const replay = (prior) => {
+			if (prior?.fingerprint !== digest) return result("rejected", "This requestId already identifies a different action.");
+			return {
+				...prior.result ?? result("uncertain", "This action was already claimed; its result is unknown. Do not retry it."),
+				replayed: true
+			};
+		};
+		const prior = await store.lookup(key);
+		if (prior) return replay(prior);
+		const current = this.#closed.has(sessionId) ? void 0 : this.options.current(sessionId);
+		if (!current) return result("rejected", "The meeting session is no longer active.");
+		const source = request.sourceId ? this.#findSource(sessionId, request.sourceId) : void 0;
+		let capabilityAdmitted = false;
+		const assertCurrent = () => {
+			if (this.#closed.has(sessionId)) throw new Error("The meeting session is closing.");
+			current.assertCurrent();
+			if (capabilityAdmitted && !this.options.capabilities(current.session).includes(request.action.type)) throw new Error("The participation capability is no longer available.");
+			if (request.sourceId && (!source || this.#findSource(sessionId, request.sourceId) !== source)) throw new Error("The participation source is stale, corrected, expired, or an own echo.");
+		};
+		const attempt = {
+			kind: "meeting-participation-attempt",
+			sessionId,
+			requestId: request.requestId,
+			fingerprint: digest,
+			...request.sourceId === void 0 ? {} : { sourceId: request.sourceId },
+			actionType: request.action.type,
+			...request.correctionOf === void 0 ? {} : { correctionOf: request.correctionOf }
+		};
+		if (!await this.#claim(key, attempt)) return replay(await store.lookup(key));
+		const finish = async (outcome) => {
+			try {
+				await store.register(key, {
+					...attempt,
+					result: outcome
+				});
+			} catch {
+				return result("uncertain", "The action result could not be recorded. Its claim remains; do not retry it.");
+			}
+			return outcome;
+		};
+		try {
+			assertCurrent();
+			if (request.correctionOf) {
+				const original = await store.lookup(`${sessionId}:request:${request.correctionOf}`);
+				assertCurrent();
+				if (!original || original.correctionOf || original.result?.correctionOf !== request.correctionOf || original.sourceId !== request.sourceId || original.actionType !== request.action.type) return await finish(result("rejected", "The correction must retain a correctable request's source and action type."));
+				const correctionClaimed = await this.#claim(`${sessionId}:correction:${request.correctionOf}`, attempt);
+				assertCurrent();
+				if (!correctionClaimed) return await finish(result("rejected", "This request already used its one correction opportunity."));
+			}
+			if (!this.options.capabilities(current.session).includes(request.action.type)) return await finish(result("unsupported", "This meeting does not support that participation action."));
+			capabilityAdmitted = true;
+			if (source) {
+				const sourceKey = `${sessionId}:source:${fingerprint([
+					source.kind,
+					source.epoch,
+					source.id,
+					request.action.type
+				])}`;
+				const sourceClaimed = await this.#claim(sourceKey, attempt);
+				assertCurrent();
+				if (!sourceClaimed) {
+					const original = await store.lookup(sourceKey);
+					assertCurrent();
+					if (!request.correctionOf || original?.requestId !== request.correctionOf || original.sourceId !== request.sourceId) return await finish(result("rejected", "This source already authorized this action type; it cannot authorize another attempt."));
+				}
+			}
+			const validation = this.options.validateAction(request.action);
+			if (validation) return await finish({
+				...result("rejected", validation),
+				...!request.correctionOf ? { correctionOf: request.requestId } : {}
+			});
+			assertCurrent();
+		} catch (error) {
+			return await finish(result("rejected", coerceErrorMessage(error)));
+		}
+		let outcome;
+		try {
+			assertCurrent();
+			const { correctable, ...effect } = await this.options.execute(current.session, request, assertCurrent);
+			assertCurrent();
+			outcome = {
+				status: effect.status,
+				...effect.message === void 0 ? {} : { message: effect.message },
+				...effect.observed === void 0 ? {} : { observed: effect.observed },
+				requestId: request.requestId,
+				...effect.status === "rejected" && correctable === true && !request.correctionOf ? { correctionOf: request.requestId } : {}
+			};
+		} catch (error) {
+			outcome = result("uncertain", `The action outcome is unknown: ${coerceErrorMessage(error)}. Do not retry it.`);
+		}
+		return await finish(outcome);
+	}
+	async #claim(key, attempt) {
+		try {
+			return await this.options.store.registerIfAbsent(key, attempt);
+		} catch (error) {
+			if (!(error instanceof PluginStateStoreError) || error.code !== "PLUGIN_STATE_LIMIT_EXCEEDED") throw error;
+			const entries = await this.options.store.entries();
+			let removed = 0;
+			for (const entry of entries.toSorted((a, b) => a.createdAt - b.createdAt)) {
+				const value = entry.value;
+				if (!value || value.kind !== "meeting-participation-attempt" || typeof value.sessionId !== "string" || !value.sessionId || typeof value.requestId !== "string") continue;
+				if (!(entry.key === `${value.sessionId}:request:${value.requestId}` || value.correctionOf && entry.key === `${value.sessionId}:correction:${value.correctionOf}` || entry.key.startsWith(`${value.sessionId}:source:`) && /^[a-f0-9]{64}$/.test(entry.key.slice(`${value.sessionId}:source:`.length)))) continue;
+				if (!this.#closed.has(value.sessionId) && this.options.current(value.sessionId)) continue;
+				if (await this.options.store.delete(entry.key)) removed++;
+				if (removed >= 1e3) break;
+			}
+			return await this.options.store.registerIfAbsent(key, attempt);
+		}
+	}
+	#findSource(sessionId, sourceId) {
+		for (const source of this.#sources.get(sessionId)?.values() ?? []) if (source.sourceId === sourceId && this.#isSourceCurrent(source)) return source;
+	}
+	#isSourceCurrent(source) {
+		if (Date.now() - source.observedAt > SOURCE_LIFETIME_MS) return false;
+		try {
+			source.assertOwnerCurrent();
+			return true;
+		} catch {
+			return false;
+		}
+	}
+};
 //#endregion
 //#region src/meeting-bot/session-cleanup-tracker.ts
 var MeetingSessionCleanupTracker = class {
@@ -1928,17 +2189,15 @@ var MeetingSessionCleanupTracker = class {
 		};
 	}
 	async rollbackFailedJoin(params) {
-		let retryFullCleanup = false;
 		try {
 			await params.leave();
 		} catch (error) {
 			params.warn(`replacement cleanup failed: ${params.formatError(error)}`);
-			retryFullCleanup = true;
-		}
-		if (retryFullCleanup) try {
-			await params.leave();
-		} catch (error) {
-			params.warn(`replacement cleanup retry failed: ${params.formatError(error)}`);
+			try {
+				await params.leave();
+			} catch (retryError) {
+				params.warn(`replacement cleanup retry failed: ${params.formatError(retryError)}`);
+			}
 		}
 		const retry = await this.retryBrowserAfterFailedJoin(params);
 		params.onBrowserResult(retry.browserLeft);
@@ -2045,7 +2304,7 @@ var MeetingSessionDurableTranscripts = class {
 	}
 	async #getBridge() {
 		if (!this.options.config) return;
-		this.#bridge ??= import("../transcripts-bridge.runtime-CJVLICSP.mjs").then(({ createMeetingDurableTranscriptBridge }) => createMeetingDurableTranscriptBridge({
+		this.#bridge ??= import("../transcripts-bridge.runtime-DeHxwIkj.mjs").then(({ createMeetingDurableTranscriptBridge }) => createMeetingDurableTranscriptBridge({
 			isEnabled: () => this.#enabled,
 			logger: this.options.logger,
 			options: this.options.config
@@ -2088,16 +2347,53 @@ var MeetingSessionDurableTranscripts = class {
 	}
 };
 //#endregion
+//#region src/meeting-bot/session-runtime-browser-tabs.ts
+function inheritMeetingBrowserTabOwnership(sessions, options, params) {
+	if (!params.tab) return;
+	return [...sessions].some((session) => {
+		const browser = options.getBrowser(session);
+		const browserTab = browser?.tab;
+		return session.transport === params.transport && options.sameMeetingUrl(session.url, params.meetingUrl) && browser?.nodeId === params.nodeId && browserTab?.targetId === params.tab?.targetId && browserTab?.openedByPlugin === true;
+	}) ? {
+		...params.tab,
+		openedByPlugin: true
+	} : params.tab;
+}
+async function settleMeetingRetainedBrowserTabs(options, retained, adopted) {
+	let settled = true;
+	for (let index = 0; index < retained.length;) {
+		const retainedTab = retained[index];
+		if (!retainedTab) break;
+		const { session, tab } = retainedTab;
+		const browser = options.getBrowser(session);
+		if (adopted?.transport === session.transport && adopted.nodeId === browser?.nodeId && adopted.tab.targetId === tab.targetId) {
+			options.setBrowserTab(session, void 0);
+			retained.splice(index, 1);
+			continue;
+		}
+		if (await options.releaseBrowserTab(session) === false) {
+			settled = false;
+			index += 1;
+			continue;
+		}
+		retained.splice(index, 1);
+	}
+	return settled;
+}
+async function settleMeetingRetainedBrowserTabsAfterFailure(options, retained) {
+	for (let attempt = 0; attempt < 2 && retained.length > 0; attempt += 1) try {
+		if (await settleMeetingRetainedBrowserTabs(options, retained)) return;
+	} catch (error) {
+		options.logger.warn(`${options.logScope} retained browser cleanup failed: ${options.formatError(error)}`);
+	}
+	if (retained.length > 0) options.logger.warn(`${options.logScope} retained browser cleanup incomplete after failed join`);
+}
+//#endregion
 //#region src/meeting-bot/session-speech-readiness.ts
 function evaluateMeetingSpeechReadiness(params) {
 	const { browser, speech } = params;
 	if (!params.talkBack || !browser) return { ready: true };
-	if (!params.managedBrowser) return browser.hasAudioBridge ? { ready: true } : {
-		ready: false,
-		reason: speech.audioBridgeUnavailableReason,
-		message: speech.audioBridgeUnavailable
-	};
-	const health = browser.health;
+	const health = params.managedBrowser ? browser.health : void 0;
 	if (health?.manualAction) return {
 		ready: false,
 		reason: health.manualAction.reason,
@@ -2112,21 +2408,20 @@ function evaluateMeetingSpeechReadiness(params) {
 				message: muted ? speech.microphoneMuted : speech.browserUnverified
 			};
 		}
-		return browser.hasAudioBridge ? { ready: true } : {
-			ready: false,
-			reason: speech.audioBridgeUnavailableReason,
-			message: speech.audioBridgeUnavailable
-		};
-	}
-	if (health?.inCall === false) return {
+	} else if (health?.inCall === false) return {
 		ready: false,
 		reason: speech.notInCallReason,
 		message: speech.notInCall
 	};
-	return {
+	else if (params.managedBrowser) return {
 		ready: false,
 		reason: speech.browserUnverifiedReason,
 		message: speech.browserUnverified
+	};
+	return browser.hasAudioBridge ? { ready: true } : {
+		ready: false,
+		reason: speech.audioBridgeUnavailableReason,
+		message: speech.audioBridgeUnavailable
 	};
 }
 //#endregion
@@ -2135,6 +2430,7 @@ const nowIso$1 = () => (/* @__PURE__ */ new Date()).toISOString();
 /** Shared lifecycle owner; platform strategies perform transport-specific I/O only. */
 var MeetingSessionRuntime = class {
 	#sessions = /* @__PURE__ */ new Map();
+	#participation;
 	#sessionLeaves = /* @__PURE__ */ new Map();
 	#sessionCleanup = new MeetingSessionCleanupTracker();
 	#meetingLock = new KeyedAsyncQueue();
@@ -2144,12 +2440,36 @@ var MeetingSessionRuntime = class {
 	#transcriptStore;
 	constructor(options) {
 		this.options = options;
+		if (options.participation) this.#participation = new MeetingParticipation({
+			...options.participation,
+			current: (sessionId) => {
+				const session = this.#sessions.get(sessionId);
+				if (!session) return;
+				const isCurrent = this.#captureSessionOwnership(session);
+				if (session.state !== "active") return;
+				return {
+					session,
+					assertCurrent: () => {
+						if (!isCurrent(sessionId)) throw new Error("The meeting session no longer owns this browser tab and route.");
+					}
+				};
+			}
+		});
 		this.#transcriptStore = new MeetingSessionTranscriptStore({
 			getSession: (sessionId) => this.#sessions.get(sessionId),
 			isBrowserSession: (session) => this.options.isBrowserTransport(session.transport),
 			isTranscribeSession: (session) => this.options.isTranscribeMode(session.mode),
 			hasBrowserTab: (session) => Boolean(this.options.getBrowser(session)?.tab),
-			capture: async (session, captureOptions) => await this.options.captureTranscript(session, captureOptions),
+			capture: async (session, captureOptions) => {
+				const isCurrent = this.#captureSessionOwnership(session, { requireSameTab: this.#participation !== void 0 });
+				const snapshot = await this.options.captureTranscript(session, captureOptions);
+				if (!isCurrent(session.id)) throw new Error("The meeting session no longer owns the captured browser tab and route.");
+				return snapshot && snapshotMeetingTranscript(snapshot);
+			},
+			onSnapshot: (session, snapshot) => {
+				if (snapshot.epoch && this.#participation?.observeEpoch(session.id, "caption", snapshot.epoch) === false) return;
+				for (const source of meetingCaptionParticipationSources(snapshot)) this.observeParticipationSource(session.id, source);
+			},
 			onLines: async (session, lines) => await this.#durableTranscripts.ingest(session, lines)
 		});
 		this.#durableTranscripts = new MeetingSessionDurableTranscripts({
@@ -2188,8 +2508,41 @@ var MeetingSessionRuntime = class {
 			session
 		} : { found: false };
 	}
+	participationContext(sessionId) {
+		const context = this.#participation?.context(sessionId) ?? {
+			sessionId,
+			active: false,
+			sourceOrder: 0,
+			capabilities: [],
+			sources: []
+		};
+		return {
+			...context,
+			sources: context.sources.map(snapshotMeetingObservation)
+		};
+	}
+	observeParticipationEpoch(sessionId, kind, epoch) {
+		return this.#participation?.observeEpoch(sessionId, kind, epoch) ?? false;
+	}
+	observeParticipationSource(sessionId, source) {
+		return this.#participation?.observe(sessionId, snapshotMeetingObservation(source));
+	}
+	inspectParticipationSource(sessionId, sourceId) {
+		const inspected = this.#participation?.inspect(sessionId, sourceId);
+		return inspected && {
+			...inspected,
+			source: snapshotMeetingObservation(inspected.source)
+		};
+	}
+	async participate(sessionId, request) {
+		return this.#participation ? await this.#participation.execute(sessionId, request) : {
+			requestId: request.requestId,
+			status: "unsupported",
+			message: "This meeting platform does not support participation actions."
+		};
+	}
 	async transcript(sessionId, options = {}) {
-		return await this.#transcriptStore.read(sessionId, options);
+		return snapshotMeetingTranscript(await this.#transcriptStore.read(sessionId, options));
 	}
 	async startTranscriptSource(request) {
 		return await this.#durableTranscripts.startSource(request);
@@ -2210,6 +2563,7 @@ var MeetingSessionRuntime = class {
 	async leave(sessionId, options) {
 		const session = this.#sessions.get(sessionId);
 		if (!session) return { found: false };
+		this.#participation?.close(sessionId);
 		return await this.#meetingLock.enqueue(this.#meetingKey(session.transport, session.url), async () => await this.#leaveUnlocked(sessionId, options));
 	}
 	async speak(sessionId, instructions) {
@@ -2285,9 +2639,7 @@ var MeetingSessionRuntime = class {
 		const waitMs = Math.min(Math.max(0, this.options.waitForInCallMs), Math.max(0, this.options.joinTimeoutMs));
 		const deadline = Date.now() + waitMs;
 		while (Date.now() < deadline) {
-			await new Promise((resolve) => {
-				setTimeout(resolve, Math.min(250, Math.max(0, deadline - Date.now())));
-			});
+			await sleep(Math.min(250, Math.max(0, deadline - Date.now())));
 			result = await this.speak(session.id, instructions);
 			if (result.spoken) return true;
 			const health = this.options.getBrowser(result.session)?.health;
@@ -2346,10 +2698,21 @@ var MeetingSessionRuntime = class {
 		return readiness;
 	}
 	markSessionEnded(session, reason) {
+		this.#participation?.close(session.id);
 		session.state = "ended";
 		session.updatedAt = nowIso$1();
 		this.#dropRuntimeHandles(session.id);
 		this.#noteSession(session, reason);
+	}
+	#captureSessionOwnership(session, { requireSameTab = true } = {}) {
+		const browser = this.options.getBrowser(session);
+		const targetId = browser?.tab?.targetId;
+		const nodeId = browser?.nodeId;
+		const { url, transport, state } = session;
+		return (sessionId) => {
+			const latest = this.options.getBrowser(session);
+			return this.#sessions.get(sessionId) === session && session.state === state && session.url === url && session.transport === transport && latest?.nodeId === nodeId && (!requireSameTab || latest?.tab?.targetId === targetId);
+		};
 	}
 	async #joinUnlocked(request, resolved) {
 		for (const session of this.list()) if (session.state === "ended" && session.transport === resolved.transport && this.options.sameMeetingUrl(session.url, resolved.url) && this.#sessionCleanup.hasRuntime(session.id)) await this.#leaveUnlocked(session.id);
@@ -2367,7 +2730,7 @@ var MeetingSessionRuntime = class {
 			try {
 				if ((await this.#leaveUnlocked(session.id, keepBrowserParticipant ? { keepBrowserTab: true } : void 0)).browserLeft === false) throw new Error(this.options.messages.previousBrowserLeaveFailed);
 			} catch (error) {
-				await this.#settleRetainedBrowserTabsAfterFailure(retained);
+				await settleMeetingRetainedBrowserTabsAfterFailure(this.options, retained);
 				throw error;
 			}
 			this.#noteSession(session, this.options.messages.reassignedSessionNote);
@@ -2404,11 +2767,11 @@ var MeetingSessionRuntime = class {
 				session,
 				context: {
 					attachRuntimeHandles: (target, handles) => this.#attachRuntimeHandles(target, handles),
-					inheritedBrowserTab: (params) => this.#inheritBrowserTabOwnership(params)
+					inheritedBrowserTab: (params) => inheritMeetingBrowserTabOwnership(this.#sessions.values(), this.options, params)
 				}
 			})).delegatedSpoken === true;
 			const browser = this.options.getBrowser(session);
-			if (!await this.#settleRetainedBrowserTabs(retained, browser?.tab ? {
+			if (!await settleMeetingRetainedBrowserTabs(this.options, retained, browser?.tab ? {
 				transport: session.transport,
 				nodeId: browser.nodeId,
 				tab: browser.tab
@@ -2420,7 +2783,7 @@ var MeetingSessionRuntime = class {
 				this.#sessions.set(session.id, session);
 				this.#noteSession(session, "Meeting cleanup is pending; use leave to retry.");
 			}
-			await this.#settleRetainedBrowserTabsAfterFailure(retained);
+			await settleMeetingRetainedBrowserTabsAfterFailure(this.options, retained);
 			this.options.logger.warn(`${this.options.logScope} join failed: ${this.options.formatError(error)}`);
 			throw error;
 		}
@@ -2450,6 +2813,7 @@ var MeetingSessionRuntime = class {
 		}
 	}
 	async #leaveSession(session, options) {
+		this.#participation?.close(session.id);
 		const firstAttempt = this.#sessionCleanup.begin(session.id, session.browserLeft);
 		session.state = "ended";
 		session.updatedAt = nowIso$1();
@@ -2493,38 +2857,6 @@ var MeetingSessionRuntime = class {
 	#meetingKey(transport, url) {
 		return `${transport}:${this.options.normalizeMeetingUrlForReuse(url) ?? url}`;
 	}
-	#inheritBrowserTabOwnership(params) {
-		if (!params.tab) return;
-		return [...this.#sessions.values()].some((session) => {
-			const browser = this.options.getBrowser(session);
-			const browserTab = browser?.tab;
-			return session.transport === params.transport && this.options.sameMeetingUrl(session.url, params.meetingUrl) && browser?.nodeId === params.nodeId && browserTab?.targetId === params.tab?.targetId && browserTab?.openedByPlugin === true;
-		}) ? {
-			...params.tab,
-			openedByPlugin: true
-		} : params.tab;
-	}
-	async #settleRetainedBrowserTabs(retained, adopted) {
-		let settled = true;
-		for (let index = 0; index < retained.length;) {
-			const retainedTab = retained[index];
-			if (!retainedTab) break;
-			const { session, tab } = retainedTab;
-			const browser = this.options.getBrowser(session);
-			if (adopted?.transport === session.transport && adopted.nodeId === browser?.nodeId && adopted.tab.targetId === tab.targetId) {
-				this.options.setBrowserTab(session, void 0);
-				retained.splice(index, 1);
-				continue;
-			}
-			if (await this.options.releaseBrowserTab(session) === false) {
-				settled = false;
-				index += 1;
-				continue;
-			}
-			retained.splice(index, 1);
-		}
-		return settled;
-	}
 	async #rollbackFailedJoinSession(session) {
 		await this.#sessionCleanup.rollbackFailedJoin({
 			sessionId: session.id,
@@ -2537,14 +2869,6 @@ var MeetingSessionRuntime = class {
 			onBrowserResult: (left) => session.browserLeft = left,
 			onComplete: () => this.#dropRuntimeHandles(session.id)
 		});
-	}
-	async #settleRetainedBrowserTabsAfterFailure(retained) {
-		for (let attempt = 0; attempt < 2 && retained.length > 0; attempt += 1) try {
-			if (await this.#settleRetainedBrowserTabs(retained)) return;
-		} catch (error) {
-			this.options.logger.warn(`${this.options.logScope} retained browser cleanup failed: ${this.options.formatError(error)}`);
-		}
-		if (retained.length > 0) this.options.logger.warn(`${this.options.logScope} retained browser cleanup incomplete after failed join`);
 	}
 	#attachRuntimeHandles(session, handles) {
 		if (handles.stop) this.#sessionCleanup.addStop(session.id, handles.stop);
@@ -2601,38 +2925,23 @@ const BROWSER_ACT_TIMEOUT_MESSAGE = "Meeting browser operation timed out waiting
 async function runMeetingBrowserAct(params) {
 	const waitMs = Math.floor(params.deadline - performance.now());
 	if (waitMs <= 0) throw new Error(BROWSER_ACT_TIMEOUT_MESSAGE);
-	let acquired = false;
-	let markAcquired;
-	const acquisition = new Promise((resolve) => {
-		markAcquired = resolve;
-	});
-	let timeout;
+	const { promise: acquisition, resolve: markAcquired } = createDeferredCore();
 	const queued = browserActLock.enqueue(params.targetId, async () => {
 		const remainingMs = Math.floor(params.deadline - performance.now());
 		if (remainingMs <= 0) throw new Error(BROWSER_ACT_TIMEOUT_MESSAGE);
-		acquired = true;
-		clearTimeout(timeout);
-		markAcquired?.();
+		markAcquired();
 		return await params.operation(remainingMs);
 	});
 	queued.catch(() => void 0);
-	const expired = new Promise((_resolve, reject) => {
-		timeout = setTimeout(() => {
-			if (!acquired) reject(/* @__PURE__ */ new Error(BROWSER_ACT_TIMEOUT_MESSAGE));
-		}, waitMs);
+	await raceWithTimeout(acquisition, waitMs, () => {
+		throw new Error(BROWSER_ACT_TIMEOUT_MESSAGE);
 	});
-	try {
-		await Promise.race([acquisition, expired]);
-	} finally {
-		clearTimeout(timeout);
-	}
 	return await queued;
 }
 //#endregion
 //#region src/meeting-bot/browser-navigation-errors.ts
 function isMeetingBrowserTransientNavigationError(error) {
-	const message = error instanceof Error ? error.message : String(error);
-	return /execution context was destroyed.*navigation|cannot find context with specified id/i.test(message);
+	return /execution context was destroyed.*navigation|cannot find context with specified id/i.test(coerceErrorMessage(error));
 }
 //#endregion
 //#region src/meeting-bot/browser-request.ts
@@ -2717,14 +3026,6 @@ async function prepareMeetingBrowserTab(params) {
 		});
 	}
 }
-function selectReusableTab(params) {
-	const matches = params.tabs.filter((tab) => params.adapter.urls.isRecoverableTab(tab, params.url));
-	const accountHint = params.adapter.urls.accountHint(params.url);
-	return {
-		matches,
-		tab: matches.find((candidate) => params.adapter.urls.isPreferredJoinUrl(candidate.url) && (!accountHint || params.adapter.urls.accountHint(candidate.url) === accountHint))
-	};
-}
 async function openMeetingWithBrowser(params) {
 	if (!params.config.launch) return { launched: false };
 	const timeoutMs = Math.max(1e3, params.config.joinTimeoutMs);
@@ -2733,19 +3034,15 @@ async function openMeetingWithBrowser(params) {
 	let openSession = params.session;
 	let openedByPlugin = false;
 	if (params.config.reuseExistingTab) {
-		const tabs = asMeetingBrowserTabs(await params.callBrowser({
+		const matches = asMeetingBrowserTabs(await params.callBrowser({
 			method: "GET",
 			path: "/tabs",
 			timeoutMs: Math.min(timeoutMs, 5e3)
-		}));
-		const reusable = selectReusableTab({
-			adapter: params.adapter,
-			tabs,
-			url: params.session.url
-		});
-		tab = reusable.tab;
+		})).filter((candidate) => params.adapter.urls.isRecoverableTab(candidate, params.session.url));
+		const accountHint = params.adapter.urls.accountHint(params.session.url);
+		tab = matches.find((candidate) => params.adapter.urls.isPreferredJoinUrl(candidate.url) && (!accountHint || params.adapter.urls.accountHint(candidate.url) === accountHint));
 		if (!tab && !params.adapter.urls.accountHint(params.session.url)) {
-			const fallbackUrl = reusable.matches.find((candidate) => candidate.url)?.url;
+			const fallbackUrl = matches.find((candidate) => candidate.url)?.url;
 			if (fallbackUrl) openSession = {
 				...params.session,
 				url: fallbackUrl
@@ -2850,15 +3147,13 @@ async function openMeetingWithBrowser(params) {
 						reason: manual.reason,
 						message: manual.message
 					},
-					notes: [...permissionNotes, `Browser control could not inspect or auto-join ${params.adapter.browserLabel}: ${error instanceof Error ? error.message : String(error)}`]
+					notes: [...permissionNotes, `Browser control could not inspect or auto-join ${params.adapter.browserLabel}: ${coerceErrorMessage(error)}`]
 				};
 				break;
 			}
 		}
 		const remainingWaitMs = deadline - performance.now();
-		if (remainingWaitMs > 0) await new Promise((resolve) => {
-			setTimeout(resolve, Math.min(750, remainingWaitMs));
-		});
+		if (remainingWaitMs > 0) await sleep(Math.min(750, remainingWaitMs));
 	} while (performance.now() < deadline);
 	return {
 		launched: true,
@@ -2946,9 +3241,7 @@ async function inspectRecoverableTab(params) {
 		const remainingMs = inspectionDeadline - performance.now();
 		if (!isMeetingBrowserTransientNavigationError(error) || remainingMs <= 0) throw error;
 		navigationNotes.push(`${params.adapter.browserLabel} navigated while recovering; retrying browser inspection.`);
-		await new Promise((resolve) => {
-			setTimeout(resolve, Math.min(250, remainingMs));
-		});
+		await sleep(Math.min(250, remainingMs));
 		if (performance.now() >= inspectionDeadline) throw error;
 	}
 	const browser = mergeBrowserNotes(params.adapter.browser.parseStatus(evaluated) ?? {
@@ -2992,17 +3285,8 @@ async function recoverMeetingBrowserTab(params) {
 		message: params.requestedMeetingUrl ? `No existing ${params.adapter.browserLabel} tab matched ${params.requestedMeetingUrl}.` : `No existing ${params.adapter.browserLabel} tab found ${params.locationLabel}.`
 	};
 	return await inspectRecoverableTab({
-		adapter: params.adapter,
-		allowSessionAdoption: params.allowSessionAdoption,
-		autoJoin: params.autoJoin,
-		callBrowser: params.callBrowser,
-		captureCaptions: params.captureCaptions,
-		config: params.config,
+		...params,
 		...deadline === void 0 ? {} : { deadline },
-		meetingSessionId: params.meetingSessionId,
-		mode: params.mode,
-		readOnly: params.readOnly,
-		requestedMeetingUrl: params.requestedMeetingUrl,
 		timeoutMs,
 		tab,
 		targetId
@@ -3013,7 +3297,6 @@ async function recoverMeetingBrowserTab(params) {
 async function leaveMeetingInPage(params) {
 	const deadline = performance.now() + params.timeoutMs;
 	let clickedLeave = false;
-	let clickedConfirmation = false;
 	let ownershipRetained = false;
 	do {
 		const remainingMs = Math.floor(deadline - performance.now());
@@ -3034,13 +3317,11 @@ async function leaveMeetingInPage(params) {
 		});
 		const step = params.adapter.browser.parseLeaveResult(evaluated);
 		clickedLeave ||= step.leaveAction === "leave";
-		clickedConfirmation ||= step.leaveAction === "confirm";
 		if (step.sessionMatched === false) {
 			const stepOwnershipRetained = clickedLeave && step.sessionConflict !== true;
 			if (step.departed || !stepOwnershipRetained) return {
 				departed: stepOwnershipRetained ? step.departed : false,
 				clickedLeave,
-				clickedConfirmation,
 				ownershipRetained: stepOwnershipRetained,
 				sessionConflict: step.sessionConflict,
 				sessionMatched: false,
@@ -3051,24 +3332,19 @@ async function leaveMeetingInPage(params) {
 		if (step.departed || step.urlMatched !== true) return {
 			departed: step.departed,
 			clickedLeave,
-			clickedConfirmation,
 			...ownershipRetained && step.sessionConflict !== true ? { ownershipRetained: true } : {},
 			urlMatched: step.urlMatched
 		};
 		if (!step.leaveAction && !clickedLeave) return {
 			departed: false,
 			clickedLeave,
-			clickedConfirmation,
 			urlMatched: true
 		};
-		if (!step.leaveAction) await new Promise((resolve) => {
-			setTimeout(resolve, 100);
-		});
+		if (!step.leaveAction) await sleep(100);
 	} while (performance.now() < deadline);
 	return {
 		departed: false,
 		clickedLeave,
-		clickedConfirmation,
 		...ownershipRetained ? {
 			ownershipRetained: true,
 			sessionMatched: false
@@ -3131,7 +3407,7 @@ async function leaveMeetingWithBrowser(params) {
 		} catch (error) {
 			return {
 				left: false,
-				note: `Browser control could not verify the ${params.adapter.browserLabel} tab before leaving: ${error instanceof Error ? error.message : String(error)}`
+				note: `Browser control could not verify the ${params.adapter.browserLabel} tab before leaving: ${coerceErrorMessage(error)}`
 			};
 		}
 		if (leaveResult.urlMatched === false) return {
@@ -3160,7 +3436,7 @@ async function leaveMeetingWithBrowser(params) {
 	} catch (error) {
 		return {
 			left: false,
-			note: `Browser control could not leave the ${params.adapter.browserLabel} tab: ${error instanceof Error ? error.message : String(error)}`
+			note: `Browser control could not leave the ${params.adapter.browserLabel} tab: ${coerceErrorMessage(error)}`
 		};
 	}
 }
@@ -3189,16 +3465,12 @@ async function readMeetingTranscriptWithBrowser(params) {
 	return {
 		droppedLines: snapshot.droppedLines,
 		...snapshot.epoch ? { epoch: snapshot.epoch } : {},
-		lines: snapshot.lines
+		lines: snapshot.lines,
+		...snapshot.pendingLines ? { pendingLines: snapshot.pendingLines } : {}
 	};
 }
 //#endregion
 //#region src/meeting-bot/browser-node.ts
-function isMeetingBrowserNode(node, adapter) {
-	const commands = Array.isArray(node.commands) ? node.commands : [];
-	const caps = Array.isArray(node.caps) ? node.caps : [];
-	return node.connected === true && commands.includes(adapter.nodeCommandName) && (commands.includes("browser.proxy") || caps.includes("browser"));
-}
 function matchesRequestedNode(node, requested) {
 	return [
 		node.nodeId,
@@ -3237,10 +3509,11 @@ async function resolveMeetingBrowserNodeInfo(params) {
 		if (matches.length > 1) throw new Error(`Configured ${params.adapter.displayName} node ${requested} is ambiguous (${matches.length} matches). Pin ${params.adapter.nodeConfigPath} to a unique node id, display name, or remote IP.`);
 		const [node] = matches;
 		if (!node) throw new Error(`Configured ${params.adapter.displayName} node ${requested} was not found. Run \`openclaw nodes status\` and start or approve the Chrome node.`);
-		if (isMeetingBrowserNode(node, params.adapter)) return node;
-		throw new Error(`Configured ${params.adapter.displayName} node ${requested} is not usable (${formatNodeLabel(node)}): ${describeNodeUsabilityIssues(node, params.adapter).join("; ")}. Start or reinstall \`openclaw node run\` on that Chrome host, approve pairing, and allow ${params.adapter.nodeCommandName} plus browser.proxy.`);
+		const issues = describeNodeUsabilityIssues(node, params.adapter);
+		if (issues.length === 0) return node;
+		throw new Error(`Configured ${params.adapter.displayName} node ${requested} is not usable (${formatNodeLabel(node)}): ${issues.join("; ")}. Start or reinstall \`openclaw node run\` on that Chrome host, approve pairing, and allow ${params.adapter.nodeCommandName} plus browser.proxy.`);
 	}
-	const nodes = (await listMeetingNodes(params.runtime, params.adapter, { connected: true })).nodes.filter((node) => isMeetingBrowserNode(node, params.adapter));
+	const nodes = (await listMeetingNodes(params.runtime, params.adapter, { connected: true })).nodes.filter((node) => describeNodeUsabilityIssues(node, params.adapter).length === 0);
 	const [node] = nodes;
 	if (!node) throw new Error(`No connected ${params.adapter.displayName}-capable node with browser proxy. Run \`openclaw node run\` on the Chrome host with browser proxy enabled, approve pairing, and allow ${params.adapter.nodeCommandName} plus browser.proxy.`);
 	if (nodes.length === 1) return node;
@@ -3337,11 +3610,6 @@ const PIPEWIRE_MONITOR_NAME = `${PIPEWIRE_SINK_NAME}.monitor`;
 const PIPEWIRE_SOURCE_NAME = PIPEWIRE_SINK_NAME;
 const PIPEWIRE_MEETING_AUDIO_DEVICE_LABEL = "OpenClaw Meeting Audio";
 const BLACKHOLE_MEETING_AUDIO_DEVICE_LABEL = "BlackHole 2ch";
-function resolvePulseFormat(config) {
-	if (config.encoding === "mu-law" && config.bits === 8) return "ulaw";
-	if (config.encoding === "signed-integer" && config.bits === 16) return config.endian === "big" ? "s16be" : "s16le";
-	throw new Error(`PipeWire-Pulse does not support meeting audio format ${config.encoding}/${config.bits}.`);
-}
 function resolveMeetingAudioBackend(selection, platform = process.platform) {
 	if (selection && selection !== "auto") {
 		if (selection === "blackhole-2ch" && platform !== "darwin") throw new Error("BlackHole 2ch meeting audio requires macOS.");
@@ -3352,23 +3620,35 @@ function resolveMeetingAudioBackend(selection, platform = process.platform) {
 	if (platform === "linux") return "pipewire-pulse";
 	throw new Error(`Local Chrome meeting talk-back is unsupported on ${platform}; use transcribe mode or a macOS/Linux Chrome node.`);
 }
-function resolveMeetingAudioRuntime(config, platform = process.platform) {
-	const backend = resolveMeetingAudioBackend(config.backend, platform);
-	const bytesPerSecond = config.format.sampleRate * config.format.channels * Math.ceil(config.format.bits / 8);
-	const pulseLatencyMs = Math.max(1, Math.ceil(config.bufferBytes / bytesPerSecond * 1e3));
+function resolveMeetingAudioRuntimeForFormat(params) {
+	const format = params.format === "g711-ulaw-8khz" ? {
+		sampleRate: 8e3,
+		channels: 1,
+		encoding: "mu-law",
+		bits: 8
+	} : {
+		sampleRate: 24e3,
+		channels: 1,
+		encoding: "signed-integer",
+		bits: 16,
+		endian: "little"
+	};
+	const backend = resolveMeetingAudioBackend(params.backend, params.platform);
+	const bytesPerSecond = format.sampleRate * format.channels * Math.ceil(format.bits / 8);
+	const pulseLatencyMs = Math.max(1, Math.ceil(params.bufferBytes / bytesPerSecond * 1e3));
 	const defaults = backend === "blackhole-2ch" ? buildMeetingSoxAudioCommands({
-		bufferBytes: config.bufferBytes,
+		bufferBytes: params.bufferBytes,
 		device: BLACKHOLE_MEETING_AUDIO_DEVICE_LABEL,
 		deviceType: "coreaudio",
-		format: config.format
+		format
 	}) : {
 		inputCommand: [
 			"parec",
 			"--raw",
 			`--device=${PIPEWIRE_SOURCE_NAME}`,
-			`--format=${resolvePulseFormat(config.format)}`,
-			`--rate=${config.format.sampleRate}`,
-			`--channels=${config.format.channels}`,
+			`--format=${format.encoding === "mu-law" ? "ulaw" : "s16le"}`,
+			`--rate=${format.sampleRate}`,
+			`--channels=${format.channels}`,
 			`--latency-msec=${pulseLatencyMs}`
 		],
 		outputCommand: [
@@ -3376,38 +3656,18 @@ function resolveMeetingAudioRuntime(config, platform = process.platform) {
 			"--raw",
 			"--playback",
 			`--device=${PIPEWIRE_SINK_NAME}`,
-			`--format=${resolvePulseFormat(config.format)}`,
-			`--rate=${config.format.sampleRate}`,
-			`--channels=${config.format.channels}`,
+			`--format=${format.encoding === "mu-law" ? "ulaw" : "s16le"}`,
+			`--rate=${format.sampleRate}`,
+			`--channels=${format.channels}`,
 			`--latency-msec=${pulseLatencyMs}`
 		]
 	};
 	return {
 		backend,
 		deviceLabel: backend === "blackhole-2ch" ? BLACKHOLE_MEETING_AUDIO_DEVICE_LABEL : PIPEWIRE_MEETING_AUDIO_DEVICE_LABEL,
-		inputCommand: config.inputCommand ? [...config.inputCommand] : defaults.inputCommand,
-		outputCommand: config.outputCommand ? [...config.outputCommand] : defaults.outputCommand
+		inputCommand: params.inputCommand ? [...params.inputCommand] : defaults.inputCommand,
+		outputCommand: params.outputCommand ? [...params.outputCommand] : defaults.outputCommand
 	};
-}
-function resolveMeetingAudioRuntimeForFormat(params) {
-	return resolveMeetingAudioRuntime({
-		backend: params.backend,
-		bufferBytes: params.bufferBytes,
-		format: params.format === "g711-ulaw-8khz" ? {
-			sampleRate: 8e3,
-			channels: 1,
-			encoding: "mu-law",
-			bits: 8
-		} : {
-			sampleRate: 24e3,
-			channels: 1,
-			encoding: "signed-integer",
-			bits: 16,
-			endian: "little"
-		},
-		inputCommand: params.inputCommand,
-		outputCommand: params.outputCommand
-	}, params.platform);
 }
 function commandOutput(result) {
 	return `${result.stdout ?? ""}\n${result.stderr ?? ""}`;
@@ -3427,75 +3687,453 @@ async function ensureMeetingAudioBackend(params) {
 		return;
 	}
 	assertCommandSucceeded(await params.run(["pactl", "info"], params.timeoutMs), "PipeWire-Pulse is unavailable. Start pipewire-pulse and install pulseaudio-utils");
-	let sinks = await params.run([
+	const ensurePulseModule = async (kind, name, args) => {
+		if (pulseListContains((await params.run([
+			"pactl",
+			"list",
+			"short",
+			`${kind}s`
+		], params.timeoutMs)).stdout ?? "", name)) return;
+		const loaded = await params.run([
+			"pactl",
+			"load-module",
+			...args
+		], params.timeoutMs);
+		if (loaded.code !== 0) {
+			if (!pulseListContains((await params.run([
+				"pactl",
+				"list",
+				"short",
+				`${kind}s`
+			], params.timeoutMs)).stdout ?? "", name)) assertCommandSucceeded(loaded, `Could not create the OpenClaw PipeWire-Pulse ${kind}`);
+		}
+	};
+	await ensurePulseModule("sink", PIPEWIRE_SINK_NAME, [
+		"module-null-sink",
+		`sink_name=${PIPEWIRE_SINK_NAME}`,
+		"rate=48000",
+		"channels=2",
+		"channel_map=front-left,front-right",
+		`sink_properties='device.description="${PIPEWIRE_MEETING_AUDIO_DEVICE_LABEL}"'`
+	]);
+	await ensurePulseModule("source", PIPEWIRE_SOURCE_NAME, [
+		"module-remap-source",
+		`source_name=${PIPEWIRE_SOURCE_NAME}`,
+		`master=${PIPEWIRE_MONITOR_NAME}`,
+		"channels=2",
+		"master_channel_map=front-left,front-right",
+		"channel_map=front-left,front-right",
+		"remix=no",
+		`source_properties='device.description="${PIPEWIRE_MEETING_AUDIO_DEVICE_LABEL}"'`
+	]);
+	const sinks = await params.run([
 		"pactl",
 		"list",
 		"short",
 		"sinks"
 	], params.timeoutMs);
-	if (!pulseListContains(sinks.stdout ?? "", PIPEWIRE_SINK_NAME)) {
-		const loaded = await params.run([
-			"pactl",
-			"load-module",
-			"module-null-sink",
-			`sink_name=${PIPEWIRE_SINK_NAME}`,
-			"rate=48000",
-			"channels=2",
-			"channel_map=front-left,front-right",
-			`sink_properties='device.description="${PIPEWIRE_MEETING_AUDIO_DEVICE_LABEL}"'`
-		], params.timeoutMs);
-		if (loaded.code !== 0) {
-			sinks = await params.run([
-				"pactl",
-				"list",
-				"short",
-				"sinks"
-			], params.timeoutMs);
-			if (!pulseListContains(sinks.stdout ?? "", PIPEWIRE_SINK_NAME)) assertCommandSucceeded(loaded, "Could not create the OpenClaw PipeWire-Pulse sink");
-		}
-	}
-	let sources = await params.run([
-		"pactl",
-		"list",
-		"short",
-		"sources"
-	], params.timeoutMs);
-	if (!pulseListContains(sources.stdout ?? "", PIPEWIRE_SOURCE_NAME)) {
-		const loaded = await params.run([
-			"pactl",
-			"load-module",
-			"module-remap-source",
-			`source_name=${PIPEWIRE_SOURCE_NAME}`,
-			`master=${PIPEWIRE_MONITOR_NAME}`,
-			"channels=2",
-			"master_channel_map=front-left,front-right",
-			"channel_map=front-left,front-right",
-			"remix=no",
-			`source_properties='device.description="${PIPEWIRE_MEETING_AUDIO_DEVICE_LABEL}"'`
-		], params.timeoutMs);
-		if (loaded.code !== 0) {
-			sources = await params.run([
-				"pactl",
-				"list",
-				"short",
-				"sources"
-			], params.timeoutMs);
-			if (!pulseListContains(sources.stdout ?? "", PIPEWIRE_SOURCE_NAME)) assertCommandSucceeded(loaded, "Could not create the OpenClaw PipeWire-Pulse source");
-		}
-	}
-	sinks = await params.run([
-		"pactl",
-		"list",
-		"short",
-		"sinks"
-	], params.timeoutMs);
-	sources = await params.run([
+	const sources = await params.run([
 		"pactl",
 		"list",
 		"short",
 		"sources"
 	], params.timeoutMs);
 	if (!pulseListContains(sinks.stdout ?? "", PIPEWIRE_SINK_NAME) || !pulseListContains(sources.stdout ?? "", PIPEWIRE_SOURCE_NAME)) throw new Error("OpenClaw PipeWire-Pulse sink or monitor source was not created.");
+}
+//#endregion
+//#region src/meeting-bot/meeting-modes.ts
+function isMeetingTalkBackMode(mode) {
+	return mode === "agent" || mode === "bidi";
+}
+function isMeetingRealtimeRouteReady(mode, health) {
+	return isMeetingTalkBackMode(mode) && health?.inCall === true && health.micMuted === false && health.audioInputRouted === true && health.audioOutputRouted === true && health.manualAction === void 0;
+}
+//#endregion
+//#region src/meeting-bot/browser-adapter-options.ts
+function createMeetingBrowserAdapterOptions(options) {
+	const { scripts, manualActionReasonPrefix: prefix } = options;
+	const transcriptDisplayName = options.transcriptDisplayName ?? options.displayName;
+	return {
+		browser: {
+			buildAudioCaptureScript: scripts.audioCapture,
+			allowsMicrophone: isMeetingTalkBackMode,
+			buildStatusJoinScript: (params) => scripts.status({
+				allowMicrophone: isMeetingTalkBackMode(params.mode),
+				allowSessionAdoption: params.allowSessionAdoption,
+				autoJoin: params.autoJoin,
+				captureCaptions: params.captureCaptions,
+				guestName: params.guestName,
+				meetingSessionId: params.meetingSessionId || void 0,
+				meetingUrl: params.url,
+				readOnly: params.readOnly,
+				waitForInCallMs: params.waitForInCallMs
+			}),
+			shouldRetryJoinStatus: (health) => health.inCall === true && (health.manualAction?.reason === `${prefix}-audio-choice-required` && health.audioInputRouted === true && health.audioOutputRouteRetryable === true || options.retryCaptions && health.manualAction === void 0 && health.captionCaptureRequested === true && health.captioning !== true),
+			browserControlUnavailable: () => ({
+				category: "browser-control-unavailable",
+				reason: "browser-control-unavailable",
+				message: options.unavailableMessage
+			}),
+			buildLeaveScript: (meetingUrl) => scripts.leave({
+				leaveInitiated: false,
+				meetingSessionId: "",
+				meetingUrl
+			}),
+			buildSessionLeaveScript: scripts.leave,
+			captions: {
+				enabled: () => true,
+				buildTranscriptScript: ({ finalize, meetingSessionId, meetingUrl }) => scripts.transcript(meetingUrl, meetingSessionId, finalize)
+			},
+			permissions: ({ allowMicrophone, meetingUrl }) => {
+				const origin = options.origin(meetingUrl);
+				return allowMicrophone && origin ? {
+					origin,
+					permissions: ["audioCapture"],
+					optionalPermissions: ["speakerSelection"]
+				} : void 0;
+			}
+		},
+		parsing: {
+			classifyManualActionReason: (reason) => {
+				if (reason === "browser-control-unavailable") return reason;
+				if (options.admissionReasons?.includes(reason)) return "admission-required";
+				return [
+					"login-required",
+					"admission-required",
+					"permission-required",
+					"audio-choice-required",
+					"session-conflict"
+				].find((category) => reason === `${prefix}-${category}`) ?? "custom";
+			},
+			displayName: options.displayName,
+			invalidTranscriptMessage: `${transcriptDisplayName} transcript payload is invalid.`,
+			malformedStatusMessage: `${transcriptDisplayName} browser status JSON is malformed.`,
+			malformedTranscriptMessage: `${transcriptDisplayName} transcript JSON is malformed.`,
+			...options.statusFields ? { statusFields: options.statusFields } : {}
+		}
+	};
+}
+//#endregion
+//#region src/meeting-bot/plugin-config.ts
+const DEFAULT_AUDIO_BUFFER_BYTES = 4096;
+const DEFAULT_AUDIO_FORMAT = "pcm16-24khz";
+const DEFAULT_MODE_HELP = "Agent consults OpenClaw, bidi uses direct realtime voice, and transcribe observes only.";
+const CHROME_NODE_HELP = "Node id/name/IP that owns Chrome and the native virtual-audio backend.";
+function resolveBoolean(value, fallback) {
+	return typeof value === "boolean" ? value : fallback;
+}
+function resolvePositiveNumber(value, fallback) {
+	return asPositiveFiniteNumber(value) ?? fallback;
+}
+function resolveMode(value) {
+	const normalized = normalizeOptionalLowercaseString(value);
+	return normalized === "agent" || normalized === "bidi" || normalized === "transcribe" ? normalized : "agent";
+}
+function resolveAudioFormat(value) {
+	const normalized = normalizeOptionalLowercaseString(value)?.replaceAll("_", "-");
+	return normalized === "g711-ulaw-8khz" ? normalized : DEFAULT_AUDIO_FORMAT;
+}
+function resolveAudioBackend(value) {
+	const normalized = normalizeOptionalLowercaseString(value)?.replaceAll("_", "-");
+	return normalized === "blackhole-2ch" || normalized === "pipewire-pulse" ? normalized : "auto";
+}
+function resolveProviders(value) {
+	const providers = {};
+	for (const [key, entry] of Object.entries(asRecord(value))) {
+		const id = normalizeOptionalLowercaseString(key);
+		if (id) providers[id] = asRecord(entry);
+	}
+	return providers;
+}
+function createMeetingPluginConfigSchema(options) {
+	const buildAudioCommands = (backend, format, bufferBytes) => {
+		const platform = backend === "blackhole-2ch" ? "darwin" : backend === "pipewire-pulse" ? "linux" : process.platform;
+		try {
+			return resolveMeetingAudioRuntimeForFormat({
+				backend,
+				bufferBytes,
+				format,
+				platform
+			});
+		} catch {
+			return resolveMeetingAudioRuntimeForFormat({
+				backend: "blackhole-2ch",
+				bufferBytes,
+				format,
+				platform: "darwin"
+			});
+		}
+	};
+	const defaultAudioRuntime = buildAudioCommands("auto", DEFAULT_AUDIO_FORMAT, DEFAULT_AUDIO_BUFFER_BYTES);
+	const defaults = {
+		enabled: true,
+		defaultMode: "agent",
+		chrome: {
+			audioBackend: "auto",
+			audioFormat: DEFAULT_AUDIO_FORMAT,
+			audioBufferBytes: DEFAULT_AUDIO_BUFFER_BYTES,
+			launch: true,
+			guestName: "OpenClaw Agent",
+			reuseExistingTab: true,
+			autoJoin: true,
+			joinTimeoutMs: 3e4,
+			waitForInCallMs: 6e4,
+			audioInputCommand: defaultAudioRuntime.inputCommand,
+			audioOutputCommand: defaultAudioRuntime.outputCommand,
+			bargeInRmsThreshold: 650,
+			bargeInPeakThreshold: 2500,
+			bargeInCooldownMs: 900
+		},
+		chromeNode: {},
+		realtime: {
+			strategy: "agent",
+			provider: "openai",
+			transcriptionProvider: "openai",
+			instructions: options.defaultRealtimeInstructions,
+			introMessage: "Say exactly: I'm here and listening.",
+			toolPolicy: "safe-read-only",
+			providers: {}
+		}
+	};
+	const resolveConfig = (input) => {
+		const raw = asRecord(input);
+		const chrome = asRecord(raw.chrome);
+		const chromeNode = asRecord(raw.chromeNode);
+		const realtime = asRecord(raw.realtime);
+		const audioFormat = resolveAudioFormat(chrome.audioFormat);
+		const audioBufferBytes = Math.max(17, Math.trunc(resolvePositiveNumber(chrome.audioBufferBytes, DEFAULT_AUDIO_BUFFER_BYTES)));
+		const audioBackend = resolveAudioBackend(chrome.audioBackend);
+		const generatedCommands = buildAudioCommands(audioBackend, audioFormat, audioBufferBytes);
+		const audioInputCommandOverride = normalizeOptionalTrimmedStringList(chrome.audioInputCommand);
+		const audioOutputCommandOverride = normalizeOptionalTrimmedStringList(chrome.audioOutputCommand);
+		const provider = normalizeOptionalString(realtime.provider) ?? defaults.realtime.provider;
+		return {
+			enabled: resolveBoolean(raw.enabled, defaults.enabled),
+			defaultMode: resolveMode(raw.defaultMode),
+			chrome: {
+				audioBackend,
+				audioFormat,
+				audioBufferBytes,
+				launch: resolveBoolean(chrome.launch, defaults.chrome.launch),
+				browserProfile: normalizeOptionalString(chrome.browserProfile),
+				guestName: normalizeOptionalString(chrome.guestName) ?? defaults.chrome.guestName,
+				reuseExistingTab: resolveBoolean(chrome.reuseExistingTab, defaults.chrome.reuseExistingTab),
+				autoJoin: resolveBoolean(chrome.autoJoin, defaults.chrome.autoJoin),
+				joinTimeoutMs: resolvePositiveTimerTimeoutMs(chrome.joinTimeoutMs, defaults.chrome.joinTimeoutMs),
+				waitForInCallMs: resolvePositiveTimerTimeoutMs(chrome.waitForInCallMs, defaults.chrome.waitForInCallMs),
+				audioInputCommand: audioInputCommandOverride ?? generatedCommands.inputCommand,
+				audioOutputCommand: audioOutputCommandOverride ?? generatedCommands.outputCommand,
+				audioInputCommandOverride,
+				audioOutputCommandOverride,
+				bargeInInputCommand: normalizeOptionalTrimmedStringList(chrome.bargeInInputCommand),
+				bargeInRmsThreshold: resolvePositiveNumber(chrome.bargeInRmsThreshold, defaults.chrome.bargeInRmsThreshold),
+				bargeInPeakThreshold: resolvePositiveNumber(chrome.bargeInPeakThreshold, defaults.chrome.bargeInPeakThreshold),
+				bargeInCooldownMs: resolvePositiveTimerTimeoutMs(chrome.bargeInCooldownMs, defaults.chrome.bargeInCooldownMs)
+			},
+			chromeNode: { node: normalizeOptionalString(chromeNode.node) },
+			realtime: {
+				strategy: normalizeOptionalLowercaseString(realtime.strategy) === "bidi" ? "bidi" : "agent",
+				provider,
+				transcriptionProvider: normalizeOptionalString(realtime.transcriptionProvider) ?? defaults.realtime.transcriptionProvider,
+				voiceProvider: normalizeOptionalString(realtime.voiceProvider),
+				model: normalizeOptionalString(realtime.model),
+				instructions: normalizeOptionalString(realtime.instructions) ?? defaults.realtime.instructions,
+				introMessage: typeof realtime.introMessage === "string" ? realtime.introMessage.trim() : defaults.realtime.introMessage,
+				agentId: normalizeOptionalString(realtime.agentId),
+				toolPolicy: resolveRealtimeVoiceAgentConsultToolPolicy(realtime.toolPolicy, defaults.realtime.toolPolicy),
+				providers: resolveProviders(realtime.providers)
+			}
+		};
+	};
+	return {
+		configSchema: {
+			parse: resolveConfig,
+			uiHints: {
+				defaultMode: {
+					label: "Default Mode",
+					help: DEFAULT_MODE_HELP
+				},
+				"chrome.audioBackend": {
+					label: "Chrome Audio Backend",
+					help: "Auto selects BlackHole 2ch on macOS or PipeWire-Pulse on Linux."
+				},
+				"chrome.browserProfile": {
+					label: "Chrome Profile",
+					advanced: true
+				},
+				"chrome.guestName": { label: "Guest Name" },
+				"chrome.waitForInCallMs": {
+					label: "Wait For In-Call (ms)",
+					advanced: true
+				},
+				"chrome.audioInputCommand": {
+					label: "Audio Input Command",
+					advanced: true
+				},
+				"chrome.audioOutputCommand": {
+					label: "Audio Output Command",
+					advanced: true
+				},
+				"chromeNode.node": {
+					label: "Chrome Node",
+					help: CHROME_NODE_HELP,
+					advanced: true
+				},
+				"realtime.transcriptionProvider": { label: "Realtime Transcription Provider" },
+				"realtime.voiceProvider": { label: "Bidi Voice Provider" },
+				"realtime.model": {
+					label: "Bidi Realtime Model",
+					advanced: true
+				},
+				"realtime.instructions": {
+					label: "Realtime Instructions",
+					advanced: true
+				},
+				"realtime.introMessage": { label: "Realtime Intro Message" },
+				"realtime.agentId": {
+					label: "Realtime Consult Agent",
+					advanced: true
+				},
+				"realtime.toolPolicy": {
+					label: "Realtime Tool Policy",
+					advanced: true
+				}
+			}
+		},
+		defaultAudioInputCommand: defaultAudioRuntime.inputCommand,
+		defaultAudioOutputCommand: defaultAudioRuntime.outputCommand,
+		resolveConfig,
+		resolveGatewayOperationTimeoutMs: (config) => options.resolveGatewayOperationTimeoutMs(config)
+	};
+}
+//#endregion
+//#region src/meeting-bot/agent-consult.ts
+function createMeetingRealtimeEngineBindings(params) {
+	const surface = {
+		id: params.platform.id,
+		provider: params.platform.id,
+		lane: params.platform.id,
+		...params.platform.agentConsult
+	};
+	return {
+		platform: {
+			displayName: params.platform.displayName,
+			logScope: params.platform.logScope,
+			sessionIdPrefix: params.platform.id
+		},
+		consultAgent: async (consult) => await consultMeetingAgent({
+			surface,
+			config: params.fullConfig,
+			runtime: params.runtime,
+			logger: params.logger,
+			agentId: params.config.realtime.agentId,
+			toolPolicy: params.config.realtime.toolPolicy,
+			...consult
+		}),
+		tools: resolveRealtimeVoiceAgentConsultTools(params.config.realtime.toolPolicy),
+		handleToolCall: async (call) => {
+			const abortSignal = readMeetingRealtimeToolAbortSignal(call.session);
+			await handleMeetingRealtimeConsultToolCall({
+				surface,
+				config: params.fullConfig,
+				runtime: params.runtime,
+				logger: params.logger,
+				agentId: params.config.realtime.agentId,
+				toolPolicy: params.config.realtime.toolPolicy,
+				abortSignal,
+				...call
+			});
+		}
+	};
+}
+async function submitMeetingConsultWorkingResponse(params) {
+	if (params.abortSignal?.aborted || !params.session.bridge.supportsToolResultContinuation) return;
+	await params.session.submitToolResult(params.callId, buildRealtimeVoiceAgentConsultWorkingResponse(params.label), { willContinue: true });
+}
+async function consultMeetingAgent(params) {
+	const agentId = params.agentId ? normalizeAgentId(params.agentId) : resolveDefaultAgentId(params.config);
+	const requesterSessionKey = normalizeOptionalString(params.requesterSessionKey) ?? `agent:${agentId}:main`;
+	const sessionKey = `agent:${agentId}:subagent:${params.surface.id}:${params.meetingSessionId}`;
+	return await consultRealtimeVoiceAgent({
+		cfg: params.config,
+		agentRuntime: params.runtime.agent,
+		logger: params.logger,
+		agentId,
+		sessionKey,
+		messageProvider: params.surface.provider,
+		lane: params.surface.lane,
+		runIdPrefix: `${params.surface.id}:${params.meetingSessionId}`,
+		spawnedBy: requesterSessionKey,
+		contextMode: "fork",
+		args: params.args,
+		transcript: params.transcript,
+		surface: params.surface.surface,
+		userLabel: params.surface.userLabel,
+		assistantLabel: params.surface.assistantLabel,
+		questionSourceLabel: params.surface.questionSourceLabel,
+		toolsAllow: resolveRealtimeVoiceAgentConsultToolsAllow(params.toolPolicy),
+		extraSystemPrompt: params.surface.extraSystemPrompt,
+		abortSignal: params.abortSignal
+	});
+}
+async function handleMeetingRealtimeConsultToolCall(params) {
+	const callId = params.event.callId || params.event.itemId;
+	if (params.abortSignal?.aborted) return;
+	const submitError = async (message) => {
+		await params.session.submitToolResult(callId, { error: message });
+		if (!params.abortSignal?.aborted) params.onTalkEvent({
+			type: "tool.error",
+			callId,
+			payload: {
+				name: params.event.name,
+				error: message
+			},
+			final: true
+		});
+	};
+	const unavailableToolError = params.strategy !== "bidi" ? `Tool "${params.event.name}" is only available in bidi realtime strategy` : params.event.name !== "openclaw_agent_consult" ? `Tool "${params.event.name}" not available` : void 0;
+	if (unavailableToolError) {
+		await submitError(unavailableToolError);
+		return;
+	}
+	await submitMeetingConsultWorkingResponse({
+		session: params.session,
+		abortSignal: params.abortSignal,
+		callId,
+		label: params.surface.workingResponseLabel
+	});
+	if (params.abortSignal?.aborted) return;
+	params.onTalkEvent({
+		type: "tool.progress",
+		callId,
+		payload: {
+			name: params.event.name,
+			status: "working"
+		}
+	});
+	let result;
+	try {
+		result = await consultMeetingAgent({
+			...params,
+			args: params.event.args
+		});
+	} catch (error) {
+		if (params.abortSignal?.aborted) return;
+		await submitError(formatErrorMessage(error));
+		return;
+	}
+	if (params.abortSignal?.aborted) return;
+	await params.session.submitToolResult(callId, result);
+	if (params.abortSignal?.aborted) return;
+	params.onTalkEvent({
+		type: "tool.result",
+		callId,
+		payload: {
+			name: params.event.name,
+			result
+		},
+		final: true
+	});
 }
 //#endregion
 //#region src/meeting-bot/chrome-node-result.ts
@@ -3694,6 +4332,44 @@ function createMeetingChromeTransportWithAudioPolicy(options, audioBridge) {
 	async function assertAudioDeviceAvailable(params) {
 		await prepareAudioRuntime(params);
 	}
+	async function startRealtimeEngine(params, transport, node) {
+		const bindings = options.runtime.createBindings({
+			platform: options.platform,
+			...params
+		});
+		const engineContext = {
+			meetingSessionId: params.meetingSessionId,
+			requesterSessionKey: params.requesterSessionKey,
+			...node ? { logPrefix: "node" } : {},
+			transport,
+			logger: params.logger
+		};
+		if (params.mode === "agent") return await options.runtime.startAgentRealtimeEngine({
+			config: params.config,
+			fullConfig: params.fullConfig,
+			runtime: params.runtime,
+			platform: bindings.platform,
+			...engineContext,
+			consultAgent: bindings.consultAgent
+		});
+		return await options.runtime.startRealtimeEngine({
+			config: {
+				...params.config,
+				realtime: {
+					...params.config.realtime,
+					strategy: "bidi"
+				}
+			},
+			fullConfig: params.fullConfig,
+			runtime: params.runtime,
+			...bindings,
+			...engineContext,
+			...node ? {
+				talkSessionId: `${options.platform.id}:${params.meetingSessionId}:${node.bridgeId}:node-realtime`,
+				talkContext: node
+			} : {}
+		});
+	}
 	async function startLocalAudioBridge(params) {
 		if (!options.isTalkBackMode(params.mode)) return;
 		if (audioBridge.external) {
@@ -3726,36 +4402,7 @@ function createMeetingChromeTransportWithAudioPolicy(options, audioBridge) {
 				targetId: params.tab?.targetId,
 				audioFormat: params.config.chrome.audioFormat
 			});
-			const bindings = options.runtime.createBindings({
-				platform: options.platform,
-				...params
-			});
-			const engine = params.mode === "agent" ? await options.runtime.startAgentRealtimeEngine({
-				config: params.config,
-				fullConfig: params.fullConfig,
-				runtime: params.runtime,
-				platform: bindings.platform,
-				meetingSessionId: params.meetingSessionId,
-				requesterSessionKey: params.requesterSessionKey,
-				transport,
-				logger: params.logger,
-				consultAgent: bindings.consultAgent
-			}) : await options.runtime.startRealtimeEngine({
-				config: {
-					...params.config,
-					realtime: {
-						...params.config.realtime,
-						strategy: "bidi"
-					}
-				},
-				fullConfig: params.fullConfig,
-				runtime: params.runtime,
-				...bindings,
-				meetingSessionId: params.meetingSessionId,
-				requesterSessionKey: params.requesterSessionKey,
-				transport,
-				logger: params.logger
-			});
+			const engine = await startRealtimeEngine(params, transport);
 			return audioBridge.local(engine, params.audio);
 		} catch (error) {
 			await transport.dispose().catch(() => {});
@@ -3774,14 +4421,9 @@ function createMeetingChromeTransportWithAudioPolicy(options, audioBridge) {
 		}
 		const callBrowser = await resolveLocalMeetingBrowserRequest(params.runtime);
 		const result = await openOrRecoverMeeting({
+			...params,
 			callBrowser,
-			config: params.config,
-			fullConfig: params.fullConfig,
-			locationLabel: "in local Chrome",
-			meetingSessionId: params.meetingSessionId,
-			mode: params.mode,
-			trackedTargetId: params.trackedTargetId,
-			url: params.url
+			locationLabel: "in local Chrome"
 		});
 		if (!options.isRealtimeRouteReady(params.mode, result.browser)) return {
 			...result,
@@ -3800,38 +4442,25 @@ function createMeetingChromeTransportWithAudioPolicy(options, audioBridge) {
 			};
 		} catch (error) {
 			if (!options.preserveTrackedBrowserOnEngineFailure || !params.trackedTargetId) await rollbackBrowserJoin({
+				...params,
 				callBrowser,
-				config: params.config,
-				logger: params.logger,
-				meetingSessionId: params.meetingSessionId,
-				tab: result.tab,
-				url: params.url
+				tab: result.tab
 			});
 			throw error;
 		}
 	}
-	async function resolveChromeNode(params) {
-		return await resolveMeetingBrowserNode({
-			...params,
-			adapter: options.browserNodeAdapter
-		});
-	}
-	async function callNodeBrowser(params) {
-		return await callMeetingBrowserProxyOnNode({
-			...params,
-			adapter: options.browserNodeAdapter
-		});
-	}
 	const parseNodeResult = (raw) => parseMeetingChromeNodeResult(raw, `${options.meetingLabel} node returned an invalid start result.`);
 	async function resolveBrowserRequest(runtime, nodeId) {
-		return nodeId ? async (request) => await callNodeBrowser({
+		return nodeId ? async (request) => await callMeetingBrowserProxyOnNode({
 			runtime,
 			nodeId,
+			adapter: options.browserNodeAdapter,
 			...request
 		}) : await resolveLocalMeetingBrowserRequest(runtime);
 	}
 	async function launchOnNode(params) {
-		const nodeId = await resolveChromeNode({
+		const nodeId = await resolveMeetingBrowserNode({
+			adapter: options.browserNodeAdapter,
 			runtime: params.runtime,
 			requestedNode: params.config.chromeNode.node
 		});
@@ -3864,14 +4493,9 @@ function createMeetingChromeTransportWithAudioPolicy(options, audioBridge) {
 		})) : void 0;
 		const callBrowser = await resolveBrowserRequest(params.runtime, nodeId);
 		const browser = await openOrRecoverMeeting({
+			...params,
 			callBrowser,
-			config: params.config,
-			fullConfig: params.fullConfig,
-			locationLabel: "on the selected Chrome node",
-			meetingSessionId: params.meetingSessionId,
-			mode: params.mode,
-			trackedTargetId: params.trackedTargetId,
-			url: params.url
+			locationLabel: "on the selected Chrome node"
 		});
 		if (!options.isRealtimeRouteReady(params.mode, browser.browser)) return {
 			nodeId,
@@ -3939,42 +4563,9 @@ function createMeetingChromeTransportWithAudioPolicy(options, audioBridge) {
 				audioFormat: params.config.chrome.audioFormat
 			});
 			audioTransport = transport;
-			const bindings = options.runtime.createBindings({
-				platform: options.platform,
-				...params
-			});
-			const engine = params.mode === "agent" ? await options.runtime.startAgentRealtimeEngine({
-				config: params.config,
-				fullConfig: params.fullConfig,
-				runtime: params.runtime,
-				platform: bindings.platform,
-				meetingSessionId: params.meetingSessionId,
-				requesterSessionKey: params.requesterSessionKey,
-				logPrefix: "node",
-				transport,
-				logger: params.logger,
-				consultAgent: bindings.consultAgent
-			}) : await options.runtime.startRealtimeEngine({
-				config: {
-					...params.config,
-					realtime: {
-						...params.config.realtime,
-						strategy: "bidi"
-					}
-				},
-				fullConfig: params.fullConfig,
-				runtime: params.runtime,
-				...bindings,
-				meetingSessionId: params.meetingSessionId,
-				requesterSessionKey: params.requesterSessionKey,
-				logPrefix: "node",
-				talkSessionId: `${options.platform.id}:${params.meetingSessionId}:${result.bridgeId}:node-realtime`,
-				talkContext: {
-					nodeId,
-					bridgeId: result.bridgeId
-				},
-				transport,
-				logger: params.logger
+			const engine = await startRealtimeEngine(params, transport, {
+				nodeId,
+				bridgeId: result.bridgeId
 			});
 			return {
 				nodeId,
@@ -4012,18 +4603,16 @@ function createMeetingChromeTransportWithAudioPolicy(options, audioBridge) {
 				timeoutMs: 5e3
 			}).catch(() => {});
 			if (!options.preserveTrackedBrowserOnEngineFailure || !params.trackedTargetId) await rollbackBrowserJoin({
+				...params,
 				callBrowser,
-				config: params.config,
-				logger: params.logger,
-				meetingSessionId: params.meetingSessionId,
-				tab: browser.tab,
-				url: params.url
+				tab: browser.tab
 			});
 			throw error;
 		}
 	}
 	async function recoverCurrentTab(params) {
-		const nodeId = params.transport === "chrome-node" ? params.nodeId ?? await resolveChromeNode({
+		const nodeId = params.transport === "chrome-node" ? params.nodeId ?? await resolveMeetingBrowserNode({
+			adapter: options.browserNodeAdapter,
 			runtime: params.runtime,
 			requestedNode: params.config.chromeNode.node
 		}) : void 0;
@@ -4047,10 +4636,9 @@ function createMeetingChromeTransportWithAudioPolicy(options, audioBridge) {
 		};
 	}
 	async function leaveInBrowser(params) {
-		const nodeId = params.nodeId;
 		return await leaveMeetingWithBrowser({
 			adapter: options.platform,
-			callBrowser: await resolveBrowserRequest(params.runtime, nodeId),
+			callBrowser: await resolveBrowserRequest(params.runtime, params.nodeId),
 			launch: params.config.chrome.launch || !params.tab.openedByPlugin,
 			meetingSessionId: params.meetingSessionId,
 			meetingUrl: params.meetingUrl,
@@ -4059,10 +4647,9 @@ function createMeetingChromeTransportWithAudioPolicy(options, audioBridge) {
 		});
 	}
 	async function readTranscript(params) {
-		const nodeId = params.nodeId;
 		return await readMeetingTranscriptWithBrowser({
 			adapter: options.platform,
-			callBrowser: await resolveBrowserRequest(params.runtime, nodeId),
+			callBrowser: await resolveBrowserRequest(params.runtime, params.nodeId),
 			finalize: params.finalize === true,
 			meetingUrl: params.meetingUrl,
 			meetingSessionId: params.meetingSessionId,
@@ -4149,20 +4736,12 @@ var MeetingNodeAudioPullWaiters = class {
 		return this.#waiters.size;
 	}
 	async wait(timeoutMs) {
-		let wake;
-		const ready = new Promise((resolve) => {
-			wake = resolve;
-			this.#waiters.add(wake);
-		});
-		let timer;
-		const timeout = new Promise((resolve) => {
-			timer = setTimeout(resolve, timeoutMs);
-		});
+		const { promise: ready, resolve: wake } = createDeferredCore();
+		this.#waiters.add(wake);
 		try {
-			await Promise.race([timeout, ready]);
+			await raceWithTimeout(ready, timeoutMs, () => {});
 		} finally {
 			this.#waiters.delete(wake);
-			if (timer !== void 0) clearTimeout(timer);
 		}
 	}
 	wake() {
@@ -4178,10 +4757,7 @@ const NODE_BRIDGE_INPUT_DRAIN_MS = 3e3;
 const NODE_BRIDGE_TERMINAL_RETENTION_MS = 5e3;
 const NODE_BRIDGE_MAX_QUEUED_INPUT_CHUNKS = 200;
 const NODE_BRIDGE_MAX_QUEUED_INPUT_BYTES = 1048576;
-function readPositiveNumberOr(value, fallback) {
-	return asPositiveFiniteNumber(value) ?? fallback;
-}
-function readOutputGeneration$1(value) {
+function readOutputGeneration(value) {
 	if (value === void 0) return;
 	if (typeof value === "number" && Number.isSafeInteger(value) && value >= 0) return value;
 	throw new Error("outputGeneration must be a non-negative integer");
@@ -4227,11 +4803,8 @@ function createMeetingNodeHost(options) {
 		child.once("close", () => activeProcesses.delete(child));
 		return child;
 	};
-	const wake = (session) => {
-		session.waiters.wake();
-	};
 	const releaseOutputWriteWaiters = (session, output) => {
-		for (const waiter of session.outputWriteWaiters) if (!output || waiter.output === output) waiter.release();
+		for (const waiter of session.outputWriteWaiters) if (!output || waiter.process === output) waiter.release();
 	};
 	const retireOutputProcess = (session, outputProcess) => {
 		const stopPromise = terminateMeetingBridgeProcess(outputProcess, { graceMs: NODE_BRIDGE_TERMINATION_GRACE_MS });
@@ -4267,14 +4840,14 @@ function createMeetingNodeHost(options) {
 			session.chunks.length = 0;
 			session.queuedInputBytes = 0;
 			if (!session.closed) session.closed = true;
-			wake(session);
+			session.waiters.wake();
 		}
 		releaseOutputWriteWaiters(session);
 		if (session.stopPromise) return session.stopPromise;
 		const terminalReady = session.discardQueuedAudioOnStop ? Promise.resolve() : waitForInputDrain(session.input?.stdout, NODE_BRIDGE_INPUT_DRAIN_MS).then(() => {
 			if (session.discardQueuedAudioOnStop || session.closed) return;
 			session.closed = true;
-			wake(session);
+			session.waiters.wake();
 		});
 		session.stopPromise = Promise.all([
 			terminateMeetingBridgeProcess(session.input, { graceMs: NODE_BRIDGE_TERMINATION_GRACE_MS }),
@@ -4335,6 +4908,7 @@ function createMeetingNodeHost(options) {
 				"pipe"
 			] }));
 		} catch (error) {
+			outputProcess.on("error", () => {});
 			terminateMeetingBridgeProcess(outputProcess, { graceMs: NODE_BRIDGE_TERMINATION_GRACE_MS });
 			throw error;
 		}
@@ -4352,7 +4926,7 @@ function createMeetingNodeHost(options) {
 				const evicted = session.chunks.shift();
 				if (evicted) session.queuedInputBytes -= evicted.byteLength;
 			}
-			if (!session.stopPromise) wake(session);
+			if (!session.stopPromise) session.waiters.wake();
 		});
 		const stop = () => {
 			stopSession(session);
@@ -4370,7 +4944,7 @@ function createMeetingNodeHost(options) {
 		if (!bridgeId) throw new Error("bridgeId required");
 		const session = sessions.get(bridgeId);
 		if (!session) throw new Error(`unknown bridgeId: ${bridgeId}`);
-		const timeoutMs = Math.min(readPositiveNumberOr(params.timeoutMs, 250), 2e3);
+		const timeoutMs = Math.min(asPositiveFiniteNumber(params.timeoutMs) ?? 250, 2e3);
 		if (session.chunks.length === 0 && !session.closed) await session.waiters.wait(timeoutMs);
 		const chunk = session.chunks.shift();
 		if (chunk) session.queuedInputBytes -= chunk.byteLength;
@@ -4388,46 +4962,19 @@ function createMeetingNodeHost(options) {
 		ok: true,
 		stale: true
 	});
-	const writeOutputChunk = (session, output, audio) => new Promise((resolve, reject) => {
-		const stdin = output.stdin;
-		if (!stdin) {
-			reject(/* @__PURE__ */ new Error("audio output stream is closed"));
-			return;
-		}
-		let settled = false;
-		const finish = (error) => {
-			if (settled) return;
-			settled = true;
-			session.outputWriteWaiters.delete(waiter);
-			if (error) reject(error);
-			else resolve();
-		};
-		const waiter = {
-			output,
-			release: () => finish()
-		};
-		session.outputWriteWaiters.add(waiter);
-		try {
-			stdin.write(audio, (error) => finish(error ?? void 0));
-		} catch (error) {
-			finish(error instanceof Error ? error : new Error(formatErrorMessage(error)));
-			return;
-		}
-		if (stdin.destroyed || stdin.writableEnded) finish(/* @__PURE__ */ new Error("audio output stream is closed"));
-	});
 	const pushAudio = async (params) => {
 		const bridgeId = readNonEmptyStringPreservingWhitespace(params.bridgeId);
 		const base64 = readNonEmptyStringPreservingWhitespace(params.base64);
 		if (!bridgeId || !base64) throw new Error("bridgeId and base64 required");
 		const session = sessions.get(bridgeId);
 		if (!session || session.stopping || session.closed) throw new Error(`bridge is not open: ${bridgeId}`);
-		const requestedGeneration = readOutputGeneration$1(params.outputGeneration);
+		const requestedGeneration = readOutputGeneration(params.outputGeneration);
 		if (requestedGeneration !== void 0 && requestedGeneration !== session.outputGeneration) return staleOutputResult(session);
 		const output = session.output;
 		if (!output?.stdin) throw new Error(`bridge is not open: ${bridgeId}`);
 		const audio = decodeMeetingAudioBase64(base64, "pushAudio");
 		try {
-			await writeOutputChunk(session, output, audio);
+			await writeMeetingOutputChunk(session.outputWriteWaiters, output, output.stdin, audio);
 		} catch {
 			if (session.output !== output || requestedGeneration !== void 0 && requestedGeneration !== session.outputGeneration) return staleOutputResult(session);
 			stopSession(session);
@@ -4446,7 +4993,7 @@ function createMeetingNodeHost(options) {
 		if (!bridgeId) throw new Error("bridgeId required");
 		const session = sessions.get(bridgeId);
 		if (!session || session.stopping || session.closed) throw new Error(`bridge is not open: ${bridgeId}`);
-		const requestedGeneration = readOutputGeneration$1(params.outputGeneration);
+		const requestedGeneration = readOutputGeneration(params.outputGeneration);
 		if (requestedGeneration !== void 0 && requestedGeneration <= session.outputGeneration) return staleOutputResult(session);
 		if (requestedGeneration === void 0 && session.outputGeneration >= Number.MAX_SAFE_INTEGER) throw new Error("outputGeneration exhausted");
 		const nextGeneration = requestedGeneration ?? session.outputGeneration + 1;
@@ -4467,7 +5014,7 @@ function createMeetingNodeHost(options) {
 	};
 	const startBrowser = async (params) => {
 		const url = options.normalizeUrl(params.url);
-		const timeoutMs = readPositiveNumberOr(params.joinTimeoutMs, 3e4);
+		const timeoutMs = asPositiveFiniteNumber(params.joinTimeoutMs) ?? 3e4;
 		const mode = readNonEmptyStringPreservingWhitespace(params.mode);
 		let audioRuntime;
 		let bridgeId;
@@ -4676,7 +5223,7 @@ function createMeetingConfiguredNodeHost(options) {
 		});
 		if (isSpawnSyncTimeout(result.error)) throw new Error(`${options.meetingLabel} audio prerequisite check timed out on the node.`);
 		const stderr = [
-			result.error ? result.error instanceof Error ? result.error.message : String(result.error) : "",
+			result.error ? coerceErrorMessage(result.error) : "",
 			result.stderr,
 			result.signal ? `terminated by ${result.signal}` : ""
 		].filter(Boolean).join(": ");
@@ -4747,300 +5294,159 @@ function createMeetingConfiguredNodeHost(options) {
 	return Object.assign(host.handleCommand, { hasActiveWork: host.hasActiveWork });
 }
 //#endregion
-//#region src/meeting-bot/meeting-modes.ts
-function isMeetingTalkBackMode(mode) {
-	return mode === "agent" || mode === "bidi";
+//#region src/meeting-bot/node-invoke-policy.ts
+function copyCommand(command) {
+	return command && command.length > 0 ? [...command] : void 0;
 }
-function isMeetingRealtimeRouteReady(mode, health) {
-	return isMeetingTalkBackMode(mode) && health?.inCall === true && health.micMuted === false && health.audioInputRouted === true && health.audioOutputRouted === true && health.manualAction === void 0;
-}
-//#endregion
-//#region src/meeting-bot/plugin-cli.ts
-function parseTimeout(value) {
-	if (value === void 0) return;
-	const parsed = parseStrictNonNegativeInteger(value);
-	if (parsed === void 0 || parsed === 0) throw new Error("timeout-ms must be a positive integer");
-	return parsed;
-}
-function parseMeetingCliMode(value) {
-	if (value === void 0 || value === "agent" || value === "bidi" || value === "transcribe") return value;
-	throw new Error(`mode must be agent, bidi, or transcribe; received ${value}`);
-}
-function parseMeetingCliTransport(value) {
-	if (value === void 0 || value === "chrome" || value === "chrome-node") return value;
-	throw new Error(`transport must be chrome or chrome-node; received ${value}`);
-}
-function markMeetingSetupFailure(result) {
-	if (result && typeof result === "object" && "ok" in result && result.ok === false) process.exitCode = 1;
-}
-function joinPayload(url, options) {
-	return {
-		url,
-		...options.transport ? { transport: parseMeetingCliTransport(options.transport) } : {},
-		...options.mode ? { mode: parseMeetingCliMode(options.mode) } : {},
-		...options.message ? { message: options.message } : {},
-		...options.timeoutMs ? { timeoutMs: parseTimeout(options.timeoutMs) } : {}
-	};
-}
-function addJoinOptions(command) {
-	return command.option("--transport <transport>", "chrome or chrome-node").option("--mode <mode>", "agent, bidi, or transcribe").option("--message <text>", "instructions to speak after joining");
-}
-function registerMeetingPluginCli(options) {
-	const call = async (method, payload) => {
-		const requestedTimeoutMs = typeof payload?.timeoutMs === "number" ? payload.timeoutMs : void 0;
-		const timeoutMs = options.resolveGatewayTimeoutMs({
-			config: options.config,
-			method,
-			requestedTimeoutMs
-		});
-		const result = await options.callGateway(method, {
-			json: true,
-			timeout: String(timeoutMs)
-		}, payload, {
-			progress: false,
-			scopes: ["operator.admin"]
-		});
-		process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
-		return result;
-	};
-	const method = (action) => `${options.methodPrefix}.${action}`;
-	const root = options.program.command(options.commandName).description(options.descriptions.root);
-	const command = (usage, description) => root.command(usage).description(description);
-	addJoinOptions(command("join <url>", options.descriptions.join)).action(async (url, joinOptions) => {
-		await call(method("join"), joinPayload(url, joinOptions));
-	});
-	command("leave <session-id>", options.descriptions.leave).action(async (sessionId) => {
-		await call(method("leave"), { sessionId });
-	});
-	command("status [session-id]", options.descriptions.status).action(async (sessionId) => {
-		await call(method("status"), sessionId ? { sessionId } : {});
-	});
-	command("transcript <session-id>", "read the current transcript snapshot").option("--since-index <index>", "resume from a prior transcript index").action(async (sessionId, transcriptOptions) => {
-		const sinceIndex = transcriptOptions.sinceIndex === void 0 ? void 0 : parseStrictNonNegativeInteger(transcriptOptions.sinceIndex);
-		if (transcriptOptions.sinceIndex !== void 0 && sinceIndex === void 0) throw new Error("since-index must be a non-negative integer");
-		await call(method("transcript"), {
-			sessionId,
-			...sinceIndex === void 0 ? {} : { sinceIndex }
-		});
-	});
-	command("speak <session-id> [message]", "speak through an active talk-back session").action(async (sessionId, message) => {
-		await call(method("speak"), {
-			sessionId,
-			...message ? { message } : {}
-		});
-	});
-	command("setup", options.descriptions.setup).option("--transport <transport>", "chrome or chrome-node").option("--mode <mode>", "agent, bidi, or transcribe").action(async (setupOptions) => {
-		markMeetingSetupFailure(await call(method("setup"), {
-			transport: parseMeetingCliTransport(setupOptions.transport),
-			mode: parseMeetingCliMode(setupOptions.mode)
-		}));
-	});
-	for (const [name, action, description] of [[
-		"test-speech",
-		"testSpeech",
-		options.descriptions.testSpeech
-	], [
-		"test-listen",
-		"testListen",
-		options.descriptions.testListen
-	]]) addJoinOptions(command(`${name} <url>`, description)).option("--timeout-ms <ms>", "probe timeout in milliseconds").action(async (url, joinOptions) => {
-		await call(method(action), joinPayload(url, joinOptions));
-	});
-}
-//#endregion
-//#region src/meeting-bot/plugin-config.ts
-const DEFAULT_AUDIO_BUFFER_BYTES = 4096;
-const DEFAULT_AUDIO_FORMAT = "pcm16-24khz";
-const DEFAULT_MODE_HELP = "Agent consults OpenClaw, bidi uses direct realtime voice, and transcribe observes only.";
-const CHROME_NODE_HELP = "Node id/name/IP that owns Chrome and the native virtual-audio backend.";
-function resolveBoolean(value, fallback) {
-	return typeof value === "boolean" ? value : fallback;
-}
-function resolvePositiveNumber(value, fallback) {
-	return asPositiveFiniteNumber(value) ?? fallback;
-}
-function resolveTimer(value, fallback) {
-	return resolvePositiveTimerTimeoutMs(resolvePositiveNumber(value, fallback), fallback);
-}
-function resolveMode(value) {
-	const normalized = normalizeOptionalLowercaseString(value);
-	return normalized === "agent" || normalized === "bidi" || normalized === "transcribe" ? normalized : "agent";
-}
-function resolveAudioFormat(value) {
-	const normalized = normalizeOptionalLowercaseString(value)?.replaceAll("_", "-");
-	return normalized === "g711-ulaw-8khz" ? normalized : DEFAULT_AUDIO_FORMAT;
-}
-function resolveAudioBackend(value) {
-	const normalized = normalizeOptionalLowercaseString(value)?.replaceAll("_", "-");
-	return normalized === "blackhole-2ch" || normalized === "pipewire-pulse" ? normalized : "auto";
-}
-function resolveProviders(value) {
-	const providers = {};
-	for (const [key, entry] of Object.entries(asRecord(value))) {
-		const id = normalizeOptionalLowercaseString(key);
-		if (id) providers[id] = asRecord(entry);
+function copyConfiguredAudio(target, start) {
+	if (start.audioBackend === "auto" || start.audioBackend === "blackhole-2ch" || start.audioBackend === "pipewire-pulse") target.audioBackend = start.audioBackend;
+	if (typeof start.audioBufferBytes === "number" && start.audioBufferBytes > 0) target.audioBufferBytes = start.audioBufferBytes;
+	if (start.audioFormat === "pcm16-24khz" || start.audioFormat === "g711-ulaw-8khz") target.audioFormat = start.audioFormat;
+	const hasCommandOverrideFields = "audioInputCommandOverride" in start || "audioOutputCommandOverride" in start;
+	for (const key of ["audioInputCommand", "audioOutputCommand"]) {
+		const command = copyCommand(start[`${key}Override`] ?? (hasCommandOverrideFields ? void 0 : start[key]));
+		if (command) target[key] = command;
 	}
-	return providers;
+	for (const key of [
+		"bargeInInputCommand",
+		"audioBridgeCommand",
+		"audioBridgeHealthCommand"
+	]) {
+		const command = copyCommand(start[key]);
+		if (command) target[key] = command;
+	}
 }
-function createMeetingPluginConfigSchema(options) {
-	const buildAudioCommands = (backend, format, bufferBytes) => {
-		const platform = backend === "blackhole-2ch" ? "darwin" : backend === "pipewire-pulse" ? "linux" : process.platform;
-		try {
-			return resolveMeetingAudioRuntimeForFormat({
-				backend,
-				bufferBytes,
-				format,
-				platform
-			});
-		} catch {
-			return resolveMeetingAudioRuntimeForFormat({
-				backend: "blackhole-2ch",
-				bufferBytes,
-				format,
-				platform: "darwin"
-			});
-		}
-	};
-	const defaultAudioRuntime = buildAudioCommands("auto", DEFAULT_AUDIO_FORMAT, DEFAULT_AUDIO_BUFFER_BYTES);
-	const defaults = {
-		enabled: true,
-		defaultMode: "agent",
-		chrome: {
-			audioBackend: "auto",
-			audioFormat: DEFAULT_AUDIO_FORMAT,
-			audioBufferBytes: DEFAULT_AUDIO_BUFFER_BYTES,
-			launch: true,
-			guestName: "OpenClaw Agent",
-			reuseExistingTab: true,
-			autoJoin: true,
-			joinTimeoutMs: 3e4,
-			waitForInCallMs: 6e4,
-			audioInputCommand: defaultAudioRuntime.inputCommand,
-			audioOutputCommand: defaultAudioRuntime.outputCommand,
-			bargeInRmsThreshold: 650,
-			bargeInPeakThreshold: 2500,
-			bargeInCooldownMs: 900
-		},
-		chromeNode: {},
-		realtime: {
-			strategy: "agent",
-			provider: "openai",
-			transcriptionProvider: "openai",
-			instructions: options.defaultRealtimeInstructions,
-			introMessage: "Say exactly: I'm here and listening.",
-			toolPolicy: "safe-read-only",
-			providers: {}
-		}
-	};
-	const resolveConfig = (input) => {
-		const raw = asRecord(input);
-		const chrome = asRecord(raw.chrome);
-		const chromeNode = asRecord(raw.chromeNode);
-		const realtime = asRecord(raw.realtime);
-		const audioFormat = resolveAudioFormat(chrome.audioFormat);
-		const audioBufferBytes = Math.max(17, Math.trunc(resolvePositiveNumber(chrome.audioBufferBytes, DEFAULT_AUDIO_BUFFER_BYTES)));
-		const audioBackend = resolveAudioBackend(chrome.audioBackend);
-		const generatedCommands = buildAudioCommands(audioBackend, audioFormat, audioBufferBytes);
-		const audioInputCommandOverride = normalizeOptionalTrimmedStringList(chrome.audioInputCommand);
-		const audioOutputCommandOverride = normalizeOptionalTrimmedStringList(chrome.audioOutputCommand);
-		const provider = normalizeOptionalString(realtime.provider) ?? defaults.realtime.provider;
-		return {
-			enabled: resolveBoolean(raw.enabled, defaults.enabled),
-			defaultMode: resolveMode(raw.defaultMode),
-			chrome: {
-				audioBackend,
-				audioFormat,
-				audioBufferBytes,
-				launch: resolveBoolean(chrome.launch, defaults.chrome.launch),
-				browserProfile: normalizeOptionalString(chrome.browserProfile),
-				guestName: normalizeOptionalString(chrome.guestName) ?? defaults.chrome.guestName,
-				reuseExistingTab: resolveBoolean(chrome.reuseExistingTab, defaults.chrome.reuseExistingTab),
-				autoJoin: resolveBoolean(chrome.autoJoin, defaults.chrome.autoJoin),
-				joinTimeoutMs: resolveTimer(chrome.joinTimeoutMs, defaults.chrome.joinTimeoutMs),
-				waitForInCallMs: resolveTimer(chrome.waitForInCallMs, defaults.chrome.waitForInCallMs),
-				audioInputCommand: audioInputCommandOverride ?? generatedCommands.inputCommand,
-				audioOutputCommand: audioOutputCommandOverride ?? generatedCommands.outputCommand,
-				audioInputCommandOverride,
-				audioOutputCommandOverride,
-				bargeInInputCommand: normalizeOptionalTrimmedStringList(chrome.bargeInInputCommand),
-				bargeInRmsThreshold: resolvePositiveNumber(chrome.bargeInRmsThreshold, defaults.chrome.bargeInRmsThreshold),
-				bargeInPeakThreshold: resolvePositiveNumber(chrome.bargeInPeakThreshold, defaults.chrome.bargeInPeakThreshold),
-				bargeInCooldownMs: resolveTimer(chrome.bargeInCooldownMs, defaults.chrome.bargeInCooldownMs)
-			},
-			chromeNode: { node: normalizeOptionalString(chromeNode.node) },
-			realtime: {
-				strategy: normalizeOptionalLowercaseString(realtime.strategy) === "bidi" ? "bidi" : "agent",
-				provider,
-				transcriptionProvider: normalizeOptionalString(realtime.transcriptionProvider) ?? defaults.realtime.transcriptionProvider,
-				voiceProvider: normalizeOptionalString(realtime.voiceProvider),
-				model: normalizeOptionalString(realtime.model),
-				instructions: normalizeOptionalString(realtime.instructions) ?? defaults.realtime.instructions,
-				introMessage: typeof realtime.introMessage === "string" ? realtime.introMessage.trim() : defaults.realtime.introMessage,
-				agentId: normalizeOptionalString(realtime.agentId),
-				toolPolicy: resolveRealtimeVoiceAgentConsultToolPolicy(realtime.toolPolicy, defaults.realtime.toolPolicy),
-				providers: resolveProviders(realtime.providers)
-			}
-		};
-	};
+function denied(options, message) {
 	return {
-		configSchema: {
-			parse: resolveConfig,
-			uiHints: {
-				defaultMode: {
-					label: "Default Mode",
-					help: DEFAULT_MODE_HELP
-				},
-				"chrome.audioBackend": {
-					label: "Chrome Audio Backend",
-					help: "Auto selects BlackHole 2ch on macOS or PipeWire-Pulse on Linux."
-				},
-				"chrome.browserProfile": {
-					label: "Chrome Profile",
-					advanced: true
-				},
-				"chrome.guestName": { label: "Guest Name" },
-				"chrome.waitForInCallMs": {
-					label: "Wait For In-Call (ms)",
-					advanced: true
-				},
-				"chrome.audioInputCommand": {
-					label: "Audio Input Command",
-					advanced: true
-				},
-				"chrome.audioOutputCommand": {
-					label: "Audio Output Command",
-					advanced: true
-				},
-				"chromeNode.node": {
-					label: "Chrome Node",
-					help: CHROME_NODE_HELP,
-					advanced: true
-				},
-				"realtime.transcriptionProvider": { label: "Realtime Transcription Provider" },
-				"realtime.voiceProvider": { label: "Bidi Voice Provider" },
-				"realtime.model": {
-					label: "Bidi Realtime Model",
-					advanced: true
-				},
-				"realtime.instructions": {
-					label: "Realtime Instructions",
-					advanced: true
-				},
-				"realtime.introMessage": { label: "Realtime Intro Message" },
-				"realtime.agentId": {
-					label: "Realtime Consult Agent",
-					advanced: true
-				},
-				"realtime.toolPolicy": {
-					label: "Realtime Tool Policy",
-					advanced: true
-				}
+		ok: false,
+		code: options.deniedCode,
+		message
+	};
+}
+function approved(params) {
+	return {
+		approved: true,
+		params
+	};
+}
+function buildStartParams(params, options) {
+	let url;
+	try {
+		url = options.normalizeUrl(params.url);
+	} catch (error) {
+		return {
+			approved: false,
+			result: denied(options, error instanceof Error ? error.message : `${options.commandName} start requires url`)
+		};
+	}
+	const mode = readNonEmptyStringPreservingWhitespace(params.mode);
+	if (mode && !options.supportedModes.has(mode)) return {
+		approved: false,
+		result: denied(options, `${options.commandName} start mode is unsupported: ${mode}`)
+	};
+	const startParams = {
+		action: "start",
+		url,
+		launch: params.launch === false ? false : options.start.launch,
+		browserProfile: options.start.browserProfile,
+		joinTimeoutMs: options.start.joinTimeoutMs
+	};
+	if (mode) startParams.mode = mode;
+	copyConfiguredAudio(startParams, options.start);
+	return approved(startParams);
+}
+function denyMissing(options, action, field) {
+	return {
+		approved: false,
+		result: denied(options, `${options.commandName} ${action} requires ${field}`)
+	};
+}
+function buildForwardParams(params, options) {
+	const action = readNonEmptyStringPreservingWhitespace(params.action);
+	switch (action) {
+		case "setup": return approved({ action });
+		case "stop":
+		case "status": {
+			const bridgeId = readNonEmptyStringPreservingWhitespace(params.bridgeId);
+			return approved(bridgeId ? {
+				action,
+				bridgeId
+			} : { action });
+		}
+		case "list":
+		case "stopByUrl": {
+			const forwarded = { action };
+			const url = readNonEmptyStringPreservingWhitespace(params.url);
+			const mode = readNonEmptyStringPreservingWhitespace(params.mode);
+			const exceptBridgeId = action === "stopByUrl" ? readNonEmptyStringPreservingWhitespace(params.exceptBridgeId) : void 0;
+			if (action === "stopByUrl" && !url) return denyMissing(options, action, "url");
+			if (url) try {
+				forwarded.url = options.normalizeUrl(url);
+			} catch (error) {
+				return {
+					approved: false,
+					result: denied(options, error instanceof Error ? error.message : `${options.commandName} ${action} url`)
+				};
 			}
-		},
-		defaultAudioInputCommand: defaultAudioRuntime.inputCommand,
-		defaultAudioOutputCommand: defaultAudioRuntime.outputCommand,
-		resolveConfig,
-		resolveGatewayOperationTimeoutMs: (config) => options.resolveGatewayOperationTimeoutMs(config)
+			if (mode) forwarded.mode = mode;
+			if (exceptBridgeId) forwarded.exceptBridgeId = exceptBridgeId;
+			return approved(forwarded);
+		}
+		case "pullAudio": {
+			const forwarded = { action };
+			const bridgeId = readNonEmptyStringPreservingWhitespace(params.bridgeId);
+			const timeoutMs = asPositiveFiniteNumber(params.timeoutMs);
+			if (!bridgeId) return denyMissing(options, action, "bridgeId");
+			forwarded.bridgeId = bridgeId;
+			if (timeoutMs) forwarded.timeoutMs = timeoutMs;
+			return approved(forwarded);
+		}
+		case "pushAudio":
+		case "clearAudio": {
+			const forwarded = { action };
+			const bridgeId = readNonEmptyStringPreservingWhitespace(params.bridgeId);
+			const base64 = action === "pushAudio" ? readNonEmptyStringPreservingWhitespace(params.base64) : void 0;
+			if (!bridgeId) return denyMissing(options, action, "bridgeId");
+			if (action === "pushAudio") {
+				if (!base64) return denyMissing(options, action, "base64");
+				if (!isMeetingAudioBase64(base64)) return {
+					approved: false,
+					result: denied(options, "base64 must be a valid audio payload")
+				};
+			}
+			forwarded.bridgeId = bridgeId;
+			if (base64) forwarded.base64 = base64;
+			const outputGeneration = asSafeIntegerInRange(params.outputGeneration, { min: 0 });
+			if (params.outputGeneration !== void 0 && outputGeneration === void 0) return {
+				approved: false,
+				result: denied(options, "outputGeneration must be a non-negative safe integer")
+			};
+			if (outputGeneration !== void 0) forwarded.outputGeneration = outputGeneration;
+			return approved(forwarded);
+		}
+		default: return null;
+	}
+}
+function createMeetingBrowserNodeInvokePolicy(options) {
+	return {
+		commands: [options.commandName],
+		dangerous: true,
+		async handle(ctx) {
+			if (ctx.command !== options.commandName) return denied(options, `unsupported ${options.displayName} node command: ${ctx.command}`);
+			const params = asOptionalRecord(ctx.params) ?? {};
+			const action = readNonEmptyStringPreservingWhitespace(params.action);
+			if (action === "setup" && options.useConfiguredSetupCommands) {
+				const setupParams = { action };
+				copyConfiguredAudio(setupParams, options.start);
+				return await ctx.invokeNode({ params: setupParams });
+			}
+			const decision = action === "start" ? buildStartParams(params, options) : buildForwardParams(params, options) ?? {
+				approved: false,
+				result: denied(options, `unsupported ${options.commandName} action`)
+			};
+			if (!decision.approved) return decision.result;
+			return await ctx.invokeNode({ params: decision.params });
+		}
 	};
 }
 //#endregion
@@ -5164,83 +5570,60 @@ function createMeetingPluginEntryOptions(options) {
 					}
 				}));
 			}
-			const sendError = (respond, error, code = ErrorCodes.UNAVAILABLE) => {
-				const payload = { error: formatErrorMessage(error) };
-				respond(false, payload, errorShape(code, payload.error, { details: payload }));
+			const registerGatewayMethod = (method, run) => {
+				api.registerGatewayMethod(`${options.gatewayMethodPrefix}.${method}`, async (request) => {
+					const { respond } = request;
+					try {
+						respond(true, await run(request));
+					} catch (error) {
+						const code = options.isInvalidRequest(error) ? ErrorCodes.INVALID_REQUEST : ErrorCodes.UNAVAILABLE;
+						const payload = { error: formatErrorMessage(error) };
+						respond(false, payload, errorShape(code, payload.error, { details: payload }));
+					}
+				});
 			};
-			const sendRequestError = (respond, error) => sendError(respond, error, options.isInvalidRequest(error) ? ErrorCodes.INVALID_REQUEST : ErrorCodes.UNAVAILABLE);
-			api.registerGatewayMethod(`${options.gatewayMethodPrefix}.join`, async ({ params, client, respond }) => {
-				try {
-					const raw = keepTrustedToolContext(asOptionalRecord(params) ?? {}, client);
-					respond(true, await (await ensureRuntime()).join(joinRequest(raw)));
-				} catch (error) {
-					sendRequestError(respond, error);
-				}
+			registerGatewayMethod("join", async ({ params, client }) => {
+				const raw = keepTrustedToolContext(asOptionalRecord(params) ?? {}, client);
+				return await (await ensureRuntime()).join(joinRequest(raw));
 			});
-			api.registerGatewayMethod(`${options.gatewayMethodPrefix}.leave`, async ({ params, client, respond }) => {
-				try {
-					const raw = asOptionalRecord(params) ?? {};
-					const agentId = trustedToolAgentId(raw, client);
-					const sessionId = requireString(raw.sessionId, "sessionId");
-					const rt = await ensureRuntime();
-					respond(true, agentId && !rt.ownsSession(agentId, sessionId) ? { found: false } : await rt.leave(sessionId));
-				} catch (error) {
-					sendRequestError(respond, error);
-				}
+			registerGatewayMethod("leave", async ({ params, client }) => {
+				const raw = asOptionalRecord(params) ?? {};
+				const agentId = trustedToolAgentId(raw, client);
+				const sessionId = requireString(raw.sessionId, "sessionId");
+				const rt = await ensureRuntime();
+				return agentId && !rt.ownsSession(agentId, sessionId) ? { found: false } : await rt.leave(sessionId);
 			});
-			api.registerGatewayMethod(`${options.gatewayMethodPrefix}.status`, async ({ params, client, respond }) => {
-				try {
-					const raw = asOptionalRecord(params) ?? {};
-					const agentId = trustedToolAgentId(raw, client);
-					const rt = await ensureRuntime();
-					respond(true, agentId ? await rt.statusForAgent(agentId, normalizeOptionalString(raw.sessionId)) : await rt.status(normalizeOptionalString(raw.sessionId)));
-				} catch (error) {
-					sendRequestError(respond, error);
-				}
+			registerGatewayMethod("status", async ({ params, client }) => {
+				const raw = asOptionalRecord(params) ?? {};
+				const agentId = trustedToolAgentId(raw, client);
+				const rt = await ensureRuntime();
+				return agentId ? await rt.statusForAgent(agentId, normalizeOptionalString(raw.sessionId)) : await rt.status(normalizeOptionalString(raw.sessionId));
 			});
-			api.registerGatewayMethod(`${options.gatewayMethodPrefix}.transcript`, async ({ params, client, respond }) => {
-				try {
-					const raw = asOptionalRecord(params) ?? {};
-					const sessionId = requireString(raw.sessionId, "sessionId");
-					const sinceIndex = readSinceIndex(raw);
-					const agentId = trustedToolAgentId(raw, client);
-					const rt = await ensureRuntime();
-					respond(true, agentId && !rt.ownsSession(agentId, sessionId) ? { found: false } : await rt.transcript(sessionId, sinceIndex === void 0 ? {} : { sinceIndex }));
-				} catch (error) {
-					sendRequestError(respond, error);
-				}
+			registerGatewayMethod("transcript", async ({ params, client }) => {
+				const raw = asOptionalRecord(params) ?? {};
+				const sessionId = requireString(raw.sessionId, "sessionId");
+				const sinceIndex = readSinceIndex(raw);
+				const agentId = trustedToolAgentId(raw, client);
+				const rt = await ensureRuntime();
+				return agentId && !rt.ownsSession(agentId, sessionId) ? { found: false } : await rt.transcript(sessionId, sinceIndex === void 0 ? {} : { sinceIndex });
 			});
-			api.registerGatewayMethod(`${options.gatewayMethodPrefix}.speak`, async ({ params, client, respond }) => {
-				try {
-					const raw = asOptionalRecord(params) ?? {};
-					const sessionId = requireString(raw.sessionId, "sessionId");
-					const agentId = trustedToolAgentId(raw, client);
-					const rt = await ensureRuntime();
-					respond(true, agentId && !rt.ownsSession(agentId, sessionId) ? {
-						found: false,
-						spoken: false
-					} : await rt.speak(sessionId, normalizeOptionalString(raw.message)));
-				} catch (error) {
-					sendRequestError(respond, error);
-				}
+			registerGatewayMethod("speak", async ({ params, client }) => {
+				const raw = asOptionalRecord(params) ?? {};
+				const sessionId = requireString(raw.sessionId, "sessionId");
+				const agentId = trustedToolAgentId(raw, client);
+				const rt = await ensureRuntime();
+				return agentId && !rt.ownsSession(agentId, sessionId) ? {
+					found: false,
+					spoken: false
+				} : await rt.speak(sessionId, normalizeOptionalString(raw.message));
 			});
-			api.registerGatewayMethod(`${options.gatewayMethodPrefix}.setup`, async ({ params, respond }) => {
-				try {
-					respond(true, await (await ensureRuntime()).setupStatus({
-						mode: normalizeMode(params?.mode),
-						transport: normalizeTransport(params?.transport)
-					}));
-				} catch (error) {
-					sendRequestError(respond, error);
-				}
-			});
-			for (const [method, run] of [[`${options.gatewayMethodPrefix}.testSpeech`, (rt, raw) => rt.testSpeech(joinRequest(raw, { allowTimeout: true }))], [`${options.gatewayMethodPrefix}.testListen`, (rt, raw) => rt.testListen(joinRequest(raw, { allowTimeout: true }))]]) api.registerGatewayMethod(method, async ({ params, client, respond }) => {
-				try {
-					const raw = keepTrustedToolContext(asOptionalRecord(params) ?? {}, client);
-					respond(true, await run(await ensureRuntime(), raw));
-				} catch (error) {
-					sendRequestError(respond, error);
-				}
+			registerGatewayMethod("setup", async ({ params }) => await (await ensureRuntime()).setupStatus({
+				mode: normalizeMode(params?.mode),
+				transport: normalizeTransport(params?.transport)
+			}));
+			for (const method of ["testSpeech", "testListen"]) registerGatewayMethod(method, async ({ params, client }) => {
+				const raw = keepTrustedToolContext(asOptionalRecord(params) ?? {}, client);
+				return await (await ensureRuntime())[method](joinRequest(raw, { allowTimeout: true }));
 			});
 			api.registerTool((toolContext) => ({
 				name: options.toolName,
@@ -5288,364 +5671,6 @@ function createMeetingPluginEntryOptions(options) {
 				api.registerNodeInvokePolicy(options.createNodePolicy(config));
 			}
 			options.registerCli(api, config);
-		}
-	};
-}
-//#endregion
-//#region src/meeting-bot/agent-consult.ts
-function resolveMeetingRealtimeTools(policy) {
-	return resolveRealtimeVoiceAgentConsultTools(policy);
-}
-function resolveMeetingAgentConsultSurface(platform) {
-	return {
-		id: platform.id,
-		provider: platform.id,
-		lane: platform.id,
-		...platform.agentConsult
-	};
-}
-function createMeetingRealtimeEngineBindings(params) {
-	const surface = resolveMeetingAgentConsultSurface(params.platform);
-	return {
-		platform: {
-			displayName: params.platform.displayName,
-			logScope: params.platform.logScope,
-			sessionIdPrefix: params.platform.id
-		},
-		consultAgent: async (consult) => await consultMeetingAgent({
-			surface,
-			config: params.fullConfig,
-			runtime: params.runtime,
-			logger: params.logger,
-			agentId: params.config.realtime.agentId,
-			toolPolicy: params.config.realtime.toolPolicy,
-			...consult
-		}),
-		tools: resolveMeetingRealtimeTools(params.config.realtime.toolPolicy),
-		handleToolCall: async (call) => {
-			const abortSignal = readMeetingRealtimeToolAbortSignal(call.session);
-			await handleMeetingRealtimeConsultToolCall({
-				surface,
-				config: params.fullConfig,
-				runtime: params.runtime,
-				logger: params.logger,
-				agentId: params.config.realtime.agentId,
-				toolPolicy: params.config.realtime.toolPolicy,
-				abortSignal,
-				...call
-			});
-		}
-	};
-}
-async function submitMeetingConsultWorkingResponse(params) {
-	if (params.abortSignal?.aborted || !params.session.bridge.supportsToolResultContinuation) return;
-	await params.session.submitToolResult(params.callId, buildRealtimeVoiceAgentConsultWorkingResponse(params.label), { willContinue: true });
-}
-async function consultMeetingAgent(params) {
-	const agentId = params.agentId ? normalizeAgentId(params.agentId) : resolveDefaultAgentId(params.config);
-	const requesterSessionKey = normalizeOptionalString(params.requesterSessionKey) ?? `agent:${agentId}:main`;
-	const sessionKey = `agent:${agentId}:subagent:${params.surface.id}:${params.meetingSessionId}`;
-	return await consultRealtimeVoiceAgent({
-		cfg: params.config,
-		agentRuntime: params.runtime.agent,
-		logger: params.logger,
-		agentId,
-		sessionKey,
-		messageProvider: params.surface.provider,
-		lane: params.surface.lane,
-		runIdPrefix: `${params.surface.id}:${params.meetingSessionId}`,
-		spawnedBy: requesterSessionKey,
-		contextMode: "fork",
-		args: params.args,
-		transcript: params.transcript,
-		surface: params.surface.surface,
-		userLabel: params.surface.userLabel,
-		assistantLabel: params.surface.assistantLabel,
-		questionSourceLabel: params.surface.questionSourceLabel,
-		toolsAllow: resolveRealtimeVoiceAgentConsultToolsAllow(params.toolPolicy),
-		extraSystemPrompt: params.surface.extraSystemPrompt,
-		abortSignal: params.abortSignal
-	});
-}
-async function handleMeetingRealtimeConsultToolCall(params) {
-	const callId = params.event.callId || params.event.itemId;
-	if (params.abortSignal?.aborted) return;
-	if (params.strategy !== "bidi") {
-		const error = `Tool "${params.event.name}" is only available in bidi realtime strategy`;
-		await params.session.submitToolResult(callId, { error });
-		if (params.abortSignal?.aborted) return;
-		params.onTalkEvent?.({
-			type: "tool.error",
-			callId,
-			payload: {
-				name: params.event.name,
-				error
-			},
-			final: true
-		});
-		return;
-	}
-	if (params.event.name !== "openclaw_agent_consult") {
-		const error = `Tool "${params.event.name}" not available`;
-		await params.session.submitToolResult(callId, { error });
-		if (params.abortSignal?.aborted) return;
-		params.onTalkEvent?.({
-			type: "tool.error",
-			callId,
-			payload: {
-				name: params.event.name,
-				error
-			},
-			final: true
-		});
-		return;
-	}
-	await submitMeetingConsultWorkingResponse({
-		session: params.session,
-		abortSignal: params.abortSignal,
-		callId,
-		label: params.surface.workingResponseLabel
-	});
-	if (params.abortSignal?.aborted) return;
-	params.onTalkEvent?.({
-		type: "tool.progress",
-		callId,
-		payload: {
-			name: params.event.name,
-			status: "working"
-		}
-	});
-	let result;
-	try {
-		result = await consultMeetingAgent({
-			surface: params.surface,
-			config: params.config,
-			runtime: params.runtime,
-			logger: params.logger,
-			agentId: params.agentId,
-			toolPolicy: params.toolPolicy,
-			meetingSessionId: params.meetingSessionId,
-			requesterSessionKey: params.requesterSessionKey,
-			args: params.event.args,
-			transcript: params.transcript,
-			abortSignal: params.abortSignal
-		});
-	} catch (error) {
-		if (params.abortSignal?.aborted) return;
-		const message = formatErrorMessage(error);
-		await params.session.submitToolResult(callId, { error: message });
-		if (params.abortSignal?.aborted) return;
-		params.onTalkEvent?.({
-			type: "tool.error",
-			callId,
-			payload: {
-				name: params.event.name,
-				error: message
-			},
-			final: true
-		});
-		return;
-	}
-	if (params.abortSignal?.aborted) return;
-	await params.session.submitToolResult(callId, result);
-	if (params.abortSignal?.aborted) return;
-	params.onTalkEvent?.({
-		type: "tool.result",
-		callId,
-		payload: {
-			name: params.event.name,
-			result
-		},
-		final: true
-	});
-}
-//#endregion
-//#region src/meeting-bot/node-invoke-policy.ts
-function readOutputGeneration(value) {
-	return asSafeIntegerInRange(value, { min: 0 });
-}
-function copyCommand(command) {
-	return command && command.length > 0 ? [...command] : void 0;
-}
-function copyConfiguredAudio(target, start) {
-	if (start.audioBackend === "auto" || start.audioBackend === "blackhole-2ch" || start.audioBackend === "pipewire-pulse") target.audioBackend = start.audioBackend;
-	if (typeof start.audioBufferBytes === "number" && start.audioBufferBytes > 0) target.audioBufferBytes = start.audioBufferBytes;
-	if (start.audioFormat === "pcm16-24khz" || start.audioFormat === "g711-ulaw-8khz") target.audioFormat = start.audioFormat;
-	const hasCommandOverrideFields = "audioInputCommandOverride" in start || "audioOutputCommandOverride" in start;
-	const audioInputCommand = copyCommand(start.audioInputCommandOverride ?? (hasCommandOverrideFields ? void 0 : start.audioInputCommand));
-	const audioOutputCommand = copyCommand(start.audioOutputCommandOverride ?? (hasCommandOverrideFields ? void 0 : start.audioOutputCommand));
-	if (audioInputCommand) target.audioInputCommand = audioInputCommand;
-	if (audioOutputCommand) target.audioOutputCommand = audioOutputCommand;
-	for (const key of [
-		"bargeInInputCommand",
-		"audioBridgeCommand",
-		"audioBridgeHealthCommand"
-	]) {
-		const command = copyCommand(start[key]);
-		if (command) target[key] = command;
-	}
-}
-function denied(options, message) {
-	return {
-		ok: false,
-		code: options.deniedCode,
-		message
-	};
-}
-function approved(params) {
-	return {
-		approved: true,
-		params
-	};
-}
-function buildStartParams(params, options) {
-	let url;
-	try {
-		url = options.normalizeUrl(params.url);
-	} catch (error) {
-		return {
-			approved: false,
-			result: denied(options, error instanceof Error ? error.message : `${options.commandName} start requires url`)
-		};
-	}
-	const mode = readNonEmptyStringPreservingWhitespace(params.mode);
-	if (mode && !options.supportedModes.has(mode)) return {
-		approved: false,
-		result: denied(options, `${options.commandName} start mode is unsupported: ${mode}`)
-	};
-	const startParams = {
-		action: "start",
-		url,
-		launch: params.launch === false ? false : options.start.launch,
-		browserProfile: options.start.browserProfile,
-		joinTimeoutMs: options.start.joinTimeoutMs
-	};
-	if (mode) startParams.mode = mode;
-	copyConfiguredAudio(startParams, options.start);
-	return approved(startParams);
-}
-function denyMissing(options, action, field) {
-	return {
-		approved: false,
-		result: denied(options, `${options.commandName} ${action} requires ${field}`)
-	};
-}
-function buildForwardParams(params, options) {
-	const action = readNonEmptyStringPreservingWhitespace(params.action);
-	switch (action) {
-		case "setup": return approved({ action });
-		case "status": {
-			const bridgeId = readNonEmptyStringPreservingWhitespace(params.bridgeId);
-			return approved(bridgeId ? {
-				action,
-				bridgeId
-			} : { action });
-		}
-		case "list": {
-			const forwarded = { action };
-			const url = readNonEmptyStringPreservingWhitespace(params.url);
-			const mode = readNonEmptyStringPreservingWhitespace(params.mode);
-			if (url) try {
-				forwarded.url = options.normalizeUrl(url);
-			} catch (error) {
-				return {
-					approved: false,
-					result: denied(options, error instanceof Error ? error.message : `${options.commandName} list url`)
-				};
-			}
-			if (mode) forwarded.mode = mode;
-			return approved(forwarded);
-		}
-		case "stopByUrl": {
-			const forwarded = { action };
-			const url = readNonEmptyStringPreservingWhitespace(params.url);
-			const mode = readNonEmptyStringPreservingWhitespace(params.mode);
-			const exceptBridgeId = readNonEmptyStringPreservingWhitespace(params.exceptBridgeId);
-			if (!url) return denyMissing(options, action, "url");
-			try {
-				forwarded.url = options.normalizeUrl(url);
-			} catch (error) {
-				return {
-					approved: false,
-					result: denied(options, error instanceof Error ? error.message : `${options.commandName} stopByUrl url`)
-				};
-			}
-			if (mode) forwarded.mode = mode;
-			if (exceptBridgeId) forwarded.exceptBridgeId = exceptBridgeId;
-			return approved(forwarded);
-		}
-		case "pullAudio": {
-			const forwarded = { action };
-			const bridgeId = readNonEmptyStringPreservingWhitespace(params.bridgeId);
-			const timeoutMs = asPositiveFiniteNumber(params.timeoutMs);
-			if (!bridgeId) return denyMissing(options, action, "bridgeId");
-			forwarded.bridgeId = bridgeId;
-			if (timeoutMs) forwarded.timeoutMs = timeoutMs;
-			return approved(forwarded);
-		}
-		case "pushAudio": {
-			const forwarded = { action };
-			const bridgeId = readNonEmptyStringPreservingWhitespace(params.bridgeId);
-			const base64 = readNonEmptyStringPreservingWhitespace(params.base64);
-			if (!bridgeId) return denyMissing(options, action, "bridgeId");
-			if (!base64) return denyMissing(options, action, "base64");
-			if (!isMeetingAudioBase64(base64)) return {
-				approved: false,
-				result: denied(options, "base64 must be a valid audio payload")
-			};
-			forwarded.bridgeId = bridgeId;
-			forwarded.base64 = base64;
-			const outputGeneration = readOutputGeneration(params.outputGeneration);
-			if (params.outputGeneration !== void 0 && outputGeneration === void 0) return {
-				approved: false,
-				result: denied(options, "outputGeneration must be a non-negative safe integer")
-			};
-			if (outputGeneration !== void 0) forwarded.outputGeneration = outputGeneration;
-			return approved(forwarded);
-		}
-		case "clearAudio": {
-			const bridgeId = readNonEmptyStringPreservingWhitespace(params.bridgeId);
-			if (!bridgeId) return denyMissing(options, action, "bridgeId");
-			const outputGeneration = readOutputGeneration(params.outputGeneration);
-			if (params.outputGeneration !== void 0 && outputGeneration === void 0) return {
-				approved: false,
-				result: denied(options, "outputGeneration must be a non-negative safe integer")
-			};
-			return approved({
-				action,
-				bridgeId,
-				...outputGeneration !== void 0 ? { outputGeneration } : {}
-			});
-		}
-		case "stop": {
-			const bridgeId = readNonEmptyStringPreservingWhitespace(params.bridgeId);
-			return approved(bridgeId ? {
-				action,
-				bridgeId
-			} : { action });
-		}
-		default: return null;
-	}
-}
-function createMeetingBrowserNodeInvokePolicy(options) {
-	return {
-		commands: [options.commandName],
-		dangerous: true,
-		async handle(ctx) {
-			if (ctx.command !== options.commandName) return denied(options, `unsupported ${options.displayName} node command: ${ctx.command}`);
-			const params = asOptionalRecord(ctx.params) ?? {};
-			const action = readNonEmptyStringPreservingWhitespace(params.action);
-			if (action === "setup" && options.useConfiguredSetupCommands) {
-				const setupParams = { action };
-				copyConfiguredAudio(setupParams, options.start);
-				return await ctx.invokeNode({ params: setupParams });
-			}
-			const decision = action === "start" ? buildStartParams(params, options) : buildForwardParams(params, options) ?? {
-				approved: false,
-				result: denied(options, `unsupported ${options.commandName} action`)
-			};
-			if (!decision.approved) return decision.result;
-			return await ctx.invokeNode({ params: decision.params });
 		}
 	};
 }
@@ -6134,17 +6159,18 @@ function resolveMeetingProbeTimeoutMs(input, fallback, invalidRequest = (message
 	return Math.min(Math.trunc(input), 12e4);
 }
 function createMeetingRuntimeProbes(options) {
+	const resolveJoin = (context, request, mode) => ({
+		url: options.normalizeUrl?.(request.url) ?? request.url,
+		transport: request.transport ?? options.defaultTransport?.(context.config) ?? (context.config.chromeNode.node ? "chrome-node" : "chrome"),
+		mode,
+		agentId: context.resolveAgentId(request)
+	});
 	const testSpeech = async (context, request) => {
 		const requestMode = options.resolveRequestMode?.(request.mode, context.config) ?? request.mode;
 		if (requestMode === "transcribe") throw options.invalidRequest(options.speechModeError ?? "test_speech requires mode: agent or bidi");
 		const requestedMode = requestMode ?? context.config.defaultMode;
 		const mode = options.talkBackMode(requestedMode) ? requestedMode : "agent";
-		const resolved = {
-			url: options.normalizeUrl?.(request.url) ?? request.url,
-			transport: request.transport ?? options.defaultTransport?.(context.config) ?? (context.config.chromeNode.node ? "chrome-node" : "chrome"),
-			mode,
-			agentId: context.resolveAgentId(request)
-		};
+		const resolved = resolveJoin(context, request, mode);
 		const beforeSessions = context.list();
 		const before = new Set(beforeSessions.map((session) => session.id));
 		const existing = beforeSessions.find((session) => context.isReusable(session, resolved));
@@ -6198,12 +6224,7 @@ function createMeetingRuntimeProbes(options) {
 	const testListening = async (context, request) => {
 		const requestMode = options.resolveRequestMode?.(request.mode, context.config) ?? request.mode;
 		if (requestMode && requestMode !== "transcribe") throw options.invalidRequest(options.listeningModeError ?? "test_listen requires mode: transcribe");
-		const resolved = {
-			url: options.normalizeUrl?.(request.url) ?? request.url,
-			transport: request.transport ?? options.defaultTransport?.(context.config) ?? (context.config.chromeNode.node ? "chrome-node" : "chrome"),
-			mode: "transcribe",
-			agentId: context.resolveAgentId(request)
-		};
+		const resolved = resolveJoin(context, request, "transcribe");
 		options.validateListeningTransport?.(resolved.transport);
 		const beforeSessions = context.list();
 		const before = new Set(beforeSessions.map((session) => session.id));
@@ -6227,13 +6248,7 @@ function createMeetingRuntimeProbes(options) {
 			while (performance.now() < deadline) {
 				const remainingMs = Math.floor(deadline - performance.now());
 				if (remainingMs <= 0) break;
-				let deadlineTimer;
-				const deadlineReached = new Promise((resolve) => {
-					deadlineTimer = setTimeout(() => resolve(false), remainingMs);
-				});
-				if (!await Promise.race([(options.refreshCaptionHealth?.(context, result.session, remainingMs) ?? context.refreshCaptionHealth(result.session, remainingMs)).then(() => true), deadlineReached]).finally(() => {
-					if (deadlineTimer !== void 0) clearTimeout(deadlineTimer);
-				})) break;
+				if (!await raceWithTimeout(() => (options.refreshCaptionHealth?.(context, result.session, remainingMs) ?? context.refreshCaptionHealth(result.session, remainingMs)).then(() => true), remainingMs, () => false)) break;
 				health = result.session.chrome?.health;
 				if (performance.now() >= deadline) break;
 				if (advanced()) listenVerified = true;
@@ -6398,1002 +6413,161 @@ function createMeetingRuntimeSetup(options) {
 	};
 }
 //#endregion
-//#region src/meeting-bot/status-call-source.ts
-function createMeetingStatusCallSource(options) {
-	const captionSettleMs = options.captionSettleMs ?? 1e3;
-	const audioOutputsGlobal = JSON.stringify(options.platform.globals.audioOutputs);
-	const captionsGlobal = JSON.stringify(options.platform.globals.captions);
-	const meetingGlobal = JSON.stringify(options.platform.globals.meeting);
-	const transcriptMaxLines = options.transcriptMaxLines ?? 500;
-	return `  let audioOutputRouted;
-  let audioOutputDeviceLabel;
-  let audioOutputRouteError;
-  let audioOutputRouteRetryable = false;
-  const remoteCapture = window.__openclawMeetingRemoteAudio;
-  if (remoteCapture && remoteCapture.sessionId === sessionId && remoteCapture.isCurrent()) {
-    if (canMutateSession) remoteCapture.scan();
-    audioOutputRouted = remoteCapture.isCurrent();
-    audioOutputDeviceLabel = "Isolated browser playback";
-  } else if (inCall && allowMicrophone && navigator.mediaDevices?.enumerateDevices) {
-    const media = [...document.querySelectorAll("audio, video")].filter(
-      (element) =>
-        typeof element.setSinkId === "function" &&
-        !String(element.id || "").startsWith(${JSON.stringify(options.platform.audioOutputElementIdPrefix)}),
-    );
-    if (media.length > 0) {
-      try {
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const output = devices.find(
-          (device) => device.kind === "audiooutput" && isVirtualAudioDevice(device.label)
-        );
-        if (output?.deviceId) {
-          const routeErrors = [];
-          const liveStream = (element) =>
-            element.srcObject?.getAudioTracks?.().some((track) => track.readyState === "live")
-              ? element.srcObject
-              : undefined;
-          const allBridgeEntries = Array.isArray(window[${audioOutputsGlobal}])
-            ? window[${audioOutputsGlobal}]
-            : [];
-          const retainedBridgeEntries = allBridgeEntries.filter((entry) => !bridgeOwnedBySession(entry));
-          const previousBridgeEntries = allBridgeEntries.filter(bridgeOwnedBySession);
-          const originalMuteBySource = new Map(previousBridgeEntries.flatMap((entry) =>
-            bridgeSources(entry).flatMap((source) =>
-              source?.element ? [[source.element, Boolean(source.muted)]] : []
-            )
-          ));
-          const bridgedElements = new Set(previousBridgeEntries.flatMap((entry) =>
-            bridgeSources(entry).map((source) => source?.element).filter(Boolean)
-          ));
-          const routeCandidates = media
-            .map((element) => ({ element, stream: liveStream(element) }))
-            // Teams mutes local/self-view and intentionally suppressed playback. Preserve
-            // that product decision; only our own already-bridged source stays eligible.
-            .filter((entry) => !entry.element.muted || bridgedElements.has(entry.element));
-          // The self-view often exists before Teams attaches remote playback. With the
-          // required output present, an all-filtered list is still a transient DOM state.
-          if (routeCandidates.length === 0) audioOutputRouteRetryable = true;
-          if (canMutateSession) {
-            for (const { element } of routeCandidates) {
-              if (!originalMuteBySource.has(element)) {
-                originalMuteBySource.set(element, Boolean(element.muted));
-              }
-              // Sink changes are asynchronous. Silence the physical output until either
-              // the source or its fallback bridge is confirmed on the virtual device.
-              element.muted = true;
-            }
-          }
-          const currentSources = new Set(routeCandidates.map((entry) => entry.element));
-          const bridgeEntries = previousBridgeEntries.filter((entry) =>
-            entry?.source &&
-            entry?.stream === liveStream(entry.source) &&
-            entry?.bridge?.isConnected &&
-            currentSources.has(entry.source)
-          );
-          const suspendedBySource = new Map();
-          for (const entry of previousBridgeEntries) {
-            if (bridgeEntries.includes(entry)) continue;
-            for (const source of bridgeSources(entry)) {
-              if (
-                !source?.element ||
-                source.muted ||
-                !bridgeSourceMatches(source.element, source)
-              ) continue;
-              const sourceStillPresent = currentSources.has(source.element);
-              const detachedLiveSource = !sourceStillPresent && Boolean(liveStream(source.element));
-              if (!sourceStillPresent && !detachedLiveSource) continue;
-              suspendedBySource.set(source.element, {
-                detached: detachedLiveSource,
-                sessionId: entry.sessionId || sessionId,
-                source: source.element,
-                sourceMuted: false,
-                sourceUrl: mediaSourceUrl(source.element) || source.url,
-                stream: source.element.srcObject,
-                suspended: true,
-              });
-            }
-          }
-          if (canMutateSession) {
-            // One bridge owns one Teams playback element. Stream or element replacement
-            // retires that bridge so it cannot keep playing or satisfy route verification.
-            previousBridgeEntries.filter((entry) => !bridgeEntries.includes(entry)).forEach((entry) => {
-              for (const source of bridgeSources(entry)) {
-                if (
-                  !source?.element ||
-                  suspendedBySource.has(source.element) ||
-                  currentSources.has(source.element)
-                ) continue;
-                restoreAudioBridgeSource(source);
-              }
-              // Reused current elements stay silent until this pass confirms their
-              // replacement source; unrelated exact sources were restored above.
-              retireAudioBridge(entry, false);
-            });
-          }
-          const routed = [];
-          for (const { element, stream } of routeCandidates) {
-            let entry = bridgeEntries.find((candidate) => candidate.source === element);
-            let elementRouted = element.sinkId === output.deviceId;
-            let directRouteError;
-            if (canMutateSession && !elementRouted) {
-              try {
-                await element.setSinkId(output.deviceId);
-                elementRouted = element.sinkId === output.deviceId;
-              } catch (error) {
-                directRouteError = {
-                  message: error?.message || String(error),
-                  retryable: error?.name === "AbortError",
-                };
-              }
-            }
-            if (elementRouted && entry && canMutateSession) {
-              const bridgedIndex = bridgeEntries.indexOf(entry);
-              if (bridgedIndex >= 0) {
-                const [bridged] = bridgeEntries.splice(bridgedIndex, 1);
-                retireAudioBridge(bridged);
-                entry = undefined;
-              }
-            }
-            // Direct sink routing is valid for src/MediaSource and pre-attachment elements.
-            // A live MediaStream is required only when the hidden bridge fallback is needed.
-            if (elementRouted) {
-              if (canMutateSession && originalMuteBySource.has(element)) {
-                element.muted = originalMuteBySource.get(element);
-              }
-              suspendedBySource.delete(element);
-              routed.push(true);
-              continue;
-            }
-            if (!stream) {
-              const hasLoadedPlaybackSource = Number(element.readyState) > 0;
-              routed.push(false);
-              if (hasLoadedPlaybackSource && directRouteError) routeErrors.push(directRouteError);
-              if (!hasLoadedPlaybackSource) audioOutputRouteRetryable = true;
-              if (canMutateSession && originalMuteBySource.get(element) === false) {
-                // Teams may attach the remote MediaStream after creating its media element.
-                // Keep it silent until a later serialized status poll routes that source.
-                suspendedBySource.set(element, {
-                  sessionId,
-                  pending: true,
-                  source: element,
-                  sourceMuted: false,
-                  sourceUrl: mediaSourceUrl(element),
-                  stream: element.srcObject,
-                  suspended: true,
-                });
-              }
-              continue;
-            }
-            if (!elementRouted && stream) {
-              if (!entry && canMutateSession) {
-                const bridge = document.createElement("audio");
-                bridge.id = ${JSON.stringify(options.platform.audioOutputElementIdPrefix)} + bridgeEntries.length;
-                bridge.autoplay = false;
-                bridge.hidden = true;
-                bridge.srcObject = stream;
-                document.body.appendChild(bridge);
-                entry = {
-                  bridge,
-                  playing: false,
-                  sessionId,
-                  source: element,
-                  sourceMuted: originalMuteBySource.has(element)
-                    ? originalMuteBySource.get(element)
-                    : Boolean(element.muted),
-                  sourceUrl: mediaSourceUrl(element),
-                  stream,
-                };
-                bridgeEntries.push(entry);
-                suspendedBySource.delete(element);
-              }
-              if (entry?.bridge) {
-                try {
-                  if (canMutateSession) {
-                    if (entry.bridge.sinkId !== output.deviceId) {
-                      await entry.bridge.setSinkId(output.deviceId);
-                    }
-                    await entry.bridge.play();
-                    entry.playing = true;
-                  }
-                  elementRouted =
-                    entry.bridge.sinkId === output.deviceId && entry.playing === true;
-                  if (elementRouted) {
-                    suspendedBySource.delete(element);
-                    if (canMutateSession && !entry.sourceMuted) element.muted = true;
-                  }
-                } catch (error) {
-                  entry.playing = false;
-                  if (canMutateSession) retireAudioBridge(entry, false);
-                  routeErrors.push({
-                    message: error?.message || String(error),
-                    retryable: error?.name === "AbortError",
-                  });
-                }
-              }
-            }
-            routed.push(elementRouted);
-          }
-          if (canMutateSession) {
-            const nextBridgeEntries = [
-              ...retainedBridgeEntries,
-              ...bridgeEntries,
-              ...suspendedBySource.values(),
-            ];
-            if (nextBridgeEntries.length > 0) {
-              window[${audioOutputsGlobal}] = nextBridgeEntries;
-            } else {
-              delete window[${audioOutputsGlobal}];
-            }
-          }
-          audioOutputRouted = routed.length > 0 && routed.every(Boolean);
-          if (canMutateSession && !audioOutputRouted) suspendOwnedAudioBridges();
-          if (audioOutputRouted && bridgeEntries.length > 0) {
-            notes.push(
-              "Routed ${options.platform.displayName} remote audio to " +
-              (output.label || "the virtual audio device") +
-              " through MediaStream bridges."
-            );
-          }
-          audioOutputDeviceLabel = output.label || "Virtual audio device";
-          // An unloaded Teams media element can reject setSinkId before its stream
-          // arrives. Keep that state retryable; loaded-source failures are terminal.
-          if (!audioOutputRouted && routed.length > 0 && routeErrors.length > 0) {
-            audioOutputRouteError = routeErrors[routeErrors.length - 1]?.message;
-            audioOutputRouteRetryable = routeErrors.every((error) => error.retryable === true);
-          }
-        } else {
-          audioOutputRouted = false;
-          if (canMutateSession) suspendOwnedAudioBridges();
-          notes.push("The OpenClaw virtual audio speaker output was not visible to ${options.platform.displayName}.");
-        }
-      } catch (error) {
-        audioOutputRouted = false;
-        audioOutputRouteError = error?.message || String(error);
-        if (canMutateSession) suspendOwnedAudioBridges();
-      }
-      if (!audioOutputRouted && audioOutputRouteError) {
-        notes.push("Could not route ${options.platform.displayName} speaker output to the OpenClaw virtual audio device: " + audioOutputRouteError);
-      }
-    } else {
-      audioOutputRouted = false;
-      try {
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const output = devices.find(
-          (device) => device.kind === "audiooutput" && isVirtualAudioDevice(device.label)
-        );
-        if (output?.deviceId) {
-          // Teams can briefly remove every media element during an in-call rerender.
-          // Retry only after proving the required output still exists.
-          audioOutputRouteRetryable = true;
-          audioOutputDeviceLabel = output.label || "Virtual audio device";
-        } else {
-          notes.push("The OpenClaw virtual audio speaker output was not visible to ${options.platform.displayName}.");
-        }
-      } catch (error) {
-        audioOutputRouteError = error?.message || String(error);
-        notes.push("Could not inspect ${options.platform.displayName} speaker outputs: " + audioOutputRouteError);
-      }
-      // Suspend ownership until the source returns; call teardown retires it.
-      if (canMutateSession) suspendOwnedAudioBridges();
-    }
-  } else if (inCall && allowMicrophone) {
-    audioOutputRouted = false;
-    if (canMutateSession) retireOwnedAudioBridges();
-  }
-  let captioning = false;
-  let captionsEnabledAttempted = false;
-  let transcriptLines = 0;
-  let lastCaptionAt;
-  let lastCaptionSpeaker;
-  let lastCaptionText;
-  let recentTranscript = [];
-  const captionState = (() => {
-    let active = window[${captionsGlobal}];
-    const activeOwnedByRequest = Boolean(
-      !active || (sessionId && (!active.sessionId || active.sessionId === sessionId))
-    );
-    if (!identityVerified) {
-      if (identityAwaitingRerender && activeOwnedByRequest) return active;
-      if (canMutateSession && activeOwnedByRequest) finalizeOwnedCaptions();
-      return undefined;
-    }
-    if (!activeOwnedByRequest) {
-      const replacedPriorOwner = Boolean(
-        canMutateSession &&
-        active?.sessionId &&
-        active.sessionId !== sessionId
-      );
-      if (replacedPriorOwner) {
-        if (priorMeeting?.sessionId === active.sessionId) {
-          active.identity ||= priorMeeting.identity;
-        }
-        finalizeCaptionState(active);
-      }
-      else if (!canMutateSession || !captureCaptions || active?.finalized !== true) return undefined;
-      archiveFinalizedCaptions(active);
-      if (active.settleTimer !== undefined) clearTimeout(active.settleTimer);
-      active.observer?.disconnect?.();
-      delete window[${captionsGlobal}];
-      active = undefined;
-    }
-    if (!captureCaptions) {
-      if (!canMutateSession) return undefined;
-      if (active?.settleTimer !== undefined) clearTimeout(active.settleTimer);
-      active?.observer?.disconnect?.();
-      if (active) delete window[${captionsGlobal}];
-      return undefined;
-    }
-    if (!inCall && !active) return undefined;
-    if (!active && !canMutateSession) return undefined;
-    if (!active) {
-      if (active?.settleTimer !== undefined) clearTimeout(active.settleTimer);
-      active?.observer?.disconnect?.();
-      window[${captionsGlobal}] = {
-        sessionId,
-        identity: expectedIdentity,
-        epoch: crypto.randomUUID(),
-        enabledAttempted: false,
-        observerInstalled: false,
-        observer: undefined,
-        droppedLines: 0,
-        lines: [],
-        settled: [],
-        settleTimer: undefined,
-        visible: [],
-      };
-    }
-    return window[${captionsGlobal}];
-  })();
-  const normalizeCaption = (speaker, captionText) => {
-    if (!captionState) return undefined;
-    const clean = String(captionText || "").replace(/\\s+/g, " ").trim();
-    const cleanSpeaker = String(speaker || "").replace(/\\s+/g, " ").trim();
-    if (!clean) return undefined;
-    return { speaker: cleanSpeaker || undefined, text: clean };
-  };
-  const captionRowIdentity = (row) =>
-    // aria-posinset identifies the logical caption item across virtual-list
-    // rerenders. DOM ids and data indexes can belong to the recycled element.
-    ["aria-posinset"]
-      .map((name) => {
-        const value = row?.getAttribute?.(name);
-        return typeof value === "string" && value.trim()
-          ? name + ":" + value.trim()
-          : undefined;
-      })
-      .find(Boolean);
-  const sameCaptionUtterance = (prior, current) => {
-    if (prior.rowIdentity || current.rowIdentity) {
-      return Boolean(
-        prior.rowIdentity &&
-        current.rowIdentity &&
-        prior.rowIdentity === current.rowIdentity
-      );
-    }
-    if (prior.speaker && current.speaker && prior.speaker !== current.speaker) return false;
-    return prior.node === current.node;
-  };
-  const commitCaptionLines = (state, entries) => {
-    state.lines.push(...entries.map((entry) => {
-      entry.utteranceId ||= crypto.randomUUID();
-      return {
-        at: entry.at,
-        speaker: entry.speaker,
-        text: entry.text,
-        utteranceId: entry.utteranceId,
-      };
-    }));
-    const excess = state.lines.length - ${transcriptMaxLines};
-    if (excess > 0) {
-      state.lines.splice(0, excess);
-      state.droppedLines = (state.droppedLines || 0) + excess;
-    }
-  };
-  const sameCaptionRow = (left, right) =>
-    right.rowIdentity
-      ? left.rowIdentity === right.rowIdentity
-      : left.node === right.node;
-  const retainSettledCaptionLines = (state, entries) => {
-    const settled = [...state.settled];
-    for (const entry of entries) {
-      const priorIndex = settled.findIndex((candidate) => sameCaptionRow(candidate, entry));
-      if (priorIndex >= 0) settled.splice(priorIndex, 1, { ...entry });
-      else settled.push({ ...entry });
-    }
-    const retainedLineIds = new Set(state.lines.map((entry) => entry.utteranceId));
-    state.settled = settled.filter((entry) => retainedLineIds.has(entry.utteranceId));
-  };
-  const scheduleCaptionSettle = () => {
-    if (!captionState || captionState.visible.length === 0) return;
-    if (captionState.settleTimer !== undefined) clearTimeout(captionState.settleTimer);
-    const pendingState = captionState;
-    pendingState.settleTimer = setTimeout(() => {
-      if (window[${captionsGlobal}] !== pendingState) return;
-      commitCaptionLines(pendingState, pendingState.visible);
-      retainSettledCaptionLines(pendingState, pendingState.visible);
-      pendingState.visible = [];
-      pendingState.settleTimer = undefined;
-    }, ${captionSettleMs});
-  };
-  const captionCaptureMatchesCurrentMeeting = () => {
-    if (
-      !captionState ||
-      captionState.finalized === true ||
-      window[${captionsGlobal}] !== captionState
-    ) return false;
-    const observedIdentity = meetingIdentity(location.href);
-    const observedMeeting = window[${meetingGlobal}];
-    const identityConflicts = Boolean(
-      observedIdentity && expectedIdentity && observedIdentity !== expectedIdentity
-    );
-    const sessionConflicts = Boolean(
-      observedMeeting?.sessionId && sessionId && observedMeeting.sessionId !== sessionId
-    );
-    if (identityConflicts || sessionConflicts) {
-      // The observer outlives Teams SPA navigation. Freeze the old buffer before
-      // any caption nodes from the replacement meeting can be attributed to it.
-      finalizeOwnedCaptions();
-      return false;
-    }
-    if (observedIdentity === expectedIdentity) return true;
-    const observedMarkerAgeMs = Date.now() - (observedMeeting?.verifiedAt || 0);
-    const observedAwaitingRerender = Boolean(
-      !observedIdentity &&
-      observedMeeting?.identity === expectedIdentity &&
-      (!observedMeeting.sessionId || !sessionId || observedMeeting.sessionId === sessionId) &&
-      observedMeeting.inCallControl?.isConnected === false &&
-      observedMeeting.inCallUrl === location.href &&
-      observedMarkerAgeMs >= 0 &&
-      observedMarkerAgeMs < 5_000
-    );
-    if (observedAwaitingRerender) return true;
-    return Boolean(
-      observedMeeting?.identity === expectedIdentity &&
-      (!observedMeeting.sessionId || !sessionId || observedMeeting.sessionId === sessionId) &&
-      observedMeeting.inCallControl?.isConnected !== false &&
-      observedMeeting.inCallUrl === location.href
-    );
-  };
-  const scrapeCaptions = (mutations = []) => {
-    if (!captionCaptureMatchesCurrentMeeting()) return;
-    const content = firstRaw(selectors.captionContent);
-    const rows = content
-      ? selectors.captionRows.flatMap((selector) => [...content.querySelectorAll(selector)])
-      : [];
-    captionState.settled = Array.isArray(captionState.settled) ? captionState.settled : [];
-    const removedNodes = mutations.flatMap((mutation) => [...(mutation.removedNodes || [])]);
-    const rowWasRemoved = (entry) => removedNodes.some((node) =>
-      node === entry.node || node?.contains?.(entry.node)
-    );
-    const removedVisible = captionState.visible.filter(rowWasRemoved);
-    if (removedVisible.length > 0) {
-      if (captionState.settleTimer !== undefined) clearTimeout(captionState.settleTimer);
-      captionState.settleTimer = undefined;
-      captionState.visible = captionState.visible.filter((entry) => !rowWasRemoved(entry));
-      commitCaptionLines(captionState, removedVisible);
-      retainSettledCaptionLines(captionState, removedVisible);
-    }
-    const retainedLineIds = new Set(captionState.lines.map((entry) => entry.utteranceId));
-    captionState.settled = captionState.settled.filter((entry) =>
-      entry.rowIdentity
-        ? retainedLineIds.has(entry.utteranceId)
-        : !rowWasRemoved(entry) && rows.some((row) => sameCaptionRow(entry, {
-            node: row,
-            rowIdentity: captionRowIdentity(row),
-          }))
-    );
-    const parsedRows = rows.flatMap((row) => {
-      const speaker = text(firstWithin(row, selectors.captionAuthor));
-      const captionText = text(firstWithin(row, selectors.captionText));
-      const parsed = normalizeCaption(speaker, captionText);
-      if (!parsed) return [];
-      const current = { ...parsed, node: row, rowIdentity: captionRowIdentity(row) };
-      const settledIndex = captionState.settled.findIndex((entry) =>
-        sameCaptionRow(entry, current)
-      );
-      const settled = settledIndex >= 0 ? captionState.settled[settledIndex] : undefined;
-      if (
-        settled &&
-        settled.text === current.text &&
-        (settled.speaker || "") === (current.speaker || "")
-      ) return [];
-      if (settled?.rowIdentity && settled.rowIdentity === current.rowIdentity) {
-        const committed = captionState.lines.find((entry) =>
-          entry.utteranceId === settled.utteranceId
-        );
-        if (committed) {
-          committed.speaker = current.speaker || committed.speaker;
-          committed.text = current.text;
-        }
-        captionState.settled.splice(settledIndex, 1, {
-          ...settled,
-          ...current,
-          speaker: current.speaker || settled.speaker,
-        });
-        return [];
-      }
-      if (settledIndex >= 0) captionState.settled.splice(settledIndex, 1);
-      return [current];
-    });
-    if (parsedRows.length === 0) {
-      if (captionState.visible.length > 0 && captionState.settleTimer === undefined) {
-        scheduleCaptionSettle();
-      }
-      return;
-    }
-    const unmatchedPrevious = [...captionState.visible];
-    const nextVisible = [];
-    const now = Date.now();
-    let captionChanged = false;
-    for (const row of parsedRows) {
-      const priorIndex = unmatchedPrevious.findIndex((candidate) =>
-        row.rowIdentity
-          ? candidate.rowIdentity === row.rowIdentity
-          : candidate.node === row.node
-      );
-      const candidate = priorIndex >= 0 ? unmatchedPrevious[priorIndex] : undefined;
-      const prior = candidate && sameCaptionUtterance(candidate, row)
-        ? unmatchedPrevious.splice(priorIndex, 1)[0]
-        : undefined;
-      if (prior) {
-        captionChanged ||=
-          prior.text !== row.text ||
-          prior.speaker !== row.speaker ||
-          prior.node !== row.node;
-        prior.speaker = row.speaker || prior.speaker;
-        prior.text = row.text;
-        prior.node = row.node;
-        prior.rowIdentity = row.rowIdentity || prior.rowIdentity;
-        prior.seenAt = now;
-        nextVisible.push(prior);
-      } else {
-        captionChanged = true;
-        nextVisible.push({
-          at: new Date().toISOString(),
-          node: row.node,
-          rowIdentity: row.rowIdentity,
-          seenAt: now,
-          speaker: row.speaker,
-          text: row.text,
-        });
-      }
-    }
-    captionChanged ||= unmatchedPrevious.length > 0;
-    commitCaptionLines(captionState, unmatchedPrevious);
-    retainSettledCaptionLines(captionState, unmatchedPrevious);
-    captionState.visible = nextVisible;
-    // Identity-less rows stay mutable while rendered; removal is their only
-    // reliable utterance boundary. Stable logical rows may settle on quiet.
-    if (
-      (captionChanged || captionState.settleTimer === undefined) &&
-      captionState.visible.every((entry) => entry.rowIdentity)
-    ) {
-      scheduleCaptionSettle();
-    }
-  };
-  if (captionState) {
-    const captionsFinalized = captionState.finalized === true;
-    let captionsEnabledNow = captionsFinalized
-      ? Boolean(captionState.enabledAttempted)
-      : Boolean(firstRaw(selectors.captionRenderer) || firstRaw(selectors.captionsOff));
-    ${options.captionEnableSource}
-    if (!captionsFinalized && canMutateSession) captionState.enabledAttempted = captionsEnabledNow;
-    captionsEnabledAttempted = Boolean(captionState.enabledAttempted);
-    if (!captionsFinalized && canMutateSession && inCall && !captionState.observerInstalled) {
-      captionState.observerInstalled = true;
-      captionState.observer = new MutationObserver(scrapeCaptions);
-      captionState.observer.observe(document.body, {
-        childList: true,
-        subtree: true,
-        characterData: true,
-      });
-      notes.push("Installed ${options.platform.displayName} live-caption observer.");
-    }
-    if (!captionsFinalized && canMutateSession && inCall) scrapeCaptions();
-    const allLines = [...captionState.lines, ...captionState.visible];
-    const lines = allLines.slice(-${transcriptMaxLines});
-    const last = lines[lines.length - 1];
-    captioning = captionsEnabledNow;
-    transcriptLines = (captionState.droppedLines || 0) + allLines.length;
-    lastCaptionAt = last?.at;
-    lastCaptionSpeaker = last?.speaker;
-    lastCaptionText = last?.text;
-    recentTranscript = lines.slice(-5).map((entry) => ({
-      at: entry.at,
-      speaker: entry.speaker,
-      text: entry.text,
-    }));
-  }
-  if (inCall && allowMicrophone && !manualAction) {
-    if (audioInputRouted !== true || audioOutputRouted !== true) {
-      manualAction = manualActionFor("${options.platform.manualActionReasonPrefix}-audio-choice-required", "Verify the OpenClaw virtual audio device is selected as both the ${options.platform.displayName} microphone and speaker before starting talk-back.");
-    } else if (micMuted !== false) {
-      manualAction = manualActionFor("${options.platform.manualActionReasonPrefix}-microphone-required", "Unmute the ${options.platform.displayName} microphone and verify the microphone control shows it is on before starting talk-back.");
-    }
-  }
-  return JSON.stringify({
-    clickedContinueInBrowser: Boolean(continueInBrowser),
-    clickedJoin,
-    inCall,
-    ${options.extraResultSource ?? ""}
-    micMuted,
-    cameraOff,
-    lobbyWaiting,
-    captionCaptureRequested: captureCaptions,
-    captioning,
-    captionsEnabledAttempted,
-    transcriptLines,
-    lastCaptionAt,
-    lastCaptionSpeaker,
-    lastCaptionText,
-    recentTranscript,
-    audioInputRouted,
-    audioInputDeviceLabel,
-    audioInputRouteError,
-    audioOutputRouted,
-    audioOutputDeviceLabel,
-    audioOutputRouteError,
-    audioOutputRouteRetryable,
-    manualAction,
-    title: document.title,
-    url: location.href,
-    notes,
-  });
-}`;
-}
-//#endregion
-//#region src/meeting-bot/status-prejoin-source.ts
-function createMeetingStatusPreludeSource(params, options) {
-	const selectors = params.selectors;
-	const expectedIdentity = params.expectedIdentity;
-	const toggleStateFunction = params.toggleStateFunction;
-	const pageIdentityFunctionSource = () => params.pageIdentitySource;
-	const audioOutputsGlobal = JSON.stringify(options.platform.globals.audioOutputs);
-	const captionArchiveGlobal = JSON.stringify(options.platform.globals.captionArchive);
-	const captionsGlobal = JSON.stringify(options.platform.globals.captions);
-	const meetingGlobal = JSON.stringify(options.platform.globals.meeting);
-	const transcriptMaxLines = options.transcriptMaxLines ?? 500;
-	return `async () => {
-  ${pageIdentityFunctionSource()}
-  ${options.setupSource ?? ""}
-  const parseToggleState = ${toggleStateFunction};
-  const selectors = ${selectors};
-  const expectedIdentity = ${JSON.stringify(expectedIdentity)};
-  const allowMicrophone = ${JSON.stringify(params.allowMicrophone)};
-  const allowSessionAdoption = ${JSON.stringify(params.allowSessionAdoption)};
-  const autoJoin = ${JSON.stringify(params.autoJoin)};
-  const captureCaptions = ${JSON.stringify(params.captureCaptions)};
-  const readOnly = ${JSON.stringify(Boolean(params.readOnly))};
-  const sessionId = ${JSON.stringify(params.meetingSessionId)};
-  const identityRetentionMs = ${JSON.stringify(Math.max(3e4, params.waitForInCallMs))};
-  const text = (node) => (node?.innerText || node?.textContent || "").trim();
-  const label = (node) => [
-    node?.getAttribute?.("aria-label"),
-    node?.getAttribute?.("title"),
-    node?.getAttribute?.("data-tid"),
-    text(node),
-  ].filter(Boolean).join(" ");
-  const manualActionFor = (reason, message) => ({ reason, message });
-  const clickable = (node) => node?.matches?.("button")
-    ? node
-    : node?.querySelector?.("button") || node?.closest?.("button") || node;
-  const first = (list) => {
-    for (const selector of list) {
-      const node = document.querySelector(selector);
-      if (node) return clickable(node);
-    }
-    return undefined;
-  };
-  const firstRaw = (list) => {
-    for (const selector of list) {
-      const node = document.querySelector(selector);
-      if (node) return node;
-    }
-    return undefined;
-  };
-  const firstWithin = (root, list) => {
-    if (!root) return undefined;
-    for (const selector of list) {
-      if (root.matches?.(selector)) return root;
-      const node = root.querySelector?.(selector);
-      if (node) return node;
-    }
-    return undefined;
-  };
-  // Keep these names scoped: older plugin lifecycle fragments declare their own helpers.
-  const meetingAudioInput = (() => {
-    const isVirtualAudioDevice = (value) =>
-      /^(?:blackhole 2ch(?: \\(virtual\\))?|openclaw meeting audio)$/i.test(
-        String(value || "").replace(/\\s+/g, " ").trim()
-      );
-    const isVirtualAudioDeviceNode = (node) => [
-      node?.getAttribute?.("aria-label"),
-      node?.getAttribute?.("title"),
-      node?.label,
-      node?.value,
-      text(node),
-    ].some(isVirtualAudioDevice);
-    const microphoneDeviceRoots = () => {
-      // Consumer in-call controls expose the listbox itself, without the prejoin
-      // selected-device button/combobox wrapper.
-      const control = firstRaw(selectors.microphoneDevice) || firstRaw(selectors.microphoneDeviceMenu);
-      if (!control) return { control, roots: [] };
-      const roots = [control];
-      const scope = control.closest?.(selectors.microphoneDeviceScope);
-      if (scope && !roots.includes(scope)) roots.push(scope);
-      const listboxId = control.getAttribute?.("aria-controls");
-      const listbox = listboxId ? document.getElementById?.(listboxId) : undefined;
-      if (listbox && !roots.includes(listbox)) roots.push(listbox);
-      const liveMenu = firstRaw(selectors.microphoneDeviceMenu);
-      if (liveMenu && !roots.includes(liveMenu)) roots.push(liveMenu);
-      return { control, roots };
-    };
-    const selectedMicrophoneLabel = () => {
-      const { control, roots } = microphoneDeviceRoots();
-      const selectedOption = control?.selectedOptions?.[0];
-      if (selectedOption && isVirtualAudioDeviceNode(selectedOption)) {
-        return label(selectedOption) || selectedOption.value;
-      }
-      if (control && isVirtualAudioDeviceNode(control)) return label(control) || control.value;
-      for (const root of roots) {
-        const selected = firstWithin(root, selectors.selectedMicrophoneDevice);
-        if (selected && isVirtualAudioDeviceNode(selected)) {
-          return label(selected) || selected.value;
-        }
-      }
-      return undefined;
-    };
-    return { isVirtualAudioDevice, isVirtualAudioDeviceNode, microphoneDeviceRoots, selectedMicrophoneLabel };
-  })();
-  ${options.controlLookupSource}
-  const waitForUi = () => new Promise((resolve) => setTimeout(resolve, 120));
-  const bridgeOwnedBySession = (entry) => Boolean(
-    sessionId && (!entry?.sessionId || entry.sessionId === sessionId)
-  );
-  const mediaSourceUrl = (element) => String(element?.currentSrc || element?.src || "");
-  const bridgeSources = (entry) => Array.isArray(entry?.sources)
-    ? entry.sources
-    : entry?.source
-      ? [{ element: entry.source, muted: Boolean(entry.sourceMuted), pending: Boolean(entry.pending), stream: entry.stream, url: entry.sourceUrl }]
-      : [];
-  const bridgeSourceMatches = (element, source) => {
-    if (!element) return false;
-    if (source?.pending && mediaSourceIsEmpty(element) && !source.stream && !source.url) return true;
-    if (source?.stream || element.srcObject) return element.srcObject === source?.stream;
-    const currentUrl = mediaSourceUrl(element);
-    return Boolean(source?.url && currentUrl && source.url === currentUrl);
-  };
-  const mediaSourceIsEmpty = (element) => Boolean(
-    element && !element.srcObject && !mediaSourceUrl(element)
-  );
-  const restoreAudioBridgeSource = (source) => {
-    const element = source?.element;
-    // An empty element may receive a replacement source after cleanup. Keep it
-    // silent because there is no source identity that is safe to restore.
-    if (mediaSourceIsEmpty(element)) {
-      element.muted = true;
-      return;
-    }
-    // Teams reuses media elements across source changes. Restore only the exact
-    // source this bridge muted.
-    if (!bridgeSourceMatches(element, source)) return;
-    const detachedLiveSource = Boolean(
-      element.isConnected === false &&
-      element.srcObject?.getAudioTracks?.().some((track) => track.readyState === "live")
-    );
-    if (detachedLiveSource) {
-      element.muted = true;
-      element.pause?.();
-      element.srcObject = null;
-      return;
-    }
-    element.muted = Boolean(source.muted);
-  };
-  const restoreAudioBridgeSources = (entry) => {
-    bridgeSources(entry).forEach(restoreAudioBridgeSource);
-  };
-  const retireAudioBridge = (entry, restoreSources = true) => {
-    if (restoreSources) restoreAudioBridgeSources(entry);
-    entry?.bridge?.pause?.();
-    if (entry?.bridge) entry.bridge.srcObject = null;
-    entry?.bridge?.remove?.();
-  };
-  const retireOwnedAudioBridges = (restoreSources = true) => {
-    const entries = Array.isArray(window[${audioOutputsGlobal}])
-      ? window[${audioOutputsGlobal}]
-      : [];
-    const retained = [];
-    for (const entry of entries) {
-      if (!bridgeOwnedBySession(entry)) {
-        retained.push(entry);
-        continue;
-      }
-      retireAudioBridge(entry, restoreSources);
-    }
-    if (retained.length > 0) window[${audioOutputsGlobal}] = retained;
-    else delete window[${audioOutputsGlobal}];
-  };
-  const adoptAudioBridgeSourcesForSession = () => {
-    const entries = Array.isArray(window[${audioOutputsGlobal}])
-      ? window[${audioOutputsGlobal}]
-      : [];
-    const suspendedBySource = new Map();
-    for (const entry of entries) {
-      for (const source of bridgeSources(entry)) {
-        if (!source?.element || suspendedBySource.has(source.element)) continue;
-        if (!bridgeSourceMatches(source.element, source)) {
-          restoreAudioBridgeSource(source);
-          continue;
-        }
-        suspendedBySource.set(source.element, {
-          sessionId,
-          source: source.element,
-          sourceMuted: Boolean(source.muted),
-          sourceUrl: mediaSourceUrl(source.element) || source.url,
-          stream: source.element.srcObject,
-          suspended: true,
-        });
-      }
-      retireAudioBridge(entry, false);
-    }
-    const suspended = [...suspendedBySource.values()];
-    if (suspended.length > 0) window[${audioOutputsGlobal}] = suspended;
-    else delete window[${audioOutputsGlobal}];
-  };
-  const suspendOwnedAudioBridges = () => {
-    const entries = Array.isArray(window[${audioOutputsGlobal}])
-      ? window[${audioOutputsGlobal}]
-      : [];
-    const retained = [];
-    const suspendedBySource = new Map();
-    for (const entry of entries) {
-      if (!bridgeOwnedBySession(entry)) {
-        retained.push(entry);
-        continue;
-      }
-      // This pending entry owns the muted element until a later serialized
-      // status poll sees and routes the attached playback source.
-      if (
-        entry?.pending &&
-        bridgeSources(entry).some((source) => bridgeSourceMatches(source?.element, source))
-      ) {
-        retained.push(entry);
-        continue;
-      }
-      for (const source of bridgeSources(entry)) {
-        if (!source?.element || suspendedBySource.has(source.element)) continue;
-        if (!bridgeSourceMatches(source.element, source)) {
-          restoreAudioBridgeSource(source);
-          continue;
-        }
-        suspendedBySource.set(source.element, {
-          sessionId: entry.sessionId || sessionId,
-          source: source.element,
-          sourceMuted: Boolean(source.muted),
-          sourceUrl: source.url,
-          stream: source.element.srcObject,
-          suspended: true,
-        });
-      }
-      retireAudioBridge(entry, false);
-    }
-    const next = [...retained, ...suspendedBySource.values()];
-    if (next.length > 0) window[${audioOutputsGlobal}] = next;
-    else delete window[${audioOutputsGlobal}];
-  };
-  const retireOwnedCaptions = () => {
-    const active = window[${captionsGlobal}];
-    const owned = Boolean(
-      active && sessionId && (!active.sessionId || active.sessionId === sessionId)
-    );
-    if (!owned) return;
-    if (active.settleTimer !== undefined) clearTimeout(active.settleTimer);
-    active.observer?.disconnect?.();
-    delete window[${captionsGlobal}];
-  };
-  const finalizeCaptionState = (active) => {
-    if (!active) return;
-    if (active.settleTimer !== undefined) clearTimeout(active.settleTimer);
-    active.settleTimer = undefined;
-    active.observer?.disconnect?.();
-    active.observer = undefined;
-    active.observerInstalled = false;
-    active.lines = Array.isArray(active.lines) ? active.lines : [];
-    if (Array.isArray(active.visible) && active.visible.length > 0) {
-      active.lines.push(...active.visible.map((entry) => ({
-        at: entry.at,
-        speaker: entry.speaker,
-        text: entry.text,
-      })));
-      active.visible = [];
-    }
-    const excess = active.lines.length - ${transcriptMaxLines};
-    if (excess > 0) {
-      active.lines.splice(0, excess);
-      active.droppedLines = (active.droppedLines || 0) + excess;
-    }
-    active.finalized = true;
-    active.finalizedAt = Date.now();
-  };
-  const archiveFinalizedCaptions = (active) => {
-    if (active?.finalized !== true || !active.sessionId) return;
-    const archive = window[${captionArchiveGlobal}] &&
-        typeof window[${captionArchiveGlobal}] === "object"
-      ? window[${captionArchiveGlobal}]
-      : {};
-    archive[active.sessionId] = active;
-    const retained = Object.entries(archive)
-      .sort((left, right) => Number(right[1]?.finalizedAt || 0) - Number(left[1]?.finalizedAt || 0))
-      .slice(0, 4);
-    window[${captionArchiveGlobal}] = Object.fromEntries(retained);
-  };
-  const finalizeOwnedCaptions = () => {
-    const active = window[${captionsGlobal}];
-    const owned = Boolean(
-      active && sessionId && (!active.sessionId || active.sessionId === sessionId)
-    );
-    if (owned) {
-      active.identity ||= priorMeeting?.identity || expectedIdentity;
-      finalizeCaptionState(active);
-    }
-  };
-  const toggleState = (node, kind) => parseToggleState({
-    kind,
-    ariaPressed: node?.getAttribute?.("aria-pressed"),
-    ariaChecked: node?.getAttribute?.("aria-checked"),
-    checked: typeof node?.checked === "boolean" ? node.checked : undefined,
-    iconClass: node?.querySelector?.("svg")?.getAttribute?.("class"),
-    label: label(node),
-  });
-  const notes = [];
-  const currentIdentity = meetingIdentity(location.href);
-  const priorMeeting = window[${meetingGlobal}];
-  if (expectedIdentity && currentIdentity && currentIdentity !== expectedIdentity) {
-    // A confirmed SPA transition must stop resources still owned by this
-    // request, while preserving any newer session already committed to the tab.
-    retireOwnedAudioBridges();
-    finalizeOwnedCaptions();
-    const requestOwnsMeeting = Boolean(
-      priorMeeting &&
-      sessionId &&
-      (!priorMeeting.sessionId || priorMeeting.sessionId === sessionId)
-    );
-    if (requestOwnsMeeting) delete window[${meetingGlobal}];
-    return JSON.stringify({
-      inCall: false,
-      manualAction: manualActionFor("${options.platform.manualActionReasonPrefix}-session-conflict", "The tracked ${options.platform.displayName} tab now shows a different meeting. Return to the requested meeting link, then retry."),
-      title: document.title,
-      url: location.href,
-      notes,
-    });
-  }
-  const meetingOwnerConflict = Boolean(
-    priorMeeting?.sessionId && priorMeeting.sessionId !== sessionId
-  );
-  const captionOwnerConflict = Boolean(
-    window[${captionsGlobal}]?.sessionId &&
-    window[${captionsGlobal}].sessionId !== sessionId
-  );
-  const committedOwnerConflict = meetingOwnerConflict || captionOwnerConflict;
-  const canRepairCaptionOwner = Boolean(
-    !meetingOwnerConflict && priorMeeting?.sessionId === sessionId
-  );
-  const canMutateSession = Boolean(
-    !readOnly &&
-    sessionId &&
-    (!committedOwnerConflict || canRepairCaptionOwner || allowSessionAdoption)
-  );
-  const identityMatchedUrl = Boolean(expectedIdentity && currentIdentity === expectedIdentity);
-  const identityVerifiedBeforeCall = identityMatchedUrl;
-  const previousRemoteCapture = window.__openclawMeetingRemoteAudio;
-  if (canMutateSession && allowSessionAdoption && previousRemoteCapture && previousRemoteCapture.sessionId !== sessionId) {
-    await previousRemoteCapture.stop();
-  }
-  ${options.lifecycleSource}
-  const micMuted = microphoneState === "off" ? true : microphoneState === "on" ? false : undefined;
-  const cameraOff = cameraState === "off" ? true : cameraState === "on" ? false : undefined;
-  ${options.manualActionSource}
-`;
+//#region src/meeting-bot/browser-plugin.ts
+function defineBrowserMeetingPlugin(spec) {
+	const { platform, labels } = spec;
+	const tabLabel = labels.tab ?? labels.meeting;
+	const config = createMeetingPluginConfigSchema(spec.config);
+	const invalidRequest = (message) => new spec.InvalidRequestError(message);
+	const chrome = createMeetingPluginChromeTransport({
+		meetingLabel: labels.meeting,
+		platform,
+		preserveTrackedBrowserOnEngineFailure: spec.preserveTrackedBrowserOnEngineFailure,
+		runtime: spec.chromeRuntime ?? createMeetingChromeRuntimeBindings()
+	});
+	const setupStatus = createMeetingRuntimeSetup({
+		...spec.setup,
+		assertAudioDeviceAvailable: chrome.assertAudioDeviceAvailable,
+		nodeAdapter: platform
+	});
+	const probes = createMeetingRuntimeProbes({
+		defaultSpeechMessage: spec.defaultSpeechMessage,
+		invalidRequest,
+		resolveTimeoutMs: (input, fallback) => resolveMeetingProbeTimeoutMs(input, fallback, invalidRequest),
+		shouldWaitForListening: spec.shouldWaitForListening,
+		talkBackMode: isMeetingTalkBackMode
+	});
+	const Runtime = createMeetingRuntimeFacade({
+		platform,
+		transport: chrome,
+		probes: {
+			setupStatus,
+			...probes
+		},
+		hooks: spec.hooks,
+		messages: {
+			browserReadinessFailed: spec.browserReadinessFailed,
+			durableTranscripts: {
+				providerId: spec.transcriptSource.id,
+				providerName: spec.transcriptSource.providerName
+			},
+			joined: {
+				local: `${labels.participant} joined in local Chrome with realtime audio through the native virtual-audio backend.`,
+				node: `${labels.participant} joined in Chrome on the selected node with realtime audio through the node bridge.`,
+				transcribe: `${labels.participant} joined observe-only with live-caption transcript capture.`,
+				waiting: `${labels.participant} join is waiting for the browser to become ready before starting realtime audio.`
+			},
+			leaveFailed: (error) => `Browser control could not leave the ${tabLabel} tab: ${error}`,
+			noTrackedTab: `No tracked ${tabLabel} tab; leave the browser meeting manually if it is still active.`,
+			sharedTab: `Kept the shared ${tabLabel} tab open for another active session.`,
+			sessionRuntime: {
+				previousBrowserLeaveFailed: `Could not leave the previous ${tabLabel} tab before reassignment.`,
+				replacementBrowserLeaveFailed: `Could not leave the previous ${tabLabel} tab before reassignment.`,
+				reassignedSessionNote: `Ended before the same ${tabLabel} tab was reassigned to another agent.`,
+				reusedSessionNote: `Reused existing active ${labels.brand} meeting session.`,
+				speechBlockedFallback: `Realtime speech blocked until ${labels.brand} is ready.`,
+				speech: {
+					audioBridgeUnavailable: "Realtime speech requires an active Chrome audio bridge.",
+					browserUnverified: `${labels.brand} browser state has not been verified yet.`,
+					microphoneMuted: `Turn on the OpenClaw ${labels.microphone} microphone before asking OpenClaw to speak.`,
+					microphoneMutedReason: spec.microphoneMutedReason,
+					notInCall: spec.notInCallMessage ?? `${labels.brand} has not reported that the browser guest is in the call.`,
+					notInCallReason: "not-in-call",
+					browserUnverifiedReason: "browser-unverified",
+					audioBridgeUnavailableReason: "audio-bridge-unavailable"
+				}
+			}
+		}
+	});
+	const nodeHandler = createMeetingPluginNodeHostHandler({
+		platform,
+		browserPageName: labels.browserPage,
+		meetingLabel: labels.meeting,
+		defaultAudioInputCommand: config.defaultAudioInputCommand,
+		defaultAudioOutputCommand: config.defaultAudioOutputCommand,
+		sharePrerequisiteDeadline: spec.sharePrerequisiteDeadline
+	});
+	const createNodePolicy = (resolved) => createMeetingPluginNodeInvokePolicy(resolved, {
+		platform,
+		deniedCode: spec.nodePolicyDeniedCode
+	});
+	const resolveCliGatewayTimeoutMs = (resolved, options) => {
+		const operationTimeoutMs = config.resolveGatewayOperationTimeoutMs(resolved);
+		if (spec.cli.resolveTimeoutMs) return spec.cli.resolveTimeoutMs(operationTimeoutMs, options);
+		const probeTimeoutMs = options.probe ? resolveMeetingProbeTimeoutMs(options.requestedTimeoutMs, resolved.chrome.joinTimeoutMs, invalidRequest) : void 0;
+		return probeTimeoutMs === void 0 ? operationTimeoutMs : addTimerTimeoutGraceMs(operationTimeoutMs, probeTimeoutMs) ?? 1;
+	};
+	const loadCli = async () => {
+		const { registerBrowserMeetingCli } = await import("../browser-plugin-cli-CMTMlBDY.mjs");
+		return (params) => registerBrowserMeetingCli({
+			...params,
+			callGateway: spec.cli.callGateway,
+			descriptor: spec.cli.descriptor,
+			joinDescription: spec.cli.joinDescription,
+			meetingLabel: tabLabel,
+			resolveTimeoutMs: resolveCliGatewayTimeoutMs
+		});
+	};
+	return {
+		plugin: createMeetingPluginShellEntry({
+			platform,
+			browserGuestLabel: labels.meeting,
+			configSchema: config.configSchema,
+			invalidRequest,
+			isInvalidRequest: (error) => error instanceof spec.InvalidRequestError,
+			toolParameters: Type.Object({
+				action: Type.String({ enum: [
+					"join",
+					"leave",
+					"status",
+					"transcript",
+					"speak"
+				] }),
+				url: Type.Optional(Type.String({ description: spec.toolUrlDescription })),
+				transport: Type.Optional(Type.String({ enum: ["chrome", "chrome-node"] })),
+				mode: Type.Optional(Type.String({ enum: [
+					"agent",
+					"bidi",
+					"transcribe"
+				] })),
+				sessionId: Type.Optional(Type.String({ description: `${tabLabel} session ID` })),
+				sinceIndex: Type.Optional(Type.Integer({
+					minimum: 0,
+					description: "Resume transcript from this index"
+				})),
+				message: Type.Optional(Type.String({ description: "Instructions to speak" }))
+			}),
+			resolveGatewayTimeoutMs: config.resolveGatewayOperationTimeoutMs,
+			normalizeRequesterSessionKey: (value, trustedOwner) => trustedOwner && typeof value === "string" && value.trim() ? value.trim() : void 0,
+			normalizeToolAgentId: (agentId) => normalizeAgentId(agentId),
+			resolveToolRuntime: async (api) => {
+				if (!await api.runtime.gateway.isAvailable()) throw new Error(`${labels.meeting} tools require a Gateway-hosted agent run.`);
+				return api.runtime;
+			},
+			transcriptSource: {
+				id: spec.transcriptSource.id,
+				aliases: spec.transcriptSource.aliases
+			},
+			runtime: Runtime,
+			nodeHandler,
+			createNodePolicy,
+			registerNodeWhen: (resolved) => resolved.enabled,
+			...spec.entry,
+			cli: {
+				descriptor: spec.cli.descriptor,
+				load: loadCli
+			}
+		}),
+		config,
+		chrome,
+		Runtime,
+		probes,
+		setupStatus,
+		nodeHandler,
+		createNodePolicy,
+		loadCli,
+		resolveCliGatewayTimeoutMs
+	};
 }
 //#endregion
 //#region src/meeting-bot/platform-adapter.ts
@@ -7409,12 +6583,16 @@ const invalidBrowserArrayItemSchema = unknown().transform(() => null);
 const meetingTranscriptLineSchema = object({
 	at: optionalBrowserString,
 	speaker: optionalBrowserString,
-	text: string().refine((value) => value.trim().length > 0)
-}).transform(({ at, speaker, text }) => ({
+	text: string().refine((value) => value.trim().length > 0),
+	provenance: unknown().optional()
+}).transform(({ at, speaker, text, provenance }) => ({
 	...at !== void 0 ? { at } : {},
 	...speaker !== void 0 ? { speaker } : {},
-	text
+	text,
+	...provenance !== void 0 ? { provenance } : {}
 }));
+const meetingTranscriptLinesSchema = array(union([meetingTranscriptLineSchema, invalidBrowserArrayItemSchema])).transform((lines) => lines.filter((line) => line !== null));
+const meetingCaptionLinesSchema = array(union([meetingTranscriptLineSchema.and(object({ source: unknown().optional() })), invalidBrowserArrayItemSchema])).transform((lines) => lines.filter((line) => line !== null));
 const meetingBrowserStatusSchema = looseObject({
 	inCall: optionalBrowserBoolean,
 	micMuted: optionalBrowserBoolean,
@@ -7427,7 +6605,7 @@ const meetingBrowserStatusSchema = looseObject({
 	lastCaptionAt: optionalBrowserString,
 	lastCaptionSpeaker: optionalBrowserString,
 	lastCaptionText: optionalBrowserString,
-	recentTranscript: array(union([meetingTranscriptLineSchema, invalidBrowserArrayItemSchema])).transform((lines) => lines.filter((line) => line !== null)).optional().catch(void 0),
+	recentTranscript: meetingTranscriptLinesSchema.optional().catch(void 0),
 	audioInputRouted: optionalBrowserBoolean,
 	audioInputDeviceLabel: optionalBrowserString,
 	audioInputRouteError: optionalBrowserString,
@@ -7443,7 +6621,7 @@ const meetingBrowserStatusSchema = looseObject({
 	title: optionalBrowserString,
 	notes: array(union([string(), invalidBrowserArrayItemSchema])).transform((notes) => notes.filter((note) => note !== null)).optional().catch(void 0)
 });
-function parseMeetingBrowserStatus(result, options) {
+function parseMeetingBrowserStatus(result, adapterId, options) {
 	const raw = browserResultString(result);
 	if (!raw) return;
 	let parsed;
@@ -7464,7 +6642,14 @@ function parseMeetingBrowserStatus(result, options) {
 		lastCaptionAt: parsed.lastCaptionAt,
 		lastCaptionSpeaker: parsed.lastCaptionSpeaker,
 		lastCaptionText: parsed.lastCaptionText,
-		recentTranscript: parsed.recentTranscript,
+		recentTranscript: parsed.recentTranscript?.map((line) => ({
+			...line,
+			...line.provenance !== void 0 ? { provenance: normalizeMeetingObservationProvenance(line.provenance, {
+				observer: adapterId,
+				observedAt: line.at,
+				speaker: line.speaker
+			}) } : {}
+		})),
 		audioInputRouted: parsed.audioInputRouted,
 		audioInputDeviceLabel: parsed.audioInputDeviceLabel,
 		audioInputRouteError: parsed.audioInputRouteError,
@@ -7497,7 +6682,7 @@ function parseMeetingLeaveResult(result) {
 		return { departed: false };
 	}
 }
-function parseMeetingTranscript(result, options) {
+function parseMeetingTranscript(result, adapterId, options) {
 	const raw = browserResultString(result);
 	if (!raw) return {
 		droppedLines: 0,
@@ -7512,20 +6697,26 @@ function parseMeetingTranscript(result, options) {
 	if (!parsed || typeof parsed !== "object") throw new Error(options.invalidTranscriptMessage);
 	const payload = parsed;
 	const droppedLines = typeof payload.droppedLines === "number" && Number.isSafeInteger(payload.droppedLines) ? Math.max(0, payload.droppedLines) : 0;
-	const lines = Array.isArray(payload.lines) ? payload.lines.flatMap((value) => {
-		if (!value || typeof value !== "object") return [];
-		const line = value;
-		if (typeof line.text !== "string" || !line.text.trim()) return [];
-		return [{
-			...typeof line.at === "string" ? { at: line.at } : {},
-			...typeof line.speaker === "string" ? { speaker: line.speaker } : {},
-			text: line.text
-		}];
-	}) : [];
+	const parseLines = (values) => meetingCaptionLinesSchema.catch([]).parse(values).map((line) => {
+		const source = meetingCaptionSourceSchema.safeParse(line.source);
+		const identity = source.success && source.data.epoch === payload.epoch ? source.data : void 0;
+		const transcriptLine = { text: line.text };
+		if (line.at !== void 0) transcriptLine.at = line.at;
+		if (line.speaker !== void 0) transcriptLine.speaker = line.speaker;
+		if (line.provenance !== void 0 || line.source !== void 0) transcriptLine.provenance = normalizeMeetingObservationProvenance(line.provenance, {
+			observer: adapterId,
+			epoch: payload.epoch,
+			observedAt: line.at,
+			speaker: line.speaker
+		});
+		if (identity) transcriptLine.source = identity;
+		return transcriptLine;
+	});
 	return {
 		droppedLines,
 		...typeof payload.epoch === "string" ? { epoch: payload.epoch } : {},
-		lines,
+		lines: parseLines(payload.lines),
+		...Array.isArray(payload.pendingLines) ? { pendingLines: parseLines(payload.pendingLines) } : {},
 		...typeof payload.urlMatched === "boolean" ? { urlMatched: payload.urlMatched } : {},
 		...typeof payload.sessionMatched === "boolean" ? { sessionMatched: payload.sessionMatched } : {}
 	};
@@ -7536,7 +6727,7 @@ function createMeetingPlatformAdapter(options) {
 		...platform,
 		browser: {
 			...browser,
-			parseStatus: (result) => parseMeetingBrowserStatus(result, parsing),
+			parseStatus: (result) => parseMeetingBrowserStatus(result, options.id, parsing),
 			classifyManualAction: (health) => {
 				if (!health.manualAction) return;
 				return {
@@ -7548,7 +6739,7 @@ function createMeetingPlatformAdapter(options) {
 			parseLeaveResult: parseMeetingLeaveResult,
 			captions: {
 				...browser.captions,
-				parseTranscript: (result) => parseMeetingTranscript(result, parsing)
+				parseTranscript: (result) => parseMeetingTranscript(result, options.id, parsing)
 			},
 			permissionNotes: browser.permissionNotes ?? (({ allowMicrophone, error, result }) => {
 				if (!allowMicrophone) return [`Observe-only mode does not request ${parsing.displayName} microphone access.`];
@@ -7564,17 +6755,28 @@ function createMeetingPlatformAdapter(options) {
 }
 const MeetingPlatformAdapter = {
 	create: createMeetingPlatformAdapter,
+	createBrowserAdapterOptions: createMeetingBrowserAdapterOptions,
+	createPageScripts: createMeetingPageScripts,
+	defineBrowserMeetingPlugin,
 	createChromeTransport: createMeetingChromeTransport,
 	createChromeTransportWithExternalAudio: createMeetingChromeTransportWithExternalAudio,
 	createChromeRuntimeBindings: createMeetingChromeRuntimeBindings,
+	/** @deprecated Use defineBrowserMeetingPlugin for browser meeting plugins. */
 	createPluginChromeTransport: createMeetingPluginChromeTransport,
+	/** @deprecated Use defineBrowserMeetingPlugin for browser meeting plugins. */
 	createPluginConfigSchema: createMeetingPluginConfigSchema,
+	/** @deprecated Use defineBrowserMeetingPlugin for browser meeting plugins. */
 	createPluginNodeHostHandler: createMeetingPluginNodeHostHandler,
+	/** @deprecated Use defineBrowserMeetingPlugin for browser meeting plugins. */
 	createPluginNodeInvokePolicy: createMeetingPluginNodeInvokePolicy,
+	/** @deprecated Use defineBrowserMeetingPlugin for browser meeting plugins. */
 	createPluginShellEntry: createMeetingPluginShellEntry,
+	/** @deprecated Use defineBrowserMeetingPlugin for browser meeting plugins. */
 	createRuntimeFacade: createMeetingRuntimeFacade,
+	/** @deprecated Use defineBrowserMeetingPlugin for browser meeting plugins. */
 	createRuntimeSetup: createMeetingRuntimeSetup,
 	pluginTypes: createMeetingPluginTypes,
+	/** @deprecated Use defineBrowserMeetingPlugin for browser meeting plugins. */
 	registerPluginCli: registerMeetingPluginCli,
 	resolveProbeTimeoutMs: resolveMeetingProbeTimeoutMs,
 	createRuntimeProbes: createMeetingRuntimeProbes,
@@ -7673,4 +6875,105 @@ async function speakMeetingViaVoiceCallGateway(params) {
 	if (spoken.success === false) throw new Error(spoken.error || "voicecall.speak failed");
 }
 //#endregion
-export { MeetingPlatformAdapter, MeetingSessionRuntime, addMeetingSetupCheck, asMeetingBrowserTabs, buildMeetingSoxAudioCommands, callMeetingBrowserProxyOnNode, convertMeetingTtsAudioForBridge, createLocalMeetingRealtimeAudioTransport, createMeetingBrowserNodeInvokePolicy, createMeetingNodeHost, createMeetingRealtimeEngineBindings, createMeetingSession, createMeetingSetupStatus, createMeetingVoiceCallGateway, createNodeMeetingRealtimeAudioTransport, endMeetingVoiceCallGatewayCall, getMeetingVoiceCallGatewayCall, isMeetingVoiceCallMissingError, joinMeetingViaVoiceCallGateway, leaveMeetingWithBrowser, openMeetingWithBrowser, readMeetingBrowserTab, readMeetingTranscriptWithBrowser, recoverMeetingBrowserTab, resolveLocalMeetingBrowserRequest, resolveMeetingBrowserNode, resolveMeetingBrowserNodeInfo, speakMeetingViaVoiceCallGateway, startMeetingAgentRealtimeEngine, startMeetingRealtimeEngine };
+//#region src/meeting-bot/participation-browser.ts
+async function runMeetingParticipationWithBrowser(params) {
+	let dispatched = false;
+	let authorityCheckFailed = false;
+	const assertCurrent = () => {
+		try {
+			params.assertCurrent();
+		} catch (error) {
+			authorityCheckFailed = true;
+			throw error;
+		}
+	};
+	try {
+		assertCurrent();
+		if (!params.adapter.capabilities.includes(params.action.type)) return {
+			status: "unsupported",
+			message: "This meeting does not support that action."
+		};
+		const invalidAction = params.adapter.validateAction(params.action);
+		if (invalidAction) return {
+			status: "rejected",
+			message: invalidAction
+		};
+		const deadline = performance.now() + Math.max(1, params.timeoutMs);
+		const result = await runMeetingBrowserAct({
+			deadline,
+			targetId: params.targetId,
+			operation: async (remainingMs) => {
+				assertCurrent();
+				const tabs = asMeetingBrowserTabs(await params.callBrowser({
+					method: "GET",
+					path: "/tabs",
+					timeoutMs: remainingMs
+				}));
+				assertCurrent();
+				const tab = tabs.find((entry) => entry.targetId === params.targetId);
+				if (!tab || !params.isSameMeetingUrl(tab.url, params.meetingUrl)) return {
+					status: "rejected",
+					message: "The tracked browser tab no longer shows this meeting; no action was sent."
+				};
+				const scriptParams = {
+					meetingSessionId: params.meetingSessionId,
+					meetingUrl: params.meetingUrl,
+					requestId: params.requestId,
+					action: params.action
+				};
+				const remainingTimeoutMs = () => {
+					const timeoutMs = Math.floor(deadline - performance.now());
+					if (timeoutMs <= 0) throw new Error("Meeting participation timed out before dispatch.");
+					return timeoutMs;
+				};
+				if (params.adapter.buildPreparationScript) {
+					if (!params.adapter.parsePreparationResult) return {
+						status: "failed",
+						message: "The meeting adapter cannot verify action preparation."
+					};
+					const fn = params.adapter.buildPreparationScript(scriptParams);
+					const timeoutMs = remainingTimeoutMs();
+					assertCurrent();
+					const prepared = await params.callBrowser({
+						method: "POST",
+						path: "/act",
+						body: {
+							kind: "evaluate",
+							targetId: params.targetId,
+							fn
+						},
+						timeoutMs
+					});
+					assertCurrent();
+					const preparation = params.adapter.parsePreparationResult(prepared, params.action);
+					if (preparation.status !== "succeeded") return preparation;
+				}
+				const fn = params.adapter.buildActionScript(scriptParams);
+				const timeoutMs = remainingTimeoutMs();
+				assertCurrent();
+				dispatched = true;
+				const evaluated = await params.callBrowser({
+					method: "POST",
+					path: "/act",
+					body: {
+						kind: "evaluate",
+						targetId: params.targetId,
+						fn
+					},
+					timeoutMs
+				});
+				assertCurrent();
+				return params.adapter.parseActionResult(evaluated, params.action);
+			}
+		});
+		assertCurrent();
+		return result;
+	} catch (error) {
+		return {
+			status: dispatched ? "uncertain" : authorityCheckFailed ? "rejected" : "failed",
+			message: coerceErrorMessage(error)
+		};
+	}
+}
+//#endregion
+export { MeetingPlatformAdapter, MeetingSessionRuntime, addMeetingSetupCheck, asMeetingBrowserTabs, buildMeetingSoxAudioCommands, callMeetingBrowserProxyOnNode, convertMeetingTtsAudioForBridge, createLocalMeetingRealtimeAudioTransport, createMeetingBrowserNodeInvokePolicy, createMeetingNodeHost, createMeetingRealtimeEngineBindings, createMeetingSession, createMeetingSetupStatus, createMeetingVoiceCallGateway, createNodeMeetingRealtimeAudioTransport, endMeetingVoiceCallGatewayCall, getMeetingVoiceCallGatewayCall, isMeetingVoiceCallMissingError, joinMeetingViaVoiceCallGateway, leaveMeetingWithBrowser, openMeetingWithBrowser, readMeetingBrowserTab, readMeetingTranscriptWithBrowser, recoverMeetingBrowserTab, resolveLocalMeetingBrowserRequest, resolveMeetingBrowserNode, resolveMeetingBrowserNodeInfo, runMeetingParticipationWithBrowser, speakMeetingViaVoiceCallGateway, startMeetingAgentRealtimeEngine, startMeetingRealtimeEngine };

@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{n as t,o as n}from"./worker-chunk-2D-Xow9R.mjs";import r from"node:path";function resolveSkillCollectionBackupRoot(e,t,a){return r.join(n(e,t,a),i)}var i,a=e((()=>{t(),i=r.join(`skill-workshop`,`collection-backups`)}));export{resolveSkillCollectionBackupRoot as n,a as t};

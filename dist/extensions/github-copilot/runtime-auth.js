@@ -1,2 +1,2 @@
-import { n as resolveCopilotRuntimeAuth, t as DEFAULT_COPILOT_API_BASE_URL } from "../../runtime-auth-B1nEIuFA.mjs";
+import { n as resolveCopilotRuntimeAuth, t as DEFAULT_COPILOT_API_BASE_URL } from "../../runtime-auth-Bk7UhxKB.mjs";
 export { DEFAULT_COPILOT_API_BASE_URL, resolveCopilotRuntimeAuth };

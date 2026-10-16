@@ -1,11 +1,13 @@
-import { s as resolveNostrAccount } from "./.setup/setup-surface-Dx8QxWSP.mjs";
+import { s as resolveNostrAccount } from "./.setup/setup-surface-b-YWJSGV.mjs";
 import { getPluginRuntimeGatewayRequestScope } from "./runtime-api.js";
-import { n as NostrProfileSchema } from "./.setup/config-schema-CkYd8ACn.mjs";
-import { a as getNostrRuntime, i as contentToProfile, n as nostrPlugin, o as setNostrRuntime, r as publishNostrProfile, t as getNostrProfileState } from "./.setup/channel-D0f0Q9uV.mjs";
-import { isRecord, normalizeLowercaseStringOrEmpty, normalizeOptionalLowercaseString, readStringValue } from "openclaw/plugin-sdk/string-coerce-runtime";
+import { n as NostrProfileSchema } from "./.setup/config-schema-HuEK1L2K.mjs";
+import { a as getNostrRuntime, i as contentToProfile, n as nostrPlugin, o as setNostrRuntime, r as publishNostrProfile, t as getNostrProfileState } from "./.setup/channel-BaBU_Q15.mjs";
+import { getPluginRuntimeGatewayRequestScope as getPluginRuntimeGatewayRequestScope$1 } from "openclaw/plugin-sdk/plugin-runtime";
+import { isRecord, normalizeLowercaseStringOrEmpty, normalizeOptionalLowercaseString } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { z } from "zod";
 import { SimplePool } from "nostr-tools";
-import { createFixedWindowRateLimiter as createFixedWindowRateLimiter$1 } from "openclaw/plugin-sdk/webhook-ingress";
+import { createFixedWindowRateLimiter } from "openclaw/plugin-sdk/webhook-ingress";
+import { raceWithTimeout } from "openclaw/plugin-sdk/time-runtime";
 import { KeyedAsyncQueue } from "openclaw/plugin-sdk/keyed-async-queue";
 import { isBlockedHostnameOrIp, isLoopbackHost } from "openclaw/plugin-sdk/ssrf-runtime";
 import { readJsonBodyWithLimit, requestBodyErrorToText } from "openclaw/plugin-sdk/webhook-request-guards";
@@ -25,12 +27,9 @@ function normalizeNostrProfileUrlForRuntime(urlStr) {
 		return `${prefix}${high.toString(16)}:${low.toString(16)}${suffix}`;
 	});
 }
-function parseNostrProfileUrl(urlStr) {
-	return new URL(normalizeNostrProfileUrlForRuntime(urlStr));
-}
 function validateUrlSafety(urlStr) {
 	try {
-		const url = parseNostrProfileUrl(urlStr);
+		const url = new URL(normalizeNostrProfileUrlForRuntime(urlStr));
 		if (url.protocol !== "https:") return {
 			ok: false,
 			error: "URL must use https:// protocol"
@@ -50,17 +49,7 @@ function validateUrlSafety(urlStr) {
 }
 //#endregion
 //#region extensions/nostr/src/nostr-profile-import.ts
-/**
-* Nostr Profile Import
-*
-* Fetches and verifies kind:0 profile events from relays.
-* Used to import existing profiles before editing.
-*/
 const DEFAULT_TIMEOUT_MS = 5e3;
-/**
-* Sanitize URLs in an imported profile to prevent SSRF attacks.
-* Removes any URLs that don't pass SSRF validation.
-*/
 function sanitizeProfileUrls(profile) {
 	const result = { ...profile };
 	for (const field of [
@@ -75,14 +64,7 @@ function sanitizeProfileUrls(profile) {
 	}
 	return result;
 }
-/**
-* Fetch the latest kind:0 profile event for a pubkey from relays.
-*
-* - Queries all relays in parallel
-* - Takes the event with the highest created_at
-* - Verifies the event signature
-* - Parses and returns the profile
-*/
+/** Import the latest verified kind:0 profile across the configured relays. */
 async function importProfileFromRelays(opts) {
 	const { pubkey, relays } = opts;
 	const timeoutMs = resolveTimerTimeoutMs(opts.timeoutMs, DEFAULT_TIMEOUT_MS);
@@ -98,15 +80,10 @@ async function importProfileFromRelays(opts) {
 	};
 	const pool = new SimplePool();
 	const relaysQueried = [...relays];
-	let deadlineTimer;
-	const deadline = new Promise((resolve) => {
-		deadlineTimer = setTimeout(resolve, timeoutMs);
-		deadlineTimer.unref?.();
-	});
 	const subscriptions = [];
 	try {
 		const events = [];
-		await Promise.race([Promise.all(relays.map((relay) => new Promise((resolve) => {
+		await raceWithTimeout(() => Promise.all(relays.map((relay) => new Promise((resolve) => {
 			const subscription = pool.subscribeMany([relay], {
 				kinds: [0],
 				authors: [pubkey],
@@ -126,7 +103,7 @@ async function importProfileFromRelays(opts) {
 				}
 			});
 			subscriptions.push(subscription);
-		}))), deadline]);
+		}))), timeoutMs, () => void 0, { ref: false });
 		if (events.length === 0) return {
 			ok: false,
 			error: "No profile found on any relay",
@@ -174,18 +151,11 @@ async function importProfileFromRelays(opts) {
 			sourceRelay: bestEvent.relay
 		};
 	} finally {
-		if (deadlineTimer) clearTimeout(deadlineTimer);
 		for (const subscription of subscriptions) subscription.close();
 		pool.close(relays);
 	}
 }
-/**
-* Merge imported profile with local profile.
-*
-* Strategy:
-* - For each field, prefer local if set, otherwise use imported
-* - This preserves user customizations while filling in missing data
-*/
+/** Preserve local customizations while filling missing fields from the imported profile. */
 function mergeProfiles(local, imported) {
 	if (!imported) return local ?? {};
 	if (!local) return imported;
@@ -202,18 +172,12 @@ function mergeProfiles(local, imported) {
 }
 //#endregion
 //#region extensions/nostr/src/nostr-profile-http.ts
-const profileRateLimiter = createFixedWindowRateLimiter$1({
+const profileRateLimiter = createFixedWindowRateLimiter({
 	windowMs: 6e4,
 	maxRequests: 5,
 	maxTrackedKeys: 2048
 });
-function checkRateLimit(accountId) {
-	return !profileRateLimiter.isRateLimited(accountId);
-}
 const publishLocks = new KeyedAsyncQueue();
-async function withPublishLock(accountId, fn) {
-	return await publishLocks.enqueue(accountId, fn);
-}
 const nip05FormatSchema = z.string().regex(/^[a-z0-9._-]+@[a-z0-9.-]+\.[a-z]{2,}$/i, "Invalid NIP-05 format (user@domain.com)").optional();
 const lud16FormatSchema = z.string().regex(/^[a-z0-9._-]+@[a-z0-9.-]+\.[a-z]{2,}$/i, "Invalid Lightning address format").optional();
 const ProfileUpdateSchema = NostrProfileSchema.extend({
@@ -228,14 +192,13 @@ const PROFILE_URL_FIELDS = [
 ];
 function normalizeProfileUpdateUrlInputs(value) {
 	if (!isRecord(value)) return value;
-	const record = value;
 	let normalized;
 	for (const field of PROFILE_URL_FIELDS) {
-		const input = record[field];
+		const input = value[field];
 		if (typeof input !== "string") continue;
 		const next = normalizeNostrProfileUrlForRuntime(input);
 		if (next !== input) {
-			normalized ??= { ...record };
+			normalized ??= { ...value };
 			normalized[field] = next;
 		}
 	}
@@ -243,12 +206,11 @@ function normalizeProfileUpdateUrlInputs(value) {
 }
 function restoreProfileUpdateUrlInputs(profile, value) {
 	if (!isRecord(value)) return profile;
-	const record = value;
 	return {
 		...profile,
-		...typeof record.picture === "string" ? { picture: record.picture } : {},
-		...typeof record.banner === "string" ? { banner: record.banner } : {},
-		...typeof record.website === "string" ? { website: record.website } : {}
+		...typeof value.picture === "string" ? { picture: value.picture } : {},
+		...typeof value.banner === "string" ? { banner: value.banner } : {},
+		...typeof value.website === "string" ? { website: value.website } : {}
 	};
 }
 function sendJson(res, status, body) {
@@ -264,8 +226,7 @@ async function readJsonBody(req, maxBytes = 65536, timeoutMs = 3e4) {
 	});
 	if (result.ok) return result.value;
 	if (result.code === "PAYLOAD_TOO_LARGE") throw new Error("Request body too large");
-	if (result.code === "REQUEST_BODY_TIMEOUT") throw new Error(requestBodyErrorToText("REQUEST_BODY_TIMEOUT"));
-	if (result.code === "CONNECTION_CLOSED") throw new Error(requestBodyErrorToText("CONNECTION_CLOSED"));
+	if (result.code === "REQUEST_BODY_TIMEOUT" || result.code === "CONNECTION_CLOSED") throw new Error(requestBodyErrorToText(result.code));
 	throw new Error(result.code === "INVALID_JSON" ? "Invalid JSON" : result.error);
 }
 function parseAccountIdFromPath(pathname) {
@@ -289,8 +250,7 @@ function isLoopbackOriginLike(value) {
 	}
 }
 function firstHeaderValue(value) {
-	if (Array.isArray(value)) return value[0];
-	return readStringValue(value);
+	return Array.isArray(value) ? value[0] : value;
 }
 function normalizeIpCandidate(raw) {
 	const unquoted = raw.trim().replace(/^"|"$/g, "");
@@ -314,54 +274,18 @@ function hasNonLoopbackForwardedClient(req) {
 	}
 	return false;
 }
-function enforceLoopbackMutationGuards(ctx, req, res) {
+function resolveLoopbackMutationRejection(req) {
 	const remoteAddress = req.socket.remoteAddress;
-	if (!isLoopbackRemoteAddress(remoteAddress)) {
-		ctx.log?.warn?.(`Rejected mutation from non-loopback remoteAddress=${String(remoteAddress)}`);
-		sendJson(res, 403, {
-			ok: false,
-			error: "Forbidden"
-		});
-		return false;
-	}
-	if (hasNonLoopbackForwardedClient(req)) {
-		ctx.log?.warn?.("Rejected mutation with non-loopback forwarded client headers");
-		sendJson(res, 403, {
-			ok: false,
-			error: "Forbidden"
-		});
-		return false;
-	}
-	if (normalizeOptionalLowercaseString(firstHeaderValue(req.headers["sec-fetch-site"])) === "cross-site") {
-		ctx.log?.warn?.("Rejected mutation with cross-site sec-fetch-site header");
-		sendJson(res, 403, {
-			ok: false,
-			error: "Forbidden"
-		});
-		return false;
-	}
+	if (!isLoopbackRemoteAddress(remoteAddress)) return `Rejected mutation from non-loopback remoteAddress=${String(remoteAddress)}`;
+	if (hasNonLoopbackForwardedClient(req)) return "Rejected mutation with non-loopback forwarded client headers";
+	if (normalizeOptionalLowercaseString(firstHeaderValue(req.headers["sec-fetch-site"])) === "cross-site") return "Rejected mutation with cross-site sec-fetch-site header";
 	const origin = firstHeaderValue(req.headers.origin);
-	if (typeof origin === "string" && !isLoopbackOriginLike(origin)) {
-		ctx.log?.warn?.(`Rejected mutation with non-loopback origin=${origin}`);
-		sendJson(res, 403, {
-			ok: false,
-			error: "Forbidden"
-		});
-		return false;
-	}
+	if (typeof origin === "string" && !isLoopbackOriginLike(origin)) return `Rejected mutation with non-loopback origin=${origin}`;
 	const referer = firstHeaderValue(req.headers.referer ?? req.headers.referrer);
-	if (typeof referer === "string" && !isLoopbackOriginLike(referer)) {
-		ctx.log?.warn?.(`Rejected mutation with non-loopback referer=${referer}`);
-		sendJson(res, 403, {
-			ok: false,
-			error: "Forbidden"
-		});
-		return false;
-	}
-	return true;
+	if (typeof referer === "string" && !isLoopbackOriginLike(referer)) return `Rejected mutation with non-loopback referer=${referer}`;
 }
 function enforceGatewayMutationScope(ctx, accountId, res) {
-	const runtimeScopes = getPluginRuntimeGatewayRequestScope()?.client?.connect?.scopes;
+	const runtimeScopes = getPluginRuntimeGatewayRequestScope$1()?.client?.connect?.scopes;
 	if ((Array.isArray(runtimeScopes) ? runtimeScopes : []).includes(PROFILE_MUTATION_SCOPE)) return true;
 	ctx.log?.warn?.(`[${accountId}] Rejected profile mutation missing ${PROFILE_MUTATION_SCOPE}`);
 	sendJson(res, 403, {
@@ -380,8 +304,19 @@ function createNostrProfileHttpHandler(ctx) {
 		if (!(url.pathname.endsWith("/profile") || isImport)) return false;
 		try {
 			if (req.method === "GET" && !isImport) return await handleGetProfile(accountId, ctx, res);
-			if (req.method === "PUT" && !isImport) return await handleUpdateProfile(accountId, ctx, req, res);
-			if (req.method === "POST" && isImport) return await handleImportProfile(accountId, ctx, req, res);
+			if (req.method === "PUT" && !isImport || req.method === "POST" && isImport) {
+				if (!enforceGatewayMutationScope(ctx, accountId, res)) return true;
+				const rejection = resolveLoopbackMutationRejection(req);
+				if (rejection) {
+					ctx.log?.warn?.(rejection);
+					sendJson(res, 403, {
+						ok: false,
+						error: "Forbidden"
+					});
+					return true;
+				}
+				return await (isImport ? handleImportProfile : handleUpdateProfile)(accountId, ctx, req, res);
+			}
 			sendJson(res, 405, {
 				ok: false,
 				error: "Method not allowed"
@@ -409,9 +344,7 @@ async function handleGetProfile(accountId, ctx, res) {
 	return true;
 }
 async function handleUpdateProfile(accountId, ctx, req, res) {
-	if (!enforceGatewayMutationScope(ctx, accountId, res)) return true;
-	if (!enforceLoopbackMutationGuards(ctx, req, res)) return true;
-	if (!checkRateLimit(accountId)) {
+	if (profileRateLimiter.isRateLimited(accountId)) {
 		sendJson(res, 429, {
 			ok: false,
 			error: "Rate limit exceeded (5 requests/minute)"
@@ -438,32 +371,14 @@ async function handleUpdateProfile(accountId, ctx, req, res) {
 		return true;
 	}
 	const profile = restoreProfileUpdateUrlInputs(parseResult.data, body);
-	if (profile.picture) {
-		const pictureCheck = validateUrlSafety(profile.picture);
-		if (!pictureCheck.ok) {
+	for (const field of PROFILE_URL_FIELDS) {
+		const url = profile[field];
+		if (!url) continue;
+		const check = validateUrlSafety(url);
+		if (!check.ok) {
 			sendJson(res, 400, {
 				ok: false,
-				error: `picture: ${pictureCheck.error}`
-			});
-			return true;
-		}
-	}
-	if (profile.banner) {
-		const bannerCheck = validateUrlSafety(profile.banner);
-		if (!bannerCheck.ok) {
-			sendJson(res, 400, {
-				ok: false,
-				error: `banner: ${bannerCheck.error}`
-			});
-			return true;
-		}
-	}
-	if (profile.website) {
-		const websiteCheck = validateUrlSafety(profile.website);
-		if (!websiteCheck.ok) {
-			sendJson(res, 400, {
-				ok: false,
-				error: `website: ${websiteCheck.error}`
+				error: `${field}: ${check.error}`
 			});
 			return true;
 		}
@@ -473,12 +388,12 @@ async function handleUpdateProfile(accountId, ctx, req, res) {
 		...profile
 	};
 	try {
-		const result = await withPublishLock(accountId, async () => {
-			await getPluginRuntimeGatewayRequestScope()?.revalidate?.();
+		const result = await publishLocks.enqueue(accountId, async () => {
+			await getPluginRuntimeGatewayRequestScope$1()?.revalidate?.();
 			return await publishNostrProfile(accountId, mergedProfile);
 		});
 		if (result.successes.length > 0) {
-			await getPluginRuntimeGatewayRequestScope()?.revalidate?.();
+			await getPluginRuntimeGatewayRequestScope$1()?.revalidate?.();
 			await ctx.updateConfigProfile(accountId, mergedProfile);
 			ctx.log?.info(`[${accountId}] Profile published to ${result.successes.length} relay(s)`);
 		} else ctx.log?.warn(`[${accountId}] Profile publish failed on all relays`);
@@ -501,8 +416,6 @@ async function handleUpdateProfile(accountId, ctx, req, res) {
 	return true;
 }
 async function handleImportProfile(accountId, ctx, req, res) {
-	if (!enforceGatewayMutationScope(ctx, accountId, res)) return true;
-	if (!enforceLoopbackMutationGuards(ctx, req, res)) return true;
 	const accountInfo = ctx.getAccountInfo(accountId);
 	if (!accountInfo) {
 		sendJson(res, 404, {
@@ -524,7 +437,7 @@ async function handleImportProfile(accountId, ctx, req, res) {
 		const body = await readJsonBody(req);
 		if (typeof body === "object" && body !== null) autoMerge = body.autoMerge === true;
 	} catch {}
-	await getPluginRuntimeGatewayRequestScope()?.revalidate?.();
+	await getPluginRuntimeGatewayRequestScope$1()?.revalidate?.();
 	ctx.log?.info(`[${accountId}] Importing profile for ${pubkey.slice(0, 8)}...`);
 	const result = await importProfileFromRelays({
 		pubkey,
@@ -539,26 +452,18 @@ async function handleImportProfile(accountId, ctx, req, res) {
 		});
 		return true;
 	}
+	let merged;
 	if (autoMerge && result.profile) {
-		await getPluginRuntimeGatewayRequestScope()?.revalidate?.();
-		const merged = mergeProfiles(ctx.getConfigProfile(accountId), result.profile);
+		await getPluginRuntimeGatewayRequestScope$1()?.revalidate?.();
+		merged = mergeProfiles(ctx.getConfigProfile(accountId), result.profile);
 		await ctx.updateConfigProfile(accountId, merged);
 		ctx.log?.info(`[${accountId}] Profile imported and merged`);
-		sendJson(res, 200, {
-			ok: true,
-			imported: result.profile,
-			merged,
-			saved: true,
-			event: result.event,
-			sourceRelay: result.sourceRelay,
-			relaysQueried: result.relaysQueried
-		});
-		return true;
 	}
 	sendJson(res, 200, {
 		ok: true,
 		imported: result.profile,
-		saved: false,
+		...merged ? { merged } : {},
+		saved: merged !== void 0,
 		event: result.event,
 		sourceRelay: result.sourceRelay,
 		relaysQueried: result.relaysQueried

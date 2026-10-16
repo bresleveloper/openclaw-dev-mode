@@ -1,6 +1,10 @@
-import { Gt as ImageGenerationProvider, Jt as OpenClawConfig, Lt as ProviderResolveDynamicModelContext, Qt as Api, Yt as ModelDefinitionConfig, Zt as ModelProviderDeclarationConfig, en as Model } from "../../runtime-api-DpOeiZhR.js";
-import "../../provider-model-shared-Bq2qfQMS.js";
-import "../../provider-catalog-live-runtime-BtYklyhY.js";
+import { c as ModelProviderDeclarationConfig, i as ModelDefinitionConfig, n as OpenClawConfig, u as Api, v as Model } from "../../types.openclaw-C-OasKBU.js";
+import { n as ProviderResolveDynamicModelContext, x as ImageGenerationProvider } from "../../net-CNd-dg0-.js";
+import "../../node-list-types-BtJ_nH3c.js";
+import "../../config-contracts-C9WIRZbi.js";
+import "../../provider-onboard-D9ID6ldl.js";
+import "../../ssrf-runtime-0hwhAsr2.js";
+import "../../provider-catalog-live-runtime-DHZnwJmJ.js";
 //#region extensions/xai/model-id.d.ts
 export declare function normalizeXaiModelId(id: string): string;
 //#endregion

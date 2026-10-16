@@ -1,5 +1,5 @@
-import { n as createLocalImageProcessor } from "../image-processor-config-StN3hXY9.mjs";
-import { n as serveWorkerTasks } from "../worker-task-server-CwtaNZgU.mjs";
+import { n as createLocalImageProcessor } from "../image-processor-config-C9YllDKk.mjs";
+import { n as serveWorkerTasks } from "../worker-task-server-BC_7U18u.mjs";
 import { isRastermillError, isRastermillUnavailableError } from "rastermill";
 //#region src/media/image-processor.worker.ts
 const defaultProcessor = createLocalImageProcessor("internal");

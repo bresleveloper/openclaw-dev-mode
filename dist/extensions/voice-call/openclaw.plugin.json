@@ -8,6 +8,9 @@
     "stateMigrations": [
       {
         "id": "voice-call-calls-jsonl-to-plugin-state"
+      },
+      {
+        "id": "voice-call-sqlite-schema"
       }
     ]
   },

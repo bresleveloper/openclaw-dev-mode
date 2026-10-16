@@ -1,4 +1,4 @@
-import { t as createCopilotAgentHarness } from "./.setup/harness-BH2_ctMF.mjs";
+import { t as createCopilotAgentHarness } from "./.setup/harness-pIM2FFm8.mjs";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import { isRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
 //#region extensions/copilot/index.ts

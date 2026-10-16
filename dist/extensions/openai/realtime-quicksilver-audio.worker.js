@@ -1,7 +1,7 @@
-import { t as createRealtimeVoiceAudioPortSender } from "../../audio-output-port-B-2tgfdC.mjs";
-import "../../realtime-voice-provider-C3SkPdAW.mjs";
-import { a as OpenAIQuicksilverPendingAudio } from "../../realtime-quicksilver-audio-buffer-CpNltm_9.mjs";
-import { t as OpenAIQuicksilverAudioPeer } from "../../realtime-quicksilver-media.runtime-By7W8sBV.mjs";
+import { t as createRealtimeVoiceAudioPortSender } from "../../audio-output-port-Di-mQkyT.mjs";
+import "../../realtime-voice-provider-BV3-O7oZ.mjs";
+import { a as OpenAIQuicksilverPendingAudio } from "../../realtime-quicksilver-audio-buffer-BQ7ahbkO.mjs";
+import { t as OpenAIQuicksilverAudioPeer } from "../../realtime-quicksilver-media.runtime-Bmg7d7fL.mjs";
 import { parentPort, workerData } from "node:worker_threads";
 //#region extensions/openai/realtime-quicksilver-audio.worker.ts
 const port = parentPort;
@@ -21,8 +21,7 @@ function post(message, transfer = []) {
 }
 function flushOutput() {
 	if (stopped || outputInFlight || output.length === 0) return;
-	const audio = Buffer.alloc(output.length);
-	output.readInto(audio);
+	const audio = output.take();
 	outputInFlight = true;
 	post({
 		type: "audio",

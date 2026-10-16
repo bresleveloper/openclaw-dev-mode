@@ -1,9 +1,11 @@
-import { Am as TranscriptsStartResult, Bm as RealtimeVoiceCloseReason, Fm as RealtimeVoiceBargeInOptions, Gm as RealtimeVoiceTool, Hm as RealtimeVoiceProviderConfig, Im as RealtimeVoiceBridge, Km as RealtimeVoiceToolCallEvent, Lm as RealtimeVoiceBridgeCallbacks, Mm as RealtimeVoiceAgentConsultRunner, Nm as RealtimeVoiceAudioClearReason, Ns as OpenClawPluginApi, Om as TranscriptStartRequest, Pa as OpenClawPluginConfigSchema, Pm as RealtimeVoiceAudioFormat, Rm as RealtimeVoiceBridgeEvent, Um as RealtimeVoiceResponseOutcome, Vm as RealtimeVoiceProviderCapabilities, Wm as RealtimeVoiceRole, cc as OpenClawPluginNodeInvokePolicy, jm as TranscriptsStopResult, km as TranscriptStopRequest, mm as RealtimeVoiceProviderPlugin, oc as OpenClawPluginCliRootCommandDescriptor, pm as RealtimeTranscriptionProviderPlugin, qm as RealtimeVoiceToolResultOptions, ui as PluginRuntime, vo as RuntimeLogger, zm as RealtimeVoiceCloseOptions } from "../agent-harness-runtime-wMciqZ6Z.js";
-import { r as OpenClawConfig } from "../types.openclaw-Ccmw-oTa.js";
-import "../config-Dt1SOlIN.js";
-import { Qt as TalkEventInput, Xt as TalkEvent, Zt as TalkEventContext } from "../diagnostic-events-BO3qqTTl.js";
-import { n as callGatewayFromCli } from "../gateway-rpc-JavFiplO.js";
+import { nn as SchemaContract, r as OpenClawConfig } from "../types.openclaw-DWWUw8hA.js";
+import "../config-Dpca5-xX.js";
+import { $d as RealtimeVoiceResponseOutcome, $i as OpenClawPluginNodeInvokePolicy, Dd as RealtimeTranscriptionProviderPlugin, Gd as TranscriptsStopResult, Hd as TranscriptStartRequest, Jd as RealtimeVoiceBridge, Kd as RealtimeVoiceAudioClearReason, Nr as OpenClawPluginConfigSchema, Od as RealtimeVoiceProviderPlugin, Pl as PluginStateKeyedStore, Qd as RealtimeVoiceProviderCapabilities, Ss as OpenClawPluginApi, Ud as TranscriptStopRequest, Wd as TranscriptsStartResult, Xd as RealtimeVoiceBridgeCreateRequest, Yd as RealtimeVoiceBridgeCallbacks, Zd as RealtimeVoiceBridgeEvent, Zi as OpenClawPluginCliRootCommandDescriptor, ef as RealtimeVoiceRole, ma as PluginRuntime, mi as RuntimeLogger, nf as RealtimeVoiceToolCallEvent, qd as RealtimeVoiceBargeInOptions, tf as RealtimeVoiceTool } from "../agent-harness-runtime-DZjstJNb.js";
+import { C as TalkEvent, T as TalkEventInput, w as TalkEventContext } from "../diagnostic-events-BAgdO5A_.js";
+import "../core-BDhYQ7DV.js";
+import { n as callGatewayFromCli } from "../gateway-rpc-8kP-oCwp.js";
 import { TObject } from "typebox";
+import { z } from "zod";
 import { Writable } from "node:stream";
 import { Command } from "commander";
 //#region src/talk/agent-consult-tool.d.ts
@@ -13,7 +15,6 @@ declare const REALTIME_VOICE_AGENT_CONSULT_TOOL_POLICIES: readonly ["safe-read-o
 type RealtimeVoiceAgentConsultToolPolicy = (typeof REALTIME_VOICE_AGENT_CONSULT_TOOL_POLICIES)[number];
 //#endregion
 //#region src/talk/agent-talkback-runtime.d.ts
-/** Minimal queue API owned by a realtime voice session. */
 type RealtimeVoiceAgentTalkbackQueue = {
   close(): void;
   enqueue(question: string, metadata?: unknown): void;
@@ -174,86 +175,45 @@ type RealtimeVoiceMarkStrategy = "transport" | "ack-immediately" | "ignore";
 /**
  * Stable session facade handed to gateway code and provider tool callbacks.
  */
-type RealtimeVoiceBridgeSession = {
+type RealtimeVoiceBridgeSession = Pick<RealtimeVoiceBridge, "acknowledgeMark" | "close" | "connect" | "sendAudio" | "setMediaTimestamp" | "submitToolResult"> & {
   bridge: RealtimeVoiceBridge;
   readonly capabilities?: InternalRealtimeVoiceProviderCapabilities;
-  acknowledgeMark(markName?: string): void;
-  close(options?: RealtimeVoiceCloseOptions): void | Promise<void>;
-  connect(): Promise<void>;
-  sendAudio(audio: Buffer): void;
   sendUserMessage(text: string): void;
   handleBargeIn(options?: RealtimeVoiceBargeInOptions): void;
-  setMediaTimestamp(ts: number): void;
-  submitToolResult(callId: string, result: unknown, options?: RealtimeVoiceToolResultOptions): void | Promise<void>;
   triggerGreeting(instructions?: string): void;
 };
 /**
  * Provider bridge inputs plus transport callbacks for one realtime voice session.
  */
-type RealtimeVoiceBridgeSessionParams = {
+type RealtimeVoiceBridgeSessionParams = Omit<RealtimeVoiceBridgeCreateRequest, "onAudio" | "onClearAudio" | "onMark" | "getPlaybackState" | "onToolCall" | "onReady"> & {
   provider: RealtimeVoiceProviderPlugin;
   capabilities?: InternalRealtimeVoiceProviderCapabilities;
-  cfg?: OpenClawConfig;
-  /** Host-selected agent scope for provider auth and agent-owned bridge state. */
-  agentId?: string;
-  providerConfig: RealtimeVoiceProviderConfig;
-  audioFormat?: RealtimeVoiceAudioFormat;
   audioSink: RealtimeVoiceAudioSink;
-  instructions?: string;
-  language?: string;
   initialGreetingInstructions?: string;
-  autoRespondToAudio?: boolean;
-  interruptResponseOnInputAudio?: boolean;
   markStrategy?: RealtimeVoiceMarkStrategy;
   triggerGreetingOnReady?: boolean;
-  tools?: RealtimeVoiceTool[];
-  runAgentConsult?: RealtimeVoiceAgentConsultRunner;
-  onTranscript?: (role: RealtimeVoiceRole, text: string, isFinal: boolean) => void;
-  handleDelegationInput?: RealtimeVoiceBridgeCallbacks["handleDelegationInput"];
-  onEvent?: (event: RealtimeVoiceBridgeEvent) => void;
-  onResponseDone?: (outcome: RealtimeVoiceResponseOutcome) => void;
   /** Admit a host-requested response before the provider can complete it synchronously. */
   onResponseRequest?: () => void;
   onToolCall?: (event: RealtimeVoiceToolCallEvent, session: RealtimeVoiceBridgeSession) => void | Promise<void>;
   onReady?: (session: RealtimeVoiceBridgeSession) => void;
-  onError?: (error: Error) => void;
-  onClose?: (reason: RealtimeVoiceCloseReason) => void;
 };
 //#endregion
 //#region src/talk/talk-session-controller.d.ts
-/**
- * Why a turn-scoped Talk operation could not emit an event.
- */
 type TalkTurnFailureReason = "no_active_turn" | "stale_turn";
-/**
- * Successful turn operation with the emitted Talk event.
- */
 type TalkTurnSuccess = {
   event: TalkEvent;
   ok: true;
   turnId: string;
 };
-/**
- * Failed turn operation when the requested turn does not match controller state.
- */
 type TalkTurnFailure = {
   ok: false;
   reason: TalkTurnFailureReason;
 };
-/**
- * Result for ending or cancelling an active Talk turn.
- */
 type TalkTurnResult = TalkTurnSuccess | TalkTurnFailure;
-/**
- * Result for operations that ensure a turn exists and may emit a start event.
- */
 type TalkEnsureTurnResult = {
   event?: TalkEvent;
   turnId: string;
 };
-/**
- * Stateful Talk event controller for one session's turns, output audio, and recent event buffer.
- */
 type TalkSessionController = {
   readonly activeTurnId: string | undefined;
   readonly context: TalkEventContext;
@@ -299,15 +259,7 @@ type RealtimeVoiceSessionHarnessHealth = ReturnType<typeof getRealtimeVoiceTrans
   lastInputBytes: number;
   lastOutputBytes: number;
   suppressedInputBytes: number;
-  recentTalkEvents: Array<{
-    id: string;
-    type: TalkEvent["type"];
-    sessionId: string;
-    turnId?: string;
-    seq: number;
-    timestamp: string;
-    final?: boolean;
-  }>;
+  recentTalkEvents: Array<Pick<TalkEvent, "id" | "type" | "sessionId" | "turnId" | "seq" | "timestamp" | "final">>;
 };
 type RealtimeVoiceSessionHarness<TForcedConsultContext = unknown> = {
   readonly forcedConsults: RealtimeVoiceForcedConsultCoordinator<TForcedConsultContext>;
@@ -339,17 +291,22 @@ type RealtimeVoiceSessionHarness<TForcedConsultContext = unknown> = {
 type MeetingRealtimeAudioFormat = "pcm16-24khz" | "g711-ulaw-8khz";
 export declare function convertMeetingTtsAudioForBridge(audio: Buffer, sampleRate: number, audioFormat: MeetingRealtimeAudioFormat, outputFormat?: string, platformName?: string): Buffer;
 //#endregion
-//#region src/meeting-bot/realtime-audio-transport.d.ts
-type MeetingRealtimeAudioTransportHealth = {
-  consecutiveInputErrors?: number;
-  lastInputError?: string;
+//#region src/meeting-bot/output-loopback-verifier.d.ts
+type MeetingOutputLoopbackHealth = {
   lastOutputLoopbackAt?: string;
   lastOutputLoopbackCorrelation?: number;
   lastOutputLoopbackPeak?: number;
   lastOutputLoopbackRms?: number;
-  outputLoopbackSignalBytes?: number;
-  outputGeneration?: number;
+  /** Non-silent sink audio observed again on the meeting microphone capture path. */
+  outputLoopbackSignalBytes: number;
+  outputGeneration: number;
   verifiedOutputGeneration?: number;
+};
+//#endregion
+//#region src/meeting-bot/realtime-audio-transport.d.ts
+type MeetingRealtimeAudioTransportHealth = Partial<MeetingOutputLoopbackHealth> & {
+  consecutiveInputErrors?: number;
+  lastInputError?: string;
 };
 interface MeetingRealtimeAudioTransport {
   /** Input contains browser playback only, excluding native microphone injection. */
@@ -465,12 +422,19 @@ export declare function startMeetingAgentRealtimeEngine(params: {
   }>;
 }): Promise<MeetingRealtimeAudioEngineHandle>;
 //#endregion
-//#region src/meeting-bot/realtime-local-audio-transport.d.ts
-type BridgeProcess = {
-  pid?: number;
-  killed?: boolean;
+//#region src/meeting-bot/bridge-process.d.ts
+type MeetingBridgeProcess = {
   exitCode: number | null;
   signalCode: NodeJS.Signals | null;
+  kill(signal?: NodeJS.Signals): boolean;
+  once(event: "exit", listener: (code: number | null, signal: NodeJS.Signals | null) => void): unknown;
+  off(event: "exit", listener: (code: number | null, signal: NodeJS.Signals | null) => void): unknown;
+};
+//#endregion
+//#region src/meeting-bot/realtime-local-audio-transport.d.ts
+type BridgeProcess = MeetingBridgeProcess & {
+  pid?: number;
+  killed?: boolean;
   stdin?: Writable | null;
   stdout?: {
     on(event: "data", listener: (chunk: Buffer | string) => void): unknown;
@@ -480,11 +444,8 @@ type BridgeProcess = {
     on(event: "data", listener: (chunk: Buffer | string) => void): unknown;
     on(event: "error", listener: (error: Error) => void): unknown;
   } | null;
-  kill(signal?: NodeJS.Signals): boolean;
   on(event: "exit", listener: (code: number | null, signal: NodeJS.Signals | null) => void): unknown;
   on(event: "error", listener: (error: Error) => void): unknown;
-  once(event: "exit", listener: (code: number | null, signal: NodeJS.Signals | null) => void): unknown;
-  off(event: "exit", listener: (code: number | null, signal: NodeJS.Signals | null) => void): unknown;
 };
 type MeetingRealtimeAudioSpawn = (command: string, args: string[], options: {
   stdio: ["pipe" | "ignore", "pipe" | "ignore", "pipe" | "ignore"];
@@ -544,6 +505,26 @@ declare function ensureMeetingAudioBackend(params: {
 }): Promise<void>;
 //#endregion
 //#region src/meeting-bot/session-types.d.ts
+declare const meetingObservationProvenanceSchema: z.ZodObject<{
+  observer: z.ZodString;
+  observationId: z.ZodOptional<z.ZodString>;
+  sessionId: z.ZodOptional<z.ZodString>;
+  epoch: z.ZodOptional<z.ZodString>;
+  observedAt: z.ZodOptional<z.ZodISODateTime>;
+  speaker: z.ZodOptional<z.ZodString>;
+  self: z.ZodEnum<{
+    other: "other";
+    self: "self";
+    unknown: "unknown";
+  }>;
+}, z.core.$strip>;
+declare const meetingCaptionSourceSchema: z.ZodObject<{
+  id: z.ZodString;
+  epoch: z.ZodString;
+  revision: z.ZodString;
+  finalized: z.ZodBoolean;
+  ownEcho: z.ZodOptional<z.ZodBoolean>;
+}, z.core.$strip>;
 /** Generic lifecycle state shared by browser and dial-in meeting sessions. */
 type MeetingSessionState = "active" | "ended";
 type MeetingResolvedJoin<TTransport extends string, TMode extends string> = {
@@ -552,15 +533,23 @@ type MeetingResolvedJoin<TTransport extends string, TMode extends string> = {
   mode: TMode;
   agentId: string;
 };
+/** Descriptive facts for one retained observation, never participation authority. */
+type MeetingObservationProvenance = SchemaContract<z.infer<typeof meetingObservationProvenanceSchema>>;
 type MeetingTranscriptLine = {
   at?: string;
   speaker?: string;
   text: string;
+  /** Independent of the optional, mutable action-source identity below. */
+  provenance?: MeetingObservationProvenance;
+  /** Optional identity assigned by the provider's canonical caption observer. */
+  source?: SchemaContract<z.infer<typeof meetingCaptionSourceSchema>>;
 };
 type MeetingTranscriptSnapshot = {
   droppedLines: number;
   epoch?: string;
   lines: MeetingTranscriptLine[];
+  /** Live caption revisions for observation only; never append these to the transcript. */
+  pendingLines?: MeetingTranscriptLine[];
 };
 type MeetingBrowserTab = {
   targetId: string;
@@ -571,7 +560,7 @@ type MeetingBrowserCandidateTab = {
   title?: string;
   url?: string;
 };
-type MeetingBrowserHealth<TManualReason extends string = string, TSpeechBlockedReason extends string = string> = {
+type MeetingBrowserHealth<TManualReason extends string = string, TSpeechBlockedReason extends string = string> = Partial<MeetingOutputLoopbackHealth> & {
   inCall?: boolean;
   micMuted?: boolean;
   manualAction?: {
@@ -581,14 +570,6 @@ type MeetingBrowserHealth<TManualReason extends string = string, TSpeechBlockedR
   speechReady?: boolean;
   speechBlockedReason?: TSpeechBlockedReason;
   speechBlockedMessage?: string;
-  /** Non-silent sink audio observed again on the meeting microphone capture path. */
-  outputLoopbackSignalBytes?: number;
-  lastOutputLoopbackAt?: string;
-  lastOutputLoopbackCorrelation?: number;
-  lastOutputLoopbackRms?: number;
-  lastOutputLoopbackPeak?: number;
-  outputGeneration?: number;
-  verifiedOutputGeneration?: number;
 };
 type MeetingPluginProbeHealth = MeetingBrowserHealth & {
   audioOutputActive?: boolean;
@@ -598,11 +579,7 @@ type MeetingPluginProbeHealth = MeetingBrowserHealth & {
   lastCaptionSpeaker?: string;
   lastCaptionText?: string;
   lastOutputBytes?: number;
-  recentTranscript?: Array<{
-    at?: string;
-    speaker?: string;
-    text: string;
-  }>;
+  recentTranscript?: MeetingTranscriptLine[];
   transcriptLines?: number;
 };
 type MeetingRealtimeSessionBlock = {
@@ -683,6 +660,100 @@ type MeetingPluginJoinResult<TSession> = {
   spoken?: boolean;
 };
 //#endregion
+//#region src/meeting-bot/participation-types.d.ts
+type MeetingParticipationAction = {
+  type: string;
+  [key: string]: unknown;
+};
+type MeetingParticipationRequest = {
+  requestId: string;
+  sourceId?: string;
+  correctionOf?: string;
+  action: MeetingParticipationAction;
+};
+type MeetingParticipationEffectResult = {
+  status: "succeeded" | "failed" | "uncertain" | "unsupported" | "rejected";
+  message?: string;
+  observed?: Record<string, unknown>;
+  /** Only rejected results that prove the requested effect did not occur may request correction. */
+  correctable?: true;
+};
+type MeetingParticipationResult = MeetingParticipationEffectResult & {
+  requestId: string;
+  replayed?: boolean;
+  /** One correction of this request is permitted; it retains the original source and action type. */
+  correctionOf?: string;
+};
+/** Provider-observed identity. Never accept this object from model/tool arguments. */
+type MeetingParticipationSource = NonNullable<MeetingTranscriptLine["source"]> & {
+  kind: "chat" | "caption";
+  text: string;
+  /** Observation that supplied this source; does not refresh its age, order, or authority. */
+  provenance?: NonNullable<MeetingTranscriptLine["provenance"]>;
+};
+type MeetingParticipationAttempt = {
+  kind: "meeting-participation-attempt";
+  sessionId: string;
+  requestId: string;
+  fingerprint: string;
+  sourceId?: string;
+  actionType: string;
+  correctionOf?: string;
+  result?: MeetingParticipationResult;
+};
+type MeetingParticipationStore = Pick<PluginStateKeyedStore<MeetingParticipationAttempt>, "lookup" | "registerIfAbsent" | "register" | "entries" | "delete">;
+type MeetingBrowserParticipationAdapter = {
+  capabilities: readonly string[];
+  validateAction(action: MeetingParticipationAction): string | undefined;
+  /** Preparation may await UI readiness but must never perform the requested external action. */
+  buildPreparationScript?(params: {
+    meetingSessionId: string;
+    meetingUrl: string;
+    requestId: string;
+    action: MeetingParticipationAction;
+  }): string;
+  parsePreparationResult?(result: unknown, action: MeetingParticipationAction): MeetingParticipationEffectResult;
+  /** Verify page session/URL and perform the effect synchronously before any await. */
+  buildActionScript(params: {
+    meetingSessionId: string;
+    meetingUrl: string;
+    requestId: string;
+    action: MeetingParticipationAction;
+  }): string;
+  parseActionResult(result: unknown, action: MeetingParticipationAction): MeetingParticipationEffectResult;
+};
+type MeetingParticipationOptions<TSession> = {
+  store: MeetingParticipationStore;
+  capabilities(session: TSession): readonly string[];
+  validateAction(action: MeetingParticipationAction): string | undefined;
+  execute(session: TSession, request: MeetingParticipationRequest, assertCurrent: () => void): Promise<MeetingParticipationEffectResult>;
+};
+//#endregion
+//#region src/meeting-bot/session-speech-readiness.d.ts
+type MeetingSpeechReadinessMessages<TReason extends string> = {
+  audioBridgeUnavailable: string;
+  audioBridgeUnavailableReason: TReason;
+  browserUnverified: string;
+  browserUnverifiedReason: TReason;
+  microphoneMuted: string;
+  microphoneMutedReason: TReason;
+  notInCall: string;
+  notInCallReason: TReason;
+};
+//#endregion
+//#region src/meeting-bot/transcripts-bridge.d.ts
+type MeetingDurableTranscriptsOptions = {
+  config?: unknown;
+  openclawConfig?: OpenClawConfig;
+  providerId: string;
+  providerName: string;
+  stateDir?: string;
+};
+type MeetingTranscriptSourceRuntime = {
+  startTranscriptSource(request: TranscriptStartRequest): Promise<TranscriptsStartResult>;
+  stopTranscriptSource(request: TranscriptStopRequest): Promise<TranscriptsStopResult>;
+};
+//#endregion
 //#region src/meeting-bot/session-runtime-types.d.ts
 type MeetingSessionRuntimeHandles<THealth extends MeetingBrowserHealth> = {
   stop?: () => Promise<void>;
@@ -712,37 +783,8 @@ type MeetingSessionRuntimeMessages<TSpeechBlockedReason extends string> = {
   reusedSessionNote: string;
   replacementBrowserLeaveFailed: string;
   speechBlockedFallback: string;
-  speech: {
-    audioBridgeUnavailable: string;
-    browserUnverified: string;
-    microphoneMuted: string;
-    microphoneMutedReason: TSpeechBlockedReason;
-    notInCall: string;
-    notInCallReason: TSpeechBlockedReason;
-    browserUnverifiedReason: TSpeechBlockedReason;
-    audioBridgeUnavailableReason: TSpeechBlockedReason;
-  };
+  speech: MeetingSpeechReadinessMessages<TSpeechBlockedReason>;
 };
-type MeetingSessionLeaveResult<TSession> = {
-  found: boolean;
-  session?: TSession;
-  browserLeft?: boolean;
-};
-//#endregion
-//#region src/meeting-bot/transcripts-bridge.d.ts
-type MeetingDurableTranscriptsOptions = {
-  config?: unknown;
-  openclawConfig?: OpenClawConfig;
-  providerId: string;
-  providerName: string;
-  stateDir?: string;
-};
-type MeetingTranscriptSourceRuntime = {
-  startTranscriptSource(request: TranscriptStartRequest): Promise<TranscriptsStartResult>;
-  stopTranscriptSource(request: TranscriptStopRequest): Promise<TranscriptsStopResult>;
-};
-//#endregion
-//#region src/meeting-bot/session-runtime.d.ts
 type MeetingSessionRuntimeOptions<TSession extends MeetingSessionRecord<TTransport, TMode>, TRequest, TTransport extends string, TMode extends string, THealth extends MeetingBrowserHealth<TManualReason, TSpeechBlockedReason>, TTab extends MeetingBrowserTab, TManualReason extends string, TSpeechBlockedReason extends string> = {
   logger: RuntimeLogger;
   logScope: string;
@@ -793,7 +835,15 @@ type MeetingSessionRuntimeOptions<TSession extends MeetingSessionRecord<TTranspo
   } | undefined>;
   defaultSpeechInstructions?: string;
   durableTranscripts?: MeetingDurableTranscriptsOptions;
+  participation?: MeetingParticipationOptions<TSession>;
 };
+type MeetingSessionLeaveResult<TSession> = {
+  found: boolean;
+  session?: TSession;
+  browserLeft?: boolean;
+};
+//#endregion
+//#region src/meeting-bot/session-runtime.d.ts
 /** Shared lifecycle owner; platform strategies perform transport-specific I/O only. */
 export declare class MeetingSessionRuntime<TSession extends MeetingSessionRecord<TTransport, TMode>, TRequest, TTransport extends string, TMode extends string, THealth extends MeetingBrowserHealth<TManualReason, TSpeechBlockedReason>, TTab extends MeetingBrowserTab, TManualReason extends string, TSpeechBlockedReason extends string> {
   #private;
@@ -806,6 +856,48 @@ export declare class MeetingSessionRuntime<TSession extends MeetingSessionRecord
     session?: TSession;
     sessions?: TSession[];
   }>;
+  participationContext(sessionId: string): {
+    sessionId: string;
+    active: boolean;
+    sourceOrder: number;
+    capabilities: readonly string[];
+    sources: ({
+      id: string;
+      epoch: string;
+      revision: string;
+      finalized: boolean;
+      ownEcho?: boolean | undefined;
+    } & {
+      kind: "chat" | "caption";
+      text: string;
+      provenance?: NonNullable<MeetingTranscriptLine["provenance"]>;
+    } & {
+      sourceId: string;
+      order: number;
+      replacesSourceId?: string;
+    })[];
+  };
+  observeParticipationEpoch(sessionId: string, kind: MeetingParticipationSource["kind"], epoch: string): boolean;
+  observeParticipationSource(sessionId: string, source: MeetingParticipationSource): string | undefined;
+  inspectParticipationSource(sessionId: string, sourceId: string): {
+    assertCurrent(): void;
+    source: {
+      id: string;
+      epoch: string;
+      revision: string;
+      finalized: boolean;
+      ownEcho?: boolean | undefined;
+    } & {
+      kind: "chat" | "caption";
+      text: string;
+      provenance?: NonNullable<MeetingTranscriptLine["provenance"]>;
+    } & {
+      sourceId: string;
+      order: number;
+      replacesSourceId?: string;
+    };
+  } | undefined;
+  participate(sessionId: string, request: MeetingParticipationRequest): Promise<MeetingParticipationResult>;
   transcript(sessionId: string, options?: {
     sinceIndex?: number;
   }): Promise<{
@@ -919,6 +1011,7 @@ type MeetingPlatformRuntimeMetadata = {
   };
 };
 type MeetingBrowserAdapter<Mode extends string, Health extends MeetingBrowserHealth, Transcript extends MeetingTranscriptSnapshot> = {
+  participation?: MeetingBrowserParticipationAdapter;
   allowsMicrophone(mode: Mode): boolean;
   buildStatusJoinScript(params: MeetingBrowserStatusScriptParams<Mode>): string;
   buildAudioCaptureScript?(params: MeetingBrowserAudioCaptureRequest): string;
@@ -984,6 +1077,22 @@ interface MeetingPlatformAdapter$1<Session, Mode extends string, Health extends 
     buildPlan(params: DialInParams): DialInPlan;
   };
 }
+type MeetingPlatformAdapterOptions<Session, Mode extends string, Health extends MeetingBrowserHealth, Transcript extends MeetingTranscriptSnapshot, CreateParams = never, CreateResult = never, DialInParams = never, DialInPlan = never> = Omit<MeetingPlatformAdapter$1<Session, Mode, Health, Transcript, CreateParams, CreateResult, DialInParams, DialInPlan>, "agentConsult" | "browser" | "session"> & {
+  agentConsult: MeetingPlatformRuntimeMetadata["agentConsult"];
+  browser: Omit<MeetingBrowserAdapter<Mode, Health, Transcript>, "captions" | "classifyManualAction" | "parseLeaveResult" | "parseStatus" | "permissionNotes"> & {
+    captions: Omit<MeetingBrowserAdapter<Mode, Health, Transcript>["captions"], "parseTranscript">;
+    permissionNotes?: MeetingBrowserAdapter<Mode, Health, Transcript>["permissionNotes"];
+  };
+  parsing: {
+    classifyManualActionReason(reason: string): MeetingManualActionCategory;
+    displayName: string;
+    invalidTranscriptMessage: string;
+    malformedStatusMessage: string;
+    malformedTranscriptMessage: string;
+    statusFields?(parsed: Record<string, unknown>): Partial<Health>;
+  };
+  session: MeetingPlatformRuntimeMetadata["session"];
+};
 //#endregion
 //#region src/meeting-bot/session-factory.d.ts
 export declare function createMeetingSession<TTransport extends string, TMode extends string, TToolPolicy extends string>(params: {
@@ -1114,6 +1223,32 @@ export declare function callMeetingBrowserProxyOnNode(params: {
   nodeId: string;
 } & MeetingBrowserRequestParams): Promise<unknown>;
 //#endregion
+//#region src/meeting-bot/browser-adapter-options.d.ts
+declare function createMeetingBrowserAdapterOptions<Mode extends string, Health extends MeetingPluginChromeHealth<string, string>, Transcript extends MeetingTranscriptSnapshot>(options: {
+  displayName: string;
+  transcriptDisplayName?: string;
+  manualActionReasonPrefix: string;
+  admissionReasons?: readonly string[];
+  retryCaptions: boolean;
+  unavailableMessage: string;
+  origin(meetingUrl: string): string | undefined;
+  scripts: {
+    audioCapture: (params: MeetingBrowserAudioCaptureRequest) => string;
+    status(params: Omit<MeetingBrowserStatusScriptParams<Mode>, "mode" | "url" | "meetingSessionId"> & {
+      allowMicrophone: boolean;
+      meetingSessionId?: string;
+      meetingUrl: string;
+    }): string;
+    leave: (params: {
+      leaveInitiated: boolean;
+      meetingSessionId: string;
+      meetingUrl: string;
+    }) => string;
+    transcript(meetingUrl: string, meetingSessionId: string, finalize: boolean): string;
+  };
+  statusFields?: (parsed: Record<string, unknown>) => Partial<Health>;
+}): Pick<MeetingPlatformAdapterOptions<never, Mode, Health, Transcript>, "browser" | "parsing">;
+//#endregion
 //#region src/meeting-bot/agent-consult.d.ts
 export declare function createMeetingRealtimeEngineBindings(params: {
   platform: MeetingPlatformRuntimeMetadata;
@@ -1135,28 +1270,118 @@ export declare function createMeetingRealtimeEngineBindings(params: {
   handleToolCall: (call: MeetingRealtimeToolCallParams) => Promise<void>;
 };
 //#endregion
-//#region src/meeting-bot/chrome-transport-types.d.ts
-type MeetingChromeTransportConfig = MeetingRealtimeEngineConfig & {
+//#region src/meeting-bot/plugin-config.d.ts
+type MeetingPluginMode = "agent" | "bidi" | "transcribe";
+type MeetingPluginConfig$1 = MeetingRealtimeEngineConfig & {
+  enabled: boolean;
+  defaultMode: MeetingPluginMode;
   chrome: MeetingRealtimeEngineConfig["chrome"] & {
     audioBackend: MeetingAudioBackendSelection;
-    audioBridgeCommand?: string[];
-    audioBridgeHealthCommand?: string[];
     audioBufferBytes: number;
-    audioInputCommand?: string[];
-    audioInputCommandOverride?: string[];
-    audioOutputCommand?: string[];
-    audioOutputCommandOverride?: string[];
-    autoJoin: boolean;
-    bargeInCooldownMs: number;
-    bargeInInputCommand?: string[];
-    bargeInPeakThreshold: number;
-    bargeInRmsThreshold: number;
+    launch: boolean;
     browserProfile?: string;
     guestName: string;
-    joinTimeoutMs: number;
-    launch: boolean;
     reuseExistingTab: boolean;
+    autoJoin: boolean;
+    joinTimeoutMs: number;
     waitForInCallMs: number;
+    audioInputCommand: string[];
+    audioOutputCommand: string[];
+    audioInputCommandOverride?: string[];
+    audioOutputCommandOverride?: string[];
+    bargeInInputCommand?: string[];
+    bargeInRmsThreshold: number;
+    bargeInPeakThreshold: number;
+    bargeInCooldownMs: number;
+  };
+  chromeNode: {
+    node?: string;
+  };
+  realtime: MeetingRealtimeEngineConfig["realtime"] & {
+    strategy: "agent" | "bidi";
+    toolPolicy: RealtimeVoiceAgentConsultToolPolicy;
+  };
+};
+type MeetingPluginConfigOptions = {
+  defaultRealtimeInstructions: string;
+  resolveGatewayOperationTimeoutMs(config: MeetingPluginConfig$1): number;
+};
+declare function createMeetingPluginConfigSchema(options: MeetingPluginConfigOptions): {
+  configSchema: {
+    parse: (input: unknown) => MeetingPluginConfig$1;
+    uiHints: {
+      defaultMode: {
+        label: string;
+        help: string;
+      };
+      "chrome.audioBackend": {
+        label: string;
+        help: string;
+      };
+      "chrome.browserProfile": {
+        label: string;
+        advanced: true;
+      };
+      "chrome.guestName": {
+        label: string;
+      };
+      "chrome.waitForInCallMs": {
+        label: string;
+        advanced: true;
+      };
+      "chrome.audioInputCommand": {
+        label: string;
+        advanced: true;
+      };
+      "chrome.audioOutputCommand": {
+        label: string;
+        advanced: true;
+      };
+      "chromeNode.node": {
+        label: string;
+        help: string;
+        advanced: true;
+      };
+      "realtime.transcriptionProvider": {
+        label: string;
+      };
+      "realtime.voiceProvider": {
+        label: string;
+      };
+      "realtime.model": {
+        label: string;
+        advanced: true;
+      };
+      "realtime.instructions": {
+        label: string;
+        advanced: true;
+      };
+      "realtime.introMessage": {
+        label: string;
+      };
+      "realtime.agentId": {
+        label: string;
+        advanced: true;
+      };
+      "realtime.toolPolicy": {
+        label: string;
+        advanced: true;
+      };
+    };
+  };
+  defaultAudioInputCommand: string[];
+  defaultAudioOutputCommand: string[];
+  resolveConfig: (input: unknown) => MeetingPluginConfig$1;
+  resolveGatewayOperationTimeoutMs: (config: MeetingPluginConfig$1) => number;
+};
+//#endregion
+//#region src/meeting-bot/chrome-transport-types.d.ts
+type MeetingChromeTransportConfig = MeetingRealtimeEngineConfig & {
+  chrome: Omit<MeetingPluginConfig$1["chrome"], "audioInputCommand" | "audioOutputCommand"> & {
+    audioBridgeCommand?: string[];
+    audioBridgeHealthCommand?: string[];
+    audioInputCommand?: string[];
+    audioOutputCommand?: string[];
   };
   chromeNode: {
     node?: string;
@@ -1220,6 +1445,287 @@ type MeetingChromeRecoveryParams<Config, Mode extends string> = {
   timeoutMs?: number;
   url?: string;
 };
+//#endregion
+//#region src/meeting-bot/setup-checks.d.ts
+type MeetingSetupCheck = {
+  id: string;
+  ok: boolean;
+  message: string;
+};
+type MeetingSetupStatus = {
+  ok: boolean;
+  checks: MeetingSetupCheck[];
+};
+export declare function createMeetingSetupStatus(checks: MeetingSetupCheck[]): MeetingSetupStatus;
+export declare function addMeetingSetupCheck(status: MeetingSetupStatus, check: MeetingSetupCheck): MeetingSetupStatus;
+//#endregion
+//#region src/meeting-bot/runtime-probes.d.ts
+declare function resolveMeetingProbeTimeoutMs(input: number | undefined, fallback: number, invalidRequest?: (message: string) => Error): number;
+type MeetingProbeSession<Health extends MeetingPluginProbeHealth> = {
+  id: string;
+  chrome?: {
+    launched: boolean;
+    browserTab?: {
+      targetId?: string;
+    };
+    health?: Health;
+  };
+};
+type MeetingProbeRequest<Transport extends string> = MeetingPluginJoinRequest<Transport, string>;
+type MeetingProbeConfig<Mode extends string> = {
+  defaultMode: Mode;
+  chrome: {
+    joinTimeoutMs: number;
+  };
+  chromeNode: {
+    node?: string;
+  };
+};
+type MeetingProbeContext<Config extends MeetingProbeConfig<Mode>, Mode extends string, Transport extends string, Health extends MeetingPluginProbeHealth, Session extends MeetingProbeSession<Health>, Request extends MeetingProbeRequest<Transport>> = {
+  config: Config;
+  resolveAgentId(request: Request): string;
+  list(): Session[];
+  join(request: Request): Promise<{
+    session: Session;
+    spoken?: boolean;
+  }>;
+  isReusable(session: Session, resolved: {
+    url: string;
+    transport: Transport;
+    mode: Mode;
+    agentId: string;
+  }): boolean;
+  hasHealthHandle(sessionId: string): boolean;
+  refreshHealth(sessionId: string): void;
+  refreshCaptionHealth(session: Session, timeoutMs?: number): Promise<void>;
+};
+type MeetingRuntimeProbeOptions<Mode extends string, Health extends MeetingPluginProbeHealth, Session extends MeetingProbeSession<Health>> = {
+  defaultSpeechMessage: string;
+  invalidRequest(message: string): Error;
+  resolveTimeoutMs(input: number | undefined, fallback: number): number;
+  shouldWaitForListening(session: Session): boolean;
+  talkBackMode(mode: Mode): boolean;
+};
+declare function createMeetingRuntimeProbes<Config extends MeetingProbeConfig<Mode>, Mode extends string, Transport extends string, Health extends MeetingPluginProbeHealth, Session extends MeetingProbeSession<Health>, Request extends MeetingProbeRequest<Transport>>(options: MeetingRuntimeProbeOptions<Mode, Health, Session> & {
+  normalizeUrl?(url: string): string;
+  resolveRequestMode?(mode: Request["mode"], config: Config): Mode | undefined;
+  defaultTransport?(config: Config): Transport;
+  validateListeningTransport?(transport: Transport): void;
+  resolveSpeechTimeoutMs?(request: Request, config: Config): number;
+  refreshCaptionHealth?(context: MeetingProbeContext<Config, Mode, Transport, Health, Session, Request>, session: Session, timeoutMs: number): Promise<void>;
+  speechModeError?: string;
+  listeningModeError?: string;
+}): {
+  testListening: (context: MeetingProbeContext<Config, Mode, Transport, Health, Session, Request>, request: Request) => Promise<{
+    createdSession: boolean;
+    inCall: boolean | undefined;
+    manualAction: {
+      reason: string;
+      message: string;
+    } | undefined;
+    listenVerified: boolean;
+    listenTimedOut: boolean;
+    captioning: boolean | undefined;
+    captionsEnabledAttempted: boolean | undefined;
+    transcriptLines: number | undefined;
+    lastCaptionAt: string | undefined;
+    lastCaptionSpeaker: string | undefined;
+    lastCaptionText: string | undefined;
+    recentTranscript: MeetingTranscriptLine[] | undefined;
+    session: Session;
+  }>;
+  testSpeech: (context: MeetingProbeContext<Config, Mode, Transport, Health, Session, Request>, request: Request) => Promise<{
+    createdSession: boolean;
+    inCall: boolean | undefined;
+    manualAction: {
+      reason: string;
+      message: string;
+    } | undefined;
+    spoken: boolean;
+    speechOutputVerified: boolean;
+    speechOutputTimedOut: boolean;
+    speechReady: boolean | undefined;
+    speechBlockedReason: string | undefined;
+    speechBlockedMessage: string | undefined;
+    audioOutputActive: boolean | undefined;
+    lastOutputBytes: number | undefined;
+    outputLoopbackSignalBytes: number | undefined;
+    lastOutputLoopbackAt: string | undefined;
+    lastOutputLoopbackCorrelation: number | undefined;
+    lastOutputLoopbackRms: number | undefined;
+    lastOutputLoopbackPeak: number | undefined;
+    outputGeneration: number | undefined;
+    verifiedOutputGeneration: number | undefined;
+    session: Session;
+  }>;
+};
+//#endregion
+//#region src/meeting-bot/runtime-facade-types.d.ts
+type MeetingRuntimeParams<Config extends MeetingPluginConfig$1> = {
+  config: Config;
+  fullConfig: OpenClawConfig;
+  runtime: PluginRuntime;
+  logger: RuntimeLogger;
+};
+type MeetingRuntimePlatform$1<Mode extends string, Health extends MeetingBrowserHealth> = MeetingPlatformAdapter$1<MeetingBrowserJoinSession<Mode>, Mode, Health, MeetingTranscriptSnapshot> & MeetingPlatformRuntimeMetadata;
+type MeetingRuntimeAudioBridge<Health extends MeetingBrowserHealth> = MeetingSessionRuntimeHandles<Health> & {
+  providerId?: string;
+  type: "command-pair" | "node-command-pair";
+};
+type MeetingRuntimeLaunchResult<Health extends MeetingBrowserHealth> = {
+  launched: boolean;
+  audioBackend?: MeetingAudioBackend;
+  audioBridge?: MeetingRuntimeAudioBridge<Health>;
+  browser?: Health;
+  nodeId?: string;
+  tab?: MeetingBrowserTab;
+};
+type MeetingRuntimeTransport<Config extends MeetingPluginConfig$1, Mode extends string, Health extends MeetingBrowserHealth> = {
+  launchInChrome(params: MeetingChromeLaunchParams<Config, Mode>): Promise<MeetingRuntimeLaunchResult<Health>>;
+  launchOnNode(params: MeetingChromeLaunchParams<Config, Mode>): Promise<MeetingRuntimeLaunchResult<Health> & {
+    nodeId: string;
+  }>;
+  leaveInBrowser(params: {
+    runtime: PluginRuntime;
+    config: Config;
+    meetingSessionId: string;
+    meetingUrl: string;
+    nodeId?: string;
+    tab: MeetingBrowserTab;
+  }): Promise<{
+    left: boolean;
+    note: string;
+  }>;
+  readTranscript(params: {
+    runtime: PluginRuntime;
+    config: Config;
+    finalize?: boolean;
+    meetingUrl: string;
+    meetingSessionId: string;
+    nodeId?: string;
+    tab: MeetingBrowserTab;
+  }): Promise<MeetingTranscriptSnapshot>;
+  recoverCurrentTab(params: MeetingChromeRecoveryParams<Config, Mode>): Promise<{
+    browser?: Health;
+    found: boolean;
+    message: string;
+    tab?: MeetingBrowserCandidateTab;
+  }>;
+};
+type MeetingRuntimeManualActionReason<Health extends MeetingBrowserHealth> = NonNullable<Health["manualAction"]>["reason"];
+type MeetingRuntimeSpeechBlockedReason<Health extends MeetingBrowserHealth> = NonNullable<Health["speechBlockedReason"]>;
+type MeetingRuntimeProbeResults = {
+  setup: unknown;
+  listening: unknown;
+  speech: unknown;
+};
+type MeetingRuntimeOwner<Transport extends "chrome" | "chrome-node", Mode extends string, Health extends MeetingBrowserHealth> = MeetingSessionRuntime<MeetingPluginSession<Transport, Mode, Health>, MeetingPluginJoinRequest<Transport, Mode>, Transport, Mode, Health, MeetingBrowserTab, MeetingRuntimeManualActionReason<Health>, MeetingRuntimeSpeechBlockedReason<Health>>;
+type MeetingRuntimeFacadeInstance<Transport extends "chrome" | "chrome-node", Mode extends string, Health extends MeetingPluginChromeHealth<string, string>, Results extends MeetingRuntimeProbeResults> = Pick<MeetingRuntimeOwner<Transport, Mode, Health>, "join" | "leave" | "reconcileTranscriptPolicy" | "speak" | "startTranscriptSource" | "status" | "stopTranscriptSource" | "transcript"> & {
+  list(): MeetingPluginSession<Transport, Mode, Health>[];
+  ownsSession(agentId: string, sessionId: string): boolean;
+  setupStatus(options?: {
+    mode?: Mode;
+    transport?: Transport;
+  }): Promise<Results["setup"]>;
+  statusForAgent(agentId: string, sessionId?: string): Promise<{
+    found: boolean;
+    session?: MeetingPluginSession<Transport, Mode, Health>;
+    sessions?: MeetingPluginSession<Transport, Mode, Health>[];
+  }>;
+  testListen(request: MeetingPluginJoinRequest<Transport, Mode>): Promise<Results["listening"]>;
+  testSpeech(request: MeetingPluginJoinRequest<Transport, Mode>): Promise<Results["speech"]>;
+};
+type MeetingRuntimeFacadeConstructor<Config extends MeetingPluginConfig$1, Transport extends "chrome" | "chrome-node", Mode extends string, Health extends MeetingPluginChromeHealth<string, string>, Results extends MeetingRuntimeProbeResults> = new (params: MeetingRuntimeParams<Config>) => MeetingRuntimeFacadeInstance<Transport, Mode, Health, Results>;
+type MeetingRuntimeHookContext<Session extends MeetingPluginSession<Transport, Mode, Health>, Request extends MeetingPluginJoinRequest<Transport, Mode>, Transport extends string, Mode extends string, Health extends MeetingBrowserHealth> = {
+  deleteRequesterSessionKey(sessionId: string): void;
+  endSession(sessionId: string, options?: {
+    keepBrowserTab?: boolean;
+  }): Promise<void>;
+  noteSession(session: Session, note: string): void;
+  refreshBrowserHealth(session: Session, options?: {
+    force?: boolean;
+    readOnly?: boolean;
+  }): Promise<void>;
+  resolvedJoin(request: Request): MeetingResolvedJoin<Transport, Mode>;
+};
+type MeetingRuntimeHooks<Session extends MeetingPluginSession<Transport, Mode, Health>, Request extends MeetingPluginJoinRequest<Transport, Mode>, Transport extends string, Mode extends string, Health extends MeetingBrowserHealth> = {
+  afterStatusRefresh?(session: Session, context: MeetingRuntimeHookContext<Session, Request, Transport, Mode, Health>): Promise<void>;
+  afterAudioBridgeAttached?(session: Session): void;
+  isAudioBridgeActive?(session: Session): boolean;
+  isAwaitingAdmission?(session: Session): boolean;
+  normalizeJoinRequest?(request: Request, context: MeetingRuntimeHookContext<Session, Request, Transport, Mode, Health>): Request;
+  recordBrowserRecoveryFailure?(session: Session, failure: {
+    kind: "missing" | "error";
+    message: string;
+  }): void;
+  refreshReusableSession?(session: Session, request: Request, context: MeetingRuntimeHookContext<Session, Request, Transport, Mode, Health>): Promise<{
+    keepBrowserTab: boolean;
+  } | void>;
+  validateLaunchResult?(result: MeetingRuntimeLaunchResult<Health>): void;
+};
+type MeetingRuntimeMessages<Health extends MeetingBrowserHealth> = {
+  browserReadinessFailed?(error: string): string;
+  durableTranscripts: {
+    providerId: string;
+    providerName: string;
+  };
+  joined: {
+    local: string;
+    node: string;
+    transcribe: string;
+    waiting: string;
+  };
+  leaveFailed(error: string): string;
+  noTrackedTab: string;
+  sessionRuntime: MeetingSessionRuntimeMessages<MeetingRuntimeSpeechBlockedReason<Health>>;
+  sharedTab: string;
+};
+type MeetingRuntimeProbeContext<Config extends MeetingPluginConfig$1 & {
+  defaultMode: Mode;
+}, Transport extends "chrome" | "chrome-node", Mode extends string, Health extends MeetingPluginChromeHealth<string, string>> = MeetingProbeContext<Config, Mode, Transport, Health, MeetingPluginSession<Transport, Mode, Health>, MeetingPluginJoinRequest<Transport, Mode>>;
+type MeetingRuntimeFacadeOptions<Config extends MeetingPluginConfig$1 & {
+  defaultMode: Mode;
+}, Transport extends "chrome" | "chrome-node", Mode extends string, Health extends MeetingPluginChromeHealth<string, string>, Results extends MeetingRuntimeProbeResults> = {
+  hooks?: MeetingRuntimeHooks<MeetingPluginSession<Transport, Mode, Health>, MeetingPluginJoinRequest<Transport, Mode>, Transport, Mode, Health>;
+  messages: MeetingRuntimeMessages<Health>;
+  platform: MeetingRuntimePlatform$1<Mode, Health>;
+  probes: {
+    setupStatus(params: MeetingRuntimeParams<Config> & {
+      options?: {
+        mode?: Mode;
+        transport?: Transport;
+      };
+    }): Promise<Results["setup"]>;
+    testListening(context: MeetingRuntimeProbeContext<Config, Transport, Mode, Health>, request: MeetingPluginJoinRequest<Transport, Mode>): Promise<Results["listening"]>;
+    testSpeech(context: MeetingRuntimeProbeContext<Config, Transport, Mode, Health>, request: MeetingPluginJoinRequest<Transport, Mode>): Promise<Results["speech"]>;
+  };
+  transport: MeetingRuntimeTransport<Config, Mode, Health>;
+};
+//#endregion
+//#region src/meeting-bot/plugin-cli.d.ts
+type MeetingCliDescriptions = {
+  root: string;
+  join: string;
+  leave: string;
+  status: string;
+  setup: string;
+  testSpeech: string;
+  testListen: string;
+};
+type MeetingCliOptions = {
+  callGateway: typeof callGatewayFromCli;
+  commandName: string;
+  config: MeetingPluginConfig$1;
+  descriptions: MeetingCliDescriptions;
+  methodPrefix: string;
+  program: Command;
+  resolveGatewayTimeoutMs(params: {
+    config: MeetingPluginConfig$1;
+    method: string;
+    requestedTimeoutMs?: number;
+  }): number;
+};
+declare function registerMeetingPluginCli(options: MeetingCliOptions): void;
 //#endregion
 //#region src/meeting-bot/chrome-transport.d.ts
 declare function createMeetingChromeTransport<Config extends MeetingChromeTransportConfig, Mode extends string, Health extends MeetingBrowserHealth, Transcript extends MeetingTranscriptSnapshot>(options: MeetingChromeTransportOptions<Mode, Health, Transcript>): {
@@ -1327,192 +1833,32 @@ declare function createMeetingChromeTransportWithExternalAudio<Config extends Me
   }>;
 };
 //#endregion
-//#region src/meeting-bot/node-audio-config.d.ts
-type MeetingNodeAudioConfig = {
-  backend: MeetingAudioBackendSelection;
-  bufferBytes: number;
-  format: MeetingRealtimeAudioFormat;
-  inputCommand?: string[];
-  outputCommand?: string[];
+//#region src/meeting-bot/node-invoke-policy.d.ts
+type MeetingBrowserNodeStartConfig = {
+  launch: boolean;
+  browserProfile?: string;
+  joinTimeoutMs: number;
+  audioBackend?: MeetingAudioBackendSelection;
+  audioBufferBytes?: number;
+  audioFormat?: MeetingRealtimeAudioFormat;
+  audioInputCommand?: string[];
+  audioInputCommandOverride?: string[];
+  audioOutputCommand?: string[];
+  audioOutputCommandOverride?: string[];
   bargeInInputCommand?: string[];
+  audioBridgeCommand?: string[];
+  audioBridgeHealthCommand?: string[];
 };
-//#endregion
-//#region src/meeting-bot/node-host.d.ts
-type MeetingNodeHostOptions = {
+type MeetingBrowserNodePolicyOptions = {
   commandName: string;
   displayName: string;
-  browserLabel: string;
-  bridgeIdPrefix: string;
-  defaultAudioInputCommand: readonly string[];
-  defaultAudioOutputCommand: readonly string[];
-  defaultAudio?: {
-    backend?: MeetingAudioBackendSelection;
-    bufferBytes: number;
-    format: MeetingRealtimeAudioFormat;
-  };
-  talkBackModes: ReadonlySet<string>;
-  agentMode: string;
+  deniedCode: string;
+  supportedModes: ReadonlySet<string>;
   normalizeUrl(input: unknown): string;
-  normalizeMeetingKey(url?: string): string | undefined;
-  assertAudioAvailable(timeoutMs: number): void | Promise<void>;
-  prepareAudio?(config: MeetingNodeAudioConfig, timeoutMs: number): Promise<MeetingAudioRuntime>;
-  browser: {
-    application: string;
-    buildProfileArgs(profile: string): string[];
-    openedStatus: string;
-    openedNotes: string[];
-  };
+  useConfiguredSetupCommands?: boolean;
+  start: MeetingBrowserNodeStartConfig;
 };
-export declare function createMeetingNodeHost(options: MeetingNodeHostOptions): {
-  handleCommand: (paramsJSON?: string | null) => Promise<string>;
-  hasActiveWork: () => boolean;
-};
-//#endregion
-//#region src/meeting-bot/configured-node-host.d.ts
-type MeetingConfiguredNodeHostOptions = Omit<MeetingNodeHostOptions, "assertAudioAvailable" | "prepareAudio"> & {
-  meetingLabel: string;
-  sharePrerequisiteDeadline: boolean;
-};
-declare function createMeetingConfiguredNodeHost(options: MeetingConfiguredNodeHostOptions): ((paramsJSON?: string | null) => Promise<string>) & {
-  hasActiveWork: () => boolean;
-};
-//#endregion
-//#region src/meeting-bot/meeting-modes.d.ts
-declare function isMeetingTalkBackMode(mode: string): boolean;
-declare function isMeetingRealtimeRouteReady(mode: string, health: (MeetingBrowserHealth & {
-  audioInputRouted?: boolean;
-  audioOutputRouted?: boolean;
-}) | undefined): boolean;
-//#endregion
-//#region src/meeting-bot/plugin-config.d.ts
-type MeetingPluginMode = "agent" | "bidi" | "transcribe";
-type MeetingPluginConfig$1 = MeetingRealtimeEngineConfig & {
-  enabled: boolean;
-  defaultMode: MeetingPluginMode;
-  chrome: MeetingRealtimeEngineConfig["chrome"] & {
-    audioBackend: MeetingAudioBackendSelection;
-    audioBufferBytes: number;
-    launch: boolean;
-    browserProfile?: string;
-    guestName: string;
-    reuseExistingTab: boolean;
-    autoJoin: boolean;
-    joinTimeoutMs: number;
-    waitForInCallMs: number;
-    audioInputCommand: string[];
-    audioOutputCommand: string[];
-    audioInputCommandOverride?: string[];
-    audioOutputCommandOverride?: string[];
-    bargeInInputCommand?: string[];
-    bargeInRmsThreshold: number;
-    bargeInPeakThreshold: number;
-    bargeInCooldownMs: number;
-  };
-  chromeNode: {
-    node?: string;
-  };
-  realtime: MeetingRealtimeEngineConfig["realtime"] & {
-    strategy: "agent" | "bidi";
-    toolPolicy: RealtimeVoiceAgentConsultToolPolicy;
-  };
-};
-type MeetingPluginConfigOptions = {
-  defaultRealtimeInstructions: string;
-  resolveGatewayOperationTimeoutMs(config: MeetingPluginConfig$1): number;
-};
-declare function createMeetingPluginConfigSchema(options: MeetingPluginConfigOptions): {
-  configSchema: {
-    parse: (input: unknown) => MeetingPluginConfig$1;
-    uiHints: {
-      defaultMode: {
-        label: string;
-        help: string;
-      };
-      "chrome.audioBackend": {
-        label: string;
-        help: string;
-      };
-      "chrome.browserProfile": {
-        label: string;
-        advanced: true;
-      };
-      "chrome.guestName": {
-        label: string;
-      };
-      "chrome.waitForInCallMs": {
-        label: string;
-        advanced: true;
-      };
-      "chrome.audioInputCommand": {
-        label: string;
-        advanced: true;
-      };
-      "chrome.audioOutputCommand": {
-        label: string;
-        advanced: true;
-      };
-      "chromeNode.node": {
-        label: string;
-        help: string;
-        advanced: true;
-      };
-      "realtime.transcriptionProvider": {
-        label: string;
-      };
-      "realtime.voiceProvider": {
-        label: string;
-      };
-      "realtime.model": {
-        label: string;
-        advanced: true;
-      };
-      "realtime.instructions": {
-        label: string;
-        advanced: true;
-      };
-      "realtime.introMessage": {
-        label: string;
-      };
-      "realtime.agentId": {
-        label: string;
-        advanced: true;
-      };
-      "realtime.toolPolicy": {
-        label: string;
-        advanced: true;
-      };
-    };
-  };
-  defaultAudioInputCommand: string[];
-  defaultAudioOutputCommand: string[];
-  resolveConfig: (input: unknown) => MeetingPluginConfig$1;
-  resolveGatewayOperationTimeoutMs: (config: MeetingPluginConfig$1) => number;
-};
-//#endregion
-//#region src/meeting-bot/plugin-cli.d.ts
-type MeetingCliDescriptions = {
-  root: string;
-  join: string;
-  leave: string;
-  status: string;
-  setup: string;
-  testSpeech: string;
-  testListen: string;
-};
-type MeetingCliOptions = {
-  callGateway: typeof callGatewayFromCli;
-  commandName: string;
-  config: MeetingPluginConfig$1;
-  descriptions: MeetingCliDescriptions;
-  methodPrefix: string;
-  program: Command;
-  resolveGatewayTimeoutMs(params: {
-    config: MeetingPluginConfig$1;
-    method: string;
-    requestedTimeoutMs?: number;
-  }): number;
-};
-declare function registerMeetingPluginCli(options: MeetingCliOptions): void;
+export declare function createMeetingBrowserNodeInvokePolicy(options: MeetingBrowserNodePolicyOptions): OpenClawPluginNodeInvokePolicy;
 //#endregion
 //#region src/meeting-bot/plugin-entry.d.ts
 type MeetingMode = "agent" | "bidi" | "transcribe";
@@ -1585,138 +1931,6 @@ declare function createMeetingPluginEntryOptions<Config extends MeetingPluginCon
     parse(value: unknown): Config;
   };
   register(api: OpenClawPluginApi): void;
-};
-//#endregion
-//#region src/meeting-bot/node-invoke-policy.d.ts
-type MeetingBrowserNodeStartConfig = {
-  launch: boolean;
-  browserProfile?: string;
-  joinTimeoutMs: number;
-  audioBackend?: MeetingAudioBackendSelection;
-  audioBufferBytes?: number;
-  audioFormat?: MeetingRealtimeAudioFormat;
-  audioInputCommand?: string[];
-  audioInputCommandOverride?: string[];
-  audioOutputCommand?: string[];
-  audioOutputCommandOverride?: string[];
-  bargeInInputCommand?: string[];
-  audioBridgeCommand?: string[];
-  audioBridgeHealthCommand?: string[];
-};
-type MeetingBrowserNodePolicyOptions = {
-  commandName: string;
-  displayName: string;
-  deniedCode: string;
-  supportedModes: ReadonlySet<string>;
-  normalizeUrl(input: unknown): string;
-  useConfiguredSetupCommands?: boolean;
-  start: MeetingBrowserNodeStartConfig;
-};
-export declare function createMeetingBrowserNodeInvokePolicy(options: MeetingBrowserNodePolicyOptions): OpenClawPluginNodeInvokePolicy;
-//#endregion
-//#region src/meeting-bot/runtime-probes.d.ts
-declare function resolveMeetingProbeTimeoutMs(input: number | undefined, fallback: number, invalidRequest?: (message: string) => Error): number;
-type MeetingProbeSession<Health extends MeetingPluginProbeHealth> = {
-  id: string;
-  chrome?: {
-    launched: boolean;
-    browserTab?: {
-      targetId?: string;
-    };
-    health?: Health;
-  };
-};
-type MeetingProbeRequest<Transport extends string> = MeetingPluginJoinRequest<Transport, string>;
-type MeetingProbeConfig<Mode extends string> = {
-  defaultMode: Mode;
-  chrome: {
-    joinTimeoutMs: number;
-  };
-  chromeNode: {
-    node?: string;
-  };
-};
-type MeetingProbeContext<Config extends MeetingProbeConfig<Mode>, Mode extends string, Transport extends string, Health extends MeetingPluginProbeHealth, Session extends MeetingProbeSession<Health>, Request extends MeetingProbeRequest<Transport>> = {
-  config: Config;
-  resolveAgentId(request: Request): string;
-  list(): Session[];
-  join(request: Request): Promise<{
-    session: Session;
-    spoken?: boolean;
-  }>;
-  isReusable(session: Session, resolved: {
-    url: string;
-    transport: Transport;
-    mode: Mode;
-    agentId: string;
-  }): boolean;
-  hasHealthHandle(sessionId: string): boolean;
-  refreshHealth(sessionId: string): void;
-  refreshCaptionHealth(session: Session, timeoutMs?: number): Promise<void>;
-};
-type MeetingRuntimeProbeOptions<Mode extends string, Health extends MeetingPluginProbeHealth, Session extends MeetingProbeSession<Health>> = {
-  defaultSpeechMessage: string;
-  invalidRequest(message: string): Error;
-  resolveTimeoutMs(input: number | undefined, fallback: number): number;
-  shouldWaitForListening(session: Session): boolean;
-  talkBackMode(mode: Mode): boolean;
-};
-declare function createMeetingRuntimeProbes<Config extends MeetingProbeConfig<Mode>, Mode extends string, Transport extends string, Health extends MeetingPluginProbeHealth, Session extends MeetingProbeSession<Health>, Request extends MeetingProbeRequest<Transport>>(options: MeetingRuntimeProbeOptions<Mode, Health, Session> & {
-  normalizeUrl?(url: string): string;
-  resolveRequestMode?(mode: Request["mode"], config: Config): Mode | undefined;
-  defaultTransport?(config: Config): Transport;
-  validateListeningTransport?(transport: Transport): void;
-  resolveSpeechTimeoutMs?(request: Request, config: Config): number;
-  refreshCaptionHealth?(context: MeetingProbeContext<Config, Mode, Transport, Health, Session, Request>, session: Session, timeoutMs: number): Promise<void>;
-  speechModeError?: string;
-  listeningModeError?: string;
-}): {
-  testListening: (context: MeetingProbeContext<Config, Mode, Transport, Health, Session, Request>, request: Request) => Promise<{
-    createdSession: boolean;
-    inCall: boolean | undefined;
-    manualAction: {
-      reason: string;
-      message: string;
-    } | undefined;
-    listenVerified: boolean;
-    listenTimedOut: boolean;
-    captioning: boolean | undefined;
-    captionsEnabledAttempted: boolean | undefined;
-    transcriptLines: number | undefined;
-    lastCaptionAt: string | undefined;
-    lastCaptionSpeaker: string | undefined;
-    lastCaptionText: string | undefined;
-    recentTranscript: {
-      at?: string;
-      speaker?: string;
-      text: string;
-    }[] | undefined;
-    session: Session;
-  }>;
-  testSpeech: (context: MeetingProbeContext<Config, Mode, Transport, Health, Session, Request>, request: Request) => Promise<{
-    createdSession: boolean;
-    inCall: boolean | undefined;
-    manualAction: {
-      reason: string;
-      message: string;
-    } | undefined;
-    spoken: boolean;
-    speechOutputVerified: boolean;
-    speechOutputTimedOut: boolean;
-    speechReady: boolean | undefined;
-    speechBlockedReason: string | undefined;
-    speechBlockedMessage: string | undefined;
-    audioOutputActive: boolean | undefined;
-    lastOutputBytes: number | undefined;
-    outputLoopbackSignalBytes: number | undefined;
-    lastOutputLoopbackAt: string | undefined;
-    lastOutputLoopbackCorrelation: number | undefined;
-    lastOutputLoopbackRms: number | undefined;
-    lastOutputLoopbackPeak: number | undefined;
-    outputGeneration: number | undefined;
-    verifiedOutputGeneration: number | undefined;
-    session: Session;
-  }>;
 };
 //#endregion
 //#region src/meeting-bot/plugin-shell.d.ts
@@ -1840,7 +2054,27 @@ declare function createMeetingPluginShellEntry<Config extends MeetingPluginConfi
 };
 declare function createMeetingPluginTypes<Config extends MeetingPluginConfig$1, Transport extends string, Mode extends string, ManualReason extends string, SpeechBlockedReason extends string, ExtraHealth extends object = object>(): {
   BrowserTab: MeetingBrowserTab;
-  ChromeHealth: MeetingBrowserHealth<ManualReason, SpeechBlockedReason> & MeetingBrowserHealth<string, string> & {
+  ChromeHealth: Partial<MeetingOutputLoopbackHealth> & {
+    inCall?: boolean;
+    micMuted?: boolean;
+    manualAction?: {
+      reason: ManualReason;
+      message: string;
+    } | undefined;
+    speechReady?: boolean;
+    speechBlockedReason?: SpeechBlockedReason | undefined;
+    speechBlockedMessage?: string;
+  } & {
+    inCall?: boolean;
+    micMuted?: boolean;
+    manualAction?: {
+      reason: string;
+      message: string;
+    } | undefined;
+    speechReady?: boolean;
+    speechBlockedReason?: string | undefined;
+    speechBlockedMessage?: string;
+  } & {
     audioOutputActive?: boolean;
     captioning?: boolean;
     captionsEnabledAttempted?: boolean;
@@ -1848,11 +2082,7 @@ declare function createMeetingPluginTypes<Config extends MeetingPluginConfig$1, 
     lastCaptionSpeaker?: string;
     lastCaptionText?: string;
     lastOutputBytes?: number;
-    recentTranscript?: Array<{
-      at?: string;
-      speaker?: string;
-      text: string;
-    }>;
+    recentTranscript?: MeetingTranscriptLine[];
     transcriptLines?: number;
   } & {
     cameraOff?: boolean;
@@ -1878,7 +2108,27 @@ declare function createMeetingPluginTypes<Config extends MeetingPluginConfig$1, 
     notes?: string[];
   } & ExtraHealth;
   JoinRequest: MeetingPluginJoinRequest<Transport, Mode>;
-  JoinResult: MeetingPluginJoinResult<MeetingPluginSession<Transport, Mode, MeetingBrowserHealth<ManualReason, SpeechBlockedReason> & MeetingBrowserHealth<string, string> & {
+  JoinResult: MeetingPluginJoinResult<MeetingPluginSession<Transport, Mode, Partial<MeetingOutputLoopbackHealth> & {
+    inCall?: boolean;
+    micMuted?: boolean;
+    manualAction?: {
+      reason: ManualReason;
+      message: string;
+    } | undefined;
+    speechReady?: boolean;
+    speechBlockedReason?: SpeechBlockedReason | undefined;
+    speechBlockedMessage?: string;
+  } & {
+    inCall?: boolean;
+    micMuted?: boolean;
+    manualAction?: {
+      reason: string;
+      message: string;
+    } | undefined;
+    speechReady?: boolean;
+    speechBlockedReason?: string | undefined;
+    speechBlockedMessage?: string;
+  } & {
     audioOutputActive?: boolean;
     captioning?: boolean;
     captionsEnabledAttempted?: boolean;
@@ -1886,11 +2136,7 @@ declare function createMeetingPluginTypes<Config extends MeetingPluginConfig$1, 
     lastCaptionSpeaker?: string;
     lastCaptionText?: string;
     lastOutputBytes?: number;
-    recentTranscript?: Array<{
-      at?: string;
-      speaker?: string;
-      text: string;
-    }>;
+    recentTranscript?: MeetingTranscriptLine[];
     transcriptLines?: number;
   } & {
     cameraOff?: boolean;
@@ -1917,7 +2163,27 @@ declare function createMeetingPluginTypes<Config extends MeetingPluginConfig$1, 
   } & ExtraHealth>>;
   ProbeContext: MeetingProbeContext<Config & {
     defaultMode: Mode;
-  }, Mode, Transport, MeetingBrowserHealth<ManualReason, SpeechBlockedReason> & MeetingBrowserHealth<string, string> & {
+  }, Mode, Transport, Partial<MeetingOutputLoopbackHealth> & {
+    inCall?: boolean;
+    micMuted?: boolean;
+    manualAction?: {
+      reason: ManualReason;
+      message: string;
+    } | undefined;
+    speechReady?: boolean;
+    speechBlockedReason?: SpeechBlockedReason | undefined;
+    speechBlockedMessage?: string;
+  } & {
+    inCall?: boolean;
+    micMuted?: boolean;
+    manualAction?: {
+      reason: string;
+      message: string;
+    } | undefined;
+    speechReady?: boolean;
+    speechBlockedReason?: string | undefined;
+    speechBlockedMessage?: string;
+  } & {
     audioOutputActive?: boolean;
     captioning?: boolean;
     captionsEnabledAttempted?: boolean;
@@ -1925,11 +2191,7 @@ declare function createMeetingPluginTypes<Config extends MeetingPluginConfig$1, 
     lastCaptionSpeaker?: string;
     lastCaptionText?: string;
     lastOutputBytes?: number;
-    recentTranscript?: Array<{
-      at?: string;
-      speaker?: string;
-      text: string;
-    }>;
+    recentTranscript?: MeetingTranscriptLine[];
     transcriptLines?: number;
   } & {
     cameraOff?: boolean;
@@ -1953,7 +2215,27 @@ declare function createMeetingPluginTypes<Config extends MeetingPluginConfig$1, 
     browserTitle?: string;
     status?: string;
     notes?: string[];
-  } & ExtraHealth, MeetingPluginSession<Transport, Mode, MeetingBrowserHealth<ManualReason, SpeechBlockedReason> & MeetingBrowserHealth<string, string> & {
+  } & ExtraHealth, MeetingPluginSession<Transport, Mode, Partial<MeetingOutputLoopbackHealth> & {
+    inCall?: boolean;
+    micMuted?: boolean;
+    manualAction?: {
+      reason: ManualReason;
+      message: string;
+    } | undefined;
+    speechReady?: boolean;
+    speechBlockedReason?: SpeechBlockedReason | undefined;
+    speechBlockedMessage?: string;
+  } & {
+    inCall?: boolean;
+    micMuted?: boolean;
+    manualAction?: {
+      reason: string;
+      message: string;
+    } | undefined;
+    speechReady?: boolean;
+    speechBlockedReason?: string | undefined;
+    speechBlockedMessage?: string;
+  } & {
     audioOutputActive?: boolean;
     captioning?: boolean;
     captionsEnabledAttempted?: boolean;
@@ -1961,11 +2243,7 @@ declare function createMeetingPluginTypes<Config extends MeetingPluginConfig$1, 
     lastCaptionSpeaker?: string;
     lastCaptionText?: string;
     lastOutputBytes?: number;
-    recentTranscript?: Array<{
-      at?: string;
-      speaker?: string;
-      text: string;
-    }>;
+    recentTranscript?: MeetingTranscriptLine[];
     transcriptLines?: number;
   } & {
     cameraOff?: boolean;
@@ -1990,7 +2268,27 @@ declare function createMeetingPluginTypes<Config extends MeetingPluginConfig$1, 
     status?: string;
     notes?: string[];
   } & ExtraHealth>, MeetingPluginJoinRequest<Transport, Mode>>;
-  Session: MeetingPluginSession<Transport, Mode, MeetingBrowserHealth<ManualReason, SpeechBlockedReason> & MeetingBrowserHealth<string, string> & {
+  Session: MeetingPluginSession<Transport, Mode, Partial<MeetingOutputLoopbackHealth> & {
+    inCall?: boolean;
+    micMuted?: boolean;
+    manualAction?: {
+      reason: ManualReason;
+      message: string;
+    } | undefined;
+    speechReady?: boolean;
+    speechBlockedReason?: SpeechBlockedReason | undefined;
+    speechBlockedMessage?: string;
+  } & {
+    inCall?: boolean;
+    micMuted?: boolean;
+    manualAction?: {
+      reason: string;
+      message: string;
+    } | undefined;
+    speechReady?: boolean;
+    speechBlockedReason?: string | undefined;
+    speechBlockedMessage?: string;
+  } & {
     audioOutputActive?: boolean;
     captioning?: boolean;
     captionsEnabledAttempted?: boolean;
@@ -1998,11 +2296,7 @@ declare function createMeetingPluginTypes<Config extends MeetingPluginConfig$1, 
     lastCaptionSpeaker?: string;
     lastCaptionText?: string;
     lastOutputBytes?: number;
-    recentTranscript?: Array<{
-      at?: string;
-      speaker?: string;
-      text: string;
-    }>;
+    recentTranscript?: MeetingTranscriptLine[];
     transcriptLines?: number;
   } & {
     cameraOff?: boolean;
@@ -2029,192 +2323,6 @@ declare function createMeetingPluginTypes<Config extends MeetingPluginConfig$1, 
   } & ExtraHealth>;
   TranscriptSnapshot: MeetingTranscriptSnapshot;
 };
-//#endregion
-//#region src/meeting-bot/runtime-facade-types.d.ts
-type MeetingRuntimeParams<Config extends MeetingPluginConfig$1> = {
-  config: Config;
-  fullConfig: OpenClawConfig;
-  runtime: PluginRuntime;
-  logger: RuntimeLogger;
-};
-type MeetingRuntimePlatform$1<Mode extends string, Health extends MeetingBrowserHealth> = MeetingPlatformAdapter$1<MeetingBrowserJoinSession<Mode>, Mode, Health, MeetingTranscriptSnapshot> & MeetingPlatformRuntimeMetadata;
-type MeetingRuntimeAudioBridge<Health extends MeetingBrowserHealth> = MeetingSessionRuntimeHandles<Health> & {
-  providerId?: string;
-  type: "command-pair" | "node-command-pair";
-};
-type MeetingRuntimeLaunchResult<Health extends MeetingBrowserHealth> = {
-  launched: boolean;
-  audioBackend?: MeetingAudioBackend;
-  audioBridge?: MeetingRuntimeAudioBridge<Health>;
-  browser?: Health;
-  nodeId?: string;
-  tab?: MeetingBrowserTab;
-};
-type MeetingRuntimeLaunchParams<Config extends MeetingPluginConfig$1, Mode extends string> = {
-  runtime: PluginRuntime;
-  config: Config;
-  fullConfig: OpenClawConfig;
-  meetingSessionId: string;
-  requesterSessionKey?: string;
-  mode: Mode;
-  trackedTargetId?: string;
-  url: string;
-  logger: RuntimeLogger;
-};
-type MeetingRuntimeTransport<Config extends MeetingPluginConfig$1, Mode extends string, Health extends MeetingBrowserHealth> = {
-  launchInChrome(params: MeetingRuntimeLaunchParams<Config, Mode>): Promise<MeetingRuntimeLaunchResult<Health>>;
-  launchOnNode(params: MeetingRuntimeLaunchParams<Config, Mode>): Promise<MeetingRuntimeLaunchResult<Health> & {
-    nodeId: string;
-  }>;
-  leaveInBrowser(params: {
-    runtime: PluginRuntime;
-    config: Config;
-    meetingSessionId: string;
-    meetingUrl: string;
-    nodeId?: string;
-    tab: MeetingBrowserTab;
-  }): Promise<{
-    left: boolean;
-    note: string;
-  }>;
-  readTranscript(params: {
-    runtime: PluginRuntime;
-    config: Config;
-    finalize?: boolean;
-    meetingUrl: string;
-    meetingSessionId: string;
-    nodeId?: string;
-    tab: MeetingBrowserTab;
-  }): Promise<MeetingTranscriptSnapshot>;
-  recoverCurrentTab(params: {
-    runtime: PluginRuntime;
-    config: Config;
-    fullConfig?: OpenClawConfig;
-    meetingSessionId?: string;
-    mode: Mode;
-    nodeId?: string;
-    readOnly?: boolean;
-    trackedMeetingUrl?: string;
-    trackedTargetId?: string;
-    transport: "chrome" | "chrome-node";
-    timeoutMs?: number;
-    url?: string;
-  }): Promise<{
-    browser?: Health;
-    found: boolean;
-    message: string;
-    tab?: MeetingBrowserCandidateTab;
-  }>;
-};
-type MeetingRuntimeManualActionReason<Health extends MeetingBrowserHealth> = NonNullable<Health["manualAction"]>["reason"];
-type MeetingRuntimeSpeechBlockedReason<Health extends MeetingBrowserHealth> = NonNullable<Health["speechBlockedReason"]>;
-type MeetingRuntimeSession<Transport extends string, Mode extends string, Health extends MeetingBrowserHealth> = MeetingPluginSession<Transport, Mode, Health>;
-type MeetingRuntimeRequest<Transport extends string, Mode extends string> = MeetingPluginJoinRequest<Transport, Mode>;
-type MeetingRuntimeProbeResults = {
-  setup: unknown;
-  listening: unknown;
-  speech: unknown;
-};
-type MeetingRuntimeOwner<Transport extends "chrome" | "chrome-node", Mode extends string, Health extends MeetingBrowserHealth> = MeetingSessionRuntime<MeetingRuntimeSession<Transport, Mode, Health>, MeetingRuntimeRequest<Transport, Mode>, Transport, Mode, Health, MeetingBrowserTab, MeetingRuntimeManualActionReason<Health>, MeetingRuntimeSpeechBlockedReason<Health>>;
-type MeetingRuntimeFacadeInstance<Transport extends "chrome" | "chrome-node", Mode extends string, Health extends MeetingPluginChromeHealth<string, string>, Results extends MeetingRuntimeProbeResults> = Pick<MeetingRuntimeOwner<Transport, Mode, Health>, "join" | "leave" | "reconcileTranscriptPolicy" | "speak" | "startTranscriptSource" | "status" | "stopTranscriptSource" | "transcript"> & {
-  list(): MeetingRuntimeSession<Transport, Mode, Health>[];
-  ownsSession(agentId: string, sessionId: string): boolean;
-  setupStatus(options?: {
-    mode?: Mode;
-    transport?: Transport;
-  }): Promise<Results["setup"]>;
-  statusForAgent(agentId: string, sessionId?: string): Promise<{
-    found: boolean;
-    session?: MeetingRuntimeSession<Transport, Mode, Health>;
-    sessions?: MeetingRuntimeSession<Transport, Mode, Health>[];
-  }>;
-  testListen(request: MeetingRuntimeRequest<Transport, Mode>): Promise<Results["listening"]>;
-  testSpeech(request: MeetingRuntimeRequest<Transport, Mode>): Promise<Results["speech"]>;
-};
-type MeetingRuntimeFacadeConstructor<Config extends MeetingPluginConfig$1, Transport extends "chrome" | "chrome-node", Mode extends string, Health extends MeetingPluginChromeHealth<string, string>, Results extends MeetingRuntimeProbeResults> = new (params: MeetingRuntimeParams<Config>) => MeetingRuntimeFacadeInstance<Transport, Mode, Health, Results>;
-type MeetingRuntimeHookContext<Session extends MeetingPluginSession<Transport, Mode, Health>, Request extends MeetingPluginJoinRequest<Transport, Mode>, Transport extends string, Mode extends string, Health extends MeetingBrowserHealth> = {
-  deleteRequesterSessionKey(sessionId: string): void;
-  endSession(sessionId: string, options?: {
-    keepBrowserTab?: boolean;
-  }): Promise<void>;
-  noteSession(session: Session, note: string): void;
-  refreshBrowserHealth(session: Session, options?: {
-    force?: boolean;
-    readOnly?: boolean;
-  }): Promise<void>;
-  resolvedJoin(request: Request): MeetingResolvedJoin<Transport, Mode>;
-};
-type MeetingRuntimeHooks<Session extends MeetingPluginSession<Transport, Mode, Health>, Request extends MeetingPluginJoinRequest<Transport, Mode>, Transport extends string, Mode extends string, Health extends MeetingBrowserHealth> = {
-  afterStatusRefresh?(session: Session, context: MeetingRuntimeHookContext<Session, Request, Transport, Mode, Health>): Promise<void>;
-  afterAudioBridgeAttached?(session: Session): void;
-  isAudioBridgeActive?(session: Session): boolean;
-  isAwaitingAdmission?(session: Session): boolean;
-  normalizeJoinRequest?(request: Request, context: MeetingRuntimeHookContext<Session, Request, Transport, Mode, Health>): Request;
-  recordBrowserRecoveryFailure?(session: Session, failure: {
-    kind: "missing" | "error";
-    message: string;
-  }): void;
-  refreshReusableSession?(session: Session, request: Request, context: MeetingRuntimeHookContext<Session, Request, Transport, Mode, Health>): Promise<{
-    keepBrowserTab: boolean;
-  } | void>;
-  validateLaunchResult?(result: MeetingRuntimeLaunchResult<Health>): void;
-};
-type MeetingRuntimeMessages<Health extends MeetingBrowserHealth> = {
-  browserReadinessFailed?(error: string): string;
-  durableTranscripts: {
-    providerId: string;
-    providerName: string;
-  };
-  joined: {
-    local: string;
-    node: string;
-    transcribe: string;
-    waiting: string;
-  };
-  leaveFailed(error: string): string;
-  noTrackedTab: string;
-  sessionRuntime: MeetingSessionRuntimeMessages<MeetingRuntimeSpeechBlockedReason<Health>>;
-  sharedTab: string;
-};
-type MeetingRuntimeProbeContext<Config extends MeetingPluginConfig$1 & {
-  defaultMode: Mode;
-}, Transport extends "chrome" | "chrome-node", Mode extends string, Health extends MeetingPluginChromeHealth<string, string>> = MeetingProbeContext<Config, Mode, Transport, Health, MeetingRuntimeSession<Transport, Mode, Health>, MeetingRuntimeRequest<Transport, Mode>>;
-type MeetingRuntimeFacadeOptions<Config extends MeetingPluginConfig$1 & {
-  defaultMode: Mode;
-}, Transport extends "chrome" | "chrome-node", Mode extends string, Health extends MeetingPluginChromeHealth<string, string>, Results extends MeetingRuntimeProbeResults> = {
-  hooks?: MeetingRuntimeHooks<MeetingRuntimeSession<Transport, Mode, Health>, MeetingRuntimeRequest<Transport, Mode>, Transport, Mode, Health>;
-  messages: MeetingRuntimeMessages<Health>;
-  platform: MeetingRuntimePlatform$1<Mode, Health>;
-  probes: {
-    setupStatus(params: MeetingRuntimeParams<Config> & {
-      options?: {
-        mode?: Mode;
-        transport?: Transport;
-      };
-    }): Promise<Results["setup"]>;
-    testListening(context: MeetingRuntimeProbeContext<Config, Transport, Mode, Health>, request: MeetingRuntimeRequest<Transport, Mode>): Promise<Results["listening"]>;
-    testSpeech(context: MeetingRuntimeProbeContext<Config, Transport, Mode, Health>, request: MeetingRuntimeRequest<Transport, Mode>): Promise<Results["speech"]>;
-  };
-  transport: MeetingRuntimeTransport<Config, Mode, Health>;
-};
-//#endregion
-//#region src/meeting-bot/runtime-facade.d.ts
-declare function createMeetingRuntimeFacade<Config extends MeetingPluginConfig$1 & {
-  defaultMode: Mode;
-}, Transport extends "chrome" | "chrome-node", Mode extends string, Health extends MeetingPluginChromeHealth<string, string>, Results extends MeetingRuntimeProbeResults>(options: MeetingRuntimeFacadeOptions<Config, Transport, Mode, Health, Results>): MeetingRuntimeFacadeConstructor<Config, Transport, Mode, Health, Results>;
-//#endregion
-//#region src/meeting-bot/setup-checks.d.ts
-type MeetingSetupCheck = {
-  id: string;
-  ok: boolean;
-  message: string;
-};
-type MeetingSetupStatus = {
-  ok: boolean;
-  checks: MeetingSetupCheck[];
-};
-export declare function createMeetingSetupStatus(checks: MeetingSetupCheck[]): MeetingSetupStatus;
-export declare function addMeetingSetupCheck(status: MeetingSetupStatus, check: MeetingSetupCheck): MeetingSetupStatus;
 //#endregion
 //#region src/meeting-bot/runtime-setup.d.ts
 type MeetingSetupNodeAdapter = {
@@ -2247,6 +2355,364 @@ declare function createMeetingRuntimeSetup<Config extends MeetingPluginConfig$1,
   };
 }) => Promise<MeetingSetupStatus>;
 //#endregion
+//#region src/meeting-bot/browser-plugin.d.ts
+type Mode = MeetingPluginConfig$1["defaultMode"];
+type Transport = "chrome" | "chrome-node";
+type Request = MeetingPluginJoinRequest<Transport, Mode>;
+type CommonSpeechReason = "not-in-call" | "browser-unverified" | "audio-bridge-unavailable";
+type BrowserHealth<ManualReason extends string, SpeechReason extends string> = MeetingPluginChromeHealth<ManualReason, SpeechReason | CommonSpeechReason> & {
+  meetingEnded?: boolean;
+};
+type RuntimeOptions<Health extends MeetingPluginChromeHealth<string, string>> = MeetingRuntimeFacadeOptions<MeetingPluginConfig$1, Transport, Mode, Health, {
+  setup: unknown;
+  listening: unknown;
+  speech: unknown;
+}>;
+type CliTimeoutOptions = {
+  probe: boolean;
+  requestedTimeoutMs?: number;
+};
+declare function defineBrowserMeetingPlugin<ManualReason extends string, SpeechReason extends string>(spec: {
+  platform: RuntimeOptions<BrowserHealth<ManualReason, SpeechReason>>["platform"];
+  labels: {
+    meeting: string;
+    participant: string;
+    brand: string;
+    microphone: string;
+    browserPage: string;
+    tab?: string;
+  };
+  config: Parameters<typeof createMeetingPluginConfigSchema>[0];
+  chromeRuntime?: ReturnType<typeof createMeetingChromeRuntimeBindings>;
+  InvalidRequestError: new (message: string) => Error;
+  toolUrlDescription: string;
+  transcriptSource: {
+    id: string;
+    aliases: readonly string[];
+    providerName: string;
+  };
+  hooks?: RuntimeOptions<BrowserHealth<ManualReason, SpeechReason>>["hooks"];
+  browserReadinessFailed?: (error: string) => string;
+  notInCallMessage?: string;
+  microphoneMutedReason: SpeechReason;
+  setup: Omit<Parameters<typeof createMeetingRuntimeSetup<MeetingPluginConfig$1, Mode>>[0], "assertAudioDeviceAvailable" | "nodeAdapter">;
+  shouldWaitForListening: (session: MeetingPluginSession<Transport, Mode, BrowserHealth<ManualReason, SpeechReason>>) => boolean;
+  defaultSpeechMessage: string;
+  sharePrerequisiteDeadline: boolean;
+  preserveTrackedBrowserOnEngineFailure: boolean;
+  nodePolicyDeniedCode: string;
+  cli: {
+    descriptor: Parameters<typeof createMeetingPluginShellEntry>[0]["cli"]["descriptor"];
+    joinDescription: string;
+    callGateway?: Parameters<typeof registerMeetingPluginCli>[0]["callGateway"];
+    resolveTimeoutMs?(operationTimeoutMs: number, options: CliTimeoutOptions): number;
+  };
+  entry?: Pick<Parameters<typeof createMeetingPluginShellEntry>[0], "normalizeRequesterSessionKey" | "normalizeToolAgentId" | "resolveToolRuntime" | "registerNodeWhen">;
+}): {
+  plugin: {
+    id: string;
+    name: string;
+    description: string;
+    configSchema: OpenClawPluginConfigSchema & {
+      parse(value: unknown): MeetingPluginConfig$1;
+    };
+    register(api: OpenClawPluginApi): void;
+  };
+  config: {
+    configSchema: {
+      parse: (input: unknown) => MeetingPluginConfig$1;
+      uiHints: {
+        defaultMode: {
+          label: string;
+          help: string;
+        };
+        "chrome.audioBackend": {
+          label: string;
+          help: string;
+        };
+        "chrome.browserProfile": {
+          label: string;
+          advanced: true;
+        };
+        "chrome.guestName": {
+          label: string;
+        };
+        "chrome.waitForInCallMs": {
+          label: string;
+          advanced: true;
+        };
+        "chrome.audioInputCommand": {
+          label: string;
+          advanced: true;
+        };
+        "chrome.audioOutputCommand": {
+          label: string;
+          advanced: true;
+        };
+        "chromeNode.node": {
+          label: string;
+          help: string;
+          advanced: true;
+        };
+        "realtime.transcriptionProvider": {
+          label: string;
+        };
+        "realtime.voiceProvider": {
+          label: string;
+        };
+        "realtime.model": {
+          label: string;
+          advanced: true;
+        };
+        "realtime.instructions": {
+          label: string;
+          advanced: true;
+        };
+        "realtime.introMessage": {
+          label: string;
+        };
+        "realtime.agentId": {
+          label: string;
+          advanced: true;
+        };
+        "realtime.toolPolicy": {
+          label: string;
+          advanced: true;
+        };
+      };
+    };
+    defaultAudioInputCommand: string[];
+    defaultAudioOutputCommand: string[];
+    resolveConfig: (input: unknown) => MeetingPluginConfig$1;
+    resolveGatewayOperationTimeoutMs: (config: MeetingPluginConfig$1) => number;
+  };
+  chrome: {
+    assertAudioDeviceAvailable: (params: {
+      runtime: PluginRuntime;
+      config: MeetingChromeTransportConfig;
+      timeoutMs: number;
+    }) => Promise<void>;
+    launchInChrome: (params: MeetingChromeLaunchParams<MeetingChromeTransportConfig, "agent" | "bidi" | "transcribe">) => Promise<{
+      launched: boolean;
+      audioBackend?: MeetingAudioBackend;
+      audioBridge?: CommandPairAudioBridge | undefined;
+      browser?: BrowserHealth<ManualReason, SpeechReason> | undefined;
+      tab?: MeetingBrowserTab;
+    }>;
+    launchOnNode: (params: MeetingChromeLaunchParams<MeetingChromeTransportConfig, "agent" | "bidi" | "transcribe">) => Promise<{
+      nodeId: string;
+      launched: boolean;
+      audioBackend?: MeetingAudioBackend;
+      audioBridge?: NodeAudioBridge | undefined;
+      browser?: BrowserHealth<ManualReason, SpeechReason> | undefined;
+      tab?: MeetingBrowserTab;
+    }>;
+    leaveInBrowser: (params: {
+      runtime: PluginRuntime;
+      config: MeetingChromeTransportConfig;
+      meetingSessionId: string;
+      meetingUrl: string;
+      nodeId?: string;
+      tab: MeetingBrowserTab;
+    }) => Promise<{
+      left: boolean;
+      note: string;
+    }>;
+    readTranscript: (params: {
+      runtime: PluginRuntime;
+      config: MeetingChromeTransportConfig;
+      finalize?: boolean;
+      meetingUrl: string;
+      meetingSessionId: string;
+      nodeId?: string;
+      tab: MeetingBrowserTab;
+    }) => Promise<MeetingTranscriptSnapshot>;
+    recoverCurrentTab: (params: MeetingChromeRecoveryParams<MeetingChromeTransportConfig, "agent" | "bidi" | "transcribe">) => Promise<{
+      found: boolean;
+      targetId?: string;
+      tab?: MeetingBrowserCandidateTab;
+      browser?: BrowserHealth<ManualReason, SpeechReason> | undefined;
+      message: string;
+      transport: "chrome" | "chrome-node";
+      nodeId?: string | undefined;
+    }>;
+  };
+  Runtime: MeetingRuntimeFacadeConstructor<MeetingPluginConfig$1, Transport, "agent" | "bidi" | "transcribe", BrowserHealth<ManualReason, SpeechReason>, {
+    setup: Awaited<ReturnType<(params: {
+      config: MeetingPluginConfig$1;
+      fullConfig: OpenClawConfig;
+      runtime: PluginRuntime;
+      options?: {
+        mode?: ("agent" | "bidi" | "transcribe") | undefined;
+        transport?: "chrome" | "chrome-node";
+      } | undefined;
+    }) => Promise<MeetingSetupStatus>>>;
+    listening: Awaited<ReturnType<(context: MeetingProbeContext<MeetingPluginConfig$1, "agent" | "bidi" | "transcribe", Transport, BrowserHealth<ManualReason, SpeechReason>, MeetingPluginSession<Transport, "agent" | "bidi" | "transcribe", BrowserHealth<ManualReason, SpeechReason>>, Request>, request: Request) => Promise<{
+      createdSession: boolean;
+      inCall: boolean | undefined;
+      manualAction: {
+        reason: string;
+        message: string;
+      } | undefined;
+      listenVerified: boolean;
+      listenTimedOut: boolean;
+      captioning: boolean | undefined;
+      captionsEnabledAttempted: boolean | undefined;
+      transcriptLines: number | undefined;
+      lastCaptionAt: string | undefined;
+      lastCaptionSpeaker: string | undefined;
+      lastCaptionText: string | undefined;
+      recentTranscript: MeetingTranscriptLine[] | undefined;
+      session: MeetingPluginSession<Transport, "agent" | "bidi" | "transcribe", BrowserHealth<ManualReason, SpeechReason>>;
+    }>>>;
+    speech: Awaited<ReturnType<(context: MeetingProbeContext<MeetingPluginConfig$1, "agent" | "bidi" | "transcribe", Transport, BrowserHealth<ManualReason, SpeechReason>, MeetingPluginSession<Transport, "agent" | "bidi" | "transcribe", BrowserHealth<ManualReason, SpeechReason>>, Request>, request: Request) => Promise<{
+      createdSession: boolean;
+      inCall: boolean | undefined;
+      manualAction: {
+        reason: string;
+        message: string;
+      } | undefined;
+      spoken: boolean;
+      speechOutputVerified: boolean;
+      speechOutputTimedOut: boolean;
+      speechReady: boolean | undefined;
+      speechBlockedReason: string | undefined;
+      speechBlockedMessage: string | undefined;
+      audioOutputActive: boolean | undefined;
+      lastOutputBytes: number | undefined;
+      outputLoopbackSignalBytes: number | undefined;
+      lastOutputLoopbackAt: string | undefined;
+      lastOutputLoopbackCorrelation: number | undefined;
+      lastOutputLoopbackRms: number | undefined;
+      lastOutputLoopbackPeak: number | undefined;
+      outputGeneration: number | undefined;
+      verifiedOutputGeneration: number | undefined;
+      session: MeetingPluginSession<Transport, "agent" | "bidi" | "transcribe", BrowserHealth<ManualReason, SpeechReason>>;
+    }>>>;
+  }>;
+  probes: {
+    testListening: (context: MeetingProbeContext<MeetingPluginConfig$1, "agent" | "bidi" | "transcribe", Transport, BrowserHealth<ManualReason, SpeechReason>, MeetingPluginSession<Transport, "agent" | "bidi" | "transcribe", BrowserHealth<ManualReason, SpeechReason>>, Request>, request: Request) => Promise<{
+      createdSession: boolean;
+      inCall: boolean | undefined;
+      manualAction: {
+        reason: string;
+        message: string;
+      } | undefined;
+      listenVerified: boolean;
+      listenTimedOut: boolean;
+      captioning: boolean | undefined;
+      captionsEnabledAttempted: boolean | undefined;
+      transcriptLines: number | undefined;
+      lastCaptionAt: string | undefined;
+      lastCaptionSpeaker: string | undefined;
+      lastCaptionText: string | undefined;
+      recentTranscript: MeetingTranscriptLine[] | undefined;
+      session: MeetingPluginSession<Transport, "agent" | "bidi" | "transcribe", BrowserHealth<ManualReason, SpeechReason>>;
+    }>;
+    testSpeech: (context: MeetingProbeContext<MeetingPluginConfig$1, "agent" | "bidi" | "transcribe", Transport, BrowserHealth<ManualReason, SpeechReason>, MeetingPluginSession<Transport, "agent" | "bidi" | "transcribe", BrowserHealth<ManualReason, SpeechReason>>, Request>, request: Request) => Promise<{
+      createdSession: boolean;
+      inCall: boolean | undefined;
+      manualAction: {
+        reason: string;
+        message: string;
+      } | undefined;
+      spoken: boolean;
+      speechOutputVerified: boolean;
+      speechOutputTimedOut: boolean;
+      speechReady: boolean | undefined;
+      speechBlockedReason: string | undefined;
+      speechBlockedMessage: string | undefined;
+      audioOutputActive: boolean | undefined;
+      lastOutputBytes: number | undefined;
+      outputLoopbackSignalBytes: number | undefined;
+      lastOutputLoopbackAt: string | undefined;
+      lastOutputLoopbackCorrelation: number | undefined;
+      lastOutputLoopbackRms: number | undefined;
+      lastOutputLoopbackPeak: number | undefined;
+      outputGeneration: number | undefined;
+      verifiedOutputGeneration: number | undefined;
+      session: MeetingPluginSession<Transport, "agent" | "bidi" | "transcribe", BrowserHealth<ManualReason, SpeechReason>>;
+    }>;
+  };
+  setupStatus: (params: {
+    config: MeetingPluginConfig$1;
+    fullConfig: OpenClawConfig;
+    runtime: PluginRuntime;
+    options?: {
+      mode?: ("agent" | "bidi" | "transcribe") | undefined;
+      transport?: "chrome" | "chrome-node";
+    } | undefined;
+  }) => Promise<MeetingSetupStatus>;
+  nodeHandler: ((paramsJSON?: string | null) => Promise<string>) & {
+    hasActiveWork: () => boolean;
+  };
+  createNodePolicy: (resolved: MeetingPluginConfig$1) => OpenClawPluginNodeInvokePolicy;
+  loadCli: () => Promise<(params: {
+    program: Command;
+    config: MeetingPluginConfig$1;
+  }) => void>;
+  resolveCliGatewayTimeoutMs: (resolved: MeetingPluginConfig$1, options: CliTimeoutOptions) => number;
+};
+//#endregion
+//#region src/meeting-bot/node-audio-config.d.ts
+type MeetingNodeAudioConfig = {
+  backend: MeetingAudioBackendSelection;
+  bufferBytes: number;
+  format: MeetingRealtimeAudioFormat;
+  inputCommand?: string[];
+  outputCommand?: string[];
+  bargeInInputCommand?: string[];
+};
+type MeetingNodeAudioPreparation = {
+  defaultAudioInputCommand: readonly string[];
+  defaultAudioOutputCommand: readonly string[];
+  defaultAudio?: {
+    backend?: MeetingAudioBackendSelection;
+    bufferBytes: number;
+    format: MeetingRealtimeAudioFormat;
+  };
+  assertAudioAvailable(timeoutMs: number): void | Promise<void>;
+  prepareAudio?(config: MeetingNodeAudioConfig, timeoutMs: number): Promise<MeetingAudioRuntime>;
+};
+//#endregion
+//#region src/meeting-bot/node-host.d.ts
+type MeetingNodeHostOptions = MeetingNodeAudioPreparation & {
+  commandName: string;
+  displayName: string;
+  browserLabel: string;
+  bridgeIdPrefix: string;
+  talkBackModes: ReadonlySet<string>;
+  agentMode: string;
+  normalizeUrl(input: unknown): string;
+  normalizeMeetingKey(url?: string): string | undefined;
+  browser: {
+    application: string;
+    buildProfileArgs(profile: string): string[];
+    openedStatus: string;
+    openedNotes: string[];
+  };
+};
+export declare function createMeetingNodeHost(options: MeetingNodeHostOptions): {
+  handleCommand: (paramsJSON?: string | null) => Promise<string>;
+  hasActiveWork: () => boolean;
+};
+//#endregion
+//#region src/meeting-bot/configured-node-host.d.ts
+type MeetingConfiguredNodeHostOptions = Omit<MeetingNodeHostOptions, "assertAudioAvailable" | "prepareAudio"> & {
+  meetingLabel: string;
+  sharePrerequisiteDeadline: boolean;
+};
+declare function createMeetingConfiguredNodeHost(options: MeetingConfiguredNodeHostOptions): ((paramsJSON?: string | null) => Promise<string>) & {
+  hasActiveWork: () => boolean;
+};
+//#endregion
+//#region src/meeting-bot/meeting-modes.d.ts
+declare function isMeetingTalkBackMode(mode: string): boolean;
+declare function isMeetingRealtimeRouteReady(mode: string, health: (MeetingBrowserHealth & {
+  audioInputRouted?: boolean;
+  audioOutputRouted?: boolean;
+}) | undefined): boolean;
+//#endregion
 //#region src/meeting-bot/status-call-source.d.ts
 type MeetingStatusCallSourceOptions = {
   captionEnableSource: string;
@@ -2262,12 +2728,41 @@ type MeetingStatusCallSourceOptions = {
     manualActionReasonPrefix: string;
   };
   extraResultSource?: string;
+  /** In-page boolean expression that revalidates call ownership after media-routing awaits. */
+  liveOwnershipSource?: string;
+  /** In-page statements run once audio routing settles, before captions and the status result. */
+  afterAudioRoutingSource?: string;
   transcriptMaxLines?: number;
 };
 declare function createMeetingStatusCallSource(options: MeetingStatusCallSourceOptions): string;
 //#endregion
+//#region src/meeting-bot/status-prejoin-fragments.d.ts
+declare function createMeetingStatusPreludeFragments({ guestName, displayName, manualActionReasonPrefix }: {
+  guestName: string;
+  displayName: string;
+  manualActionReasonPrefix: string;
+}): {
+  guestName: (replaceExisting: boolean) => string;
+  preservedIdentity: string;
+  virtualAudioInput: ({ beforeEnumerationSource, selectionSource, afterSelectionSource }: {
+    beforeEnumerationSource?: string;
+    selectionSource: string;
+    afterSelectionSource?: string;
+  }) => string;
+  prejoinMicrophone: ({ unroutedSource, afterRoutedSource, muteInCall }: {
+    unroutedSource: string;
+    afterRoutedSource?: string;
+    muteInCall: boolean;
+  }) => string;
+  inCallMicrophone: string;
+  manualActions: ({ loginDisplayName, inCallControls }: {
+    loginDisplayName?: string;
+    inCallControls: boolean;
+  }) => string;
+};
+//#endregion
 //#region src/meeting-bot/status-prejoin-source.d.ts
-type MeetingStatusPreludeParams = {
+type MeetingStatusPreludeParams$1 = {
   allowMicrophone: boolean;
   allowSessionAdoption: boolean;
   autoJoin: boolean;
@@ -2281,10 +2776,11 @@ type MeetingStatusPreludeParams = {
   toggleStateFunction: string;
   waitForInCallMs: number;
 };
+type MeetingStatusPreludeFragment = string | ((sources: ReturnType<typeof createMeetingStatusPreludeFragments>) => string);
 type MeetingStatusPreludeSourceOptions = {
   controlLookupSource: string;
-  lifecycleSource: string;
-  manualActionSource: string;
+  lifecycleSource: MeetingStatusPreludeFragment;
+  manualActionSource: MeetingStatusPreludeFragment;
   platform: {
     displayName: string;
     globals: {
@@ -2298,40 +2794,93 @@ type MeetingStatusPreludeSourceOptions = {
   setupSource?: string;
   transcriptMaxLines?: number;
 };
-declare function createMeetingStatusPreludeSource(params: MeetingStatusPreludeParams, options: MeetingStatusPreludeSourceOptions): string;
+declare function createMeetingStatusPreludeSource(params: MeetingStatusPreludeParams$1, options: MeetingStatusPreludeSourceOptions): string;
+//#endregion
+//#region src/meeting-bot/page-script-source.d.ts
+type MeetingPageScriptGlobals = {
+  audioOutputs: string;
+  captionArchive: string;
+  captions: string;
+  meeting: string;
+};
+type MeetingPageIdentity = {
+  expectedIdentity?: string;
+  pageIdentitySource: string;
+};
+type MeetingStatusPreludeParams = Parameters<typeof createMeetingStatusPreludeSource>[0];
+type MeetingPageStatusParams = Omit<MeetingStatusPreludeParams, keyof MeetingPageIdentity | "selectors" | "toggleStateFunction"> & {
+  meetingUrl: string;
+};
+type MeetingPageLeaveParams = {
+  leaveInitiated: boolean;
+  meetingSessionId: string;
+  meetingUrl: string;
+};
+declare function createMeetingPageScripts(options: {
+  platform: Parameters<typeof createMeetingStatusPreludeSource>[1]["platform"] & Parameters<typeof createMeetingStatusCallSource>[0]["platform"];
+  normalizeUrl(meetingUrl: string): string | undefined;
+  pageIdentitySource(expectedIdentity?: string): string;
+  selectors: Readonly<Record<string, string | readonly string[]>>;
+  toggleStateFunction(): string;
+  statusPrelude: Omit<Parameters<typeof createMeetingStatusPreludeSource>[1], "platform">;
+  statusCall: Omit<Parameters<typeof createMeetingStatusCallSource>[0], "platform">;
+  audioOwnershipSource?(identity: MeetingPageIdentity): string;
+  leave: Pick<Parameters<typeof createMeetingLeaveSource>[0], "controlSource" | "departedMarkerSource" | "documentSetupSource" | "meetingStateSource" | "sessionMatchSource">;
+}): {
+  audioCapture: (params: MeetingBrowserAudioCaptureRequest) => string;
+  status: (params: MeetingPageStatusParams) => string;
+  transcript: (meetingUrl: string, meetingSessionId: string, finalize: boolean) => string;
+  leave: (params: MeetingPageLeaveParams) => string;
+};
+declare function createMeetingLeaveSource(params: {
+  controlSource: string;
+  departedMarkerSource: string;
+  documentSetupSource?: string;
+  expectedIdentity?: string;
+  leaveInitiated: boolean;
+  meetingSessionId: string;
+  meetingStateSource?: string;
+  pageIdentitySource: string;
+  platform: {
+    displayName: string;
+    globals: Pick<MeetingPageScriptGlobals, "audioOutputs" | "meeting">;
+  };
+  selectors: string;
+  sessionMatchSource: string;
+}): string;
+//#endregion
+//#region src/meeting-bot/runtime-facade.d.ts
+declare function createMeetingRuntimeFacade<Config extends MeetingPluginConfig$1 & {
+  defaultMode: Mode;
+}, Transport extends "chrome" | "chrome-node", Mode extends string, Health extends MeetingPluginChromeHealth<string, string>, Results extends MeetingRuntimeProbeResults>(options: MeetingRuntimeFacadeOptions<Config, Transport, Mode, Health, Results>): MeetingRuntimeFacadeConstructor<Config, Transport, Mode, Health, Results>;
 //#endregion
 //#region src/meeting-bot/platform-adapter.d.ts
 export interface MeetingPlatformAdapter<Session, Mode extends string, Health extends MeetingBrowserHealth, Transcript extends MeetingTranscriptSnapshot, CreateParams = never, CreateResult = never, DialInParams = never, DialInPlan = never> extends MeetingPlatformAdapter$1<Session, Mode, Health, Transcript, CreateParams, CreateResult, DialInParams, DialInPlan> {}
-type MeetingPlatformAdapterOptions<Session, Mode extends string, Health extends MeetingBrowserHealth, Transcript extends MeetingTranscriptSnapshot, CreateParams = never, CreateResult = never, DialInParams = never, DialInPlan = never> = Omit<MeetingPlatformAdapter<Session, Mode, Health, Transcript, CreateParams, CreateResult, DialInParams, DialInPlan>, "agentConsult" | "browser" | "session"> & {
-  agentConsult: MeetingPlatformRuntimeMetadata["agentConsult"];
-  browser: Omit<MeetingBrowserAdapter<Mode, Health, Transcript>, "captions" | "classifyManualAction" | "parseLeaveResult" | "parseStatus" | "permissionNotes"> & {
-    captions: Omit<MeetingBrowserAdapter<Mode, Health, Transcript>["captions"], "parseTranscript">;
-    permissionNotes?: MeetingBrowserAdapter<Mode, Health, Transcript>["permissionNotes"];
-  };
-  parsing: {
-    classifyManualActionReason(reason: string): MeetingManualActionCategory;
-    displayName: string;
-    invalidTranscriptMessage: string;
-    malformedStatusMessage: string;
-    malformedTranscriptMessage: string;
-    statusFields?(parsed: Record<string, unknown>): Partial<Health>;
-  };
-  session: MeetingPlatformRuntimeMetadata["session"];
-};
 declare function createMeetingPlatformAdapter<Session, Mode extends string, Health extends MeetingBrowserHealth, Transcript extends MeetingTranscriptSnapshot, CreateParams = never, CreateResult = never, DialInParams = never, DialInPlan = never>(options: MeetingPlatformAdapterOptions<Session, Mode, Health, Transcript, CreateParams, CreateResult, DialInParams, DialInPlan>): MeetingPlatformAdapter<Session, Mode, Health, Transcript, CreateParams, CreateResult, DialInParams, DialInPlan> & MeetingPlatformRuntimeMetadata;
 export declare const MeetingPlatformAdapter: {
   create: typeof createMeetingPlatformAdapter;
+  createBrowserAdapterOptions: typeof createMeetingBrowserAdapterOptions;
+  createPageScripts: typeof createMeetingPageScripts;
+  defineBrowserMeetingPlugin: typeof defineBrowserMeetingPlugin;
   createChromeTransport: typeof createMeetingChromeTransport;
   createChromeTransportWithExternalAudio: typeof createMeetingChromeTransportWithExternalAudio;
   createChromeRuntimeBindings: typeof createMeetingChromeRuntimeBindings;
+  /** @deprecated Use defineBrowserMeetingPlugin for browser meeting plugins. */
   createPluginChromeTransport: typeof createMeetingPluginChromeTransport;
+  /** @deprecated Use defineBrowserMeetingPlugin for browser meeting plugins. */
   createPluginConfigSchema: typeof createMeetingPluginConfigSchema;
+  /** @deprecated Use defineBrowserMeetingPlugin for browser meeting plugins. */
   createPluginNodeHostHandler: typeof createMeetingPluginNodeHostHandler;
+  /** @deprecated Use defineBrowserMeetingPlugin for browser meeting plugins. */
   createPluginNodeInvokePolicy: typeof createMeetingPluginNodeInvokePolicy;
+  /** @deprecated Use defineBrowserMeetingPlugin for browser meeting plugins. */
   createPluginShellEntry: typeof createMeetingPluginShellEntry;
+  /** @deprecated Use defineBrowserMeetingPlugin for browser meeting plugins. */
   createRuntimeFacade: typeof createMeetingRuntimeFacade;
+  /** @deprecated Use defineBrowserMeetingPlugin for browser meeting plugins. */
   createRuntimeSetup: typeof createMeetingRuntimeSetup;
   pluginTypes: typeof createMeetingPluginTypes;
+  /** @deprecated Use defineBrowserMeetingPlugin for browser meeting plugins. */
   registerPluginCli: typeof registerMeetingPluginCli;
   resolveProbeTimeoutMs: typeof resolveMeetingProbeTimeoutMs;
   createRuntimeProbes: typeof createMeetingRuntimeProbes;
@@ -2437,4 +2986,18 @@ export declare function buildMeetingSoxAudioCommands(params: MeetingSoxAudioComm
   outputCommand: string[];
 };
 //#endregion
-export type { MeetingAgentConsultParams, MeetingBrowserCandidateTab, MeetingBrowserControllerConfig, MeetingBrowserHealth, MeetingBrowserJoinSession, MeetingBrowserLeaveStep, MeetingBrowserNodeInfo, MeetingBrowserNodePolicyOptions, MeetingBrowserNodeStartConfig, MeetingBrowserPermissionPlan, MeetingBrowserRequestCaller, MeetingBrowserRequestParams, MeetingBrowserSessionView, MeetingBrowserStatusScriptParams, MeetingBrowserTab, MeetingManualAction, MeetingManualActionCategory, MeetingNodeHostOptions, MeetingRealtimeAudioEngineHandle, MeetingRealtimeAudioEngineHealth, MeetingRealtimeAudioFormat, MeetingRealtimeAudioTransport, MeetingRealtimeAudioTransportHealth, MeetingRealtimeEngineConfig, MeetingRealtimeSessionBlock, MeetingRealtimeToolCallParams, MeetingRuntimePlatform, MeetingSessionLeaveResult, MeetingSessionRecord, MeetingSessionRuntimeHandles, MeetingSessionRuntimeJoinContext, MeetingSessionRuntimeMessages, MeetingSessionRuntimeOptions, MeetingSessionState, MeetingSetupCheck, MeetingSetupStatus, MeetingSoxAudioCommandParams, MeetingSoxAudioFormat, MeetingTranscriptLine, MeetingTranscriptSnapshot, MeetingVoiceCallConfig, MeetingVoiceCallGateway, MeetingVoiceCallGatewayClient, MeetingVoiceCallJoinResult, MeetingVoiceCallStatusResult, MeetingVoiceCallSurface };
+//#region src/meeting-bot/participation-browser.d.ts
+export declare function runMeetingParticipationWithBrowser(params: {
+  callBrowser: MeetingBrowserRequestCaller;
+  adapter: MeetingBrowserParticipationAdapter;
+  meetingSessionId: string;
+  meetingUrl: string;
+  isSameMeetingUrl: (actual: string | undefined, expected: string) => boolean;
+  targetId: string;
+  requestId: string;
+  action: MeetingParticipationAction;
+  assertCurrent: () => void;
+  timeoutMs: number;
+}): Promise<MeetingParticipationEffectResult>;
+//#endregion
+export type { MeetingAgentConsultParams, MeetingBrowserCandidateTab, MeetingBrowserControllerConfig, MeetingBrowserHealth, MeetingBrowserJoinSession, MeetingBrowserLeaveStep, MeetingBrowserNodeInfo, MeetingBrowserNodePolicyOptions, MeetingBrowserNodeStartConfig, MeetingBrowserParticipationAdapter, MeetingBrowserPermissionPlan, MeetingBrowserRequestCaller, MeetingBrowserRequestParams, MeetingBrowserSessionView, MeetingBrowserStatusScriptParams, MeetingBrowserTab, MeetingManualAction, MeetingManualActionCategory, MeetingNodeHostOptions, MeetingParticipationAttempt, MeetingParticipationRequest, MeetingParticipationSource, MeetingRealtimeAudioEngineHandle, MeetingRealtimeAudioEngineHealth, MeetingRealtimeAudioFormat, MeetingRealtimeAudioTransport, MeetingRealtimeAudioTransportHealth, MeetingRealtimeEngineConfig, MeetingRealtimeSessionBlock, MeetingRealtimeToolCallParams, MeetingRuntimePlatform, MeetingSessionLeaveResult, MeetingSessionRecord, MeetingSessionRuntimeHandles, MeetingSessionRuntimeJoinContext, MeetingSessionRuntimeMessages, MeetingSessionRuntimeOptions, MeetingSessionState, MeetingSetupCheck, MeetingSetupStatus, MeetingSoxAudioCommandParams, MeetingSoxAudioFormat, MeetingTranscriptLine, MeetingTranscriptSnapshot, MeetingVoiceCallConfig, MeetingVoiceCallGateway, MeetingVoiceCallGatewayClient, MeetingVoiceCallJoinResult, MeetingVoiceCallStatusResult, MeetingVoiceCallSurface };

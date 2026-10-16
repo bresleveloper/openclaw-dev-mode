@@ -1,0 +1,2 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function sanitizeForConsole(e,t=200){let n=e?.trim();if(!n)return;let r=n.replace(/\p{Cc}/gu,e=>`\r
+	`.includes(e)?` `:``).replace(/\s+/g,` `).trim(),i=Array.from(r);return i.length<=t?r:`${i.slice(0,t).join(``)}…`}var t=e((()=>{}));export{sanitizeForConsole as n,t};

@@ -1,11 +1,10 @@
-import { t as deliverInboundReplyWithMessageSendContext } from "../channel-outbound-Cr3Uz9_9.mjs";
-import { c as mapReplyDispatchCounts } from "../reply-dispatcher-DsxCoEs8.mjs";
-import { x as normalizeOutboundReplyPayloadCore } from "../reply-payload-RBmrGrXG.mjs";
-import { i as throwIfDurableInboundReplyDeliveryFailed, r as isDurableInboundReplyDeliveryHandled, t as deliverInboundReplyWithMessageSendContextCore } from "../durable-delivery-B8AheK-K.mjs";
-import { i as resolveChannelTurnDispatchCounts, n as hasFinalChannelTurnDispatch, r as hasVisibleChannelTurnDispatch } from "../dispatch-result-B75usq__.mjs";
-import { r as recordChannelBotPairLoopAndCheckSuppression } from "../execution-tANAIjOy.mjs";
-import { t as recordDroppedChannelTurnHistory } from "../run-channel-turn-pF0wMTwB.mjs";
-import { a as runChannelInboundEvent, n as dispatchChannelInboundReply, o as runPreparedInboundReply } from "../channel-inbound-CNfCp9un.mjs";
+import { t as deliverInboundReplyWithMessageSendContext } from "../channel-outbound-DBuu65Vg.mjs";
+import { c as mapReplyDispatchCounts } from "../reply-dispatcher-Bvqc2Fae.mjs";
+import { x as normalizeOutboundReplyPayloadCore } from "../reply-payload-DEDOYf-L.mjs";
+import { i as throwIfDurableInboundReplyDeliveryFailed, r as isDurableInboundReplyDeliveryHandled, t as deliverInboundReplyWithMessageSendContextCore } from "../durable-delivery-CpwhuHRf.mjs";
+import { a as resolveChannelTurnDispatchCounts, i as hasVisibleChannelTurnDispatch, o as recordChannelBotPairLoopAndCheckSuppression, r as hasFinalChannelTurnDispatch } from "../execution-BIzcYQQA.mjs";
+import { t as recordDroppedChannelTurnHistory } from "../run-channel-turn-BNg5AmNR.mjs";
+import { a as runChannelInboundEvent, n as dispatchChannelInboundReply, o as runPreparedInboundReply } from "../channel-inbound-3pp2RVN7.mjs";
 //#region src/plugin-sdk/inbound-reply-dispatch.ts
 function withLegacyDispatchCounts(dispatch) {
 	return async (params) => {
@@ -35,51 +34,35 @@ function buildInboundReplyDispatchBase(params) {
 		dispatchReplyWithBufferedBlockDispatcher: withLegacyDispatchCounts(params.core.channel.reply.dispatchReplyWithBufferedBlockDispatcher)
 	};
 }
-async function recordInboundSessionAndDispatchReply(params) {
+async function dispatchInboundReplyWithBase(params) {
+	const base = buildInboundReplyDispatchBase(params);
+	const { deliver, durable, onDispatchError, onRecordError, replyOptions } = params;
 	await dispatchChannelInboundReply({
-		cfg: params.cfg,
-		channel: params.channel,
-		accountId: params.accountId,
-		agentId: params.agentId,
-		routeSessionKey: params.routeSessionKey,
-		storePath: params.storePath,
-		ctxPayload: params.ctxPayload,
-		recordInboundSession: params.recordInboundSession,
-		dispatchReplyWithBufferedBlockDispatcher: params.dispatchReplyWithBufferedBlockDispatcher,
+		...base,
 		delivery: {
 			preparePayload: (payload) => payload && typeof payload === "object" ? normalizeOutboundReplyPayloadCore(payload) : {},
 			deliver: async (payload, info) => {
-				if (params.durable) {
-					const durable = await deliverInboundReplyWithMessageSendContextCore({
-						cfg: params.cfg,
-						channel: params.channel,
-						accountId: params.accountId,
-						agentId: params.agentId,
-						ctxPayload: params.ctxPayload,
+				if (durable) {
+					const result = await deliverInboundReplyWithMessageSendContextCore({
+						cfg: base.cfg,
+						channel: base.channel,
+						accountId: base.accountId,
+						agentId: base.agentId,
+						ctxPayload: base.ctxPayload,
 						payload,
 						info,
-						...params.durable
+						...durable
 					});
-					throwIfDurableInboundReplyDeliveryFailed(durable);
-					if (isDurableInboundReplyDeliveryHandled(durable)) return durable.delivery;
+					throwIfDurableInboundReplyDeliveryFailed(result);
+					if (isDurableInboundReplyDeliveryHandled(result)) return result.delivery;
 				}
-				return await params.deliver(payload);
+				return await deliver(payload);
 			},
-			onError: params.onDispatchError
+			onError: onDispatchError
 		},
 		replyPipeline: {},
-		replyOptions: params.replyOptions,
-		record: { onRecordError: params.onRecordError }
-	});
-}
-async function dispatchInboundReplyWithBase(params) {
-	await recordInboundSessionAndDispatchReply({
-		...buildInboundReplyDispatchBase(params),
-		deliver: params.deliver,
-		durable: params.durable,
-		onRecordError: params.onRecordError,
-		onDispatchError: params.onDispatchError,
-		replyOptions: params.replyOptions
+		replyOptions,
+		record: { onRecordError }
 	});
 }
 //#endregion

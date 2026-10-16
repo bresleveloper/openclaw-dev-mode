@@ -1,10 +1,10 @@
-import { r as validateClaudeSessionId } from "../../invoke-agent-cli-claude-params-Bi-USBdQ.mjs";
-import { i as runNodePtyCommand, n as decodeNodePtyResumeParams, r as decodeNodePtyStartParams } from "../../node-host-BLmevr7Y.mjs";
-import { t as resolveClaudeTerminalExecutable } from "../../session-catalog-executable-BtzrAp2a.mjs";
+import { r as validateClaudeSessionId } from "../../invoke-agent-cli-claude-params-C_OgNYoh.mjs";
+import { i as runNodePtyCommand, n as decodeNodePtyResumeParams, r as decodeNodePtyStartParams } from "../../node-host-CcDjU14I.mjs";
+import { t as resolveClaudeTerminalExecutable } from "../../session-catalog-executable-CCw_I-M0.mjs";
 import { s as isResumableClaudeSource } from "../../session-catalog-shared-CiyzxK6Y.mjs";
 import { t as isExactClaudeSessionCursor } from "../../session-catalog-cursor-NPLrVaSJ.mjs";
-import { o as readLocalClaudeTranscriptPage, r as listLocalClaudeSessionPage } from "../../session-catalog-listing-DktL6Iw7.mjs";
-import "../../session-catalog-C-IfQA1U.mjs";
+import { o as readLocalClaudeTranscriptPage, r as listLocalClaudeSessionPage } from "../../session-catalog-listing-D6zTULVt.mjs";
+import "../../session-catalog-DFHUEEMr.mjs";
 //#region extensions/anthropic/session-catalog-node-commands.ts
 const CLAUDE_NODE_LOOKUP_PAGE_LIMIT = 100;
 function parseNodeParams(paramsJSON) {

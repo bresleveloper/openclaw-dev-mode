@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function pruneMapToMaxSize(e,t){if(Number.isNaN(t)||t===1/0)return;let n=Math.max(0,Math.floor(t));if(n<=0){e.clear();return}for(let t of e.keys()){if(e.size<=n)break;e.delete(t)}}var t=e((()=>{}));export{pruneMapToMaxSize as n,t};

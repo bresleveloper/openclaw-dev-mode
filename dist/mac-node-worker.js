@@ -1,20 +1,21 @@
 #!/usr/bin/env node
-import { r as defaultRuntime } from "./runtime-BC29JSZp.mjs";
-import { r as runCliWithExitFinalization } from "./one-shot-exit-ZY0is37U.mjs";
-import { n as parseCliProfileArgs, t as applyCliProfileEnv } from "./profile-wa21S6WO.mjs";
-import { i as normalizeEnv } from "./env-C4a8LL2I.mjs";
-import { t as isMainModule } from "./is-main-CH4EEB_R.mjs";
+import { t as disableExitUnsafeCompilers } from "./node-exit-safe-compilers-B7V3uapp.mjs";
+import { n as parseCliProfileArgs, t as applyCliProfileEnv } from "./profile-DEgnfd3z.mjs";
+import { i as normalizeEnv } from "./env-BBJTTIuE.mjs";
+import { t as isMainModule } from "./is-main-DYSvvM1W.mjs";
 import { r as ensureOpenClawExecMarkerOnProcess } from "./openclaw-exec-env-Cc7ECPuD.mjs";
-import { t as installProcessWarningFilter } from "./warning-filter-BGYPTRmo.mjs";
-import { t as enableConsoleCapture } from "./console-DwqfhE-H.mjs";
-import { t as assertSupportedRuntime } from "./runtime-guard-QhifpZGP.mjs";
-import "./logging-CrcvifP_.mjs";
-import { a as withConsoleLogsRoutedToStderrForJson } from "./json-output-mode-DRPBa2uN.mjs";
-import { t as resolveCliStartupPolicy } from "./command-startup-policy-gB_2DGw2.mjs";
-import { n as ensureCliExecutionBootstrap } from "./command-execution-startup-CerD7ZlY.mjs";
-import { t as loadCliDotEnv } from "./dotenv-Bn1InbsD.mjs";
+import { t as installProcessWarningFilter } from "./warning-filter-DPiX2pYu.mjs";
+import { r as defaultRuntime } from "./runtime-DlO3PTAd.mjs";
+import { r as runCliWithExitFinalization } from "./one-shot-exit-CSOrFNcy.mjs";
+import { t as enableConsoleCapture } from "./console-BnFs8ZzT.mjs";
+import { t as assertSupportedRuntime } from "./runtime-guard-BoZCdLcu.mjs";
+import "./logging-CIwBT2dJ.mjs";
+import { a as withConsoleLogsRoutedToStderrForJson } from "./json-output-mode-DhC0xNZP.mjs";
+import { t as resolveCliStartupPolicy } from "./command-startup-policy-BnA40z2t.mjs";
+import { n as ensureCliExecutionBootstrap } from "./command-execution-startup-DccTYNhg.mjs";
+import { t as loadCliDotEnv } from "./dotenv-DVxS6Drn.mjs";
 import { n as createNodeWorkerCommand } from "./command-options-5SoYNuSl.mjs";
-import { t as runNodeHostWorker } from "./worker-DVeZSims.mjs";
+import { t as runNodeHostWorker } from "./worker-s2msHcJy.mjs";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 //#region src/node-host/mac-worker-entry.ts
@@ -63,12 +64,15 @@ async function runMacNodeWorkerEntry(argv = process.argv) {
 		retainRoutingUntilProcessExit: true
 	});
 }
-if (isMainModule({ currentFile: fileURLToPath(import.meta.url) })) await runCliWithExitFinalization({
-	run: () => runMacNodeWorkerEntry(),
-	onError: (error) => {
-		process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
-		process.exitCode = 1;
-	}
-});
+if (isMainModule({ currentFile: fileURLToPath(import.meta.url) })) {
+	disableExitUnsafeCompilers();
+	await runCliWithExitFinalization({
+		run: () => runMacNodeWorkerEntry(),
+		onError: (error) => {
+			process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+			process.exitCode = 1;
+		}
+	});
+}
 //#endregion
 export { resolveMacNodeWorkerArgv };

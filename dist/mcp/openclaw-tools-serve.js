@@ -1,15 +1,14 @@
-import { t as formatErrorMessage } from "../errors-DnjwnOju.mjs";
+import { t as formatErrorMessage } from "../errors-O33D01XW.mjs";
 import { t as AUTOMATIONS_TOOL_NAME } from "../automations-tool-name-DBMZPbPL.mjs";
-import { o as isToolAllowedByPolicies } from "../tool-policy-match-Bv2XOvEF.mjs";
-import { r as getRuntimeConfig } from "../io.runtime-CXaC-ufL.mjs";
-import "../config-DH29aVhU.mjs";
-import { n as resolveRequesterToolPolicies } from "../requester-tool-policy-BWdAKC7J.mjs";
-import { t as createCronTool } from "../cron-tool-CEKFNljC.mjs";
-import { a as resolveToolsMcpAgentId, i as OPENCLAW_TOOLS_MCP_AGENT_SESSION_KEY_ENV, n as createToolsMcpServer, o as resolveToolsMcpAgentSessionKey, s as resolveToolsMcpSessionContext, t as connectToolsMcpServerToStdio } from "../tools-stdio-server-BnUhWtk7.mjs";
-import { t as createSystemAgentTool } from "../system-agent-tool-DeqWFzjv.mjs";
-import { c as resolveOpenClawToolsMcpToolSelection, i as OPENCLAW_TOOLS_MCP_TOOLS_ENV, o as resolveOpenClawToolsMcpSystemAgentApproval, r as OPENCLAW_TOOLS_MCP_SYSTEM_AGENT_SURFACE_ENV, s as resolveOpenClawToolsMcpSystemAgentSurface } from "../openclaw-tools-serve-config-C8JxIGR6.mjs";
+import { o as isToolAllowedByPolicies } from "../tool-policy-match-Dn8gpf-E.mjs";
+import { r as getRuntimeConfig } from "../io.runtime-CPntde4x.mjs";
+import "../config-CzeZu5J_.mjs";
+import { n as resolveRequesterToolPolicies } from "../requester-tool-policy-DKOkDnWE.mjs";
+import { t as createCronTool } from "../cron-tool-CwBBtBRr.mjs";
+import { a as resolveToolsMcpAgentId, i as OPENCLAW_TOOLS_MCP_AGENT_SESSION_KEY_ENV, n as createToolsMcpServer, o as resolveToolsMcpAgentSessionKey, s as resolveToolsMcpSessionContext, t as connectToolsMcpServerToStdio } from "../tools-stdio-server-CALZPMM_.mjs";
+import { t as createSystemAgentTool } from "../system-agent-tool-WXpgexJK.mjs";
+import { c as resolveOpenClawToolsMcpToolSelection, i as OPENCLAW_TOOLS_MCP_TOOLS_ENV, o as resolveOpenClawToolsMcpSystemAgentApproval, r as OPENCLAW_TOOLS_MCP_SYSTEM_AGENT_SURFACE_ENV, s as resolveOpenClawToolsMcpSystemAgentSurface } from "../openclaw-tools-serve-config-BTwSHtye.mjs";
 import { pathToFileURL } from "node:url";
-import "@modelcontextprotocol/sdk/server/index.js";
 //#region src/mcp/openclaw-tools-serve.ts
 /**
 * Standalone MCP server for selected built-in OpenClaw tools.
@@ -17,12 +16,9 @@ import "@modelcontextprotocol/sdk/server/index.js";
 * Run via: node --import tsx src/mcp/openclaw-tools-serve.ts
 * Or: bun src/mcp/openclaw-tools-serve.ts
 */
-function resolveOpenClawToolsMcpAgentSessionKey(env = process.env) {
-	return resolveToolsMcpAgentSessionKey(env);
-}
 function resolveOpenClawToolsForMcp(params = {}) {
 	const selection = params.tools ?? resolveOpenClawToolsMcpToolSelection();
-	const agentSessionKey = (params.agentSessionKey ?? resolveOpenClawToolsMcpAgentSessionKey())?.trim();
+	const agentSessionKey = (params.agentSessionKey ?? resolveToolsMcpAgentSessionKey())?.trim();
 	const tools = selection.map((tool) => {
 		if (tool === "openclaw") return createSystemAgentTool({
 			agentId: params.agentId,
@@ -55,15 +51,11 @@ function resolveOpenClawToolsForMcp(params = {}) {
 		requesterPolicies.inheritedToolPolicy
 	]));
 }
-function createOpenClawToolsMcpServer(params = {}) {
-	const tools = params.tools ?? resolveOpenClawToolsForMcp();
-	return createToolsMcpServer({
-		name: "openclaw-tools",
-		tools
-	});
-}
 async function serveOpenClawToolsMcp() {
-	const server = createOpenClawToolsMcpServer({ tools: resolveOpenClawToolsForMcp({ agentId: resolveToolsMcpAgentId() }) });
+	const server = createToolsMcpServer({
+		name: "openclaw-tools",
+		tools: resolveOpenClawToolsForMcp({ agentId: resolveToolsMcpAgentId() })
+	});
 	await connectToolsMcpServerToStdio(server);
 }
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) serveOpenClawToolsMcp().catch((err) => {
@@ -71,4 +63,4 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) serveOpenClaw
 	process.exit(1);
 });
 //#endregion
-export { OPENCLAW_TOOLS_MCP_AGENT_SESSION_KEY_ENV, OPENCLAW_TOOLS_MCP_SYSTEM_AGENT_SURFACE_ENV, OPENCLAW_TOOLS_MCP_TOOLS_ENV, resolveOpenClawToolsForMcp, resolveOpenClawToolsMcpAgentSessionKey };
+export { OPENCLAW_TOOLS_MCP_AGENT_SESSION_KEY_ENV, OPENCLAW_TOOLS_MCP_SYSTEM_AGENT_SURFACE_ENV, OPENCLAW_TOOLS_MCP_TOOLS_ENV, resolveOpenClawToolsForMcp, resolveToolsMcpAgentSessionKey as resolveOpenClawToolsMcpAgentSessionKey };

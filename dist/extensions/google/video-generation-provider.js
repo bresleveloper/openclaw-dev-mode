@@ -1,33 +1,31 @@
-import { l as normalizeOptionalString } from "../../string-coerce-CIXf7egm.mjs";
-import { i as readResponseWithLimit } from "../../http-response-body-DXfezLdR.mjs";
-import { d as readProviderBinaryResponse, m as readProviderJsonResponse } from "../../provider-http-errors-CTY_-ABT.mjs";
-import { i as fetchWithSsrFGuard } from "../../fetch-guard-EFfAF2PS.mjs";
-import "../../string-coerce-runtime-C_MKhRVt.mjs";
-import { n as resolveGeneratedMediaMaxBytes } from "../../configured-max-bytes-DR1WorLz.mjs";
-import { t as executeProviderOperationWithRetry } from "../../operation-retry-Dopl7EnK.mjs";
-import { g as waitProviderOperationPollInterval, h as resolveProviderOperationTimeoutMs, r as createProviderOperationDeadline } from "../../shared-BLFkM12I.mjs";
-import "../../response-limit-runtime-Wtkm2X7a.mjs";
-import "../../ssrf-runtime-Darh53Ay.mjs";
-import "../../media-generation-runtime-B4Zm_9mu.mjs";
-import { a as resolveApiKeyForProvider } from "../../provider-auth-runtime-BWjBKWym.mjs";
-import "../../provider-http-Dn9NddwC.mjs";
-import { n as resolveGoogleGenerativeAiApiOrigin } from "../../provider-policy-BWkzSuhk.mjs";
-import { c as GOOGLE_VIDEO_ALLOWED_DURATION_SECONDS, l as GOOGLE_VIDEO_MAX_DURATION_SECONDS, m as createGoogleVideoGenerationProviderMetadata, u as GOOGLE_VIDEO_MIN_DURATION_SECONDS } from "../../generation-provider-metadata-Rktr_0z6.mjs";
-import { t as parseGeminiAuth } from "../../gemini-auth-CGSaK1is.mjs";
-import { t as resolveGoogleApiClientHeaders } from "../../google-api-client-header-BGxuny7v.mjs";
-import "../../api-BOVzuGpO.mjs";
-import { t as canonicalizeGoogleProviderBase64 } from "../../base64-m7hzKALO.mjs";
-import { t as createGoogleGenAI } from "../../google-genai-runtime-I16xkIJE.mjs";
+import { l as normalizeOptionalString } from "../../string-coerce-1VuiLaaR.mjs";
+import { i as readResponseWithLimit } from "../../http-response-body-umfRGZ-E.mjs";
+import { d as readProviderBinaryResponse, m as readProviderJsonResponse } from "../../provider-http-errors-DmewLLH7.mjs";
+import { i as fetchWithSsrFGuard } from "../../fetch-guard-DI6biu8d.mjs";
+import "../../string-coerce-runtime-50qKeWeL.mjs";
+import { r as resolveGeneratedMediaMaxBytes } from "../../configured-max-bytes-CtwRSse3.mjs";
+import { t as executeProviderOperationWithRetry } from "../../operation-retry-Ci68Y-og.mjs";
+import { _ as resolveProviderOperationTimeoutMs, r as createProviderOperationDeadline, v as waitProviderOperationPollInterval } from "../../shared-DcnGQdHV.mjs";
+import "../../response-limit-runtime-CpfmMF5T.mjs";
+import { r as selectSupportedVideoDuration } from "../../duration-support-BfgJ7oBc.mjs";
+import "../../ssrf-runtime-BzkFo_VJ.mjs";
+import "../../media-generation-runtime-D1HcnVCx.mjs";
+import { a as resolveApiKeyForProvider } from "../../provider-auth-runtime-CpGmMxRN.mjs";
+import "../../provider-http-CuRGJD0L.mjs";
+import "../../video-generation-D5W8W7TP.mjs";
+import { t as stripGoogleProviderPrefix } from "../../model-id-CPDOOOMu.mjs";
+import { n as resolveGoogleGenerativeAiApiOrigin } from "../../provider-policy-4Ba5tPL0.mjs";
+import { c as GOOGLE_VIDEO_ALLOWED_DURATION_SECONDS, l as GOOGLE_VIDEO_MAX_DURATION_SECONDS, m as createGoogleVideoGenerationProviderMetadata, u as GOOGLE_VIDEO_MIN_DURATION_SECONDS } from "../../generation-provider-metadata-D0HXeJwn.mjs";
+import { t as parseGeminiAuth } from "../../gemini-auth-ms1_pxuH.mjs";
+import { t as resolveGoogleApiClientHeaders } from "../../google-api-client-header-Dfv7yW-z.mjs";
+import { t as canonicalizeGoogleProviderBase64 } from "../../base64-CKISTF1b.mjs";
+import { t as createGoogleGenAI } from "../../google-genai-runtime-BvkO2YGf.mjs";
 //#region extensions/google/video-generation-provider.ts
 const DEFAULT_TIMEOUT_MS = 18e4;
 const POLL_INTERVAL_MS = 1e4;
 const MAX_POLL_ATTEMPTS = 120;
 const GOOGLE_VIDEO_OPERATION_RESPONSE_MAX_BYTES = 16777216;
 const GOOGLE_VIDEO_EMPTY_RESULT_MESSAGE = "Google video generation response missing generated videos";
-function resolveConfiguredGoogleVideoBaseUrl(req) {
-	const configured = normalizeOptionalString(req.cfg?.models?.providers?.google?.baseUrl);
-	return configured ? resolveGoogleGenerativeAiApiOrigin(configured) : void 0;
-}
 function assertGeneratedVideoBufferWithinLimit(buffer, maxBytes) {
 	if (buffer.length > maxBytes) throw new Error(`Google generated video download exceeds ${maxBytes} bytes`);
 }
@@ -35,11 +33,8 @@ function resolveGoogleVideoRestBaseUrl(configuredBaseUrl) {
 	return `${configuredBaseUrl ?? "https://generativelanguage.googleapis.com"}/v1beta`;
 }
 function resolveGoogleVideoRestModelPath(model) {
-	const trimmed = normalizeOptionalString(model) || "veo-3.1-fast-generate-preview";
-	if (trimmed.startsWith("google/models/")) return trimmed.slice(7);
-	if (trimmed.startsWith("models/")) return trimmed;
-	if (trimmed.startsWith("google/")) return `models/${trimmed.slice(7)}`;
-	return `models/${trimmed}`;
+	const id = stripGoogleProviderPrefix(normalizeOptionalString(model) || "veo-3.1-fast-generate-preview");
+	return id.startsWith("models/") ? id : `models/${id}`;
 }
 function parseVideoSize(size) {
 	const trimmed = normalizeOptionalString(size);
@@ -71,14 +66,7 @@ function resolveResolution(params) {
 }
 function resolveDurationSeconds(durationSeconds) {
 	if (typeof durationSeconds !== "number" || !Number.isFinite(durationSeconds)) return;
-	const rounded = Math.min(GOOGLE_VIDEO_MAX_DURATION_SECONDS, Math.max(GOOGLE_VIDEO_MIN_DURATION_SECONDS, Math.round(durationSeconds)));
-	return GOOGLE_VIDEO_ALLOWED_DURATION_SECONDS.reduce((best, current) => {
-		const currentDistance = Math.abs(current - rounded);
-		const bestDistance = Math.abs(best - rounded);
-		if (currentDistance < bestDistance) return current;
-		if (currentDistance === bestDistance && current > best) return current;
-		return best;
-	});
+	return selectSupportedVideoDuration(Math.min(GOOGLE_VIDEO_MAX_DURATION_SECONDS, Math.max(GOOGLE_VIDEO_MIN_DURATION_SECONDS, Math.round(durationSeconds))), GOOGLE_VIDEO_ALLOWED_DURATION_SECONDS);
 }
 function resolveInputImage(req) {
 	const input = req.inputImages?.[0];
@@ -99,18 +87,11 @@ function resolveInputVideo(req) {
 function resolveGoogleGeneratedVideoDownloadUrl(params) {
 	const trimmed = normalizeOptionalString(params.uri);
 	if (!trimmed) return;
-	let url;
-	try {
-		url = new URL(trimmed);
-	} catch {
-		return;
-	}
-	if (url.protocol !== "https:") return;
+	const url = URL.parse(trimmed);
+	if (url?.protocol !== "https:") return;
 	const allowedOrigins = /* @__PURE__ */ new Set(["https://generativelanguage.googleapis.com"]);
-	if (params.configuredBaseUrl) try {
-		const configuredOrigin = new URL(params.configuredBaseUrl).origin;
-		if (configuredOrigin.startsWith("https://")) allowedOrigins.add(configuredOrigin);
-	} catch {}
+	const configuredOrigin = URL.parse(params.configuredBaseUrl ?? "")?.origin;
+	if (configuredOrigin?.startsWith("https://")) allowedOrigins.add(configuredOrigin);
 	if (!allowedOrigins.has(url.origin)) return;
 	if (!url.searchParams.has("key")) url.searchParams.set("key", params.apiKey);
 	return url.toString();
@@ -292,7 +273,8 @@ function buildGoogleVideoGenerationProvider() {
 			});
 			if (!auth.apiKey) throw new Error("Google API key missing");
 			const apiKey = auth.apiKey;
-			const configuredBaseUrl = resolveConfiguredGoogleVideoBaseUrl(req);
+			const configuredUrl = normalizeOptionalString(req.cfg?.models?.providers?.google?.baseUrl);
+			const configuredBaseUrl = configuredUrl ? resolveGoogleGenerativeAiApiOrigin(configuredUrl) : void 0;
 			const restBaseUrl = resolveGoogleVideoRestBaseUrl(configuredBaseUrl);
 			const authHeaders = {
 				...parseGeminiAuth(apiKey).headers,
@@ -328,6 +310,16 @@ function buildGoogleVideoGenerationProvider() {
 					})
 				}
 			});
+			const generateViaRest = () => generateGoogleVideoViaRest({
+				baseUrl: restBaseUrl,
+				headers: authHeaders,
+				deadline,
+				model,
+				prompt: req.prompt,
+				durationSeconds,
+				aspectRatio,
+				resolution
+			});
 			let usedRestFallback = false;
 			let operation;
 			try {
@@ -345,16 +337,7 @@ function buildGoogleVideoGenerationProvider() {
 			} catch (error) {
 				if (hasReferenceInputs || extractGoogleApiErrorCode(error) !== 404) throw error;
 				usedRestFallback = true;
-				operation = await generateGoogleVideoViaRest({
-					baseUrl: restBaseUrl,
-					headers: authHeaders,
-					deadline,
-					model,
-					prompt: req.prompt,
-					durationSeconds,
-					aspectRatio,
-					resolution
-				});
+				operation = await generateViaRest();
 			}
 			if (!usedRestFallback) {
 				let sdkOperation = operation;
@@ -380,16 +363,7 @@ function buildGoogleVideoGenerationProvider() {
 			if (finalOperation.error) throw new Error(JSON.stringify(finalOperation.error));
 			let generatedVideos = extractGeneratedVideos(operation);
 			if (generatedVideos.length === 0 && !hasReferenceInputs && !usedRestFallback) {
-				operation = await generateGoogleVideoViaRest({
-					baseUrl: restBaseUrl,
-					headers: authHeaders,
-					deadline,
-					model,
-					prompt: req.prompt,
-					durationSeconds,
-					aspectRatio,
-					resolution
-				});
+				operation = await generateViaRest();
 				generatedVideos = extractGeneratedVideos(operation);
 			}
 			if (generatedVideos.length === 0) throw new Error(GOOGLE_VIDEO_EMPTY_RESULT_MESSAGE);
@@ -408,8 +382,8 @@ function buildGoogleVideoGenerationProvider() {
 							fileName: `video-${index + 1}.mp4`
 						};
 					}
-					const directDownload = await downloadGeneratedVideoFromUri({
-						uri: inline?.uri,
+					const download = (uri) => downloadGeneratedVideoFromUri({
+						uri,
 						apiKey,
 						configuredBaseUrl,
 						mimeType: inline?.mimeType,
@@ -420,24 +394,14 @@ function buildGoogleVideoGenerationProvider() {
 							defaultTimeoutMs: DEFAULT_TIMEOUT_MS
 						})
 					});
+					const directDownload = await download(inline?.uri);
 					if (directDownload) return directDownload;
 					if (!inline) throw new Error("Google generated video missing file handle");
-					const fileDownload = await downloadGeneratedVideoFromUri({
-						uri: resolveGoogleGeneratedVideoFileDownloadUrl({
-							file: inline,
-							apiKey,
-							configuredBaseUrl
-						}),
+					const fileDownload = await download(resolveGoogleGeneratedVideoFileDownloadUrl({
+						file: inline,
 						apiKey,
-						configuredBaseUrl,
-						mimeType: inline.mimeType,
-						index,
-						maxBytes: maxVideoBytes,
-						timeoutMs: resolveProviderOperationTimeoutMs({
-							deadline,
-							defaultTimeoutMs: DEFAULT_TIMEOUT_MS
-						})
-					});
+						configuredBaseUrl
+					}));
 					if (!fileDownload) throw new Error("Google generated video missing bounded download URL");
 					return fileDownload;
 				})),

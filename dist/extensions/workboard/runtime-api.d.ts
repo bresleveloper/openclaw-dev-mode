@@ -1,4 +1,82 @@
-import { r as OpenClawPluginApi } from "../../cli-backend.types-B-oosdMB.js";
+import { mt as SchemaContract } from "../../types.openclaw-DA3BMvaX.js";
+import { n as OpenClawPluginApi, r as OpenClawPluginService } from "../../cli-backend.types-BeWYryLP.js";
+import { Ha as SessionPerson, ja as SessionsListParams } from "../../health-CmgFZOuS.js";
+//#region packages/workboard-contract/src/sessions-board.d.ts
+declare const OBSERVER_HEALTH: readonly ["on-track", "grinding", "stuck", "waiting-on-user", "wrapping-up", "done", "failed"];
+type WorkboardSessionsObserverHealth = (typeof OBSERVER_HEALTH)[number];
+type WorkboardSessionsColumn = SchemaContract<ReturnType<typeof normalizeColumn>>;
+type WorkboardSessionsBoardSpec = {
+  columns: WorkboardSessionsColumn[];
+  scope?: SchemaContract<ReturnType<typeof normalizeScope>>;
+  agentSessionKey?: string;
+};
+type WorkboardSessionsBoard = WorkboardBoardMetadata & {
+  kind: "sessions";
+  sessions: WorkboardSessionsBoardSpec;
+};
+type WorkboardSessionFacts = {
+  key: string;
+  sessionId: string;
+  lifecycleRevision?: string;
+  agentId: string;
+  label?: string;
+  derivedTitle?: string;
+  lastMessagePreview?: string;
+  run: "active" | "idle" | "failed";
+  observerDigest?: {
+    health: WorkboardSessionsObserverHealth;
+    headline: string;
+    assessment?: string;
+    revision: number;
+  };
+  pullRequests: Array<{
+    number: number;
+    state: "open" | "draft" | "merged" | "closed";
+  }>;
+  pullRequestsUnavailable?: boolean;
+  archived: boolean;
+  lastActivityAt: number;
+};
+type WorkboardSessionPlacement = {
+  sessionKey: string;
+  columnId: string;
+  source: "state" | "operator";
+  reason: string;
+  factsHash: string;
+  updatedAt: number;
+};
+type WorkboardSessionsBoardView = Pick<SessionsListParams, "involvingMe" | "involvingProfileId" | "includePeople">;
+type WorkboardSessionsBoardRead = {
+  board: WorkboardSessionsBoard;
+  columns: WorkboardSessionsColumn[];
+  sessions: Array<WorkboardSessionFacts & Pick<WorkboardSessionPlacement, "columnId" | "source" | "reason">>;
+  people?: SessionPerson[];
+  warning?: string;
+};
+declare function normalizeColumn(value: unknown): {
+  id: string;
+  label: string;
+  color?: string | undefined;
+  description: string;
+  match?: {
+    health?: ("done" | "failed" | "grinding" | "on-track" | "stuck" | "waiting-on-user" | "wrapping-up")[] | undefined;
+    run?: ("active" | "failed" | "idle")[] | undefined;
+    pullRequest?: ("closed" | "draft" | "merged" | "none" | "open")[] | undefined;
+    archived?: boolean | undefined;
+  }[] | {
+    health?: ("done" | "failed" | "grinding" | "on-track" | "stuck" | "waiting-on-user" | "wrapping-up")[] | undefined;
+    run?: ("active" | "failed" | "idle")[] | undefined;
+    pullRequest?: ("closed" | "draft" | "merged" | "none" | "open")[] | undefined;
+    archived?: boolean | undefined;
+  } | undefined;
+  fallback?: boolean | undefined;
+};
+declare function normalizeScope(value: unknown): {
+  agentIds?: string[] | undefined;
+  includeArchived?: boolean | undefined;
+  maxAgeHours?: number | undefined;
+};
+//#endregion
 //#region packages/workboard-contract/src/index.d.ts
 declare const WORKBOARD_STATUSES: readonly ["triage", "backlog", "todo", "scheduled", "ready", "running", "review", "blocked", "done"];
 declare const WORKBOARD_PRIORITIES: readonly ["low", "normal", "high", "urgent"];
@@ -208,6 +286,8 @@ type WorkboardAutomation = {
 };
 type WorkboardBoardMetadata = {
   id: string;
+  kind?: "cards" | "sessions";
+  sessions?: WorkboardSessionsBoardSpec;
   name?: string;
   description?: string;
   icon?: string;
@@ -219,21 +299,12 @@ type WorkboardBoardMetadata = {
   updatedAt: number;
   archivedAt?: number;
 };
-type WorkboardBoardSummary = {
-  id: string;
-  name?: string;
-  description?: string;
-  icon?: string;
-  color?: string;
-  automationJobId?: string;
-  defaultWorkspace?: WorkboardWorkspace;
-  orchestration?: WorkboardOrchestrationSettings;
+type WorkboardBoardSummary = Omit<WorkboardBoardMetadata, "createdAt" | "updatedAt"> & {
   total: number;
   active: number;
   archived: number;
   byStatus: Partial<Record<WorkboardStatus, number>>;
   updatedAt?: number;
-  archivedAt?: number;
 };
 type WorkboardOrchestrationSettings = {
   autoDecompose?: boolean;
@@ -285,7 +356,6 @@ type WorkboardCard = {
   agentId?: string;
   sessionKey?: string;
   runId?: string;
-  taskId?: string;
   sourceUrl?: string;
   execution?: WorkboardExecution;
   position: number;
@@ -301,6 +371,109 @@ type WorkboardListResult = {
   statuses: readonly WorkboardStatus[];
 };
 //#endregion
+//#region extensions/workboard/src/persistence-types.d.ts
+/**
+ * Guard the first accepted write (including CAS retries), then allow its settlement.
+ * Independently authorized effects need separate scopes; settled scopes cannot be reused.
+ */
+type WorkboardWriteAuthority = <T>(assertCurrent: () => void, run: () => Promise<T>) => Promise<T>;
+type PersistedWorkboardCard = {
+  version: 1;
+  card: WorkboardCard;
+};
+type PersistedWorkboardBoard = {
+  version: 1;
+  board: WorkboardBoardMetadata;
+};
+type PersistedWorkboardNotificationSubscription = {
+  version: 1;
+  subscription: WorkboardNotificationSubscription;
+};
+type PersistedWorkboardAttachment = {
+  version: 1;
+  attachment: WorkboardAttachment;
+  contentBase64: string;
+};
+type WorkboardKeyedStore<T = PersistedWorkboardCard> = {
+  register(key: string, value: T): Promise<void>;
+  lookup(key: string): Promise<T | undefined>;
+  delete(key: string): Promise<boolean>;
+  entries(): Promise<Array<{
+    key: string;
+    value: T;
+  }>>;
+};
+type WorkboardSessionPlacementWrite = WorkboardSessionPlacement & {
+  source: "operator";
+  /** Undefined requires an absent row; otherwise compare the last observed revision. */
+  expectedUpdatedAt?: number;
+};
+type WorkboardSessionsBoardStore = {
+  get(boardId: string): Promise<WorkboardSessionsBoard>;
+  update(boardId: string, patch: unknown): Promise<WorkboardSessionsBoard>;
+  listPlacements(boardId: string): Promise<WorkboardSessionPlacement[]>;
+  repairPlacements(): Promise<{
+    placements: number;
+    boards: number;
+  }>;
+  writePlacement(boardId: string, placement: WorkboardSessionPlacementWrite, expectedSpec: WorkboardSessionsBoardSpec): Promise<boolean>;
+};
+type WorkboardSubscriptionStore = Omit<WorkboardKeyedStore<PersistedWorkboardNotificationSubscription>, "entries"> & {
+  entries(options?: {
+    boardId?: string;
+    cardId?: string;
+  }): Promise<Array<{
+    key: string;
+    value: PersistedWorkboardNotificationSubscription;
+  }>>;
+};
+type WorkboardBoardCardAggregate = {
+  boardId: string;
+  status: WorkboardCard["status"];
+  total: number;
+  archived: number;
+  updatedAt: number;
+};
+type WorkboardCardStatsAggregate = {
+  status: WorkboardCard["status"];
+  agentId: string | undefined;
+  total: number;
+  archived: number;
+  updatedAt: number;
+  oldestReadyAt: number | undefined;
+};
+type WorkboardOwnerClaimResult = "updated" | "conflict" | "owner_busy";
+type WorkboardCardReadScope = {
+  kind: "board";
+  boardId: string;
+} | {
+  kind: "session";
+  sessionKey: string;
+} | {
+  kind: "worker-context";
+  cardId: string;
+  boardId: string;
+  agentId?: string;
+  parentIds: readonly string[];
+};
+type WorkboardCardStore = Omit<WorkboardKeyedStore, "entries"> & {
+  entries(scope?: WorkboardCardReadScope): Promise<Array<{
+    key: string;
+    value: PersistedWorkboardCard;
+  }>>;
+  registerIfAbsent(key: string, value: PersistedWorkboardCard): Promise<boolean>;
+  registerIfUpdatedAt(key: string, value: PersistedWorkboardCard, expectedUpdatedAt: number): Promise<boolean>;
+  deleteIfUpdatedAt(key: string, expectedUpdatedAt: number): Promise<boolean>;
+  claimIfOwnerAvailable(key: string, value: PersistedWorkboardCard, expectedUpdatedAt: number, ownerId: string, now: number): Promise<WorkboardOwnerClaimResult>;
+  listCardStatuses(ids: readonly string[]): Promise<Array<{
+    id: string;
+    status: string;
+  }>>;
+  listBoardAggregates(): Promise<WorkboardBoardCardAggregate[]>;
+  listStatsAggregates(boardId?: string): Promise<WorkboardCardStatsAggregate[]>;
+  hasCards(boardId: string): Promise<boolean>;
+};
+//#endregion
 //#region extensions/workboard/src/store-inputs.d.ts
 type WorkboardCardInput = {
   title?: unknown;
@@ -311,7 +484,6 @@ type WorkboardCardInput = {
   agentId?: unknown;
   sessionKey?: unknown;
   runId?: unknown;
-  taskId?: unknown;
   sourceUrl?: unknown;
   execution?: unknown;
   metadata?: unknown;
@@ -332,7 +504,7 @@ type WorkboardCardInput = {
   completedAt?: unknown;
   parents?: unknown;
 };
-type WorkboardCardPatch = Partial<WorkboardCardInput>;
+type WorkboardCardPatch = WorkboardCardInput;
 type WorkboardUpdateCardOptions = {
   allowAutomationLaunch?: boolean;
   allowMetadataDependencyLinks?: boolean;
@@ -355,9 +527,7 @@ type WorkboardLinkInput = {
   title?: unknown;
   url?: unknown;
 };
-type WorkboardLinkedCreateInput = WorkboardCardInput & {
-  parents?: unknown;
-};
+type WorkboardLinkedCreateInput = WorkboardCardInput;
 type WorkboardProofInput = {
   status?: unknown;
   label?: unknown;
@@ -464,6 +634,7 @@ type WorkboardReclaimInput = {
 };
 type WorkboardBoardInput = {
   id?: unknown;
+  kind?: unknown;
   name?: unknown;
   description?: unknown;
   icon?: unknown;
@@ -510,95 +681,14 @@ type WorkboardDiagnosticsResult = {
   count: number;
 };
 //#endregion
-//#region extensions/workboard/src/persistence-types.d.ts
-type WorkboardWriteAuthority = <T>(assertCurrent: () => void, run: () => Promise<T>) => Promise<T>;
-type PersistedWorkboardCard = {
-  version: 1;
-  card: WorkboardCard;
-};
-type PersistedWorkboardBoard = {
-  version: 1;
-  board: WorkboardBoardMetadata;
-};
-type PersistedWorkboardNotificationSubscription = {
-  version: 1;
-  subscription: WorkboardNotificationSubscription;
-};
-type PersistedWorkboardAttachment = {
-  version: 1;
-  attachment: WorkboardAttachment;
-  contentBase64: string;
-};
-type WorkboardKeyedStore<T = PersistedWorkboardCard> = {
-  register(key: string, value: T): Promise<void>;
-  lookup(key: string): Promise<T | undefined>;
-  delete(key: string): Promise<boolean>;
-  entries(): Promise<Array<{
-    key: string;
-    value: T;
-  }>>;
-};
-type WorkboardSubscriptionStore = Omit<WorkboardKeyedStore<PersistedWorkboardNotificationSubscription>, "entries"> & {
-  entries(options?: {
-    boardId?: string;
-    cardId?: string;
-  }): Promise<Array<{
-    key: string;
-    value: PersistedWorkboardNotificationSubscription;
-  }>>;
-};
-type WorkboardBoardCardAggregate = {
-  boardId: string;
-  status: WorkboardCard["status"];
-  total: number;
-  archived: number;
-  updatedAt: number;
-};
-type WorkboardCardStatsAggregate = {
-  status: WorkboardCard["status"];
-  agentId: string | undefined;
-  total: number;
-  archived: number;
-  updatedAt: number;
-  oldestReadyAt: number | undefined;
-};
-type WorkboardOwnerClaimResult = "updated" | "conflict" | "owner_busy";
-type WorkboardCardReadScope = {
-  kind: "board";
-  boardId: string;
-} | {
-  kind: "session";
-  sessionKey: string;
-} | {
-  kind: "worker-context";
-  cardId: string;
-  boardId: string;
-  agentId?: string;
-  parentIds: readonly string[];
-};
-type WorkboardCardStore = Omit<WorkboardKeyedStore, "entries"> & {
-  entries(scope?: WorkboardCardReadScope): Promise<Array<{
-    key: string;
-    value: PersistedWorkboardCard;
-  }>>;
-  registerIfAbsent(key: string, value: PersistedWorkboardCard): Promise<boolean>;
-  registerIfUpdatedAt(key: string, value: PersistedWorkboardCard, expectedUpdatedAt: number): Promise<boolean>;
-  deleteIfUpdatedAt(key: string, expectedUpdatedAt: number): Promise<boolean>;
-  claimIfOwnerAvailable(key: string, value: PersistedWorkboardCard, expectedUpdatedAt: number, ownerId: string, now: number): Promise<WorkboardOwnerClaimResult>;
-  listCardStatuses(ids: readonly string[]): Promise<Array<{
-    id: string;
-    status: string;
-  }>>;
-  listBoardAggregates(): Promise<WorkboardBoardCardAggregate[]>;
-  listStatsAggregates(boardId?: string): Promise<WorkboardCardStatsAggregate[]>;
-  hasCards(boardId: string): Promise<boolean>;
-};
-//#endregion
 //#region extensions/workboard/src/store-runtime.d.ts
 declare class WorkboardStoreRuntime {
   private readonly readDataVersion?;
   private readonly closePersistence?;
   private readonly runWithWriteAuthority?;
+  protected readonly cardLists: Map<string | undefined, Promise<WorkboardListResult & {
+    boards: WorkboardBoardSummary[];
+  }>>;
   private readonly operationScope;
   private readonly operations;
   private mutationQueue;
@@ -618,6 +708,7 @@ declare class WorkboardStoreRuntime {
     notifyChanges?: boolean;
   }): WorkboardKeyedStore<T>;
   protected trackCardStore(store: WorkboardCardStore): WorkboardCardStore;
+  protected trackMutation<T>(run: () => Promise<T>, changed?: (result: T) => boolean): Promise<T>;
   subscribeChanges(listener: (change: WorkboardChange) => void): () => void;
   announceChangeEpoch(): void;
   reconcileExternalChanges(): Promise<boolean>;
@@ -627,16 +718,16 @@ declare class WorkboardStoreRuntime {
   private emit;
 }
 //#endregion
-//#region extensions/workboard/src/store-core.d.ts
-declare class WorkboardCoreStore extends WorkboardStoreRuntime {
-  private lastNotificationSequence;
-  private compensationJournal?;
+//#region extensions/workboard/src/store-boards.d.ts
+declare class WorkboardBoardStore extends WorkboardStoreRuntime {
   protected readonly store: WorkboardCardStore;
   protected readonly boardStore: WorkboardKeyedStore<PersistedWorkboardBoard>;
   protected readonly subscriptionStore: WorkboardSubscriptionStore;
   protected readonly attachmentStore: WorkboardKeyedStore<PersistedWorkboardAttachment>;
+  private readonly sessionsBoardStore;
   constructor(store: WorkboardCardStore, stores: {
     boards: WorkboardKeyedStore<PersistedWorkboardBoard>;
+    sessionsBoard: WorkboardSessionsBoardStore;
     subscriptions: WorkboardSubscriptionStore;
     attachments: WorkboardKeyedStore<PersistedWorkboardAttachment>;
     ready?: Promise<number>;
@@ -644,15 +735,55 @@ declare class WorkboardCoreStore extends WorkboardStoreRuntime {
     close?: () => void | Promise<void>;
     runWithWriteAuthority?: WorkboardWriteAuthority;
   });
+  list(options?: WorkboardListOptions): Promise<WorkboardCard[]>;
+  listCards(board: unknown): Promise<WorkboardListResult & {
+    boards: WorkboardBoardSummary[];
+  }>;
+  listBoards(): Promise<{
+    boards: WorkboardBoardSummary[];
+  }>;
+  upsertBoard(input: WorkboardBoardInput): Promise<WorkboardBoardMetadata>;
+  getSessionsBoard(boardId: string): Promise<WorkboardSessionsBoard>;
+  updateSessionsBoard(boardId: string, patch: unknown, assertCurrent?: () => void): Promise<WorkboardSessionsBoard>;
+  listSessionPlacements(boardId: string): Promise<WorkboardSessionPlacement[]>;
+  repairSessionPlacements(): Promise<{
+    placements: number;
+    boards: number;
+  }>;
+  writeSessionPlacement(boardId: string, placement: WorkboardSessionPlacementWrite, options: {
+    expectedSpec: WorkboardSessionsBoardSpec;
+    assertCurrent?: () => void;
+  }): Promise<boolean>;
+  assertCardsBoard(boardId: string): Promise<void>;
+  archiveBoard(id: unknown, archived?: unknown): Promise<WorkboardBoardMetadata>;
+  deleteBoard(id: unknown): Promise<{
+    deleted: boolean;
+  }>;
+}
+//#endregion
+//#region extensions/workboard/src/sessions-board.d.ts
+type CallerAuthority = {
+  assertCurrent: () => void;
+};
+type Operations = {
+  read: (boardId: string, view?: WorkboardSessionsBoardView, caller?: CallerAuthority) => Promise<WorkboardSessionsBoardRead>;
+  update: (boardId: string, patch: unknown, caller?: CallerAuthority) => Promise<WorkboardSessionsBoard>;
+  move: (boardId: string, sessionKey: string, columnId: string, caller?: CallerAuthority) => Promise<WorkboardSessionsBoardRead>;
+};
+type WorkboardSessionsBoardService = OpenClawPluginService & Operations & {
+  stop: () => Promise<void>;
+};
+//#endregion
+//#region extensions/workboard/src/store-core.d.ts
+declare class WorkboardCoreStore extends WorkboardBoardStore {
+  private lastNotificationSequence;
+  private compensationJournal?;
   protected withCardCompensation<T>(run: () => Promise<T>): Promise<T>;
-  private compensationError;
   private recordCardMutation;
   private rollbackCardMutations;
   compensateWorkspaceMutation(before: WorkboardCard, after: WorkboardCard): Promise<void>;
   private rollbackUpdatedCard;
   private rollbackCreatedCard;
-  private registerCardIfUpdatedAt;
-  private deleteCardIfUpdatedAt;
   protected updateLatestCard(id: string, buildPatch: (current: WorkboardCard) => WorkboardCardPatch | undefined, options?: WorkboardUpdateCardOptions): Promise<{
     card: WorkboardCard;
     updated: boolean;
@@ -663,17 +794,9 @@ declare class WorkboardCoreStore extends WorkboardStoreRuntime {
   }): Promise<WorkboardCard>;
   protected deleteDetachedAttachments(existing: WorkboardCard, next: WorkboardCard): Promise<void>;
   protected nextNotificationSequence(now: number): number;
-  list(options?: WorkboardListOptions): Promise<WorkboardCard[]>;
-  listBoards(): Promise<{
-    boards: WorkboardBoardSummary[];
-  }>;
-  upsertBoard(input: WorkboardBoardInput): Promise<WorkboardBoardMetadata>;
-  archiveBoard(id: unknown, archived?: unknown): Promise<WorkboardBoardMetadata>;
-  deleteBoard(id: unknown): Promise<{
-    deleted: boolean;
-  }>;
   stats(input?: WorkboardListOptions, now?: number): Promise<WorkboardStatsResult>;
   get(id: string): Promise<WorkboardCard | undefined>;
+  protected requireCard(id: string): Promise<WorkboardCard>;
   private removeReferencesToCard;
   create(input: WorkboardLinkedCreateInput, scope?: WorkboardMutationScope, assertOwnerCurrent?: () => void): Promise<WorkboardCard>;
   protected createDirect(input: WorkboardLinkedCreateInput, scope?: WorkboardMutationScope, options?: {
@@ -684,12 +807,9 @@ declare class WorkboardCoreStore extends WorkboardStoreRuntime {
   update(id: string, patch: WorkboardCardPatch, options?: {
     expectedUpdatedAt?: number;
   }): Promise<WorkboardCard>;
-  protected updateCard(id: string, patch: WorkboardCardPatch, options?: WorkboardUpdateCardOptions): Promise<WorkboardCard>;
+  protected updateCard(existing: WorkboardCard, patch: WorkboardCardPatch, options?: WorkboardUpdateCardOptions): Promise<WorkboardCard>;
   private assertActiveStatusAllowed;
   delete(id: string, options?: {
-    expectedUpdatedAt?: number;
-  }): Promise<WorkboardDeleteResult>;
-  protected deleteDirect(id: string, options?: {
     expectedUpdatedAt?: number;
   }): Promise<WorkboardDeleteResult>;
   addComment(id: string, input: WorkboardCommentInput, scope?: WorkboardMutationScope): Promise<WorkboardCard>;
@@ -710,7 +830,7 @@ declare class WorkboardEnrichmentStore extends WorkboardCoreStore {
   addProof(id: string, input: WorkboardProofInput, scope?: WorkboardMutationScope): Promise<WorkboardCard>;
   addProofWithArtifact(id: string, proofInput: WorkboardProofInput, artifactInput: WorkboardArtifactInput, scope?: WorkboardMutationScope): Promise<WorkboardCard>;
   addArtifact(id: string, input: WorkboardArtifactInput, scope?: WorkboardMutationScope): Promise<WorkboardCard>;
-  addAttachment(id: string, input: WorkboardAttachmentInput, scope?: WorkboardMutationScope): Promise<WorkboardCard>;
+  addAttachment(id: string, input: WorkboardAttachmentInput, scope?: WorkboardMutationScope, assertCurrent?: () => void): Promise<WorkboardCard>;
   listAttachments(id: string): Promise<{
     card: WorkboardCard;
     attachments: WorkboardAttachment[];
@@ -723,10 +843,6 @@ declare class WorkboardEnrichmentStore extends WorkboardCoreStore {
 //#endregion
 //#region extensions/workboard/src/store-promote.d.ts
 declare class WorkboardPromoteStore extends WorkboardEnrichmentStore {
-  promoteReady(now?: number): Promise<{
-    cards: WorkboardCard[];
-    count: number;
-  }>;
   move(id: string, status: unknown, position: unknown, scope?: WorkboardMutationScope, options?: {
     expectedUpdatedAt?: number;
     assertOwnerCurrent?: () => void;
@@ -777,7 +893,6 @@ declare class WorkboardNotificationStore extends WorkboardWorkflowStore {
   deleteNotificationSubscription(id: string): Promise<{
     deleted: boolean;
   }>;
-  private collectNotificationEvents;
   notificationEvents(input?: WorkboardNotificationEventsInput): Promise<{
     subscription?: WorkboardNotificationSubscription;
     events: WorkboardNotification[];
@@ -853,6 +968,7 @@ declare class WorkboardStore extends WorkboardNotificationStore {
 export declare function registerWorkboardGatewayMethods(params: {
   api: OpenClawPluginApi;
   store?: WorkboardStore;
+  sessionsBoard?: Pick<WorkboardSessionsBoardService, "read" | "update" | "move">;
 }): void;
 //#endregion
 export type { WorkboardCard, WorkboardClaim, WorkboardDiagnostic, WorkboardListResult, WorkboardPriority, WorkboardStatus };

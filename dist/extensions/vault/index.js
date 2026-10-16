@@ -1,4 +1,4 @@
-import { t as definePluginEntry } from "../../plugin-entry-BOulgRcx.mjs";
+import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
 //#region extensions/vault/index.ts
 var vault_default = definePluginEntry({
 	id: "vault",
@@ -6,7 +6,7 @@ var vault_default = definePluginEntry({
 	description: "HashiCorp Vault SecretRef provider integration.",
 	register(api) {
 		api.registerCli(async ({ program, config }) => {
-			const { registerVaultCommands } = await import("../../cli-CR5VezFF.mjs");
+			const { registerVaultCommands } = await import("../../cli-BORUg7U4.mjs");
 			registerVaultCommands({
 				program,
 				config

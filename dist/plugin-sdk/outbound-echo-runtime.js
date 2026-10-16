@@ -1,2 +1,2 @@
-import { n as recordOutboundMessageIdentity } from "../outbound-echo-B-zvGTG0.mjs";
+import { n as recordOutboundMessageIdentity } from "../outbound-echo-D3kCTGGn.mjs";
 export { recordOutboundMessageIdentity };

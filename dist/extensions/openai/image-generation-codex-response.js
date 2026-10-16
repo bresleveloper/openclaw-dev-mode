@@ -1,15 +1,16 @@
 import { r as truncateUtf16Safe } from "../../utf16-slice-D_ngcYKd.mjs";
+import { n as sanitizeTerminalText } from "../../safe-text-SY_CvCi3.mjs";
 import { Fn as object, Jn as string, Nt as array, sr as unknown } from "../../schemas-BOYIvvln.mjs";
-import { n as sanitizeTerminalText } from "../../safe-text-CBmKtmbt.mjs";
-import { t as canonicalizeBase64 } from "../../base64-B5EyWEOm.mjs";
-import "../../text-utility-runtime-D7I29NA0.mjs";
-import "../../text-chunking-B0xcZLe-.mjs";
+import { i as readResponseWithLimit } from "../../http-response-body-umfRGZ-E.mjs";
+import { t as canonicalizeBase64 } from "../../base64-CU53EX1R.mjs";
+import "../../text-utility-runtime-BDs7x8Fk.mjs";
+import "../../response-limit-runtime-CpfmMF5T.mjs";
+import "../../text-chunking-BiSt_d1B.mjs";
 //#region extensions/openai/image-generation-codex-response.ts
 const MAX_CODEX_IMAGE_SSE_BYTES = 67108864;
 const MAX_CODEX_IMAGE_SSE_EVENTS = 512;
 const MAX_CODEX_IMAGE_BASE64_CHARS = 67108864;
 const OPENAI_MAX_IMAGE_RESULTS = 4;
-const STANDARD_BASE64_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 const DIAGNOSTIC_MAX_CHARS = 256;
 const contentSchema = object({
 	type: string().nullish(),
@@ -39,37 +40,6 @@ const eventSchema = object({
 	error: errorSchema.nullish(),
 	message: string().nullish()
 });
-async function readResponseBodyText(response) {
-	if (!response.body) {
-		const text = await response.text();
-		if (Buffer.byteLength(text, "utf8") > MAX_CODEX_IMAGE_SSE_BYTES) throw new Error("OpenAI Codex image generation response exceeded size limit");
-		return text;
-	}
-	const reader = response.body.getReader();
-	const decoder = new TextDecoder();
-	const chunks = [];
-	let byteLength = 0;
-	try {
-		while (true) {
-			const { value, done } = await reader.read();
-			if (value) {
-				byteLength += value.byteLength;
-				if (byteLength > MAX_CODEX_IMAGE_SSE_BYTES) {
-					await reader.cancel().catch(() => void 0);
-					throw new Error("OpenAI Codex image generation response exceeded size limit");
-				}
-				chunks.push(decoder.decode(value, { stream: !done }));
-			}
-			if (done) {
-				const tail = decoder.decode();
-				if (tail) chunks.push(tail);
-				return chunks.join("");
-			}
-		}
-	} finally {
-		reader.releaseLock();
-	}
-}
 function parseCodexImageGenerationEvents(body) {
 	const events = [];
 	for (const frame of body.replace(/\r\n?/g, "\n").split("\n\n")) {
@@ -92,10 +62,7 @@ function decodeCodexImagePayload(payload) {
 	if (payload.length > MAX_CODEX_IMAGE_BASE64_CHARS) throw new Error("OpenAI Codex image generation result exceeded size limit");
 	const trimmedPayload = payload.replace(/^\p{White_Space}+|\p{White_Space}+$/gu, "");
 	const canonicalPayload = canonicalizeBase64(trimmedPayload);
-	const padding = canonicalPayload?.endsWith("==") ? 2 : canonicalPayload?.endsWith("=") ? 1 : 0;
-	const trailingBitsMask = padding === 2 ? 15 : padding === 1 ? 3 : 0;
-	const trailingValue = padding > 0 ? STANDARD_BASE64_ALPHABET.indexOf(canonicalPayload?.at(-(padding + 1)) ?? "") : 0;
-	if (!canonicalPayload || canonicalPayload !== trimmedPayload || (trailingValue & trailingBitsMask) !== 0) throw new Error("OpenAI Codex image generation returned malformed base64 image data");
+	if (!canonicalPayload || canonicalPayload !== trimmedPayload) throw new Error("OpenAI Codex image generation returned malformed base64 image data");
 	return Buffer.from(canonicalPayload, "base64");
 }
 function extractCodexImageDiagnostic(completed, streamed) {
@@ -116,16 +83,9 @@ function extractCodexImageDiagnostic(completed, streamed) {
 		if (providerText) return providerText;
 	}
 }
-function toCodexImage(entry, index, output) {
-	if (typeof entry.result !== "string" || entry.result.length === 0) return null;
-	return Object.assign({
-		buffer: decodeCodexImagePayload(entry.result),
-		mimeType: output.mimeType,
-		fileName: `image-${index + 1}.${output.extension}`
-	}, entry.revised_prompt ? { revisedPrompt: entry.revised_prompt } : {});
-}
 async function readCodexImageGenerationResponse(response, params) {
-	const events = parseCodexImageGenerationEvents(await readResponseBodyText(response));
+	const body = await readResponseWithLimit(response, MAX_CODEX_IMAGE_SSE_BYTES, { onOverflow: () => /* @__PURE__ */ new Error("OpenAI Codex image generation response exceeded size limit") });
+	const events = parseCodexImageGenerationEvents(new TextDecoder().decode(body));
 	const outputItems = [];
 	let completedResponse;
 	for (const event of events) {
@@ -145,16 +105,21 @@ async function readCodexImageGenerationResponse(response, params) {
 		if (event.type === "response.output_item.done" && event.item) outputItems.push(event.item);
 	}
 	if (!completedResponse) throw new Error("OpenAI Codex image generation stream closed before response.completed");
-	const completedOutputItems = (completedResponse.output ?? []).filter((entry) => entry.type === "image_generation_call").slice(0, OPENAI_MAX_IMAGE_RESULTS);
-	const selectedOutputItems = completedOutputItems.length > 0 ? completedOutputItems : outputItems.filter((entry) => entry.type === "image_generation_call").slice(0, OPENAI_MAX_IMAGE_RESULTS);
+	const completedOutputItems = (completedResponse.output ?? []).filter((entry) => entry.type === "image_generation_call");
+	const selectedOutputItems = (completedOutputItems.length > 0 ? completedOutputItems : outputItems.filter((entry) => entry.type === "image_generation_call")).slice(0, OPENAI_MAX_IMAGE_RESULTS);
 	const images = [];
 	for (const [index, item] of selectedOutputItems.entries()) {
 		if (item.status && item.status !== "completed") {
 			const diagnostic = extractCodexImageDiagnostic(completedResponse.output, outputItems);
 			throw new Error(diagnostic ? `${diagnostic} (image call did not complete (${item.status}))` : `OpenAI Codex image generation image call did not complete (${item.status})`);
 		}
-		const image = toCodexImage(item, index, params);
-		if (image) images.push(image);
+		if (typeof item.result !== "string" || item.result.length === 0) continue;
+		images.push({
+			buffer: decodeCodexImagePayload(item.result),
+			mimeType: params.mimeType,
+			fileName: `image-${index + 1}.${params.extension}`,
+			...item.revised_prompt ? { revisedPrompt: item.revised_prompt } : {}
+		});
 	}
 	if (images.length === 0) throw new Error(extractCodexImageDiagnostic(completedResponse.output, outputItems) ?? "OpenAI Codex image generation completed but did not produce an image");
 	return {

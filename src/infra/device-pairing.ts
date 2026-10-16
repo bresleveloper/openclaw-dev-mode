@@ -129,36 +129,30 @@ export async function pruneSupersededSilentPairedDevices(params: {
           .filter((device) => params.isDeviceConnected?.(device.deviceId))
           .map((device) => device.deviceId)
       : [];
-    try {
-      return await executeDevicePairingMutation(
-        {
-          type: "devicePairing.pruneSilent",
-          input: {
-            deviceId: params.deviceId,
-            protectedDeviceIds,
-            nowMs: params.nowMs ?? Date.now(),
-          },
+    return await executeDevicePairingMutation(
+      {
+        type: "devicePairing.pruneSilent",
+        input: {
+          deviceId: params.deviceId,
+          protectedDeviceIds,
+          nowMs: params.nowMs ?? Date.now(),
         },
-        {
-          baseDir: params.baseDir,
-          admit: (facts) => {
-            if (
-              facts.kind === "pairing-prune" &&
-              facts.deviceIds.some((deviceId) => params.isDeviceConnected?.(deviceId))
-            ) {
-              throw new DevicePairingAuthorityRefusedError(
-                "Pairing prune candidate connected before commit",
-              );
-            }
-          },
+      },
+      {
+        baseDir: params.baseDir,
+        onAuthorityRefused: () => [],
+        admit: (facts) => {
+          if (
+            facts.kind === "pairing-prune" &&
+            facts.deviceIds.some((deviceId) => params.isDeviceConnected?.(deviceId))
+          ) {
+            throw new DevicePairingAuthorityRefusedError(
+              "Pairing prune candidate connected before commit",
+            );
+          }
         },
-      );
-    } catch (error) {
-      if (error instanceof DevicePairingAuthorityRefusedError) {
-        return [];
-      }
-      throw error;
-    }
+      },
+    );
   });
 }
 
@@ -185,7 +179,7 @@ export async function updatePairedDeviceMetadata(
 ): Promise<boolean> {
   return await withDevicePairingLock(() =>
     executeDevicePairingMutation(
-      { type: "devicePairing.updateMetadata", input: { deviceId, patch, nowMs: Date.now() } },
+      { type: "devicePairing.updateMetadata", input: { deviceId, patch } },
       { baseDir },
     ),
   );

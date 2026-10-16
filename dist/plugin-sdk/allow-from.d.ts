@@ -1,41 +1,6 @@
 import { n as RuntimeEnv } from "../runtime-DlqUc5_p.js";
-import { a as formatAllowlistMatchMeta, c as resolveAllowlistMatchSimple, i as compileAllowlist, l as resolveCompiledAllowlistMatch, n as AllowlistMatchSource, o as resolveAllowlistCandidates, r as CompiledAllowlist, s as resolveAllowlistMatchByCandidates, t as AllowlistMatch } from "../allowlist-match-Bmdv70ad.js";
-import { i as mergeDmAllowFromSources, n as firstDefined, o as resolveGroupAllowFromSources, r as isSenderIdAllowed } from "../allow-from-Bdiy2LH6.js";
-//#region src/channels/plugins/chat-target-prefixes.d.ts
-/**
- * Parsed conversation target forms accepted by channel allowlists and target resolvers.
- */
-type ParsedChatTarget = {
-  kind: "chat_id";
-  chatId: number;
-} | {
-  kind: "chat_guid";
-  chatGuid: string;
-} | {
-  kind: "chat_identifier";
-  chatIdentifier: string;
-};
-/**
- * Parsed allowlist target, including sender handles.
- */
-type ParsedChatAllowTarget = ParsedChatTarget | {
-  kind: "handle";
-  handle: string;
-};
-/**
- * Checks whether a sender or current conversation matches an allowlist entry.
- */
-export declare function isAllowedParsedChatSender(params: {
-  allowFrom: Array<string | number>;
-  sender: string;
-  chatId?: number | null;
-  chatGuid?: string | null;
-  chatIdentifier?: string | null;
-  allowConversationTargets?: boolean | null;
-  normalizeSender: (sender: string) => string;
-  parseAllowTarget: (entry: string) => ParsedChatAllowTarget;
-}): boolean;
-//#endregion
+import { a as formatAllowlistMatchMeta, c as resolveAllowlistMatchSimple, i as compileAllowlist, l as resolveCompiledAllowlistMatch, n as AllowlistMatchSource, o as resolveAllowlistCandidates, r as CompiledAllowlist, s as resolveAllowlistMatchByCandidates, t as AllowlistMatch, u as isAllowedParsedChatSender } from "../allowlist-match-Cfjke1wF.js";
+import { a as resolveGroupAllowFromSources, n as isSenderIdAllowed, r as mergeDmAllowFromSources, t as firstDefined } from "../allow-from-DUowZC7U.js";
 //#region src/channels/allowlists/resolve-utils.d.ts
 type AllowlistUserResolutionLike = {
   input: string;
@@ -149,4 +114,4 @@ export declare function mapAllowlistResolutionInputs<T>(params: {
   mapInput: (input: string) => Promise<T> | T;
 }): Promise<T[]>;
 //#endregion
-export { type AllowlistMatch, type AllowlistMatchSource, type AllowlistUserResolutionLike, type CompiledAllowlist, compileAllowlist, firstDefined, formatAllowlistMatchMeta, isSenderIdAllowed, mergeDmAllowFromSources, resolveAllowlistCandidates, resolveAllowlistMatchByCandidates, resolveAllowlistMatchSimple, resolveCompiledAllowlistMatch, resolveGroupAllowFromSources };
+export { type AllowlistMatch, type AllowlistMatchSource, type AllowlistUserResolutionLike, type CompiledAllowlist, compileAllowlist, firstDefined, formatAllowlistMatchMeta, isAllowedParsedChatSender, isSenderIdAllowed, mergeDmAllowFromSources, resolveAllowlistCandidates, resolveAllowlistMatchByCandidates, resolveAllowlistMatchSimple, resolveCompiledAllowlistMatch, resolveGroupAllowFromSources };

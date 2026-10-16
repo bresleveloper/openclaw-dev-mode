@@ -1,12 +1,9 @@
 import { asNullableRecord, normalizeOptionalLowercaseString } from "openclaw/plugin-sdk/string-coerce-runtime";
 //#region extensions/google-meet/src/config-compat.ts
-function hasOwn(record, key) {
-	return Object.hasOwn(record, key);
-}
 function hasLegacyGoogleRealtimeProvider(value) {
 	const realtime = asNullableRecord(value);
 	if (!realtime || normalizeOptionalLowercaseString(realtime.provider) !== "google") return false;
-	return !hasOwn(realtime, "voiceProvider") || !hasOwn(realtime, "transcriptionProvider");
+	return !Object.hasOwn(realtime, "voiceProvider") || !Object.hasOwn(realtime, "transcriptionProvider");
 }
 const legacyConfigRules = [{
 	path: [
@@ -36,8 +33,8 @@ function migrateGoogleMeetLegacyRealtimeProvider(config) {
 	const nextRealtime = asNullableRecord(nextPluginConfig.realtime) ?? {};
 	nextPluginConfig.realtime = nextRealtime;
 	nextRealtime.provider = "openai";
-	if (!hasOwn(nextRealtime, "transcriptionProvider")) nextRealtime.transcriptionProvider = "openai";
-	if (!hasOwn(nextRealtime, "voiceProvider")) nextRealtime.voiceProvider = "google";
+	if (!Object.hasOwn(nextRealtime, "transcriptionProvider")) nextRealtime.transcriptionProvider = "openai";
+	if (!Object.hasOwn(nextRealtime, "voiceProvider")) nextRealtime.voiceProvider = "google";
 	return {
 		config: nextConfig,
 		changes: ["Moved Google Meet legacy realtime.provider=\"google\" intent to realtime.voiceProvider=\"google\" and realtime.transcriptionProvider=\"openai\"."]

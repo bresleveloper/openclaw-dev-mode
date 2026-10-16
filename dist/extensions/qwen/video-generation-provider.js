@@ -1,24 +1,16 @@
-import { V as isQwenCodingPlanBaseUrl } from "./.setup/models-DIZ7f-Lx.mjs";
+import { V as isQwenCodingPlanBaseUrl } from "./.setup/models-NTrSBQ85.mjs";
 import { buildDashscopeVideoGenerationProvider } from "openclaw/plugin-sdk/video-generation";
 //#region extensions/qwen/video-generation-provider.ts
 const DEFAULT_QWEN_VIDEO_BASE_URL = "https://dashscope-intl.aliyuncs.com";
 function isQwenVideoEndpointSupported(baseUrl) {
 	if (isQwenCodingPlanBaseUrl(baseUrl)) return false;
-	try {
-		const hostname = new URL(baseUrl ?? DEFAULT_QWEN_VIDEO_BASE_URL).hostname;
-		return !/^token-plan\..+\.maas\.aliyuncs\.com\.?$/iu.test(hostname);
-	} catch {
-		return true;
-	}
+	const hostname = URL.parse(baseUrl ?? DEFAULT_QWEN_VIDEO_BASE_URL)?.hostname;
+	return !/^token-plan\..+\.maas\.aliyuncs\.com\.?$/iu.test(hostname ?? "");
 }
 function resolveQwenVideoBaseUrl(configuredBaseUrl) {
 	const direct = configuredBaseUrl?.trim();
 	if (!direct) return DEFAULT_QWEN_VIDEO_BASE_URL;
-	try {
-		return new URL(direct).toString();
-	} catch {
-		return DEFAULT_QWEN_VIDEO_BASE_URL;
-	}
+	return URL.parse(direct)?.toString() ?? DEFAULT_QWEN_VIDEO_BASE_URL;
 }
 function resolveDashscopeAigcApiBaseUrl(baseUrl) {
 	const url = new URL(baseUrl);

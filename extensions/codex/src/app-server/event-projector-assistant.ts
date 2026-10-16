@@ -10,7 +10,7 @@ import {
   type AssistantMessageOptions,
 } from "./event-projector-assistant-message.js";
 import { shouldClearTerminalPresentationForNativeItem } from "./event-projector-items.js";
-import { extractRawAssistantText, readItemString } from "./event-projector-values.js";
+import { extractRawAssistantText } from "./event-projector-values.js";
 import type { CodexThreadItem, JsonObject } from "./protocol.js";
 import type { CodexTranscriptCheckpointEntry } from "./transcript-checkpoint.js";
 
@@ -181,6 +181,15 @@ export class CodexAssistantProjection {
     }
   }
 
+  /** Codex deltas are best-effort; completed item text is authoritative (codex-rs TUI agrees). */
+  async streamCompletedItemTail(item: CodexThreadItem | undefined): Promise<void> {
+    const streamed = item?.type === "agentMessage" ? this.assistantTextByItem.get(item.id) : "";
+    // Without this, a dropped final delta leaves live and terminal chat text short.
+    if (streamed && typeof item?.text === "string" && item.text.startsWith(streamed)) {
+      await this.handleAssistantDelta({ itemId: item.id, delta: item.text.slice(streamed.length) });
+    }
+  }
+
   recordItemCompleted(
     item: CodexThreadItem | undefined,
     itemId: string | undefined,
@@ -335,7 +344,7 @@ export class CodexAssistantProjection {
     if (recoveredAudible.length > 0) {
       return recoveredAudible.slice(-1);
     }
-    const recovered = this.resolveFinalAssistantTextItem()?.text;
+    const recovered = this.resolveFinalAssistantText();
     return recovered ? [recovered] : [];
   }
 
@@ -397,6 +406,25 @@ export class CodexAssistantProjection {
       this.supersedeVisibleAnswerCandidate();
       return;
     }
+    // Codex 0.154.0 can stream under an output-item ID that differs from the
+    // completed item's ID. Only completion receipts own successful history;
+    // retaining the preview would concatenate it with the completed answer.
+    // Remove text before checkpoint close too, so queued commentary readers
+    // cannot persist an orphan preview. Failed turns retain their partial work;
+    // unphased replacement snapshots retain their existing replacement authority.
+    for (const itemId of this.assistantItemOrder) {
+      if (
+        !this.completedAssistantItemIds.has(itemId) &&
+        !this.isAsyncAssistantItem(itemId) &&
+        (this.isFinalAnswerAssistantItem(itemId) || this.isCommentaryAssistantItem(itemId))
+      ) {
+        if (itemId === this.visibleAnswerCandidateItemId) {
+          // Activity needs the preview text to publish its superseded transition.
+          this.supersedeVisibleAnswerCandidate();
+        }
+        this.assistantTextByItem.delete(itemId);
+      }
+    }
     const turnItems = turn.items ?? [];
     const authoritativeIndex = turnItems.findLastIndex((item) => {
       if (
@@ -406,8 +434,8 @@ export class CodexAssistantProjection {
       ) {
         return false;
       }
-      const phase = readItemString(item, "phase");
-      const delivery = readItemString(item, "delivery");
+      const phase = readString(item, "phase");
+      const delivery = readString(item, "delivery");
       return delivery !== "async" && (phase === "final_answer" || phase === undefined);
     });
     const authoritative = authoritativeIndex >= 0 ? turnItems[authoritativeIndex] : undefined;
@@ -434,17 +462,12 @@ export class CodexAssistantProjection {
   }
 
   hasAssistantItemTextForSynthesis(): boolean {
-    for (let i = this.assistantItemOrder.length - 1; i >= 0; i -= 1) {
-      const itemId = this.assistantItemOrder[i];
-      if (!itemId || this.isNonTerminalAssistantItem(itemId)) {
-        continue;
-      }
-      const text = this.assistantTextByItem.get(itemId);
-      if (text && text.length > 0) {
-        return true;
-      }
-    }
-    return false;
+    return this.assistantItemOrder.some(
+      (itemId) =>
+        Boolean(itemId) &&
+        !this.isNonTerminalAssistantItem(itemId) &&
+        Boolean(this.assistantTextByItem.get(itemId)),
+    );
   }
 
   createCurrentAttemptAssistantMessage(
@@ -478,11 +501,11 @@ export class CodexAssistantProjection {
     if (item?.type !== "agentMessage") {
       return;
     }
-    const phase = readItemString(item, "phase");
+    const phase = readString(item, "phase");
     if (phase) {
       this.assistantPhaseByItem.set(item.id, phase);
     }
-    const delivery = readItemString(item, "delivery");
+    const delivery = readString(item, "delivery");
     if (delivery) {
       this.assistantDeliveryByItem.set(item.id, delivery);
     }
@@ -610,7 +633,7 @@ export class CodexAssistantProjection {
     this.supersedeVisibleAnswerCandidate();
   }
 
-  private resolveFinalAssistantTextItem(): { itemId: string; text: string } | undefined {
+  private resolveFinalAssistantText(): string | undefined {
     for (let i = this.assistantItemOrder.length - 1; i >= 0; i -= 1) {
       const itemId = this.assistantItemOrder[i];
       if (!itemId) {
@@ -621,7 +644,7 @@ export class CodexAssistantProjection {
         continue;
       }
       if (text && !this.isToolProgressEchoText(itemId, text)) {
-        return { itemId, text };
+        return text;
       }
     }
     return undefined;

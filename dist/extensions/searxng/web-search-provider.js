@@ -1,2 +1,2 @@
-import { t as createSearxngWebSearchProvider } from "./.setup/searxng-search-provider-CqB5Osbj.mjs";
+import { t as createSearxngWebSearchProvider } from "./.setup/searxng-search-provider-BZpmzKiT.mjs";
 export { createSearxngWebSearchProvider };

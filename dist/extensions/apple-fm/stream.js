@@ -1,23 +1,20 @@
-import { n as validateJsonSchemaValue } from "../../schema-validator-G8odGT6Q.mjs";
-import { v as createAssistantMessageEventStream } from "../../llm-BI78BuOT.mjs";
-import "../../json-schema-runtime-ty5aNvzs.mjs";
+import { n as validateJsonSchemaValue } from "../../schema-validator-qnYkiHpy.mjs";
+import { x as createAssistantMessageEventStream } from "../../llm--QylqK5V.mjs";
+import { t as buildAssistantMessage } from "../../stream-message-shared-CYuIJ_XF.mjs";
+import "../../json-schema-runtime-WxokAVVM.mjs";
 import { r as quoteUnsafeIntegerLiterals } from "../../json-unsafe-integers-BeeNmB5X.mjs";
-import { d as failTransportStream, o as createEmptyTransportUsage } from "../../provider-transport-runtime-7WrArIKq.mjs";
+import { d as failTransportStream, o as createEmptyTransportUsage } from "../../provider-transport-runtime-DyAc3l5Q.mjs";
 //#region extensions/apple-fm/stream.ts
 /** Native tools propose calls; the OpenClaw agent loop validates and executes them. */
 function createAppleFmStream(native) {
 	return (model, context, options) => {
 		const stream = createAssistantMessageEventStream();
-		const message = {
-			role: "assistant",
+		const message = buildAssistantMessage({
+			model,
 			content: [],
-			api: model.api,
-			provider: model.provider,
-			model: model.id,
 			usage: createEmptyTransportUsage(),
-			stopReason: "stop",
-			timestamp: Date.now()
-		};
+			stopReason: "stop"
+		});
 		stream.push({
 			type: "start",
 			partial: message

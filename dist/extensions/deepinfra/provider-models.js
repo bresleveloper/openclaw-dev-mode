@@ -1,5 +1,4 @@
-import { t as modelCatalog } from "./.setup/openclaw.plugin-BRaVociw.mjs";
-import { DEEPINFRA_BASE_URL, DEEPINFRA_TTS_FALLBACK_CATALOG } from "./media-models.js";
+import { DEEPINFRA_BASE_URL, DEEPINFRA_IMAGE_FALLBACK_CATALOG, DEEPINFRA_TTS_FALLBACK_CATALOG } from "./media-models.js";
 import { DEEPINFRA_MODEL_CATALOG, buildDeepInfraModelDefinition } from "./provider-static-catalog.js";
 import { parseDeepInfraPricingCatalog } from "./pricing-api.js";
 import { asPositiveSafeInteger, isRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
@@ -17,15 +16,6 @@ const DEEPINFRA_DEFAULT_CONTEXT_WINDOW = 128e3;
 const DEEPINFRA_DEFAULT_MAX_TOKENS = 8192;
 const DISCOVERY_TIMEOUT_MS = 5e3;
 const DISCOVERY_CACHE_TTL_MS = 3e5;
-const SURFACE_FOR_TAG = {
-	chat: "chat",
-	vlm: "vlm",
-	embed: "embed",
-	"image-gen": "image-gen",
-	"video-gen": "video-gen",
-	tts: "tts",
-	stt: "stt"
-};
 function entryToSurfaceModel(entry) {
 	const id = typeof entry?.id === "string" ? entry.id.trim() : "";
 	if (!id) return null;
@@ -57,39 +47,31 @@ function bucketBySurface(models) {
 		stt: [],
 		live: true
 	};
-	const buckets = {
-		chat: catalog.chat,
-		vlm: catalog.vlm,
-		embed: catalog.embed,
-		"image-gen": catalog.imageGen,
-		"video-gen": catalog.videoGen,
-		tts: catalog.tts,
-		stt: catalog.stt
-	};
-	for (const model of models) {
-		const seen = /* @__PURE__ */ new Set();
-		for (const tag of model.tags) {
-			const surface = SURFACE_FOR_TAG[tag];
-			if (surface && !seen.has(surface)) {
-				seen.add(surface);
-				buckets[surface].push(model);
-			}
-		}
-	}
+	const buckets = /* @__PURE__ */ new Map([
+		["chat", catalog.chat],
+		["vlm", catalog.vlm],
+		["embed", catalog.embed],
+		["image-gen", catalog.imageGen],
+		["video-gen", catalog.videoGen],
+		["tts", catalog.tts],
+		["stt", catalog.stt]
+	]);
+	for (const model of models) for (const tag of new Set(model.tags)) buckets.get(tag)?.push(model);
 	return catalog;
 }
 function manifestChatEntryToSurfaceModel(entry) {
-	const cost = entry.cost ?? {};
-	const pricing = {};
-	if (typeof cost.input === "number") pricing.input_tokens = cost.input;
-	if (typeof cost.output === "number") pricing.output_tokens = cost.output;
-	if (typeof cost.cacheRead === "number" && cost.cacheRead > 0) pricing.cache_read_tokens = cost.cacheRead;
+	const { cost } = entry;
+	const pricing = {
+		input_tokens: cost.input,
+		output_tokens: cost.output,
+		...cost.cacheRead > 0 ? { cache_read_tokens: cost.cacheRead } : {}
+	};
 	const tags = ["chat"];
-	if (entry.input?.includes("image")) tags.push("vlm");
+	if (entry.input.includes("image")) tags.push("vlm");
 	if (entry.reasoning) tags.push("reasoning");
 	return {
 		id: entry.id,
-		name: entry.name ?? entry.id,
+		name: entry.name,
 		tags,
 		contextWindow: entry.contextWindow,
 		maxTokens: entry.maxTokens,
@@ -97,42 +79,7 @@ function manifestChatEntryToSurfaceModel(entry) {
 	};
 }
 const STATIC_NON_CHAT_FALLBACK = [
-	{
-		id: "black-forest-labs/FLUX-1-schnell",
-		name: "black-forest-labs/FLUX-1-schnell",
-		tags: ["image-gen"],
-		pricing: { per_image_unit: .003 },
-		defaultWidth: 1024,
-		defaultHeight: 1024,
-		defaultIterations: 4
-	},
-	{
-		id: "black-forest-labs/FLUX-1-dev",
-		name: "black-forest-labs/FLUX-1-dev",
-		tags: ["image-gen"],
-		pricing: { per_image_unit: .025 },
-		defaultWidth: 1024,
-		defaultHeight: 1024,
-		defaultIterations: 28
-	},
-	{
-		id: "Qwen/Qwen-Image-Max",
-		name: "Qwen/Qwen-Image-Max",
-		tags: ["image-gen"],
-		pricing: { per_image_unit: .075 },
-		defaultWidth: 1024,
-		defaultHeight: 1024,
-		defaultIterations: 28
-	},
-	{
-		id: "stabilityai/sdxl-turbo",
-		name: "stabilityai/sdxl-turbo",
-		tags: ["image-gen"],
-		pricing: { per_image_unit: 2e-4 },
-		defaultWidth: 1024,
-		defaultHeight: 1024,
-		defaultIterations: 4
-	},
+	...DEEPINFRA_IMAGE_FALLBACK_CATALOG,
 	...DEEPINFRA_TTS_FALLBACK_CATALOG,
 	{
 		id: "openai/whisper-large-v3-turbo",
@@ -149,13 +96,10 @@ const STATIC_NON_CHAT_FALLBACK = [
 		contextWindow: 8192
 	}
 ];
-function manifestFallbackCatalog() {
-	const catalog = bucketBySurface([...(modelCatalog.providers.deepinfra.models ?? []).map(manifestChatEntryToSurfaceModel), ...STATIC_NON_CHAT_FALLBACK]);
+function getDeepInfraSurfaceFallbackCatalog() {
+	const catalog = bucketBySurface([...DEEPINFRA_MODEL_CATALOG.map(manifestChatEntryToSurfaceModel), ...STATIC_NON_CHAT_FALLBACK]);
 	catalog.live = false;
 	return catalog;
-}
-function getDeepInfraSurfaceFallbackCatalog() {
-	return manifestFallbackCatalog();
 }
 function chatSurfaceModelToModelDefinition(model) {
 	const manifestModel = DEEPINFRA_MODEL_CATALOG.find((entry) => entry.id === model.id);
@@ -185,7 +129,7 @@ async function discoverDeepInfraSurfaces(options) {
 	} catch (error) {
 		log.warn(`Model metadata discovery unavailable: ${String(error)}`);
 	}
-	return manifestFallbackCatalog();
+	return getDeepInfraSurfaceFallbackCatalog();
 }
 async function loadDeepInfraSurfaces() {
 	return getCachedLiveCatalogValue({
@@ -200,7 +144,6 @@ async function loadDeepInfraSurfaces() {
 				providerId: "deepinfra",
 				endpoint: DEEPINFRA_MODELS_URL,
 				timeoutMs: DISCOVERY_TIMEOUT_MS,
-				buildRequestHeaders: () => ({ Accept: "application/json" }),
 				auditContext: "deepinfra-model-discovery",
 				fetchGuard: (params) => fetchWithSsrFGuard(withTrustedEnvProxyGuardedFetchMode(params))
 			});
@@ -230,7 +173,6 @@ async function discoverDeepInfraPricing() {
 				providerId: "deepinfra",
 				endpoint: DEEPINFRA_PRICING_URL,
 				timeoutMs: DISCOVERY_TIMEOUT_MS,
-				buildRequestHeaders: () => ({ Accept: "application/json" }),
 				auditContext: "deepinfra-pricing-discovery",
 				fetchGuard: (params) => fetchWithSsrFGuard(withTrustedEnvProxyGuardedFetchMode(params)),
 				readRows: (body) => {

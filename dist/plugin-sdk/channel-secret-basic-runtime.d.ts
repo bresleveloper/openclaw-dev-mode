@@ -1,5 +1,5 @@
 import { c as isRecord } from "../record-coerce-Ckpz2G3R.js";
-import { c as pushAssignment, i as collectSecretInputAssignment, l as pushInactiveSurfaceWarning, n as SecretDefaults, o as hasOwnProperty, s as isEnabledFlag, t as ResolverContext, u as pushWarning } from "../runtime-shared-COJIbUI5.js";
+import { c as pushAssignment, i as collectSecretInputAssignment, l as pushInactiveSurfaceWarning, n as SecretDefaults, o as hasOwnProperty, s as isEnabledFlag, t as ResolverContext, u as pushWarning } from "../runtime-shared-BbVsAF3Z.js";
 import { n as SecretTargetRegistryEntry, r as SecretTargetShape, t as SecretTargetExpected } from "../target-registry-types-rt3qR_99.js";
 //#region src/secrets/channel-secret-basic-runtime.d.ts
 type ChannelSecretTargetPathSpec = {
@@ -16,6 +16,25 @@ export declare function createChannelSecretTargetRegistryEntries(params: {
   account?: readonly (string | ChannelSecretTargetPathSpec)[];
   channel?: readonly (string | ChannelSecretTargetPathSpec)[];
 }): SecretTargetRegistryEntry[];
+type ChannelSecretCollectorParams = {
+  config: {
+    channels?: Record<string, unknown>;
+  };
+  defaults?: SecretDefaults;
+  context: ResolverContext;
+};
+/** Keeps registry discovery and account-surface resolution shared while channels own activation. */
+export declare function createChannelSecretContract(params: Parameters<typeof createChannelSecretTargetRegistryEntries>[0] & {
+  collect: (params: ChannelSecretCollectorParams & {
+    channelKey: string;
+    channel: Record<string, unknown>;
+    surface: ChannelAccountSurface;
+    defaults: SecretDefaults | undefined;
+  }) => void;
+}): {
+  secretTargetRegistryEntries: SecretTargetRegistryEntry[];
+  collectRuntimeConfigAssignments(this: void, collectorParams: ChannelSecretCollectorParams): void;
+};
 /** Builds the common registry and runtime collector used by simple channel secrets. */
 export declare function createSimpleChannelSecretContract(params: {
   channelKey: string;

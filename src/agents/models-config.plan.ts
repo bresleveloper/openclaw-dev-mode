@@ -3,6 +3,7 @@
  * this module to merge implicit provider discovery, explicit config, and
  * preserved secrets before touching models.json.
  */
+import { safeParseJsonRecord } from "@openclaw/normalization-core/json-coercion";
 import type { OpenClawConfig } from "../config/types.openclaw.js";
 import type { PluginMetadataSnapshot } from "../plugins/plugin-metadata-snapshot.js";
 import type { ProviderCatalogOutcome } from "../plugins/provider-catalog.types.js";
@@ -11,6 +12,7 @@ import { isRecord } from "../utils.js";
 import type { AuthProfileStore } from "./auth-profiles/types.js";
 import {
   buildSourceModelFields,
+  isWritableProviderConfig,
   mergeProviders,
   mergeWithExistingProviderSecrets,
   type ExistingProviderConfig,
@@ -59,11 +61,7 @@ export type PreparedModelsConfigContext = Readonly<{
  */
 type ModelsJsonPlan =
   | {
-      action: "skip";
-      pluginCatalogWrites?: Record<string, string>;
-    }
-  | {
-      action: "noop";
+      action: "skip" | "noop";
       pluginCatalogWrites?: Record<string, string>;
     }
   | {
@@ -196,23 +194,11 @@ function resolveProvidersForMode(params: {
   if (!isRecord(existing) || !isRecord(existing.providers)) {
     return params.providers;
   }
-  const existingProviders = existing.providers as Record<
-    string,
-    NonNullable<ModelsConfig["providers"]>[string]
-  >;
   return mergeWithExistingProviderSecrets({
     nextProviders: params.providers,
-    existingProviders: existingProviders as Record<string, ExistingProviderConfig>,
+    existingProviders: existing.providers as Record<string, ExistingProviderConfig>,
     secretRefManagedProviders: params.secretRefManagedProviders,
   });
-}
-
-function isWritableProviderConfig(provider: ProviderConfig): boolean {
-  if (!Array.isArray(provider.models) || provider.models.length === 0) {
-    return true;
-  }
-  // AuthStorage can supply omitted keys; an explicitly empty key still violates the schema.
-  return Boolean(provider.baseUrl?.trim() && (provider.apiKey === undefined || provider.apiKey));
 }
 
 function filterWritableProviders(
@@ -231,13 +217,8 @@ function collectGeneratedCatalogProviders(params: {
 }): Record<string, unknown> {
   const providers: Record<string, unknown> = {};
   for (const { pluginId, contents } of params.catalogs) {
-    let catalog: unknown;
-    try {
-      catalog = JSON.parse(contents) as unknown;
-    } catch {
-      continue;
-    }
-    if (!isRecord(catalog) || !isRecord(catalog.providers)) {
+    const catalog = safeParseJsonRecord(contents);
+    if (!catalog || !isRecord(catalog.providers)) {
       continue;
     }
     Object.assign(
@@ -309,17 +290,19 @@ export async function planOpenClawModelsJson(params: {
     providers: normalizedProviders,
     secretRefManagedProviders,
   });
-  const normalizedMergedProviders =
-    normalizeProviderCatalogModelsForConfig(mergedProviders) ?? mergedProviders;
-  const secretEnforcedProviders =
-    enforceSourceManagedProviderSecrets({
-      providers: normalizedMergedProviders,
-      sourceConfigForSecrets: context.sourceConfigForSecrets,
-      secretRefManagedProviders,
-    }) ?? normalizedMergedProviders;
-  const finalProviders = filterWritableProviders(secretEnforcedProviders);
+  const finalizeProviders = (candidateProviders: Record<string, ProviderConfig>) => {
+    const normalized =
+      normalizeProviderCatalogModelsForConfig(candidateProviders) ?? candidateProviders;
+    return filterWritableProviders(
+      enforceSourceManagedProviderSecrets({
+        providers: normalized,
+        sourceConfigForSecrets: context.sourceConfigForSecrets,
+        secretRefManagedProviders,
+      }) ?? normalized,
+    );
+  };
   const splitProviders = splitProvidersByPluginOwner({
-    providers: finalProviders,
+    providers: finalizeProviders(mergedProviders),
     pluginMetadataSnapshot: context.pluginMetadataSnapshot,
   });
   const pluginCatalogWrites = buildPluginCatalogWrites(splitProviders.pluginProviders);
@@ -330,17 +313,9 @@ export async function planOpenClawModelsJson(params: {
     providers: splitProviders.rootProviders,
     secretRefManagedProviders,
   });
-  const normalizedRootProviders =
-    normalizeProviderCatalogModelsForConfig(rootProviders) ?? rootProviders;
-  const rootWithManagedSecrets =
-    enforceSourceManagedProviderSecrets({
-      providers: normalizedRootProviders,
-      sourceConfigForSecrets: context.sourceConfigForSecrets,
-      secretRefManagedProviders,
-    }) ?? normalizedRootProviders;
   const nextContents = `${JSON.stringify(
     {
-      providers: filterWritableProviders(rootWithManagedSecrets),
+      providers: finalizeProviders(rootProviders),
     },
     null,
     2,

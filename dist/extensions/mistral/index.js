@@ -4,18 +4,10 @@ import { applyMistralConnectionConfig } from "./onboard.js";
 import { applyMistralModelCompat } from "./api.js";
 import { mistralMediaUnderstandingProvider } from "./media-understanding-provider.js";
 import { mistralMemoryEmbeddingProviderAdapter } from "./memory-embedding-adapter.js";
-import { buildMistralRealtimeTranscriptionProvider } from "./realtime-transcription-provider.js";
+import { buildMistralRealtimeTranscriptionProvider } from "./realtime-transcription-provider-factory.js";
 import { defineSingleProviderPluginEntry } from "openclaw/plugin-sdk/provider-entry";
-//#region extensions/mistral/index.ts
-const PROVIDER_ID = "mistral";
-function buildMistralReplayPolicy() {
-	return {
-		sanitizeToolCallIds: true,
-		toolCallIdMode: "strict9"
-	};
-}
 var mistral_default = defineSingleProviderPluginEntry({
-	id: PROVIDER_ID,
+	id: "mistral",
 	name: "Mistral Provider",
 	description: "Official Mistral provider plugin",
 	manifest: openclaw_plugin_default,
@@ -31,12 +23,15 @@ var mistral_default = defineSingleProviderPluginEntry({
 		matchesContextOverflowError: ({ errorMessage }) => /\bmistral\b.*(?:input.*too long|token limit.*exceeded)/i.test(errorMessage),
 		normalizeResolvedModel: ({ model }) => applyMistralModelCompat(model),
 		resolveThinkingProfile,
-		buildReplayPolicy: () => buildMistralReplayPolicy()
+		buildReplayPolicy: () => ({
+			sanitizeToolCallIds: true,
+			toolCallIdMode: "strict9"
+		})
 	},
 	register(api) {
 		api.registerEmbeddingProvider(mistralMemoryEmbeddingProviderAdapter);
 		api.registerMediaUnderstandingProvider(mistralMediaUnderstandingProvider);
-		api.registerRealtimeTranscriptionProvider(buildMistralRealtimeTranscriptionProvider());
+		api.registerRealtimeTranscriptionProvider(buildMistralRealtimeTranscriptionProvider);
 	}
 });
 //#endregion

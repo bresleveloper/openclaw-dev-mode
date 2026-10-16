@@ -1,4 +1,4 @@
-import { n as openclaw_plugin_default, t as buildMetaProvider } from "./.setup/provider-catalog-Br7h254v.mjs";
+import { a as openclaw_plugin_default } from "./.setup/provider-catalog-BNTlqvTm.mjs";
 import { applyMetaConnectionConfig } from "./onboard.js";
 import { wrapMetaProviderStream } from "./stream.js";
 import { resolveMetaThinkingProfile } from "./thinking.js";
@@ -19,8 +19,6 @@ var meta_default = defineSingleProviderPluginEntry({
 		},
 		catalog: {
 			discoveryMode: "strict",
-			buildProvider: buildMetaProvider,
-			buildStaticProvider: buildMetaProvider,
 			liveModelDiscovery: true
 		},
 		...buildProviderReplayFamilyHooks({ family: "openai-compatible" }),

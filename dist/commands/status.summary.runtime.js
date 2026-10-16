@@ -1,41 +1,34 @@
-import { c as normalizeOptionalLowercaseString, l as normalizeOptionalString, o as normalizeLowercaseStringOrEmpty } from "../string-coerce-CIXf7egm.mjs";
-import { r as resolveAgentConfig } from "../agent-scope-config-IQKOEtZ4.mjs";
-import "../defaults-BbU4k6fu.mjs";
-import { s as resolveAgentModelPrimaryValue } from "../model-input-DKxKaZGG.mjs";
-import { g as resolveConfiguredPrimaryProviderFallback } from "../model-selection-shared-0uvJbX1M.mjs";
-import { n as parseModelRef } from "../model-selection-normalize-Dij_chYC.mjs";
-import { i as resolvePersistedSelectedModelRef } from "../model-selection-QUeDLfPD.mjs";
-import { a as resolveStoredSessionKeyForAgentStore } from "../session-store-key-BoleEY7N.mjs";
-import { n as resolveSessionStorePathForAcp } from "../session-meta-store-DsP83zYh.mjs";
-import { t as classifySessionKind } from "../classify-session-kind-BOSciWMV.mjs";
-import "../session-meta-Cn1bPYFM.mjs";
-import { t as readAcpSessionMetaForEntry } from "../session-meta-readonly-CY2eWmkz.mjs";
-import { t as resolveCurrentSessionAgentRuntimeMetadata } from "../agent-runtime-metadata-CpWHkskX.mjs";
-import { c as resolveAuthoredModelContextTokens, u as resolveContextTokensForModelFromCache } from "../context-resolution-D64R_bgD.mjs";
-import { s as waitForContextWindowCacheLoad } from "../context-DfjOwmqW.mjs";
-import { t as resolveAgentRuntimeLabel } from "../agent-runtime-label-D0G7Rxse.mjs";
+import { c as normalizeOptionalLowercaseString, l as normalizeOptionalString, o as normalizeLowercaseStringOrEmpty } from "../string-coerce-1VuiLaaR.mjs";
+import { r as resolveAgentConfig } from "../agent-scope-config-CDYpzA0r.mjs";
+import { s as resolveAgentModelPrimaryValue } from "../model-input-C9K4a_6k.mjs";
+import "../defaults-Jag53zwP.mjs";
+import { g as resolveConfiguredPrimaryProviderFallback, i as buildModelAliasIndex } from "../model-selection-shared-BZeDVoch.mjs";
+import { n as parseModelRef } from "../model-selection-normalize-AjjSfI-g.mjs";
+import { r as resolvePersistedSelectedModelRef } from "../model-selection-C1qxt1eY.mjs";
+import { o as resolveStoredSessionKeyForAgentStore } from "../session-store-key-Ci099tm9.mjs";
+import { t as classifySessionKind } from "../classify-session-kind-CT3WV_2y.mjs";
+import { n as resolveSessionStorePathForAcp } from "../session-meta-store-BuPPT7EU.mjs";
+import { n as readAcpSessionMetaForEntry } from "../session-meta-readonly-CvCR0QQG.mjs";
+import "../session-meta-C2UXd_yK.mjs";
+import { t as resolveCurrentSessionAgentRuntimeMetadata } from "../agent-runtime-metadata-B1ramhpb.mjs";
+import { i as resolveContextTokensForModelFromCache, n as resolveAuthoredModelContextTokens } from "../context-resolution-rBaR4T59.mjs";
+import { c as waitForContextWindowCacheLoad } from "../context-qaLs5Adf.mjs";
+import { n as resolveAgentRuntimeLabel } from "../agent-runtime-label-DgK-9QfF.mjs";
 //#region src/status/summary.runtime.ts
 function resolveStatusModelRefFromRaw(params) {
 	const trimmed = params.rawModel.trim();
 	if (!trimmed) return null;
-	const configuredModels = params.cfg.agents?.defaults?.models ?? {};
-	if (!trimmed.includes("/")) {
-		const aliasKey = normalizeLowercaseStringOrEmpty(trimmed);
-		for (const [modelKey, entry] of Object.entries(configuredModels)) {
-			const aliasValue = entry?.alias;
-			const alias = normalizeOptionalString(aliasValue) ?? "";
-			if (!alias || normalizeOptionalLowercaseString(alias) !== aliasKey) continue;
-			const parsed = parseModelRef(modelKey, params.defaultProvider, {
-				allowManifestNormalization: false,
-				allowPluginNormalization: false
-			});
-			if (parsed) return parsed;
-		}
-		return {
-			provider: params.defaultProvider,
-			model: trimmed
-		};
-	}
+	if (!trimmed.includes("/")) return buildModelAliasIndex({
+		cfg: params.cfg,
+		agentId: params.agentId,
+		defaultProvider: params.defaultProvider,
+		allowManifestNormalization: false,
+		allowPluginNormalization: false,
+		manifestPlugins: []
+	}).byAlias.get(normalizeLowercaseStringOrEmpty(trimmed))?.ref ?? {
+		provider: params.defaultProvider,
+		model: trimmed
+	};
 	return parseModelRef(trimmed, params.defaultProvider, {
 		allowManifestNormalization: false,
 		allowPluginNormalization: false
@@ -43,20 +36,12 @@ function resolveStatusModelRefFromRaw(params) {
 }
 function resolveConfiguredStatusModelRef(params) {
 	const agentRawModel = params.agentId ? resolveAgentModelPrimaryValue(resolveAgentConfig(params.cfg, params.agentId)?.model) : void 0;
-	if (agentRawModel) {
+	for (const rawModel of [agentRawModel, resolveAgentModelPrimaryValue(params.cfg.agents?.defaults?.model)]) if (rawModel) {
 		const parsed = resolveStatusModelRefFromRaw({
 			cfg: params.cfg,
-			rawModel: agentRawModel,
-			defaultProvider: params.defaultProvider
-		});
-		if (parsed) return parsed;
-	}
-	const defaultsRawModel = resolveAgentModelPrimaryValue(params.cfg.agents?.defaults?.model);
-	if (defaultsRawModel) {
-		const parsed = resolveStatusModelRefFromRaw({
-			cfg: params.cfg,
-			rawModel: defaultsRawModel,
-			defaultProvider: params.defaultProvider
+			rawModel,
+			defaultProvider: params.defaultProvider,
+			agentId: params.agentId
 		});
 		if (parsed) return parsed;
 	}

@@ -1,3 +1,3 @@
-import { n as listRuntimeImageGenerationProviders, t as generateImage } from "../runtime-Dfbzcj9i.mjs";
-import "../image-generation-runtime-B2ufpV0B.mjs";
+import { n as listRuntimeImageGenerationProviders, t as generateImage } from "../runtime-fc-O_DH9.mjs";
+import "../image-generation-runtime-CpmFf3AC.mjs";
 export { generateImage, listRuntimeImageGenerationProviders };

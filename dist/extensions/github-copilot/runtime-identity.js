@@ -1,2 +1,2 @@
-import { t as buildCopilotRuntimeHeaders } from "../../runtime-identity-BTWDRzqV.mjs";
+import { t as buildCopilotRuntimeHeaders } from "../../runtime-identity-BcPuqdRw.mjs";
 export { buildCopilotRuntimeHeaders };

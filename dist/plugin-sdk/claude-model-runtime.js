@@ -1,4 +1,4 @@
-import { _ as supportsClaudeFastMode, c as resolveClaudeFable5ModelIdentity, g as supportsClaudeAdaptiveThinking, l as resolveClaudeModelIdentity, m as resolveClaudeSonnet5ModelIdentity, p as resolveClaudeOpus5ModelIdentity, s as requiresClaudeMandatoryAdaptiveThinking, u as resolveClaudeMythos5ModelIdentity } from "../anthropic-Cy4mTngV.mjs";
-import { n as resolveClaudeThinkingProfile } from "../provider-claude-thinking-E0IsJDi6.mjs";
-import "../claude-model-runtime-la_KkjCS.mjs";
-export { requiresClaudeMandatoryAdaptiveThinking, resolveClaudeFable5ModelIdentity, resolveClaudeModelIdentity, resolveClaudeMythos5ModelIdentity, resolveClaudeOpus5ModelIdentity, resolveClaudeSonnet5ModelIdentity, resolveClaudeThinkingProfile, supportsClaudeAdaptiveThinking, supportsClaudeFastMode };
+import { b as supportsClaudeAdaptiveThinking, d as resolveClaudeHaiku55ModelIdentity, f as resolveClaudeModelIdentity, g as resolveClaudeOpus5ModelIdentity, l as requiresClaudeMandatoryAdaptiveThinking, p as resolveClaudeMythos5ModelIdentity, u as resolveClaudeFable5ModelIdentity, v as resolveClaudeSonnet5ModelIdentity, x as supportsClaudeFastMode } from "../anthropic-D-i5CCnY.mjs";
+import { n as resolveClaudeThinkingProfile } from "../provider-claude-thinking-vHRl78JV.mjs";
+import "../claude-model-runtime-C1j-v9zi.mjs";
+export { requiresClaudeMandatoryAdaptiveThinking, resolveClaudeFable5ModelIdentity, resolveClaudeHaiku55ModelIdentity, resolveClaudeModelIdentity, resolveClaudeMythos5ModelIdentity, resolveClaudeOpus5ModelIdentity, resolveClaudeSonnet5ModelIdentity, resolveClaudeThinkingProfile, supportsClaudeAdaptiveThinking, supportsClaudeFastMode };

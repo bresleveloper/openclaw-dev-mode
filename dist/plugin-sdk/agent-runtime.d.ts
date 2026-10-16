@@ -1,13 +1,13 @@
-import { Bp as ensureAuthProfileStore, Fp as markAuthProfileBlockedUntil, Gp as saveAuthProfileStore, Hp as loadAuthProfileStoreForRuntime, Ip as clearExpiredCooldowns, Jp as resolvePersistedAuthProfileOwnerAgentDir, Lp as isProfileInCooldown, Rp as resolveProfileUnusableUntilForDisplay, Ts as ResolvedTtsConfig, Up as loadAuthProfileStoreForSecretsRuntime, Wp as loadAuthProfileStoreWithoutExternalProfiles, Xp as replaceRuntimeAuthProfileStoreSnapshots, Yo as agentCommandFromIngress, Yp as clearRuntimeAuthProfileStoreSnapshots, _s as DEFAULT_PROVIDER, am as ProviderAuthAliasLookupParams, bs as resolveTtsConfig, el as EmbeddedBlockChunker, em as listProfilesForProvider, im as resolveAuthProfileOrder, jp as resolveApiKeyForProviderCore, nd as modelSupportsVision, nm as resolveApiKeyForProfile, om as resolveProviderIdForAuth, qp as findPersistedAuthProfileCredential, rm as resolveAuthProfileEligibility, sd as findModelInCatalog, tm as refreshOAuthCredentialForRuntime, vs as getTtsProvider, xs as resolveTtsPrefsPath, zp as resolveProfilesUnavailableReason } from "../agent-harness-runtime-wMciqZ6Z.js";
-import { d as AssistantMessage, r as OpenClawConfig } from "../types.openclaw-Ccmw-oTa.js";
-import { b as PluginMetadataSnapshot } from "../io-BuIvr25R.js";
-import { C as AuthProfileCredential, D as OAuthCredential, E as AuthProfileStore, T as AuthProfileFailureReason } from "../types-DtHZVXiQ.js";
-import { a as resolveAllowedModelRefCore, c as buildModelAliasIndex, g as ModelCatalogSnapshot, h as ModelCatalogEntry, i as resolveThinkingDefaultCore, l as resolveModelRefFromString, n as parseModelRef, r as resolveThinkingDefaultWithRuntimeCatalogCore, s as buildConfiguredModelCatalog, t as findNormalizedProviderValue, u as resolveDefaultModelForAgent } from "../model-selection-Bl-O-zgq.js";
-import { d as readStringArrayParam, l as readPositiveIntegerParam, m as jsonResult, p as readToolStringParam, s as readNonNegativeIntegerParam } from "../common-Y4Bsty3O.js";
-import { d as resolveDefaultAgentDir, f as resolveDefaultAgentId, l as resolveAgentDir, o as setAgentEffectiveModelPrimary, p as listAgentIds, r as resolveAgentEffectiveModelPrimary, s as resolveAgentConfig, u as resolveAgentWorkspaceDir } from "../agent-scope-BV0uIQk3.js";
-import { c as resolveAckReaction, d as resolveHumanDelayConfig, f as resolveIdentityNamePrefix, l as resolveAgentIdentity } from "../ack-reactions-D5jcz0iU.js";
-import { n as resolveSessionAgentIdsCompatibility } from "../agent-scope-runtime-CR9EEnU3.js";
-import { t as CODEX_APP_SERVER_AUTH_MARKER } from "../model-auth-markers-1ePEMiK3.js";
+import { r as OpenClawConfig } from "../types.openclaw-DWWUw8hA.js";
+import { v as PluginMetadataSnapshot } from "../io-CwO8iq4h.js";
+import { _ as ModelCatalogEntry, a as resolveThinkingDefaultWithRuntimeCatalogCore, d as resolveModelRefFromString, f as resolveDefaultModelForAgent, i as parseModelRef, l as buildConfiguredModelCatalog, n as DEFAULT_PROVIDER, o as resolveThinkingDefaultCore, r as findNormalizedProviderValue, s as resolveAllowedModelRefCore, u as buildModelAliasIndex, v as ModelCatalogSnapshot } from "../defaults-D0SAbcb2.js";
+import { Cf as loadAuthProfileStoreWithoutExternalProfiles, Df as resolvePersistedAuthProfileOwnerAgentDir, Ef as findPersistedAuthProfileCredential, Ff as resolveApiKeyForProfile, If as resolveAuthProfileEligibility, Lf as resolveAuthProfileOrder, Li as getTtsProvider, Nf as listProfilesForProvider, Ni as agentCommandFromIngress, Of as clearRuntimeAuthProfileStoreSnapshots, Pf as refreshOAuthCredentialForRuntime, Rf as ProviderAuthAliasLookupParams, Ri as resolveTtsConfig, Ro as EmbeddedBlockChunker, Sf as loadAuthProfileStoreForSecretsRuntime, Wi as ResolvedTtsConfig, _f as resolveProfileUnusableUntilForDisplay, gf as isProfileInCooldown, hf as clearExpiredCooldowns, hr as formatReasoningMessage, kf as replaceRuntimeAuthProfileStoreSnapshots, mf as markAuthProfileBlockedUntil, mr as extractEmbeddedAssistantText, uf as resolveApiKeyForProviderCore, vf as resolveProfilesUnavailableReason, vs as modelSupportsVision, wf as saveAuthProfileStore, xf as loadAuthProfileStoreForRuntime, xs as findModelInCatalog, yf as ensureAuthProfileStore, zf as resolveProviderIdForAuth, zi as resolveTtsPrefsPath } from "../agent-harness-runtime-DZjstJNb.js";
+import { D as AuthProfileFailureReason, O as AuthProfileStore, T as AuthProfileCredential, k as OAuthCredential } from "../types-BooLarQr.js";
+import { d as readStringArrayParam, l as readPositiveIntegerParam, m as jsonResult, p as readToolStringParam, s as readNonNegativeIntegerParam } from "../common-K-HB_vKp.js";
+import { d as resolveDefaultAgentDir, f as resolveDefaultAgentId, l as resolveAgentDir, o as setAgentEffectiveModelPrimary, p as listAgentIds, r as resolveAgentEffectiveModelPrimary, s as resolveAgentConfig, u as resolveAgentWorkspaceDir } from "../agent-scope-CQBriA71.js";
+import { c as resolveAckReaction, d as resolveHumanDelayConfig, f as resolveIdentityNamePrefix, l as resolveAgentIdentity } from "../ack-reactions-NdNCdtJ_.js";
+import { n as resolveSessionAgentIdsCompatibility } from "../agent-scope-runtime-rNgrwLoo.js";
+import { t as CODEX_APP_SERVER_AUTH_MARKER } from "../model-auth-markers-C0aschiV.js";
 //#region src/agents/auth-profiles/paths.d.ts
 /** Resolve the user-facing path for the database selected by the auth store loader. */
 export declare function resolveAuthStorePathForDisplay(agentDir?: string): string;
@@ -27,8 +27,8 @@ type LoadPreparedModelCatalogParams = {
   scopedLiveProviderDiscovery?: boolean;
   allowGatewaySubagentBinding?: boolean;
 };
-/** Returns the newest published catalog while expired inventory renews in the background. */
-export declare function getPreparedModelCatalogSnapshot(params?: LoadPreparedModelCatalogParams): ModelCatalogSnapshot | undefined;
+/** Requests expiry renewal for an inventory consumer without waiting for discovery. */
+declare function refreshExpiredPreparedModelCatalog(params?: LoadPreparedModelCatalogParams): ModelCatalogSnapshot | undefined;
 //#endregion
 //#region src/agents/identity-avatar.d.ts
 type AgentAvatarResolution = {
@@ -51,11 +51,21 @@ type AgentAvatarResolution = {
 /** Resolve the effective avatar for an agent, including config and IDENTITY.md. */
 export declare function resolveAgentAvatar(cfg: OpenClawConfig, agentId: string): AgentAvatarResolution;
 //#endregion
-//#region src/agents/embedded-agent-utils.d.ts
-/** Extract sanitized assistant text across all text content blocks. */
-declare function extractEmbeddedAssistantText(msg: AssistantMessage): string;
-/** Format reasoning text for markdown-friendly channel surfaces. */
-export declare function formatReasoningMessage(text: string): string;
+//#region src/agents/auth-profiles/oauth-refresh-marker.d.ts
+type OAuthRefreshFenceCredential = {
+  type: "oauth";
+  access: string;
+  refresh: string;
+  expires: number;
+};
+/** True only while the durable refresh owner may still settle its claim. */
+export declare function isPendingOAuthRefreshFence(credential: OAuthRefreshFenceCredential | undefined): boolean;
+/** True when two persisted values share the same single-use refresh generation. */
+export declare function isSameOAuthRefreshGeneration(params: {
+  profileId: string;
+  left: OAuthCredential;
+  right: OAuthCredential;
+}): boolean;
 //#endregion
 //#region src/plugin-sdk/agent-runtime.d.ts
 /** Preserves the public SDK's writable default while internal catalog reads stay passive. */
@@ -77,4 +87,4 @@ export declare function resolveThinkingDefaultWithRuntimeCatalog(params: Omit<Pa
   loadModelCatalog: Parameters<typeof resolveThinkingDefaultWithRuntimeCatalogCore>[0]["loadRuntimeCatalog"];
 }): Promise<"adaptive" | "high" | "low" | "max" | "medium" | "minimal" | "off" | "ultra" | "xhigh">;
 //#endregion
-export { type AgentAvatarResolution, type AuthProfileCredential, type AuthProfileFailureReason, type AuthProfileStore, CODEX_APP_SERVER_AUTH_MARKER, DEFAULT_PROVIDER, EmbeddedBlockChunker, type ModelCatalogEntry, type OAuthCredential, type ProviderAuthAliasLookupParams, type ResolvedTtsConfig, agentCommandFromIngress, buildConfiguredModelCatalog, buildModelAliasIndex, clearExpiredCooldowns, clearRuntimeAuthProfileStoreSnapshots, ensureAuthProfileStore, extractEmbeddedAssistantText as extractAssistantText, findModelInCatalog, findNormalizedProviderValue, findPersistedAuthProfileCredential, getTtsProvider, isProfileInCooldown, jsonResult, listAgentIds, listProfilesForProvider, loadAuthProfileStoreForRuntime, loadAuthProfileStoreForSecretsRuntime, loadAuthProfileStoreWithoutExternalProfiles, markAuthProfileBlockedUntil, modelSupportsVision, parseModelRef, readNonNegativeIntegerParam, readPositiveIntegerParam, readStringArrayParam, readToolStringParam as readStringParam, refreshOAuthCredentialForRuntime, replaceRuntimeAuthProfileStoreSnapshots, resolveAckReaction, resolveAgentConfig, resolveAgentDir, resolveAgentEffectiveModelPrimary, resolveAgentIdentity, resolveAgentWorkspaceDir, resolveAllowedModelRefCore as resolveAllowedModelRef, resolveApiKeyForProfile, resolveApiKeyForProviderCore as resolveApiKeyForProvider, resolveAuthProfileEligibility, resolveAuthProfileOrder, resolveDefaultAgentDir, resolveDefaultAgentId, resolveDefaultModelForAgent, resolveHumanDelayConfig, resolveIdentityNamePrefix, resolveModelRefFromString, resolvePersistedAuthProfileOwnerAgentDir, resolveProfileUnusableUntilForDisplay, resolveProfilesUnavailableReason, resolveProviderIdForAuth, resolveSessionAgentIdsCompatibility as resolveSessionAgentIds, resolveThinkingDefaultCore as resolveThinkingDefault, resolveTtsConfig, resolveTtsPrefsPath, saveAuthProfileStore, setAgentEffectiveModelPrimary };
+export { type AgentAvatarResolution, type AuthProfileCredential, type AuthProfileFailureReason, type AuthProfileStore, CODEX_APP_SERVER_AUTH_MARKER, DEFAULT_PROVIDER, EmbeddedBlockChunker, type ModelCatalogEntry, type OAuthCredential, type ProviderAuthAliasLookupParams, type ResolvedTtsConfig, agentCommandFromIngress, buildConfiguredModelCatalog, buildModelAliasIndex, clearExpiredCooldowns, clearRuntimeAuthProfileStoreSnapshots, ensureAuthProfileStore, extractEmbeddedAssistantText as extractAssistantText, findModelInCatalog, findNormalizedProviderValue, findPersistedAuthProfileCredential, formatReasoningMessage, refreshExpiredPreparedModelCatalog as getPreparedModelCatalogSnapshot, getTtsProvider, isProfileInCooldown, jsonResult, listAgentIds, listProfilesForProvider, loadAuthProfileStoreForRuntime, loadAuthProfileStoreForSecretsRuntime, loadAuthProfileStoreWithoutExternalProfiles, markAuthProfileBlockedUntil, modelSupportsVision, parseModelRef, readNonNegativeIntegerParam, readPositiveIntegerParam, readStringArrayParam, readToolStringParam as readStringParam, refreshOAuthCredentialForRuntime, replaceRuntimeAuthProfileStoreSnapshots, resolveAckReaction, resolveAgentConfig, resolveAgentDir, resolveAgentEffectiveModelPrimary, resolveAgentIdentity, resolveAgentWorkspaceDir, resolveAllowedModelRefCore as resolveAllowedModelRef, resolveApiKeyForProfile, resolveApiKeyForProviderCore as resolveApiKeyForProvider, resolveAuthProfileEligibility, resolveAuthProfileOrder, resolveDefaultAgentDir, resolveDefaultAgentId, resolveDefaultModelForAgent, resolveHumanDelayConfig, resolveIdentityNamePrefix, resolveModelRefFromString, resolvePersistedAuthProfileOwnerAgentDir, resolveProfileUnusableUntilForDisplay, resolveProfilesUnavailableReason, resolveProviderIdForAuth, resolveSessionAgentIdsCompatibility as resolveSessionAgentIds, resolveThinkingDefaultCore as resolveThinkingDefault, resolveTtsConfig, resolveTtsPrefsPath, saveAuthProfileStore, setAgentEffectiveModelPrimary };

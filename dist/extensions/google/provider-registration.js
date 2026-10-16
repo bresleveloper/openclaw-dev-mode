@@ -1,2 +1,2 @@
-import { n as registerGoogleProvider, t as buildGoogleProvider } from "../../provider-registration-CxVjf1GC.mjs";
-export { buildGoogleProvider, registerGoogleProvider };
+import { t as buildGoogleProvider } from "../../provider-registration-sZWysDyD.mjs";
+export { buildGoogleProvider };

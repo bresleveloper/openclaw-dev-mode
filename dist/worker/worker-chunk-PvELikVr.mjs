@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function markOpenClawExecEnv(e){return{...e,[t]:r}}var t,n,r,i=e((()=>{t=`OPENCLAW_CLI`,n=`OPENCLAW_SUBAGENT_EXEC`,r=`1`}));export{markOpenClawExecEnv as i,n,i as r,t};

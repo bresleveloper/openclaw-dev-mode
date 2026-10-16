@@ -3,12 +3,14 @@ import { dropMediaNoteLines } from "./memory-capture-sanitization.js";
 import { cleanMemorySearchResults, formatRelevantMemoriesContext, normalizeRecallQuery } from "./memory-policy.js";
 import { startMemoryRecall } from "./recall-service.js";
 import { formatErrorMessage } from "openclaw/plugin-sdk/error-runtime";
+import { isIncognitoSessionKey } from "openclaw/plugin-sdk/routing";
 //#region extensions/memory-lancedb/auto-recall.ts
 const AUTO_RECALL_TIMEOUT_MS = 15e3;
 const AUTO_RECALL_OVERFETCH_LIMIT = 10;
 const AUTO_RECALL_RESULT_CAP = 3;
 function createAutoRecallHook(params) {
 	return async (event, ctx) => {
+		if (isIncognitoSessionKey(ctx.sessionKey)) return;
 		const currentCfg = params.resolveCurrentConfig();
 		const recallMaxChars = currentCfg.recallMaxChars;
 		if (!currentCfg.autoRecall) return;

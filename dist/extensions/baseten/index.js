@@ -1,4 +1,4 @@
-import { c as resolveBasetenDynamicModel, s as projectBasetenLiveModels, u as openclaw_plugin_default } from "./.setup/models-CwKDnNIj.mjs";
+import { c as resolveBasetenDynamicModel, s as projectBasetenLiveModels, u as openclaw_plugin_default } from "./.setup/models-BOkRtUeP.mjs";
 import { applyBasetenSetupConfig } from "./onboard.js";
 import { buildStaticBasetenProvider } from "./provider-catalog.js";
 import { createBasetenThinkingWrapper } from "./stream.js";
@@ -7,7 +7,6 @@ import { buildOpenAICompatibleLiveProviderCatalog } from "openclaw/plugin-sdk/pr
 import { defineSingleProviderPluginEntry } from "openclaw/plugin-sdk/provider-entry";
 import { buildProviderReplayFamilyHooks } from "openclaw/plugin-sdk/provider-model-shared";
 //#region extensions/baseten/index.ts
-/** Baseten provider plugin entrypoint. */
 const PROVIDER_ID = "baseten";
 var baseten_default = defineSingleProviderPluginEntry({
 	id: PROVIDER_ID,
@@ -19,8 +18,9 @@ var baseten_default = defineSingleProviderPluginEntry({
 		docsPath: "/providers/baseten",
 		manifestAuth: {
 			applyConfig: applyBasetenSetupConfig,
+			preserveExistingPrimary: true,
 			noteTitle: "Baseten",
-			noteMessage: ["Baseten hosts Thinking Machines Lab's Inkling and other frontier models behind one OpenAI-compatible API.", "Get your API key at: https://app.baseten.co/settings/api_keys"].join("\n")
+			noteMessage: ["Baseten hosts DeepSeek V4.1 Flash and other models behind one OpenAI-compatible API.", "Get your API key at: https://app.baseten.co/settings/api_keys"].join("\n")
 		},
 		catalog: {
 			order: "simple",

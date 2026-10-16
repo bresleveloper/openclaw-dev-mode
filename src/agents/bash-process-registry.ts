@@ -13,7 +13,7 @@ import type {
 } from "../process/supervisor/types.js";
 import { createDeferredCore, type Deferred } from "../shared/deferred.js";
 import type { DeliveryContext } from "../utils/delivery-context.types.js";
-import { readEnvInt } from "./bash-tools.shared.js";
+import { clampWithDefault, readEnvInt } from "./bash-tools.shared.js";
 
 const DEFAULT_JOB_TTL_MS = 30 * 60 * 1000; // 30 minutes
 const MIN_JOB_TTL_MS = 60 * 1000; // 1 minute
@@ -23,10 +23,7 @@ const MAX_FINISHED_SESSION_COUNT = 50;
 const MAX_FINISHED_SESSION_OUTPUT_CHARS = 2_000_000;
 
 function clampTtl(value: number | undefined) {
-  if (value === undefined || Number.isNaN(value)) {
-    return DEFAULT_JOB_TTL_MS;
-  }
-  return Math.min(Math.max(value, MIN_JOB_TTL_MS), MAX_JOB_TTL_MS);
+  return clampWithDefault(value, DEFAULT_JOB_TTL_MS, MIN_JOB_TTL_MS, MAX_JOB_TTL_MS);
 }
 
 const defaultJobTtlMs = clampTtl(readEnvInt("OPENCLAW_BASH_JOB_TTL_MS", "PI_BASH_JOB_TTL_MS"));
@@ -211,7 +208,9 @@ export function appendOutput(session: ProcessSession, stream: "stdout" | "stderr
     session.pendingMaxOutputChars ?? DEFAULT_PENDING_OUTPUT_CHARS,
     session.maxOutputChars,
   );
-  session.pendingOutput.push({ stream, text: chunk });
+  // Producer chunks may themselves be slices of a much larger decoded callback.
+  const ownedChunk = copyOutputText(chunk);
+  session.pendingOutput.push({ stream, text: ownedChunk });
   let pendingChars = streamChars + chunk.length;
   if (pendingChars > pendingCap) {
     session.truncated = true;
@@ -224,7 +223,7 @@ export function appendOutput(session: ProcessSession, stream: "stdout" | "stderr
     session.pendingStderrChars = pendingChars;
   }
   session.totalOutputChars += chunk.length;
-  const aggregated = trimWithCap(session.aggregated + chunk, session.maxOutputChars);
+  const aggregated = tail(session.aggregated + ownedChunk, session.maxOutputChars);
   session.truncated =
     session.truncated || aggregated.length < session.aggregated.length + chunk.length;
   session.aggregated = aggregated;
@@ -250,32 +249,25 @@ export function prepareSessionPoll(session: ProcessSession, scope: object | unde
   if (!scope) {
     return { ...drainSession(session), acknowledge() {} };
   }
-  const pending = session.pendingPollDelivery;
-  if (pending) {
+  let delivery = session.pendingPollDelivery;
+  if (delivery) {
     // The first retry claims the staged bytes for its turn. Parallel siblings then
     // observe that scope and cannot duplicate the recovery result.
-    if (pending.scope === scope) {
+    if (delivery.scope === scope) {
       return { output: "", outputDropped: false, acknowledge() {} };
     }
-    pending.scope = scope;
-    return {
-      output: pending.output,
-      outputDropped: pending.outputDropped,
-      acknowledge() {
-        if (session.pendingPollDelivery === pending) {
-          session.pendingPollDelivery = undefined;
-        }
-      },
-    };
+    delivery.scope = scope;
+  } else {
+    const drained = drainSession(session);
+    if (drained.output.length === 0 && !drained.outputDropped) {
+      return { ...drained, acknowledge() {} };
+    }
+    delivery = { ...drained, scope };
+    session.pendingPollDelivery = delivery;
   }
-  const drained = drainSession(session);
-  if (drained.output.length === 0 && !drained.outputDropped) {
-    return { ...drained, acknowledge() {} };
-  }
-  const delivery = { ...drained, scope };
-  session.pendingPollDelivery = delivery;
   return {
-    ...drained,
+    output: delivery.output,
+    outputDropped: delivery.outputDropped,
     acknowledge() {
       if (session.pendingPollDelivery === delivery) {
         session.pendingPollDelivery = undefined;
@@ -314,11 +306,17 @@ export function markExited(
   session.pendingOutput = pending.output;
   session.pendingOutputDropped = pending.outputDropped;
   moveToFinished(session);
+  if (!session.finalizing) {
+    settleExecSessionFinalization(session);
+  }
+}
+
+/** Releases scope joins after the process owner's task and notification work settles. */
+export function settleExecSessionFinalization(session: ProcessSession): void {
+  session.finalizing = false;
   const active = activeExecSessions.get(session.id);
   if (active?.session === session) {
     activeExecSessions.delete(session.id);
-    // The exec owner's synchronous task/notification callbacks run before
-    // these promise continuations resume and release the environment state.
     active.settled?.resolve();
   }
 }
@@ -356,17 +354,6 @@ export function acknowledgeNotifyOnExit(record: {
   }
   remove();
   record.notifyOnExitRemoval = undefined;
-}
-
-/** Returns the promoted process owner even after its presentation record is removed. */
-export function getActiveBackgroundExecSession(sessionId: string): ProcessSession | undefined {
-  const active = activeExecSessions.get(sessionId);
-  return active?.promoted ? active.session : undefined;
-}
-
-/** Reports owner-tracked process liveness even after visibility is removed. */
-export function hasActiveBackgroundExecSession(sessionId: string): boolean {
-  return getActiveBackgroundExecSession(sessionId) !== undefined;
 }
 
 /** Returns the number of live background exec sessions without exposing process details. */
@@ -433,12 +420,17 @@ function moveToFinished(session: ProcessSession) {
   scheduleSweeper();
 }
 
+function copyOutputText(text: string): string {
+  // Own code units without replacing lone surrogates as UTF-8 would.
+  return Buffer.from(text, "utf16le").toString("utf16le");
+}
+
 /** Returns the last `max` characters of text without adding ellipses. */
 export function tail(text: string, max = 2000) {
   if (text.length <= max) {
     return text;
   }
-  return sliceUtf16Safe(text, text.length - max);
+  return copyOutputText(sliceUtf16Safe(text, text.length - max));
 }
 
 function capPendingStream(
@@ -465,7 +457,7 @@ function capPendingStream(
       pendingChars -= chunk.text.length;
       continue;
     }
-    const trimmed = sliceUtf16Safe(chunk.text, overflow);
+    const trimmed = tail(chunk.text, chunk.text.length - overflow);
     const removedChars = chunk.text.length - trimmed.length;
     pendingChars -= removedChars;
     chunk.text = trimmed;
@@ -475,11 +467,6 @@ function capPendingStream(
     output.splice(writeIndex, index - writeIndex);
   }
   return pendingChars;
-}
-
-/** Keeps only the last `max` characters for bounded aggregate output storage. */
-function trimWithCap(text: string, max: number) {
-  return tail(text, max);
 }
 
 /** Lists backgrounded running sessions visible to reconnect/poll callers. */

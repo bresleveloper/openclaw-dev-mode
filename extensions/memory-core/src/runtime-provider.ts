@@ -11,7 +11,7 @@ import { prepareMemoryManagerReload } from "./memory/lifecycle.js";
 import type { MemoryCoreRuntimeHost } from "./memory/runtime-host.js";
 import { classifyWorkspaceMemoryPaths } from "./workspace-path-classifier.js";
 
-export function createMemoryRuntime(host: MemoryCoreRuntimeHost = {}) {
+export function createMemoryRuntime(host: MemoryCoreRuntimeHost) {
   if (host.openKeyedStore) {
     configureMemoryCoreDreamingState(host.openKeyedStore);
   }
@@ -22,6 +22,7 @@ export function createMemoryRuntime(host: MemoryCoreRuntimeHost = {}) {
       const { manager, debug, error } = await getMemorySearchManager({
         ...params,
         ...(host.acquireLocalService ? { acquireLocalService: host.acquireLocalService } : {}),
+        runInBackgroundContext: host.runInBackgroundContext,
       });
       return {
         manager,
@@ -41,5 +42,3 @@ export function createMemoryRuntime(host: MemoryCoreRuntimeHost = {}) {
     closeMemorySearchManager,
   } satisfies MemoryPluginRuntime;
 }
-
-export const memoryRuntime = createMemoryRuntime();

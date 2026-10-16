@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function normalizeGitHubLogin(e){let n=e.trim();return t.test(n)?n:void 0}var t,n=e((()=>{t=/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/u}));export{normalizeGitHubLogin as n,n as t};

@@ -1,3 +1,3 @@
-import { t as createMiniMaxWebSearchProvider } from "../../minimax-web-search-provider-CYA-OhCz.mjs";
-import "../../web-search-provider-VRc2qksm.mjs";
+import { t as createMiniMaxWebSearchProvider } from "../../minimax-web-search-provider-ZCbzZ5GF.mjs";
+import "../../web-search-provider-B6gToOM3.mjs";
 export { createMiniMaxWebSearchProvider };

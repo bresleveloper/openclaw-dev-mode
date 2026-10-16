@@ -1,19 +1,19 @@
-import { definePluginEntry, resolvePreferredOpenClawTmpDir } from "./api.js";
-import { resolveRequestClientIp } from "./runtime-api.js";
-import { a as getServedViewerAsset, r as VIEWER_RUNTIME_PATH } from "./.setup/viewer-assets-D3qrnaxI.mjs";
-import { buildPluginConfigSchema } from "openclaw/plugin-sdk/plugin-entry";
+import { a as getServedViewerAsset, r as VIEWER_RUNTIME_PATH } from "./.setup/viewer-assets-C646cpoV.mjs";
+import { buildPluginConfigSchema, definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import { mapPluginConfigIssues } from "openclaw/plugin-sdk/extension-shared";
+import { asFiniteNumber, asNonArrayRecord, asOptionalRecord, normalizeLowercaseStringOrEmpty, normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
+import { clampInt, clampNumber, escapeHtml } from "openclaw/plugin-sdk/text-utility-runtime";
 import { z } from "zod";
 import { resolveGatewayPublicOrigin } from "openclaw/plugin-sdk/config-contracts";
-import { resolveGatewayPort } from "openclaw/plugin-sdk/gateway-config-runtime";
 import fs from "node:fs";
 import path from "node:path";
 import { resolveLivePluginConfigObject } from "openclaw/plugin-sdk/plugin-config-runtime";
+import { resolvePreferredOpenClawTmpDir } from "openclaw/plugin-sdk/temp-path";
 import { isLoopbackHost } from "openclaw/plugin-sdk/ssrf-runtime";
-import { asNonArrayRecord, normalizeLowercaseStringOrEmpty, normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
-import { createAuthRateLimiter } from "openclaw/plugin-sdk/webhook-ingress";
+import { createAuthRateLimiter, resolveRequestClientIp } from "openclaw/plugin-sdk/webhook-ingress";
 import crypto from "node:crypto";
 import fs$1 from "node:fs/promises";
+import { promisify } from "node:util";
 import { gunzip, gzip } from "node:zlib";
 import { runTasksWithConcurrency } from "openclaw/plugin-sdk/concurrency-runtime";
 import { MAX_DATE_TIMESTAMP_MS, timestampMsToIsoString } from "openclaw/plugin-sdk/number-runtime";
@@ -22,10 +22,36 @@ import { optionalFiniteNumberSchema, stringEnum } from "openclaw/plugin-sdk/chan
 import { formatErrorMessage } from "openclaw/plugin-sdk/error-runtime";
 import { createLazyRuntimeModule } from "openclaw/plugin-sdk/lazy-runtime";
 import { readFiniteNumberParam } from "openclaw/plugin-sdk/param-readers";
+import { textResult } from "openclaw/plugin-sdk/tool-results";
 import { Type } from "typebox";
 import { parsePatchFiles, resolveLanguage } from "@pierre/diffs";
 import { preloadDiffHTML } from "@pierre/diffs/ssr";
-import { escapeHtml } from "openclaw/plugin-sdk/text-utility-runtime";
+//#region \0rolldown/runtime.js
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __exportAll = (all, no_symbols) => {
+	let target = {};
+	for (var name in all) __defProp(target, name, {
+		get: all[name],
+		enumerable: true
+	});
+	if (!no_symbols) __defProp(target, Symbol.toStringTag, { value: "Module" });
+	return target;
+};
+var __copyProps = (to, from, except, desc) => {
+	if (from && typeof from === "object" || typeof from === "function") for (var keys = __getOwnPropNames(from), i = 0, n = keys.length, key; i < n; i++) {
+		key = keys[i];
+		if (!__hasOwnProp.call(to, key) && key !== except) __defProp(to, key, {
+			get: ((k) => from[k]).bind(null, key),
+			enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable
+		});
+	}
+	return to;
+};
+var __reExport = (target, mod, secondTarget) => (__copyProps(target, mod, "default"), secondTarget && __copyProps(secondTarget, mod, "default"));
+//#endregion
 //#region extensions/diffs/src/types.ts
 const DIFF_LAYOUTS = ["unified", "split"];
 const DIFF_MODES = [
@@ -49,6 +75,145 @@ const DIFF_OUTPUT_FORMATS = ["png", "pdf"];
 const DIFF_ARTIFACT_ID_PATTERN = /^[0-9a-f]{20}$/;
 const DIFF_ARTIFACT_TOKEN_PATTERN = /^[0-9a-f]{48}$/;
 //#endregion
+//#region src/gateway/gateway-http-route-contracts.ts
+const GATEWAY_PROBE_ROUTES = /* @__PURE__ */ new Map([
+	["/health", "live"],
+	["/healthz", "live"],
+	["/ready", "ready"],
+	["/readyz", "ready"],
+	["/startup", "startup"],
+	["/startupz", "startup"]
+]);
+function classifyGatewayProbePath(pathname) {
+	for (const [root, status] of GATEWAY_PROBE_ROUTES) {
+		if (pathname === root) return status;
+		if (pathname.startsWith(`${root}/`)) return "namespace";
+	}
+	return "outside";
+}
+//#endregion
+//#region packages/normalization-core/src/string-coerce.ts
+/** Trims string input and returns null for non-strings or empty strings. */
+function normalizeNullableString(value) {
+	if (typeof value !== "string") return null;
+	const trimmed = value.trim();
+	return trimmed ? trimmed : null;
+}
+/** Trims string input and returns undefined for non-strings or empty strings. */
+function normalizeOptionalString$1(value) {
+	return normalizeNullableString(value) ?? void 0;
+}
+/** Lowercases a normalized optional string. */
+function normalizeOptionalLowercaseString(value) {
+	return normalizeOptionalString$1(value)?.toLowerCase();
+}
+/** Lowercases a normalized string or returns an empty string when absent. */
+function normalizeLowercaseStringOrEmpty$1(value) {
+	return normalizeOptionalLowercaseString(value) ?? "";
+}
+//#endregion
+//#region src/plugins/http-path-prefix.ts
+function prefixMatchPath(pathname, prefix) {
+	return pathname === prefix || pathname.startsWith(`${prefix}/`) || pathname.startsWith(`${prefix}%`);
+}
+//#endregion
+//#region src/gateway/security-path.ts
+const MAX_PATH_DECODE_PASSES = 32;
+function normalizePathSeparators(pathname) {
+	const collapsed = pathname.replace(/\/{2,}/g, "/");
+	if (collapsed.length <= 1) return collapsed;
+	return collapsed.replace(/\/+$/, "");
+}
+function resolveDotSegments(pathname) {
+	try {
+		return new URL(pathname, "http://localhost").pathname;
+	} catch {
+		return pathname;
+	}
+}
+function normalizePathForSecurity(pathname) {
+	return normalizePathSeparators(normalizeLowercaseStringOrEmpty$1(resolveDotSegments(pathname))) || "/";
+}
+function buildCanonicalPathCandidates(pathname, maxDecodePasses = MAX_PATH_DECODE_PASSES) {
+	const candidates = /* @__PURE__ */ new Set([normalizePathForSecurity(pathname)]);
+	let decoded = pathname;
+	let malformedEncoding = false;
+	let decodePasses = 0;
+	for (let pass = 0; pass < maxDecodePasses; pass++) {
+		let nextDecoded;
+		try {
+			nextDecoded = decodeURIComponent(decoded);
+		} catch {
+			malformedEncoding = true;
+			break;
+		}
+		if (nextDecoded === decoded) break;
+		decodePasses += 1;
+		decoded = nextDecoded;
+		candidates.add(normalizePathForSecurity(decoded));
+	}
+	let decodePassLimitReached = false;
+	if (!malformedEncoding) try {
+		decodePassLimitReached = decodeURIComponent(decoded) !== decoded;
+	} catch {
+		malformedEncoding = true;
+	}
+	return {
+		candidates: [...candidates],
+		decodePasses,
+		decodePassLimitReached,
+		malformedEncoding
+	};
+}
+function canonicalizePathForSecurity(pathname) {
+	const { candidates, decodePasses, decodePassLimitReached, malformedEncoding } = buildCanonicalPathCandidates(pathname);
+	return {
+		canonicalPath: candidates[candidates.length - 1] ?? "/",
+		candidates,
+		decodePasses,
+		decodePassLimitReached,
+		malformedEncoding,
+		rawNormalizedPath: normalizePathSeparators(normalizeLowercaseStringOrEmpty$1(pathname)) || "/"
+	};
+}
+const PROTECTED_PLUGIN_ROUTE_PREFIXES = ["/api/channels"];
+//#endregion
+//#region src/gateway/server/plugins-http/path-context.ts
+function normalizeProtectedPrefix(prefix) {
+	const collapsed = normalizeLowercaseStringOrEmpty$1(prefix).replace(/\/{2,}/g, "/");
+	if (collapsed.length <= 1) return collapsed || "/";
+	return collapsed.replace(/\/+$/, "");
+}
+const NORMALIZED_PROTECTED_PLUGIN_ROUTE_PREFIXES = PROTECTED_PLUGIN_ROUTE_PREFIXES.map(normalizeProtectedPrefix);
+/** Returns true when any decoded path candidate targets a protected route. */
+function isProtectedPluginRoutePathFromContext(context) {
+	if (context.candidates.some((candidate) => NORMALIZED_PROTECTED_PLUGIN_ROUTE_PREFIXES.some((prefix) => prefixMatchPath(candidate, prefix)))) return true;
+	if (context.decodePassLimitReached) return true;
+	if (!context.malformedEncoding) return false;
+	return NORMALIZED_PROTECTED_PLUGIN_ROUTE_PREFIXES.some((prefix) => prefixMatchPath(context.rawNormalizedPath, prefix));
+}
+/** Builds all security-relevant decoded path candidates for a request path. */
+function resolvePluginRoutePathContext(pathname) {
+	const canonical = canonicalizePathForSecurity(pathname);
+	return {
+		pathname,
+		canonicalPath: canonical.canonicalPath,
+		candidates: canonical.candidates,
+		malformedEncoding: canonical.malformedEncoding,
+		decodePassLimitReached: canonical.decodePassLimitReached,
+		rawNormalizedPath: canonical.rawNormalizedPath
+	};
+}
+//#endregion
+//#region \0openclaw:bundled-sdk:openclaw/plugin-sdk/gateway-config-runtime
+var gateway_config_runtime_exports = /* @__PURE__ */ __exportAll({
+	classifyGatewayProbePath: () => classifyGatewayProbePath,
+	isProtectedPluginRoutePathFromContext: () => isProtectedPluginRoutePathFromContext,
+	resolvePluginRoutePathContext: () => resolvePluginRoutePathContext
+});
+import * as import_openclaw_plugin_sdk_gateway_config_runtime from "openclaw/plugin-sdk/gateway-config-runtime";
+__reExport(gateway_config_runtime_exports, import_openclaw_plugin_sdk_gateway_config_runtime);
+//#endregion
 //#region extensions/diffs/src/url.ts
 function buildViewerUrl(params) {
 	const normalizedBase = normalizeViewerBaseUrl(params.baseUrl?.trim() || params.viewerBaseUrl?.trim() || resolveGatewayPublicOrigin(params.config) || resolveGatewayBaseUrl(params.config));
@@ -60,12 +225,8 @@ function buildViewerUrl(params) {
 	return parsedBase.toString();
 }
 function normalizeViewerBaseUrl(raw, fieldName = "baseUrl") {
-	let parsed;
-	try {
-		parsed = new URL(raw);
-	} catch {
-		throw new Error(`Invalid ${fieldName}: ${raw}`);
-	}
+	const parsed = URL.parse(raw);
+	if (!parsed) throw new Error(`Invalid ${fieldName}: ${raw}`);
 	if (parsed.protocol !== "http:" && parsed.protocol !== "https:") throw new Error(`${fieldName} must use http or https: ${raw}`);
 	if (parsed.search || parsed.hash) throw new Error(`${fieldName} must not include query/hash: ${raw}`);
 	parsed.search = "";
@@ -75,7 +236,7 @@ function normalizeViewerBaseUrl(raw, fieldName = "baseUrl") {
 }
 function resolveGatewayBaseUrl(config) {
 	const scheme = config.gateway?.tls?.enabled ? "https" : "http";
-	const port = resolveGatewayPort(config);
+	const port = (0, gateway_config_runtime_exports.resolveGatewayPort)(config);
 	const customHost = config.gateway?.customBindHost?.trim();
 	if (config.gateway?.bind === "custom" && customHost) return `${scheme}://${customHost}:${port}`;
 	return `${scheme}://127.0.0.1:${port}`;
@@ -183,10 +344,6 @@ const diffsPluginConfigSchema = {
 		}
 	}
 };
-function resolveConfiguredValue(options) {
-	const alias = options.aliases.find((value) => value !== void 0);
-	return options.primary ?? alias;
-}
 function buildDiffsPluginConfigShape(config) {
 	const viewerBaseUrl = resolveDiffsPluginViewerBaseUrl(config);
 	return {
@@ -199,50 +356,32 @@ function resolveDiffsPluginDefaults(config) {
 	if (!config || typeof config !== "object" || Array.isArray(config)) return { ...DEFAULT_DIFFS_TOOL_DEFAULTS };
 	const defaults = config.defaults;
 	if (!defaults || typeof defaults !== "object" || Array.isArray(defaults)) return { ...DEFAULT_DIFFS_TOOL_DEFAULTS };
-	const fileQuality = normalizeFileQuality$1(resolveConfiguredValue({
-		primary: defaults.fileQuality,
-		aliases: [defaults.imageQuality]
-	}));
+	const fileQuality = normalizeFileQuality(defaults.fileQuality ?? defaults.imageQuality);
 	const profile = DEFAULT_IMAGE_QUALITY_PROFILES[fileQuality];
-	const fileFormat = resolveConfiguredValue({
-		primary: defaults.fileFormat,
-		aliases: [defaults.imageFormat, defaults.format]
-	});
-	const fileScale = resolveConfiguredValue({
-		primary: defaults.fileScale,
-		aliases: [defaults.imageScale]
-	});
-	const fileMaxWidth = resolveConfiguredValue({
-		primary: defaults.fileMaxWidth,
-		aliases: [defaults.imageMaxWidth]
-	});
+	const fileFormat = defaults.fileFormat ?? (defaults.imageFormat !== void 0 ? defaults.imageFormat : defaults.format);
 	return {
 		fontFamily: normalizeFontFamily(defaults.fontFamily),
 		fontSize: normalizeDiffFontSize(defaults.fontSize),
 		lineSpacing: normalizeDiffLineSpacing(defaults.lineSpacing),
-		layout: normalizeLayout$1(defaults.layout),
+		layout: DIFF_LAYOUTS.find((value) => value === defaults.layout) ?? DEFAULT_DIFFS_TOOL_DEFAULTS.layout,
 		showLineNumbers: defaults.showLineNumbers !== false,
-		diffIndicators: normalizeDiffIndicators(defaults.diffIndicators),
+		diffIndicators: DIFF_INDICATORS.find((value) => value === defaults.diffIndicators) ?? DEFAULT_DIFFS_TOOL_DEFAULTS.diffIndicators,
 		wordWrap: defaults.wordWrap !== false,
 		background: defaults.background !== false,
-		theme: normalizeTheme$1(defaults.theme),
+		theme: DIFF_THEMES.find((value) => value === defaults.theme) ?? DEFAULT_DIFFS_TOOL_DEFAULTS.theme,
 		fileFormat: normalizeFileFormat(fileFormat),
 		fileQuality,
-		fileScale: normalizeFileScale(fileScale, profile.scale),
-		fileMaxWidth: normalizeFileMaxWidth(fileMaxWidth, profile.maxWidth),
-		mode: normalizeMode$1(defaults.mode),
+		fileScale: normalizeFileScale(defaults.fileScale ?? defaults.imageScale, profile.scale),
+		fileMaxWidth: normalizeFileMaxWidth(defaults.fileMaxWidth ?? defaults.imageMaxWidth, profile.maxWidth),
+		mode: DIFF_MODES.find((value) => value === defaults.mode) ?? DEFAULT_DIFFS_TOOL_DEFAULTS.mode,
 		ttlSeconds: normalizeTtlSeconds(defaults.ttlSeconds)
 	};
 }
 function resolveDiffsPluginSecurity(config) {
-	if (!config || typeof config !== "object" || Array.isArray(config)) return { ...DEFAULT_DIFFS_PLUGIN_SECURITY };
-	const security = config.security;
-	if (!security || typeof security !== "object" || Array.isArray(security)) return { ...DEFAULT_DIFFS_PLUGIN_SECURITY };
-	return { allowRemoteViewer: security.allowRemoteViewer === true };
+	return { allowRemoteViewer: asOptionalRecord(asOptionalRecord(config)?.security)?.allowRemoteViewer === true };
 }
 function resolveDiffsPluginViewerBaseUrl(config) {
-	if (!config || typeof config !== "object" || Array.isArray(config)) return;
-	const viewerBaseUrl = config.viewerBaseUrl;
+	const viewerBaseUrl = asOptionalRecord(config)?.viewerBaseUrl;
 	if (typeof viewerBaseUrl !== "string") return;
 	const normalized = viewerBaseUrl.trim();
 	return normalized ? normalizeViewerBaseUrl(normalized) : void 0;
@@ -251,48 +390,32 @@ function normalizeFontFamily(fontFamily) {
 	return fontFamily?.trim() || DEFAULT_DIFFS_TOOL_DEFAULTS.fontFamily;
 }
 function normalizeDiffFontSize(fontSize) {
-	if (fontSize === void 0 || !Number.isFinite(fontSize)) return DEFAULT_DIFFS_TOOL_DEFAULTS.fontSize;
-	return Math.min(Math.max(Math.floor(fontSize), 10), 24);
+	return clampInt(asFiniteNumber(fontSize) ?? DEFAULT_DIFFS_TOOL_DEFAULTS.fontSize, 10, 24);
 }
 function normalizeDiffLineSpacing(lineSpacing) {
-	if (lineSpacing === void 0 || !Number.isFinite(lineSpacing)) return DEFAULT_DIFFS_TOOL_DEFAULTS.lineSpacing;
-	return Math.min(Math.max(lineSpacing, 1), 3);
-}
-function normalizeLayout$1(layout) {
-	return layout && DIFF_LAYOUTS.includes(layout) ? layout : DEFAULT_DIFFS_TOOL_DEFAULTS.layout;
-}
-function normalizeDiffIndicators(diffIndicators) {
-	return diffIndicators && DIFF_INDICATORS.includes(diffIndicators) ? diffIndicators : DEFAULT_DIFFS_TOOL_DEFAULTS.diffIndicators;
-}
-function normalizeTheme$1(theme) {
-	return theme && DIFF_THEMES.includes(theme) ? theme : DEFAULT_DIFFS_TOOL_DEFAULTS.theme;
+	return clampNumber(asFiniteNumber(lineSpacing) ?? DEFAULT_DIFFS_TOOL_DEFAULTS.lineSpacing, 1, 3);
 }
 function normalizeFileFormat(fileFormat) {
 	return fileFormat && DIFF_OUTPUT_FORMATS.includes(fileFormat) ? fileFormat : DEFAULT_DIFFS_TOOL_DEFAULTS.fileFormat;
 }
-function normalizeFileQuality$1(fileQuality) {
+function normalizeFileQuality(fileQuality) {
 	return fileQuality && DIFF_IMAGE_QUALITY_PRESETS.includes(fileQuality) ? fileQuality : DEFAULT_DIFFS_TOOL_DEFAULTS.fileQuality;
 }
 function normalizeFileScale(fileScale, fallback) {
-	if (fileScale === void 0 || !Number.isFinite(fileScale)) return fallback;
-	const rounded = Math.round(fileScale * 100) / 100;
-	return Math.min(Math.max(rounded, 1), 4);
+	const value = asFiniteNumber(fileScale);
+	return value === void 0 ? fallback : clampNumber(Math.round(value * 100) / 100, 1, 4);
 }
 function normalizeFileMaxWidth(fileMaxWidth, fallback) {
-	if (fileMaxWidth === void 0 || !Number.isFinite(fileMaxWidth)) return fallback;
-	return Math.min(Math.max(Math.round(fileMaxWidth), 640), 2400);
-}
-function normalizeMode$1(mode) {
-	return mode && DIFF_MODES.includes(mode) ? mode : DEFAULT_DIFFS_TOOL_DEFAULTS.mode;
+	const value = asFiniteNumber(fileMaxWidth);
+	return value === void 0 ? fallback : clampNumber(Math.round(value), 640, 2400);
 }
 function normalizeTtlSeconds(ttlSeconds) {
-	if (ttlSeconds === void 0 || !Number.isFinite(ttlSeconds)) return DEFAULT_DIFFS_TOOL_DEFAULTS.ttlSeconds;
-	return Math.min(Math.max(Math.floor(ttlSeconds), 1), 21600);
+	return clampInt(asFiniteNumber(ttlSeconds) ?? DEFAULT_DIFFS_TOOL_DEFAULTS.ttlSeconds, 1, 21600);
 }
 function resolveDiffImageRenderOptions(params) {
 	const format = normalizeFileFormat(params.fileFormat ?? params.defaults.fileFormat);
 	const qualityOverrideProvided = params.fileQuality !== void 0;
-	const qualityPreset = normalizeFileQuality$1(params.fileQuality ?? params.defaults.fileQuality);
+	const qualityPreset = normalizeFileQuality(params.fileQuality ?? params.defaults.fileQuality);
 	const profile = DEFAULT_IMAGE_QUALITY_PROFILES[qualityPreset];
 	return {
 		format,
@@ -331,7 +454,7 @@ function createDiffsHttpHandler(params) {
 		maxEntries: VIEWER_LIMITER_MAX_KEYS
 	});
 	return async (req, res) => {
-		const parsed = parseRequestUrl(req.url);
+		const parsed = req.url ? URL.parse(req.url, "http://127.0.0.1") : null;
 		if (!parsed) return false;
 		if (parsed.pathname.startsWith("/plugins/diffs/assets/")) return await serveAsset(req, res, parsed.pathname, params.logger);
 		if (!parsed.pathname.startsWith(VIEW_PREFIX)) return false;
@@ -391,14 +514,6 @@ function createDiffsHttpHandler(params) {
 		}
 	};
 }
-function parseRequestUrl(rawUrl) {
-	if (!rawUrl) return null;
-	try {
-		return new URL(rawUrl, "http://127.0.0.1");
-	} catch {
-		return null;
-	}
-}
 async function serveAsset(req, res, pathname, logger) {
 	if (req.method !== "GET" && req.method !== "HEAD") {
 		respondText(res, 405, "Method not allowed");
@@ -439,9 +554,6 @@ function normalizeRemoteClientKey(remoteAddress) {
 	if (!normalized) return "unknown";
 	return normalized.startsWith("::ffff:") ? normalized.slice(7) : normalized;
 }
-function isLoopbackClientIp(clientIp) {
-	return isLoopbackHost(clientIp);
-}
 function hasProxyForwardingHints(req) {
 	const headers = req.headers ?? {};
 	return Boolean(headers["x-forwarded-for"] || headers["x-real-ip"] || headers.forwarded || headers["x-forwarded-host"] || headers["x-forwarded-proto"]);
@@ -452,7 +564,7 @@ function resolveViewerAccess(req, params) {
 	const remoteKey = normalizeRemoteClientKey(clientIp ?? req.socket?.remoteAddress);
 	return {
 		remoteKey,
-		localRequest: !proxyHintsPresent && typeof clientIp === "string" && isLoopbackClientIp(remoteKey)
+		localRequest: !proxyHintsPresent && typeof clientIp === "string" && isLoopbackHost(remoteKey)
 	};
 }
 function recordRemoteFailure(limiter, access) {
@@ -482,6 +594,8 @@ const MAX_DECODED_HTML_BYTES = 67108864;
 const ARTIFACT_ID_ATTEMPTS = 8;
 const VIEWER_PREFIX = "/plugins/diffs/view";
 const EMPTY_BLOB = /* @__PURE__ */ new Uint8Array();
+const gzipAsync = promisify(gzip);
+const gunzipAsync = promisify(gunzip);
 function isBlobLimitError(error) {
 	return typeof error === "object" && error !== null && "code" in error && error.code === "PLUGIN_BLOB_LIMIT_EXCEEDED";
 }
@@ -528,7 +642,7 @@ var DiffArtifactStore = class {
 		if (!isViewerMetadata(entry.metadata)) return null;
 		const tokenHash = hashToken(token);
 		if (!safeEqualSecret(tokenHash, entry.metadata.tokenHash)) return null;
-		const html = await gunzipAsync(entry.bytes, MAX_DECODED_HTML_BYTES);
+		const html = await gunzipAsync(entry.bytes, { maxOutputLength: MAX_DECODED_HTML_BYTES });
 		if (html.byteLength !== entry.metadata.decodedBytes) throw new Error(`Diff artifact ${id} decoded size does not match its metadata.`);
 		return {
 			artifact: viewerEntryToMeta(entry, token),
@@ -595,9 +709,6 @@ var DiffArtifactStore = class {
 			force: true
 		}).catch(() => {});
 	}
-	scheduleCleanup() {
-		this.maybeCleanupExpired();
-	}
 	startCleanup() {
 		this.cleanupStopped = false;
 	}
@@ -663,7 +774,7 @@ var DiffArtifactStore = class {
 			force: true
 		}).catch(() => {});
 	}
-	maybeCleanupExpired() {
+	scheduleCleanup() {
 		const now = Date.now();
 		if (this.cleanupStopped || this.cleanupInFlight || now < this.nextCleanupAt) return;
 		this.nextCleanupAt = now + this.cleanupIntervalMs;
@@ -724,28 +835,6 @@ function isArtifactContext(value) {
 		"agentAccountId"
 	]);
 	return Object.entries(context).every(([key, entry]) => allowed.has(key) && (entry === void 0 || typeof entry === "string"));
-}
-async function gzipAsync(input) {
-	return await new Promise((resolve, reject) => {
-		gzip(input, (error, result) => {
-			if (error) {
-				reject(error);
-				return;
-			}
-			resolve(result);
-		});
-	});
-}
-async function gunzipAsync(input, maxOutputLength) {
-	return await new Promise((resolve, reject) => {
-		gunzip(input, { maxOutputLength }, (error, result) => {
-			if (error) {
-				reject(error);
-				return;
-			}
-			resolve(result);
-		});
-	});
 }
 function isFileExists(error) {
 	return error instanceof Error && "code" in error && error.code === "EEXIST";
@@ -1000,7 +1089,6 @@ async function normalizeSupportedLanguageHints(values, options) {
 		if (!normalized) continue;
 		supported.add(normalized);
 	}
-	if (options.fallbackToText && supported.size === 0) supported.add("text");
 	return [...supported];
 }
 function collectDiffPayloadLanguageHints(payload) {
@@ -1015,13 +1103,9 @@ async function normalizeDiffPayloadFileLanguage(file, options) {
 	if (typeof file.lang !== "string") return file;
 	const normalized = await normalizeSupportedLanguageHint(file.lang, options);
 	if (file.lang === normalized) return file;
-	if (!normalized) return {
-		...file,
-		lang: "text"
-	};
 	return {
 		...file,
-		lang: normalized
+		lang: normalized ?? "text"
 	};
 }
 async function normalizeDiffViewerPayloadLanguages(payload, options = {}) {
@@ -1029,10 +1113,7 @@ async function normalizeDiffViewerPayloadLanguages(payload, options = {}) {
 		normalizeDiffPayloadFileLanguage(payload.fileDiff, options),
 		normalizeDiffPayloadFileLanguage(payload.oldFile, options),
 		normalizeDiffPayloadFileLanguage(payload.newFile, options),
-		normalizeSupportedLanguageHints(payload.langs, {
-			fallbackToText: false,
-			...options
-		})
+		normalizeSupportedLanguageHints(payload.langs, options)
 	]);
 	const langs = new Set(payloadLangs);
 	for (const lang of collectDiffPayloadLanguageHints({
@@ -1075,12 +1156,6 @@ function buildDiffTitle(input) {
 	if (input.title?.trim()) return input.title.trim();
 	if (input.kind === "before_after") return input.path?.trim() || "Text diff";
 	return "Patch diff";
-}
-function resolveBeforeAfterFileName(params) {
-	const { input, lang } = params;
-	if (input.path?.trim()) return input.path.trim();
-	if (lang && lang !== "text") return `diff.${lang.replace(/^\.+/, "")}`;
-	return DEFAULT_FILE_NAME;
 }
 function resolveDiffTypography(presentation) {
 	const fontSize = normalizeDiffFontSize(presentation.fontSize);
@@ -1186,16 +1261,15 @@ function buildImageRenderOptions(options) {
 		}
 	};
 }
-function shouldRenderViewer(target) {
-	return target === "viewer" || target === "both";
-}
-function shouldRenderImage(target) {
-	return target === "image" || target === "both";
-}
-function buildRenderVariants(params) {
+function buildRenderVariants(options, target) {
+	const viewerOptions = target === "viewer" || target === "both" ? buildDiffOptions(options) : void 0;
+	const imageOptions = target === "image" || target === "both" ? buildDiffOptions(buildImageRenderOptions(options)) : void 0;
+	const preloadOptions = viewerOptions ?? imageOptions;
+	if (!preloadOptions) throw new Error(`Unsupported diff render target: ${target}`);
 	return {
-		...shouldRenderViewer(params.target) ? { viewerOptions: buildDiffOptions(params.options) } : {},
-		...shouldRenderImage(params.target) ? { imageOptions: buildDiffOptions(buildImageRenderOptions(params.options)) } : {}
+		viewerOptions,
+		imageOptions,
+		preloadOptions
 	};
 }
 function renderDiffCard(payload, anchorId) {
@@ -1441,83 +1515,51 @@ ${imageTypographyCss}
   </body>
 </html>`;
 }
-function payloadUsesLanguagePack(payload) {
-	return payload?.langs.some((lang) => !isBaseDiffViewerLanguage(lang)) ?? false;
-}
-function buildRenderedSection(params) {
+async function renderSection(input, { viewerOptions, imageOptions, preloadOptions }, languagePackAvailable, anchorId) {
+	const payload = await normalizeDiffViewerPayloadLanguages({
+		prerenderedHTML: await preloadDiffHTMLWithFallback({
+			...input,
+			options: preloadOptions
+		}),
+		...input,
+		options: preloadOptions,
+		langs: collectDiffPayloadLanguageHints(input)
+	}, { languagePackAvailable });
 	return {
-		...params.viewerPayload ? { viewer: renderDiffCard(params.viewerPayload, params.anchorId) } : {},
-		...params.imagePayload ? { image: renderDiffCard(params.imagePayload, params.anchorId) } : {},
-		usesLanguagePack: payloadUsesLanguagePack(params.viewerPayload) || payloadUsesLanguagePack(params.imagePayload)
-	};
-}
-function buildRenderedBodies(sections, leadingHtml) {
-	const lead = leadingHtml ? [leadingHtml] : [];
-	const viewerSections = sections.flatMap((section) => section.viewer ? [section.viewer] : []);
-	const imageSections = sections.flatMap((section) => section.image ? [section.image] : []);
-	return {
-		...viewerSections.length > 0 ? { viewerBodyHtml: [...lead, ...viewerSections].join("\n") } : {},
-		...imageSections.length > 0 ? { imageBodyHtml: [...lead, ...imageSections].join("\n") } : {}
+		...viewerOptions ? { viewer: renderDiffCard({
+			...payload,
+			options: viewerOptions
+		}, anchorId) } : {},
+		...imageOptions ? { image: renderDiffCard({
+			...payload,
+			options: imageOptions
+		}, anchorId) } : {},
+		usesLanguagePack: payload.langs.some((lang) => !isBaseDiffViewerLanguage(lang))
 	};
 }
 async function renderBeforeAfterDiff(input, options, target) {
 	const languagePackAvailable = options.languagePackAvailable === true;
 	const lang = await normalizeSupportedLanguageHint(input.lang, { languagePackAvailable });
-	const fileName = resolveBeforeAfterFileName({
-		input,
-		lang
-	});
-	const oldFile = {
-		name: fileName,
-		contents: input.before,
-		...lang ? { lang } : {}
-	};
-	const newFile = {
-		name: fileName,
-		contents: input.after,
-		...lang ? { lang } : {}
-	};
-	const { viewerOptions, imageOptions } = buildRenderVariants({
-		options,
-		target
-	});
-	const preloadOptions = viewerOptions ?? imageOptions;
-	if (!preloadOptions) throw new Error(`Unsupported diff render target: ${target}`);
-	const normalizedPayload = await normalizeDiffViewerPayloadLanguages({
-		prerenderedHTML: await preloadDiffHTMLWithFallback({
-			oldFile,
-			newFile,
-			options: preloadOptions
-		}),
-		oldFile,
-		newFile,
-		options: preloadOptions,
-		langs: collectDiffPayloadLanguageHints({
-			oldFile,
-			newFile
-		})
-	}, { languagePackAvailable });
-	const viewerPayload = viewerOptions ? {
-		...normalizedPayload,
-		options: viewerOptions
-	} : void 0;
-	const imagePayload = imageOptions ? {
-		...normalizedPayload,
-		options: imageOptions
-	} : void 0;
-	const section = buildRenderedSection({
-		...viewerPayload ? { viewerPayload } : {},
-		...imagePayload ? { imagePayload } : {}
-	});
+	const fileName = input.path?.trim() || (lang && lang !== "text" ? `diff.${lang.replace(/^\.+/, "")}` : DEFAULT_FILE_NAME);
 	return {
-		...buildRenderedBodies([section]),
-		fileCount: 1,
-		usesLanguagePack: section.usesLanguagePack === true
+		sections: [await renderSection({
+			oldFile: {
+				name: fileName,
+				contents: input.before,
+				...lang ? { lang } : {}
+			},
+			newFile: {
+				name: fileName,
+				contents: input.after,
+				...lang ? { lang } : {}
+			}
+		}, buildRenderVariants(options, target), languagePackAvailable)],
+		leadingHtml: void 0
 	};
 }
 async function renderPatchDiff(input, options, target) {
 	const languagePackAvailable = options.languagePackAvailable === true;
-	const files = await Promise.all(parsePatchFiles(input.patch).flatMap((entry) => entry.files ?? []).map((fileDiff) => normalizePatchFileLanguage(fileDiff, { languagePackAvailable })));
+	const files = parsePatchFiles(input.patch).flatMap((entry) => entry.files ?? []);
 	if (files.length === 0) throw new DiffRenderInputError("Patch input did not contain any file diffs.");
 	if (files.length > MAX_PATCH_FILE_COUNT) throw new DiffRenderInputError(`Patch input contains too many files (max ${MAX_PATCH_FILE_COUNT}).`);
 	if (files.reduce((sum, fileDiff) => {
@@ -1525,73 +1567,40 @@ async function renderPatchDiff(input, options, target) {
 		const unifiedLines = Number.isFinite(fileDiff.unifiedLineCount) ? fileDiff.unifiedLineCount : 0;
 		return sum + Math.max(splitLines, unifiedLines, 0);
 	}, 0) > MAX_PATCH_TOTAL_LINES) throw new DiffRenderInputError(`Patch input is too large to render (max ${MAX_PATCH_TOTAL_LINES} lines).`);
-	const { viewerOptions, imageOptions } = buildRenderVariants({
-		options,
-		target
-	});
-	const preloadOptions = viewerOptions ?? imageOptions;
-	if (!preloadOptions) throw new Error(`Unsupported diff render target: ${target}`);
+	const variants = buildRenderVariants(options, target);
 	const navEntries = files.map((fileDiff, index) => ({
 		anchorId: `oc-diff-file-${index + 1}`,
 		fileDiff,
 		stats: computeFileDiffStats(fileDiff)
 	}));
-	const sections = await Promise.all(files.map(async (fileDiff, index) => {
-		const normalizedPayload = await normalizeDiffViewerPayloadLanguages({
-			prerenderedHTML: await preloadDiffHTMLWithFallback({
-				fileDiff,
-				options: preloadOptions
-			}),
-			fileDiff,
-			options: preloadOptions,
-			langs: collectDiffPayloadLanguageHints({ fileDiff })
-		}, { languagePackAvailable });
-		const viewerPayload = viewerOptions ? {
-			...normalizedPayload,
-			options: viewerOptions
-		} : void 0;
-		const imagePayload = imageOptions ? {
-			...normalizedPayload,
-			options: imageOptions
-		} : void 0;
-		return buildRenderedSection({
-			...viewerPayload ? { viewerPayload } : {},
-			...imagePayload ? { imagePayload } : {},
-			anchorId: navEntries[index]?.anchorId
-		});
-	}));
 	return {
-		...buildRenderedBodies(sections, files.length > 1 ? renderFileSummaryNav(navEntries) : void 0),
-		fileCount: files.length,
-		usesLanguagePack: sections.some((section) => section.usesLanguagePack === true)
-	};
-}
-async function normalizePatchFileLanguage(fileDiff, options) {
-	const lang = await normalizeSupportedLanguageHint(fileDiff.lang, options);
-	if (lang === fileDiff.lang) return fileDiff;
-	return {
-		...fileDiff,
-		...lang ? { lang } : { lang: "text" }
+		sections: await Promise.all(files.map((fileDiff, index) => renderSection({ fileDiff }, variants, languagePackAvailable, navEntries[index]?.anchorId))),
+		leadingHtml: files.length > 1 ? renderFileSummaryNav(navEntries) : void 0
 	};
 }
 async function renderDiffDocument(input, options, target = "both") {
 	const title = buildDiffTitle(input);
-	const rendered = input.kind === "before_after" ? await renderBeforeAfterDiff(input, options, target) : await renderPatchDiff(input, options, target);
-	const viewerRuntime = rendered.usesLanguagePack ? "language-pack" : "base";
+	const { sections, leadingHtml } = input.kind === "before_after" ? await renderBeforeAfterDiff(input, options, target) : await renderPatchDiff(input, options, target);
+	const lead = leadingHtml ? [leadingHtml] : [];
+	const viewerSections = sections.flatMap((section) => section.viewer ? [section.viewer] : []);
+	const imageSections = sections.flatMap((section) => section.image ? [section.image] : []);
+	const viewerBodyHtml = viewerSections.length ? [...lead, ...viewerSections].join("\n") : void 0;
+	const imageBodyHtml = imageSections.length ? [...lead, ...imageSections].join("\n") : void 0;
+	const viewerRuntime = sections.some((section) => section.usesLanguagePack) ? "language-pack" : "base";
 	const imageTypography = resolveDiffTypography(buildImageRenderOptions(options).presentation);
 	return {
-		...rendered.viewerBodyHtml ? { html: buildHtmlDocument({
+		...viewerBodyHtml ? { html: buildHtmlDocument({
 			title,
-			bodyHtml: rendered.viewerBodyHtml,
+			bodyHtml: viewerBodyHtml,
 			theme: options.presentation.theme,
 			imageMaxWidth: options.image.maxWidth,
 			imageTypography,
 			runtimeMode: "viewer",
 			viewerRuntime
 		}) } : {},
-		...rendered.imageBodyHtml ? { imageHtml: buildHtmlDocument({
+		...imageBodyHtml ? { imageHtml: buildHtmlDocument({
 			title,
-			bodyHtml: rendered.imageBodyHtml,
+			bodyHtml: imageBodyHtml,
 			theme: options.presentation.theme,
 			imageMaxWidth: options.image.maxWidth,
 			imageTypography,
@@ -1599,20 +1608,17 @@ async function renderDiffDocument(input, options, target = "both") {
 			viewerRuntime
 		}) } : {},
 		title,
-		fileCount: rendered.fileCount,
+		fileCount: sections.length,
 		inputKind: input.kind,
 		viewerRuntime
 	};
-}
-function shouldFallbackToClientHydration(error) {
-	return error instanceof TypeError && error.message.includes("needs an import attribute of \"type: json\"");
 }
 async function preloadDiffHTMLWithFallback(params) {
 	try {
 		return await preloadDiffHTML(params);
 	} catch (error) {
-		if (!shouldFallbackToClientHydration(error)) throw error;
-		return "";
+		if (error instanceof TypeError && error.message.includes("needs an import attribute of \"type: json\"")) return "";
+		throw error;
 	}
 }
 //#endregion
@@ -1623,7 +1629,7 @@ const MAX_TITLE_BYTES = 1024;
 const MAX_PATH_BYTES = 2048;
 const MAX_LANG_BYTES = 128;
 const MAX_DIFF_ARTIFACT_TTL_SECONDS = 21600;
-const loadDiffsBrowserRuntime = createLazyRuntimeModule(() => import("./.setup/browser.runtime-VjaO3wrj.mjs"));
+const loadDiffsBrowserRuntime = createLazyRuntimeModule(() => import("./.setup/browser.runtime-B8JeyUXz.mjs"));
 const DiffsToolSchema = Type.Object({
 	before: Type.Optional(Type.String({ description: "Original text content." })),
 	after: Type.Optional(Type.String({ description: "Updated text content." })),
@@ -1667,7 +1673,6 @@ const DiffsToolSchema = Type.Object({
 	baseUrl: Type.Optional(Type.String({ description: "Optional gateway base URL override used when building the viewer URL. Overrides configured viewerBaseUrl, for example https://gateway.example.com." }))
 }, { additionalProperties: false });
 function createDiffsTool(params) {
-	const loadScreenshotter = async (config) => params.screenshotter ?? new (await (loadDiffsBrowserRuntime())).PlaywrightDiffScreenshotter({ config });
 	return {
 		name: "diffs",
 		label: "Diffs",
@@ -1679,19 +1684,13 @@ function createDiffsTool(params) {
 			const rawRecord = toolParams;
 			const artifactContext = buildArtifactContext(params.context);
 			const input = normalizeDiffInput(toolParams);
-			if (input.kind === "before_after" && input.before === input.after) return {
-				content: [{
-					type: "text",
-					text: "Before and after are identical — no changes to render."
-				}],
-				details: {
-					changed: false,
-					...artifactContext ? { context: artifactContext } : {}
-				}
-			};
-			const mode = normalizeMode(toolParams.mode, params.defaults.mode);
-			const theme = normalizeTheme(toolParams.theme, params.defaults.theme);
-			const layout = normalizeLayout(toolParams.layout, params.defaults.layout);
+			if (input.kind === "before_after" && input.before === input.after) return textResult("Before and after are identical — no changes to render.", {
+				changed: false,
+				...artifactContext ? { context: artifactContext } : {}
+			});
+			const mode = DIFF_MODES.find((value) => value === toolParams.mode) ?? params.defaults.mode;
+			const theme = DIFF_THEMES.find((value) => value === toolParams.theme) ?? params.defaults.theme;
+			const layout = DIFF_LAYOUTS.find((value) => value === toolParams.layout) ?? params.defaults.layout;
 			const expandUnchanged = toolParams.expandUnchanged === true;
 			const ttlSeconds = readFiniteNumberParam(rawRecord, "ttlSeconds") ?? params.defaults.ttlSeconds;
 			const fileScale = readFiniteNumberParam(rawRecord, "fileScale");
@@ -1699,8 +1698,8 @@ function createDiffsTool(params) {
 			const ttlMs = normalizeTtlMs(ttlSeconds);
 			const image = resolveDiffImageRenderOptions({
 				defaults: params.defaults,
-				fileFormat: normalizeOutputFormat(toolParams.fileFormat),
-				fileQuality: normalizeFileQuality(toolParams.fileQuality),
+				fileFormat: DIFF_OUTPUT_FORMATS.find((value) => value === toolParams.fileFormat),
+				fileQuality: DIFF_IMAGE_QUALITY_PRESETS.find((value) => value === toolParams.fileQuality),
 				fileScale,
 				fileMaxWidth
 			});
@@ -1718,41 +1717,7 @@ function createDiffsTool(params) {
 				if (error instanceof DiffRenderInputError) throw new PluginToolInputError(error.message);
 				throw error;
 			});
-			if (isArtifactOnlyMode(mode)) {
-				const artifactFile = await renderDiffArtifactFile({
-					screenshotter: await loadScreenshotter(config),
-					store: params.store,
-					html: requireRenderedHtml(rendered.imageHtml, "image"),
-					theme,
-					image,
-					ttlMs,
-					context: artifactContext
-				});
-				return {
-					content: [{
-						type: "text",
-						text: buildFileArtifactMessage({
-							format: image.format,
-							filePath: artifactFile.path
-						})
-					}],
-					details: buildArtifactDetails({
-						baseDetails: {
-							changed: true,
-							...artifactFile.artifactId ? { artifactId: artifactFile.artifactId } : {},
-							...artifactFile.expiresAt ? { expiresAt: artifactFile.expiresAt } : {},
-							title: rendered.title,
-							inputKind: rendered.inputKind,
-							fileCount: rendered.fileCount,
-							mode,
-							...artifactContext ? { context: artifactContext } : {}
-						},
-						artifactFile,
-						image
-					})
-				};
-			}
-			const artifact = await params.store.createArtifact({
+			const artifact = isArtifactOnlyMode(mode) ? void 0 : await params.store.createArtifact({
 				html: requireRenderedHtml(rendered.html, "viewer"),
 				title: rendered.title,
 				inputKind: rendered.inputKind,
@@ -1760,13 +1725,13 @@ function createDiffsTool(params) {
 				ttlMs,
 				context: artifactContext
 			});
-			const viewerUrl = buildViewerUrl({
+			const viewerUrl = artifact ? buildViewerUrl({
 				config,
 				viewerPath: artifact.viewerPath,
 				baseUrl: normalizeBaseUrl(toolParams.baseUrl),
 				viewerBaseUrl: params.viewerBaseUrl
-			});
-			const baseDetails = {
+			}) : void 0;
+			const viewerDetails = artifact ? {
 				changed: true,
 				artifactId: artifact.id,
 				viewerUrl,
@@ -1777,63 +1742,65 @@ function createDiffsTool(params) {
 				fileCount: artifact.fileCount,
 				mode,
 				...artifactContext ? { context: artifactContext } : {}
-			};
-			if (mode === "view") return {
-				content: [{
-					type: "text",
-					text: `Diff viewer ready.\n${viewerUrl}`
-				}],
-				details: baseDetails
-			};
+			} : void 0;
+			if (mode === "view") return textResult(`Diff viewer ready.\n${viewerUrl}`, viewerDetails);
 			try {
-				const artifactFile = await renderDiffArtifactFile({
-					screenshotter: await loadScreenshotter(config),
-					store: params.store,
-					html: requireRenderedHtml(rendered.imageHtml, "image"),
-					theme,
-					image,
+				const screenshotter = params.screenshotter ?? new (await (loadDiffsBrowserRuntime())).PlaywrightDiffScreenshotter({ config });
+				const html = requireRenderedHtml(rendered.imageHtml, "image");
+				const artifactFile = await params.store.createStandaloneFileArtifact({
+					format: image.format,
 					ttlMs,
 					context: artifactContext
 				});
-				return {
-					content: [{
-						type: "text",
-						text: buildFileArtifactMessage({
-							format: image.format,
-							filePath: artifactFile.path,
-							viewerUrl
-						})
-					}],
-					details: buildArtifactDetails({
-						baseDetails,
-						artifactFile,
+				let fileBytes;
+				try {
+					await screenshotter.screenshotHtml({
+						html,
+						outputPath: artifactFile.filePath,
+						theme,
 						image
-					})
-				};
+					});
+					fileBytes = (await fs$1.stat(artifactFile.filePath)).size;
+					await params.store.completeFileArtifact(artifactFile.id);
+				} catch (error) {
+					await params.store.deleteFileArtifact(artifactFile.id);
+					throw error;
+				}
+				return textResult([
+					...viewerUrl ? [`Diff viewer: ${viewerUrl}`] : [],
+					`Diff ${image.format.toUpperCase()} generated at: ${artifactFile.filePath}`,
+					"To send this file, use an available file-sending tool to send it as an attachment."
+				].join("\n"), {
+					...viewerDetails ?? {
+						changed: true,
+						artifactId: artifactFile.id,
+						expiresAt: artifactFile.expiresAt,
+						title: rendered.title,
+						inputKind: rendered.inputKind,
+						fileCount: rendered.fileCount,
+						mode,
+						...artifactContext ? { context: artifactContext } : {}
+					},
+					filePath: artifactFile.filePath,
+					path: artifactFile.filePath,
+					fileBytes,
+					fileFormat: image.format,
+					fileQuality: image.qualityPreset,
+					fileScale: image.scale,
+					fileMaxWidth: image.maxWidth
+				});
 			} catch (error) {
 				if (mode === "both") {
 					const errorMessage = formatErrorMessage(error);
-					return {
-						content: [{
-							type: "text",
-							text: `Diff viewer ready.\n${viewerUrl}\nFile rendering failed: ${errorMessage}`
-						}],
-						details: {
-							...baseDetails,
-							fileError: errorMessage
-						}
-					};
+					return textResult(`Diff viewer ready.\n${viewerUrl}\nFile rendering failed: ${errorMessage}`, {
+						...viewerDetails,
+						fileError: errorMessage
+					});
 				}
 				throw error;
 			}
 		}
 	};
-}
-function normalizeFileQuality(fileQuality) {
-	return fileQuality && DIFF_IMAGE_QUALITY_PRESETS.includes(fileQuality) ? fileQuality : void 0;
-}
-function normalizeOutputFormat(format) {
-	return format && DIFF_OUTPUT_FORMATS.includes(format) ? format : void 0;
 }
 function isArtifactOnlyMode(mode) {
 	return mode === "image" || mode === "file";
@@ -1847,62 +1814,18 @@ function requireRenderedHtml(html, target) {
 	if (html !== void 0) return html;
 	throw new Error(`Missing ${target} render output.`);
 }
-function buildArtifactDetails(params) {
-	return {
-		...params.baseDetails,
-		filePath: params.artifactFile.path,
-		path: params.artifactFile.path,
-		fileBytes: params.artifactFile.bytes,
-		fileFormat: params.image.format,
-		fileQuality: params.image.qualityPreset,
-		fileScale: params.image.scale,
-		fileMaxWidth: params.image.maxWidth
-	};
-}
-function buildFileArtifactMessage(params) {
-	const lines = params.viewerUrl ? [`Diff viewer: ${params.viewerUrl}`] : [];
-	lines.push(`Diff ${params.format.toUpperCase()} generated at: ${params.filePath}`);
-	lines.push("To send this file, use an available file-sending tool to send it as an attachment.");
-	return lines.join("\n");
-}
-async function renderDiffArtifactFile(params) {
-	const fileArtifact = await params.store.createStandaloneFileArtifact({
-		format: params.image.format,
-		ttlMs: params.ttlMs,
-		context: params.context
-	});
-	try {
-		await params.screenshotter.screenshotHtml({
-			html: params.html,
-			outputPath: fileArtifact.filePath,
-			theme: params.theme,
-			image: params.image
-		});
-		const stats = await fs$1.stat(fileArtifact.filePath);
-		await params.store.completeFileArtifact(fileArtifact.id);
-		return {
-			path: fileArtifact.filePath,
-			bytes: stats.size,
-			artifactId: fileArtifact.id,
-			expiresAt: fileArtifact.expiresAt
-		};
-	} catch (error) {
-		await params.store.deleteFileArtifact(fileArtifact.id);
-		throw error;
-	}
-}
 function buildArtifactContext(context) {
 	if (!context) return;
-	const agentId = normalizeOptionalString(context.agentId);
-	const sessionId = normalizeOptionalString(context.sessionId);
-	const messageChannel = normalizeOptionalString(context.messageChannel);
-	const agentAccountId = normalizeOptionalString(context.agentAccountId);
-	const artifactContext = {
-		...agentId ? { agentId } : {},
-		...sessionId ? { sessionId } : {},
-		...messageChannel ? { messageChannel } : {},
-		...agentAccountId ? { agentAccountId } : {}
-	};
+	const artifactContext = {};
+	for (const key of [
+		"agentId",
+		"sessionId",
+		"messageChannel",
+		"agentAccountId"
+	]) {
+		const value = normalizeOptionalString(context[key]);
+		if (value) artifactContext[key] = value;
+	}
 	return Object.keys(artifactContext).length > 0 ? artifactContext : void 0;
 }
 function normalizeDiffInput(params) {
@@ -1950,15 +1873,6 @@ function normalizeBaseUrl(baseUrl) {
 	} catch {
 		throw new PluginToolInputError(`Invalid baseUrl: ${normalized}`);
 	}
-}
-function normalizeMode(mode, fallback) {
-	return mode && DIFF_MODES.includes(mode) ? mode : fallback;
-}
-function normalizeTheme(theme, fallback) {
-	return theme && DIFF_THEMES.includes(theme) ? theme : fallback;
-}
-function normalizeLayout(layout, fallback) {
-	return layout && DIFF_LAYOUTS.includes(layout) ? layout : fallback;
 }
 function normalizeTtlMs(ttlSeconds) {
 	if (!Number.isFinite(ttlSeconds) || ttlSeconds === void 0) return;

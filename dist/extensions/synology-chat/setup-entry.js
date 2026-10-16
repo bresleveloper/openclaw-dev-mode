@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 var setup_entry_default = defineBundledChannelSetupEntry({
 	importMetaUrl: import.meta.url,
 	plugin: {
-		specifier: fileURLToPath(new URL(".setup/api-j67wWZz4.mjs", import.meta.url).href),
+		specifier: fileURLToPath(new URL(".setup/api-Cw6Apk9x.mjs", import.meta.url).href),
 		exportName: "synologyChatPlugin"
 	}
 });

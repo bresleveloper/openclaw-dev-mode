@@ -93,7 +93,7 @@ function buildGoogleGeminiCliBackend() {
 		normalizeConfig: normalizeGeminiCliBackendConfig,
 		resolveExecutionArgs: resolveGeminiCliExecutionArgs,
 		prepareExecution: async (ctx) => {
-			const { prepareGeminiCliExecution } = await import("./.setup/cli-backend-auth.runtime-BqXJRQTQ.mjs");
+			const { prepareGeminiCliExecution } = await import("./.setup/cli-backend-auth.runtime-BUTSvXpJ.mjs");
 			const privateContext = ctx;
 			return await prepareGeminiCliExecution({
 				agentDir: ctx.agentDir,

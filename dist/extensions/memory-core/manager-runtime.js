@@ -1,105 +1,104 @@
-import { F as resolveTimerTimeoutMs, n as MAX_TIMER_TIMEOUT_MS } from "../../number-coercion-CLj0HTDM.mjs";
-import { c as readErrorName, u as toErrorObject } from "../../error-coercion-C787aVxk.mjs";
-import { i as resolveGlobalSingleton } from "../../global-singleton-Dc_stLtU.mjs";
-import { a as asOptionalRecord } from "../../record-coerce-DItp3I4t.mjs";
-import { l as normalizeOptionalString, o as normalizeLowercaseStringOrEmpty } from "../../string-coerce-CIXf7egm.mjs";
-import { b as uniqueValues } from "../../string-normalization-_gRhJUDw.mjs";
-import { o as resolveUserPath } from "../../home-dir-BKwhAL2c.mjs";
-import { s as sleepWithAbort } from "../../src-D4OikzaT.mjs";
-import { n as normalizeAgentId } from "../../agent-id-GA8mwdTG.mjs";
-import { a as resolveAgentDir, l as resolveAgentWorkspaceDir, r as resolveAgentConfig } from "../../agent-scope-config-IQKOEtZ4.mjs";
-import { E as resolveStateDir } from "../../paths-DehQwyE0.mjs";
-import { _ as redactSensitiveText } from "../../redact-B5EGyLvV.mjs";
-import { t as formatErrorMessage } from "../../errors-DnjwnOju.mjs";
-import { t as createSubsystemLogger } from "../../subsystem-DleLyu58.mjs";
-import { a as iterateSqliteQuerySync, i as getNodeSqliteKysely, n as executeSqliteQuerySync, t as compileSqliteQueryBindings } from "../../kysely-sync-Bn6Qrpbz.mjs";
-import { t as ensureSqliteLibrarySelected } from "../../bun-sqlite-library-GOquVAYK.mjs";
+import { l as normalizeOptionalString, o as normalizeLowercaseStringOrEmpty } from "../../string-coerce-1VuiLaaR.mjs";
+import { F as resolveTimerTimeoutMs, n as MAX_TIMER_TIMEOUT_MS } from "../../number-coercion-CuVhdCBs.mjs";
+import { c as readErrorName, u as toErrorObject } from "../../error-coercion-CvJK4lmH.mjs";
+import { a as resolveGlobalSingleton } from "../../global-singleton-0m-JziJW.mjs";
+import { o as resolveUserPath } from "../../home-dir-Dc6nN6HB.mjs";
+import { a as asOptionalRecord } from "../../record-coerce-TIsquoVR.mjs";
+import { b as uniqueValues } from "../../string-normalization-CECOqf64.mjs";
+import { i as resolveRuntimeWorkerUrl, n as resolveRuntimeWorkerArgv } from "../../runtime-worker-url-DoBSDhBS.mjs";
+import { _ as redactSensitiveText } from "../../redact-DJ8j6ADa.mjs";
+import { d as sleepWithAbort } from "../../src-D1BHGNTj.mjs";
+import { r as resolveStateDir } from "../../state-dir-BHJORNly.mjs";
+import { t as formatErrorMessage } from "../../errors-O33D01XW.mjs";
+import { a as getNodeSqliteKysely, r as executeSqliteQuerySync } from "../../kysely-sync-K7ftY-g4.mjs";
+import { r as ensureSqliteLibrarySelected } from "../../bun-sqlite-library-CBSPJxTD.mjs";
+import { t as createSubsystemLogger } from "../../subsystem-I-uqdx4f.mjs";
+import { i as runSqliteImmediateTransaction } from "../../sqlite-transaction-DsZ3X6nD.mjs";
+import { r as WorkerTaskError } from "../../src-WCJCjrey.mjs";
+import { m as MEMORY_INDEX_PATHS_FTS_TABLE, p as MEMORY_INDEX_FTS_TABLE, t as ensureMemoryIndexSchema, u as MEMORY_INDEX_VECTOR_TABLE } from "../../memory-schema-BA04oCjG.mjs";
+import { n as normalizeAgentId } from "../../agent-id-D1-Q6vR4.mjs";
 import { t as SQLITE_IDLE_HANDLE_TTL_MS } from "../../sqlite-handle-lifecycle-dWd9h3ii.mjs";
-import { a as runSqliteImmediateTransaction, o as runSqliteImmediateTransactionSync } from "../../sqlite-transaction-DKSXLQhb.mjs";
-import { r as resolveRuntimeWorkerUrl, t as resolveRuntimeWorkerArgv } from "../../runtime-worker-url-B4o9tqvO.mjs";
-import { r as WorkerTaskError } from "../../worker-task-pool-cppt7dT0.mjs";
-import { l as resolveSessionStorePathCore } from "../../paths-CcMbq5NY.mjs";
-import { c as openSqliteWorkerStore, f as runSqliteWorkerStoreWrite } from "../../sqlite-worker-store-H5HXDD9v.mjs";
-import { t as retryAsync } from "../../retry-C0DLN1oj.mjs";
-import { o as MEMORY_EMBEDDING_CACHE_TABLE, t as ensureMemoryIndexSchema, u as MEMORY_INDEX_VECTOR_TABLE, v as MEMORY_INDEX_FTS_TABLE, y as MEMORY_INDEX_PATHS_FTS_TABLE } from "../../memory-schema-CkxujvZk.mjs";
-import { n as decodeMemoryEmbedding, r as encodeMemoryEmbedding } from "../../embedding-vector-CGPWflQ5.mjs";
-import { t as borrowOpenClawAgentDatabase } from "../../openclaw-agent-db-CaQAStOA.mjs";
-import { r as onInternalSessionTranscriptUpdate } from "../../transcript-events-DukKauix.mjs";
-import { a as runQueuedStoreWrite } from "../../openclaw-agent-write-admission-b9fAKekK.mjs";
-import { k as MEMORY_SEARCH_DEADLINE_CONTROL } from "../../gateway-startup-plugin-config-DCJJCRPW.mjs";
-import { t as openOpenClawAgentSqliteWorkerStore } from "../../openclaw-agent-worker-store-DpwCZ9_q.mjs";
-import { i as getAgentWorkspaceAccess } from "../../workspace-access-BNUXOhfF.mjs";
-import { T as readTranscriptStatsBatchReadOnlySync } from "../../session-accessor.sqlite-read-D-7XR7Kn.mjs";
-import { t as loadSqliteVecExtension } from "../../sqlite-vec-BskpG3v_.mjs";
-import "../../memory-core-host-engine-knn-Dps9fjJT.mjs";
-import { t as isVectorKnnRow } from "../../manager-search-knn-JQGcRJWQ.mjs";
-import "../../error-runtime-Bf1fYXFh.mjs";
-import "../../memory-core-host-engine-storage-D7mQbv5n.mjs";
-import { l as runMemoryHostTasksWithConcurrency, n as buildMultimodalChunkForIndexing, s as normalizeExtraMemoryPathEntries, t as buildFileEntry } from "../../internal-CDL7w83q.mjs";
-import { a as hasNonTextEmbeddingParts, o as estimateStructuredEmbeddingInputBytes, s as estimateUtf8Bytes } from "../../markdown-chunks-DYWd0D11.mjs";
-import { n as isFileMissingError } from "../../fs-utils-BVDi6fm8.mjs";
-import { t as hashText } from "../../hash-Di28TYtu.mjs";
-import { r as classifyMemoryMultimodalPath } from "../../multimodal-BBZswXZ7.mjs";
-import { n as retryTransientMemoryRead } from "../../read-retry-B-bw--uT.mjs";
-import { t as INVALID_PROJECT_ANNOTATION_KEY } from "../../curated-annotations-DM9mz8Th.mjs";
-import { t as resolveMemorySearchConfig } from "../../memory-search-CBshQYdn.mjs";
-import { r as listRegisteredMemoryEmbeddingProviderAdapters } from "../../memory-embedding-provider-runtime-Dt5MZeeL.mjs";
-import { n as readMemoryFile } from "../../read-file-CZp1QSc6.mjs";
-import { t as formatMemoryIndexRebuildGuidance } from "../../types-BH9UhQoF.mjs";
-import { t as withOpenClawAgentDatabaseWrite } from "../../openclaw-agent-db-write-BhC-9Wsf.mjs";
-import "../../sqlite-runtime-DhVTOiCi.mjs";
-import "../../string-coerce-runtime-C_MKhRVt.mjs";
-import { a as searchVector, c as readMemoryRecallData, d as loadMemorySourceFileState, f as resolveMemorySourceExistingHash, h as buildFtsQuery, o as MEMORY_INDEX_META_KEY, p as resolveMemorySourceFileEntries, s as readMemoryIndexMetadata, t as prepareExactPathMatcher, u as inspectMemorySourceState } from "../../manager-search-BAu5PyIz.mjs";
-import { a as resolvePersistedMemoryVectorIndexState, i as requiresMemoryVectorRebuild, r as memoryTableExists } from "../../manager-vector-rebuild-state-anPytK-9.mjs";
-import { n as resolveChunkProvenance } from "../../manager-index-preparation-BEdGU4Rv.mjs";
-import { n as hasMemorySessionTombstone } from "../../memory-session-tombstones-Bu9FRJQf.mjs";
-import { i as tableExists, r as readMemoryDatabaseRevision, t as MemoryIndexRevisionConflictError } from "../../manager-db-kernel-Dc2ThViV.mjs";
-import { n as readMemoryShadowIdentity, t as assertMemoryShadowIdentity } from "../../manager-shadow-task-DGuJMed1.mjs";
-import { t as memoryCpuProcessEntrypoints } from "../../manager-cpu-entrypoints-bJosRUx9.mjs";
-import { t as vectorKnnProcessEntrypoint } from "../../manager-search-knn-entrypoint-D4BNu0VT.mjs";
-import { k as listSessionTranscriptArchivesReadOnly } from "../../session-accessor.sqlite-entry-BbdrsVIR.mjs";
+import { a as resolveAgentDir, d as resolveAgentWorkspaceDir, r as resolveAgentConfig } from "../../agent-scope-config-CDYpzA0r.mjs";
+import { l as openSqliteWorkerStore, p as runSqliteWorkerStoreWrite } from "../../sqlite-worker-store-CsIRv3py.mjs";
+import { r as runQueuedStoreWrite } from "../../store-writer-queue-Cq6rziq_.mjs";
+import { t as borrowOpenClawAgentDatabase } from "../../openclaw-agent-db-DBug3LUA.mjs";
+import { r as onInternalSessionTranscriptUpdate } from "../../transcript-events-DUHAZLVw.mjs";
+import { t as MEMORY_SEARCH_DEADLINE_CONTROL } from "../../search-deadline-control-CvwcTLrz.mjs";
+import { t as openOpenClawAgentSqliteWorkerStore } from "../../openclaw-agent-worker-store-DpPONdtx.mjs";
+import { t as retryAsync } from "../../retry-DH6xHyXB.mjs";
+import { i as getAgentWorkspaceAccess } from "../../workspace-access-CeRsYrid.mjs";
+import { t as loadSqliteVecExtension } from "../../sqlite-vec-BcbJNyja.mjs";
 import { t as chunkItems } from "../../chunk-items-2QWieLm-.mjs";
-import "../../runtime-env-gAOlVhyA.mjs";
+import "../../memory-core-host-engine-knn-DTjLOT03.mjs";
+import { t as isVectorKnnRow } from "../../manager-search-knn-B-dpovcE.mjs";
+import "../../error-runtime-BmospGvZ.mjs";
+import "../../string-coerce-runtime-50qKeWeL.mjs";
+import { i as stopMemorySqliteWalMaintenance } from "../../engine-storage-CVCX7YWm.mjs";
+import "../../memory-core-host-engine-storage-CqSKqDgK.mjs";
+import { n as estimateUtf8Bytes, t as estimateStructuredEmbeddingInputBytes } from "../../embedding-input-limits-Dzm_zeQC.mjs";
+import { c as buildMultimodalChunkForIndexing, f as normalizeExtraMemoryPathEntries, n as readMemoryFile, s as buildFileEntry } from "../../read-file-BpEQe7Bw.mjs";
+import { t as isFileMissingError } from "../../fs-utils-CK0xaytO.mjs";
+import { t as hashText } from "../../hash-BOTtT1fO.mjs";
+import { r as classifyMemoryMultimodalPath } from "../../multimodal-B9eYMDXo.mjs";
+import { n as retryTransientMemoryRead } from "../../read-retry-Qn2FTJ6v.mjs";
+import "../../markdown-chunks-XgYdcem0.mjs";
+import { t as INVALID_PROJECT_ANNOTATION_KEY } from "../../curated-annotations-DM9mz8Th.mjs";
+import { t as runWithConcurrency } from "../../concurrency-BvONODc2.mjs";
+import { t as formatMemoryIndexRebuildGuidance } from "../../types-DTVBdCzw.mjs";
+import { t as withOpenClawAgentDatabaseWrite } from "../../openclaw-agent-db-write-CVe9DulI.mjs";
+import "../../sqlite-runtime-Ch9K5Xik.mjs";
+import "../../security-runtime-CpTHQYW2.mjs";
+import "../../agent-workspace-runtime-Ck9Qkxiq.mjs";
+import { n as resolveMemorySessionStartupState, r as resolveMemorySessionSyncPlan, t as isMemorySessionIndexable } from "../../manager-session-sync-state-CC68bJ0_.mjs";
+import { a as searchVector, c as readMemoryRecallData, d as loadMemorySourceFileState, f as resolveMemorySourceFileEntries, m as buildFtsQuery, o as MEMORY_INDEX_META_KEY, s as readMemoryIndexMetadata, t as prepareExactPathMatcher, u as inspectMemorySourceState } from "../../manager-search-BpiAl2j4.mjs";
+import { a as resolvePersistedMemoryVectorIndexState, i as requiresMemoryVectorRebuild, r as memoryTableExists } from "../../manager-vector-rebuild-state-DWrs_Mbx.mjs";
+import { t as extractKeywords } from "../../query-expansion-CBz4n5iE.mjs";
+import { t as listSessionTranscriptCorpusEntriesForAgent } from "../../session-transcript-corpus-jw6rbTAs.mjs";
+import { c as sessionPathForSessionIdentity, l as statSessionEntrySync, s as sessionPathForFile, t as buildSessionEntry } from "../../session-files-Cw_0yyPO.mjs";
+import "../../memory-core-host-engine-sessions-BU7YUvhe.mjs";
+import { n as hasNonTextEmbeddingParts } from "../../embedding-chunk-limits-J6OR7lDp.mjs";
+import { n as resolveChunkProvenance } from "../../manager-index-preparation-GBRH0CiB.mjs";
+import { n as hasMemorySessionTombstone } from "../../memory-session-tombstones-Boi0AhzJ.mjs";
+import { i as tableExists, r as readMemoryDatabaseRevision, t as MemoryIndexRevisionConflictError } from "../../manager-db-kernel-P1lEjy52.mjs";
+import { i as collectMemoryCachedEmbeddings, n as readMemoryShadowIdentity, o as isValidMemoryEmbedding, t as assertMemoryShadowIdentity } from "../../manager-shadow-task-CquX6JAd.mjs";
+import { t as memoryCpuProcessEntrypoints } from "../../manager-cpu-entrypoints-_KEJpSFQ.mjs";
+import { t as vectorKnnProcessEntrypoint } from "../../manager-search-knn-entrypoint-D4BNu0VT.mjs";
+import "../../runtime-env-BjPzo7IN.mjs";
 import { t as expectDefined } from "../../expect-runtime-CJBt0Gq2.mjs";
-import "../../number-runtime-CGwowceO.mjs";
-import "../../retry-runtime-BLMk_EI2.mjs";
-import "../../routing-gwrpgNm_.mjs";
-import "../../agent-scope-runtime-OY7yRyJL.mjs";
-import { t as extractKeywords } from "../../query-expansion-XZx6aBHC.mjs";
-import "../../session-store-paths-C0kAfy_y.mjs";
-import "../../text-chunking-B0xcZLe-.mjs";
-import "../../security-runtime-ByyEMO4I.mjs";
-import "../../agent-workspace-runtime-CbeDm0nz.mjs";
-import "../../process-runtime-BF3dUvYO.mjs";
-import { t as createPluginRuntimeStore } from "../../runtime-store-Mt8Rbmwz.mjs";
-import "../../memory-core-host-embedding-registry-CeYUPV-H.mjs";
-import { k as isEmbeddingBatchUnavailableError } from "../../memory-core-host-engine-embeddings-7e_FHMpT.mjs";
-import "../../memory-core-host-engine-foundation-5drtiCGb.mjs";
-import { c as statSessionEntrySync, l as listSessionTranscriptCorpusEntriesForAgent, o as sessionPathForFile, s as sessionPathForSessionIdentity, t as buildSessionEntry } from "../../session-files-C7FzAbIx.mjs";
-import "../../memory-core-host-engine-sessions-DgmRlBrv.mjs";
-import { t as runInMemoryBackgroundContext } from "../../background-context-tbmmWTrm.mjs";
-import { n as getMemoryManagerLifecycle, r as prepareMemoryManagerReload, t as MemoryManagerReloadError } from "../../lifecycle-CtUK0V21.mjs";
-import { _ as withMemoryWorkspacePreparation, g as withMemoryWorkspaceLock } from "../../dreaming-dreams-file-DBvZKJjS.mjs";
-import { r as listMemorySessionTombstones } from "../../memory-entry-origins-DFaxoP7R.mjs";
-import { r as tokenize, t as jaccardSimilarity } from "../../tokenize-VY3Ar2wB.mjs";
+import "../../number-runtime-CgyXj1A5.mjs";
+import "../../retry-runtime-CZf8_bHp.mjs";
+import "../../process-runtime-CYiH_oPH.mjs";
+import "../../routing-CEr1aXk1.mjs";
+import "../../agent-scope-runtime-DMJYuX7c.mjs";
+import { t as resolveMemorySearchConfig } from "../../memory-search-B6MOaZbM.mjs";
+import { r as listRegisteredMemoryEmbeddingProviderAdapters } from "../../memory-embedding-provider-runtime-DpKhFfRm.mjs";
+import "../../text-chunking-BiSt_d1B.mjs";
+import { t as createPluginRuntimeStore } from "../../runtime-store-USWE9VtE.mjs";
+import "../../memory-core-host-embedding-registry-DcznhGvQ.mjs";
+import { k as isEmbeddingBatchUnavailableError } from "../../memory-core-host-engine-embeddings-D5ue0oCU.mjs";
+import "../../memory-core-host-engine-foundation-C-kkcjpF.mjs";
+import { n as getMemoryManagerLifecycle, t as MemoryManagerReloadError } from "../../lifecycle-ieTqs85R.mjs";
+import { nt as withMemoryWorkspacePreparation, tt as withMemoryWorkspaceLock } from "../../dreaming-dreams-file-BjfOxXzW.mjs";
+import { n as listMemorySessionTombstones } from "../../memory-entry-origins-DLEyp2IB.mjs";
+import { r as tokenize, t as jaccardSimilarity } from "../../tokenize-DZU9mzSr.mjs";
 import { n as readSessionResetRecallCutoffMetadata } from "../../session-reset-recall-metadata-_gATHFyh.mjs";
-import { a as resolveMemorySessionSyncPlan, c as openMemoryDatabaseAtPath, f as waitForMemoryReindexLock, i as resolveMemorySessionStartupState, l as openMemoryDatabaseReadOnlyAtPath, m as withMemoryIndexPublishGeneration, n as logMemoryVectorDegradedWrite, o as cleanupAgedMemoryReindexTempFiles, p as acquireMemoryIndexReadGeneration, r as isMemorySessionIndexable, s as closeMemoryDatabase, u as removeMemoryDatabaseFiles } from "../../manager-vector-warning-DjezL4AG.mjs";
-import { a as resolveEmbeddingProviderIndexIdentity, i as resolveEmbeddingProviderFallbackRemote, n as resolveEmbeddingProviderAdapterTransport, r as resolveEmbeddingProviderFallbackModel, t as createEmbeddingProvider } from "../../embeddings-CH2fnmpM.mjs";
-import { i as runMemoryKeywordSearch, n as runMemoryCuratedCandidates, o as runMemoryRecallMetadata, r as runMemoryIndexState, s as runMemoryVectorFallback, t as prepareMemoryIndexInWorker } from "../../manager-cpu-worker-runtime-CIUJgoJh.mjs";
-import { t as resolveMemoryPathClassification } from "../../memory-path-provenance-5NWQ9Dua.mjs";
-import { t as MemoryFileWatcher } from "../../file-watcher-NfWfH8bx.mjs";
+import { a as openMemoryDatabaseAtPath, d as withMemoryIndexPublishGeneration, i as closeMemoryDatabase, l as waitForMemoryReindexLock, n as logMemoryVectorDegradedWrite, o as openMemoryDatabaseReadOnlyAtPath, r as cleanupAgedMemoryReindexTempFiles, s as removeMemoryDatabaseFiles, u as acquireMemoryIndexReadGeneration } from "../../manager-vector-warning-_aoNTVFU.mjs";
+import { a as resolveEmbeddingProviderIndexIdentity, i as resolveEmbeddingProviderFallbackRemote, n as resolveEmbeddingProviderAdapterTransport, r as resolveEmbeddingProviderFallbackModel, t as createEmbeddingProvider } from "../../embeddings-CLj-FpM7.mjs";
+import { c as runMemoryKeywordSearch, f as runMemoryRecallMetadata, i as runMemoryCuratedCandidates, m as runMemoryVectorFallback, o as runMemoryIndexState, r as readMemoryTranscriptStatsInWorker, t as prepareMemoryIndexInWorker } from "../../manager-cpu-worker-runtime-DQmY7MKK.mjs";
+import { t as MemoryFileWatcher } from "../../file-watcher-CKrFA8IE.mjs";
+import { t as resolveMemoryPathClassification } from "../../memory-path-provenance-B4C3pxZR.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import { AsyncLocalStorage } from "node:async_hooks";
 import fs$1 from "node:fs/promises";
 import { spawn } from "node:child_process";
-import { setTimeout as setTimeout$1 } from "node:timers/promises";
 import { randomUUID } from "node:crypto";
+import { setImmediate as setImmediate$1, setTimeout as setTimeout$1 } from "node:timers/promises";
 //#region extensions/memory-core/src/memory/manager-publication-transfer.ts
 const FRAGMENT_CHARS = 16384;
 const BATCH_BYTES = 524288;
 const NUMERIC_PART_ITEMS = 512;
-function* jsonParts(value) {
+function* jsonParts(value, preserveNegativeZero) {
 	if (typeof value === "string") {
 		yield "\"";
 		for (let offset = 0; offset < value.length; offset += FRAGMENT_CHARS) yield JSON.stringify(value.slice(offset, offset + FRAGMENT_CHARS)).slice(1, -1);
@@ -113,9 +112,10 @@ function* jsonParts(value) {
 				const limit = Math.min(value.length, index + NUMERIC_PART_ITEMS);
 				let end = index + 1;
 				while (end < limit && typeof value[end] === "number") end++;
-				yield JSON.stringify(value.slice(index, end)).slice(1, -1);
+				const numbers = value.slice(index, end);
+				yield preserveNegativeZero ? numbers.map((number) => Object.is(number, -0) ? "-0" : JSON.stringify(number)).join(",") : JSON.stringify(numbers).slice(1, -1);
 				index = end - 1;
-			} else yield* jsonParts(item);
+			} else yield* jsonParts(item, preserveNegativeZero);
 		}
 		yield "]";
 	} else if (value && typeof value === "object") {
@@ -126,14 +126,14 @@ function* jsonParts(value) {
 			if (!first) yield ",";
 			first = false;
 			yield JSON.stringify(key) + ":";
-			yield* jsonParts(item);
+			yield* jsonParts(item, preserveNegativeZero);
 		}
 		yield "}";
 	} else yield JSON.stringify(value) ?? "null";
 }
-function* rowFragments(value) {
+function* rowFragments(value, preserveNegativeZero) {
 	let pending = "";
-	for (const part of jsonParts(value)) {
+	for (const part of jsonParts(value, preserveNegativeZero)) {
 		pending += part;
 		while (pending.length >= FRAGMENT_CHARS) {
 			let end = FRAGMENT_CHARS;
@@ -147,10 +147,8 @@ function* rowFragments(value) {
 	if (pending) yield pending;
 }
 function* memoryPublicationBatches(replacement) {
-	let batch = [];
-	let bytes = 0;
-	for (const [row, chunk] of replacement.chunks.entries()) {
-		const fragments = rowFragments({
+	function* rows() {
+		for (const [row, chunk] of replacement.chunks.entries()) yield {
 			chunk: {
 				startLine: chunk.startLine,
 				endLine: chunk.endLine,
@@ -162,7 +160,19 @@ function* memoryPublicationBatches(replacement) {
 				...chunk.provenance ? { provenance: { ...chunk.provenance } } : {}
 			},
 			embedding: replacement.embeddings[row] ?? []
-		});
+		};
+	}
+	yield* publicationBatches(rows());
+}
+function* memoryEmbeddingCacheBatches(entries) {
+	yield* publicationBatches(entries, true);
+}
+function* publicationBatches(rows, preserveNegativeZero = false) {
+	let batch = [];
+	let bytes = 0;
+	let row = 0;
+	for (const value of rows) {
+		const fragments = rowFragments(value, preserveNegativeZero);
 		let current = fragments.next();
 		let part = 0;
 		while (!current.done) {
@@ -182,11 +192,27 @@ function* memoryPublicationBatches(replacement) {
 			bytes += cost;
 			current = next;
 		}
+		row++;
 	}
 	if (batch.length) yield batch;
 }
 //#endregion
 //#region extensions/memory-core/src/memory/manager-database-context.ts
+function readConnectionPragmas(db, errorMessage) {
+	const read = (name) => {
+		const row = db.prepare(`PRAGMA ${name}`).get();
+		const value = row?.[name] ?? row?.timeout;
+		if (typeof value !== "number" || !Number.isSafeInteger(value)) throw new Error(errorMessage);
+		return value;
+	};
+	return {
+		busy_timeout: read("busy_timeout"),
+		synchronous: read("synchronous"),
+		foreign_keys: read("foreign_keys"),
+		journal_size_limit: read("journal_size_limit"),
+		checkpoint_fullfsync: read("checkpoint_fullfsync")
+	};
+}
 var MemoryIndexDatabase = class MemoryIndexDatabase {
 	static openPublished(params) {
 		const connection = params.readOnly ? openMemoryDatabaseReadOnlyAtPath(params.writeOptions.path, params.allowExtension, params.agentId) : borrowOpenClawAgentDatabase(params.writeOptions);
@@ -201,23 +227,10 @@ var MemoryIndexDatabase = class MemoryIndexDatabase {
 		const db = openMemoryDatabaseAtPath(filename, allowExtension, (operation) => database ? database.runMaintenance(operation) : operation());
 		try {
 			database = new MemoryIndexDatabase(db);
-			const readPragma = (name) => {
-				const row = db.prepare(`PRAGMA ${name}`).get();
-				const value = name === "busy_timeout" ? row?.busy_timeout ?? row?.timeout : row?.[name];
-				if (typeof value !== "number" || !Number.isSafeInteger(value)) throw new Error("Invalid memory shadow connection policy");
-				return value;
-			};
 			database.shadow = {
 				path: filename,
 				identity: readMemoryShadowIdentity(filename),
-				pragmas: {
-					busy_timeout: readPragma("busy_timeout"),
-					synchronous: readPragma("synchronous"),
-					foreign_keys: readPragma("foreign_keys"),
-					wal_autocheckpoint: readPragma("wal_autocheckpoint"),
-					journal_size_limit: readPragma("journal_size_limit"),
-					checkpoint_fullfsync: readPragma("checkpoint_fullfsync")
-				}
+				pragmas: readConnectionPragmas(db, "Invalid memory shadow connection policy")
 			};
 			return database;
 		} catch (error) {
@@ -312,20 +325,7 @@ var MemoryIndexDatabase = class MemoryIndexDatabase {
 		this.publicationWorker ??= (async () => {
 			const filename = this.shadow?.path ?? this.writeOptions?.path;
 			if (!filename || this.readOnly || this.closed) throw new Error("Memory publication requires its live file owner");
-			const readPragma = (name) => {
-				const row = this.db.prepare("PRAGMA " + name).get();
-				const value = row?.[name] ?? row?.timeout;
-				if (typeof value !== "number" || !Number.isSafeInteger(value)) throw new Error("Invalid memory connection policy");
-				return value;
-			};
-			const pragmas = this.shadow?.pragmas ?? {
-				busy_timeout: readPragma("busy_timeout"),
-				synchronous: readPragma("synchronous"),
-				foreign_keys: readPragma("foreign_keys"),
-				wal_autocheckpoint: readPragma("wal_autocheckpoint"),
-				journal_size_limit: readPragma("journal_size_limit"),
-				checkpoint_fullfsync: readPragma("checkpoint_fullfsync")
-			};
+			const pragmas = this.shadow?.pragmas ?? readConnectionPragmas(this.db, "Invalid memory connection policy");
 			const worker = {
 				moduleUrl: resolveRuntimeWorkerUrl(memoryCpuProcessEntrypoints.publication),
 				input: {
@@ -333,7 +333,10 @@ var MemoryIndexDatabase = class MemoryIndexDatabase {
 					pragmas
 				}
 			};
-			if (this.writeOptions) return openOpenClawAgentSqliteWorkerStore(this.writeOptions, this.db, worker);
+			if (this.writeOptions) return {
+				store: await openOpenClawAgentSqliteWorkerStore(this.writeOptions, this.db, worker),
+				busyTimeoutMs: pragmas.busy_timeout
+			};
 			const store = await openSqliteWorkerStore({
 				...worker,
 				databasePath: filename,
@@ -348,8 +351,11 @@ var MemoryIndexDatabase = class MemoryIndexDatabase {
 			});
 			if (!store) throw new Error("Memory shadow disappeared before publication Worker open");
 			return {
-				run: (operation, assertCurrent) => runSqliteWorkerStoreWrite(store, operation, assertCurrent, [filename]),
-				close: () => store.close()
+				store: {
+					run: (operation, assertCurrent) => runSqliteWorkerStoreWrite(store, operation, assertCurrent, [filename]),
+					close: () => store.close()
+				},
+				busyTimeoutMs: pragmas.busy_timeout
 			};
 		})().catch((error) => {
 			this.publicationWorker = void 0;
@@ -361,7 +367,7 @@ var MemoryIndexDatabase = class MemoryIndexDatabase {
 		const run = async () => {
 			assertCurrent();
 			try {
-				return await (await this.getPublicationWorker()).run(operation, assertCurrent);
+				return await (await this.getPublicationWorker()).store.run(operation, assertCurrent);
 			} catch (error) {
 				const [cleanup] = await Promise.allSettled([this.closePublicationWorker()]);
 				if (cleanup.status === "rejected") throw new AggregateError([error, cleanup.reason], `${String(error)}; Memory publication cleanup failed: ${String(cleanup.reason)}`, { cause: error });
@@ -371,8 +377,8 @@ var MemoryIndexDatabase = class MemoryIndexDatabase {
 		return this.isShadow ? this.withPrivateAccess(run, { nativeWriter: true }) : run();
 	}
 	async retryPublication(run, prepare = async () => true) {
-		const policy = this.db.prepare("PRAGMA busy_timeout").get();
-		const deadline = performance.now() + Number(policy?.timeout ?? policy?.busy_timeout ?? 5e3);
+		const worker = await this.getPublicationWorker();
+		const deadline = performance.now() + worker.busyTimeoutMs;
 		while (await prepare()) {
 			const result = await run();
 			if (result.ok) return result.value;
@@ -383,6 +389,68 @@ var MemoryIndexDatabase = class MemoryIndexDatabase {
 			});
 			await setTimeout$1(Math.min(25, Math.max(0, deadline - performance.now())));
 		}
+	}
+	read(command, assertCurrent) {
+		return this.runPublication((scope) => scope.execute(command), assertCurrent);
+	}
+	async pruneEmbeddingCache(maxEntries, assertCurrent) {
+		assertCurrent();
+		return await this.retryPublication(() => this.runPublication((scope) => scope.execute({
+			type: "cache.prune",
+			input: { maxEntries }
+		}), assertCurrent)) ?? false;
+	}
+	async mutateEmbeddingCache(mutation, assertCurrent, prepareRevision, invalidate) {
+		return this.runPublication(async (scope) => {
+			const expectedRevision = prepareRevision();
+			if (expectedRevision === void 0) return;
+			const prepare = async () => prepareRevision() !== void 0;
+			if (mutation.kind === "clear") try {
+				return await this.retryPublication(() => scope.execute({
+					type: "cache.clear",
+					input: {
+						identities: mutation.identities,
+						expectedRevision
+					}
+				}), prepare);
+			} finally {
+				invalidate();
+			}
+			const operation = randomUUID();
+			await scope.execute({
+				type: "cache.stage.start",
+				input: {
+					operation,
+					header: mutation.header,
+					rows: mutation.entries.length
+				}
+			});
+			for (const fragments of memoryEmbeddingCacheBatches(mutation.entries)) await scope.execute({
+				type: "stage.append",
+				input: {
+					operation,
+					fragments
+				}
+			});
+			let needsDiscard = true;
+			const current = await this.retryPublication(async () => {
+				const outcome = await scope.execute({
+					type: "cache.write",
+					input: {
+						operation,
+						expectedRevision
+					}
+				});
+				if (outcome.ok || outcome.entered) needsDiscard = false;
+				return outcome;
+			}, prepare);
+			if (needsDiscard) await scope.execute({
+				type: "stage.discard",
+				input: { operation }
+			});
+			if (current === false) invalidate();
+			return current;
+		}, assertCurrent);
 	}
 	async replaceSource(replacement, assertCurrent, prepare) {
 		return this.runPublication(async (scope) => {
@@ -446,13 +514,14 @@ var MemoryIndexDatabase = class MemoryIndexDatabase {
 	}
 	async closePublicationWorker() {
 		if (this.publicationWorker) {
-			await (await this.publicationWorker).close();
+			await (await this.publicationWorker).store.close();
 			this.publicationWorker = void 0;
 		}
 	}
 	closeShadow() {
 		this.closed = true;
 		this.shadowClose ??= (async () => {
+			await stopMemorySqliteWalMaintenance(this.db);
 			await this.drainPrivateAccess();
 			await this.closePublicationWorker();
 			this.releaseInProgress = true;
@@ -522,122 +591,6 @@ var MemoryManagerDatabaseContext = class {
 	}
 };
 //#endregion
-//#region extensions/memory-core/src/memory/manager-embedding-cache.ts
-/** Require a finite, nonempty vector compatible with the active embedding dimensions. */
-function isValidMemoryEmbedding(embedding, dimensions) {
-	return Array.isArray(embedding) && embedding.length > 0 && (dimensions === void 0 || embedding.length === dimensions) && embedding.every((coordinate) => typeof coordinate === "number" && Number.isFinite(coordinate));
-}
-function loadMemoryEmbeddingCache(params) {
-	if (!params.enabled || params.providerIdentities.length === 0 || params.hashes.length === 0) return /* @__PURE__ */ new Map();
-	const unresolved = new Set(params.hashes.filter(Boolean));
-	if (unresolved.size === 0) return /* @__PURE__ */ new Map();
-	const db = getNodeSqliteKysely(params.db);
-	const out = /* @__PURE__ */ new Map();
-	const batchSize = 400;
-	for (const identity of params.providerIdentities) {
-		if (unresolved.size === 0) break;
-		const hashes = [...unresolved];
-		for (let start = 0; start < hashes.length; start += batchSize) {
-			const batch = hashes.slice(start, start + batchSize);
-			const query = db.selectFrom("memory_embedding_cache").select(["hash", "embedding"]).select((eb) => eb.or([eb("dims", "is", null), eb("dims", "=", eb(eb.fn("length", ["embedding"]), "/", eb.lit(8)))]).as("dimensions_match")).where("provider", "=", identity.provider).where("model", "=", identity.model).where("provider_key", "=", identity.providerKey).where("hash", "in", batch);
-			for (const row of iterateSqliteQuerySync(params.db, query)) {
-				const embedding = decodeMemoryEmbedding(row.embedding);
-				out.set(row.hash, row.dimensions_match && isValidMemoryEmbedding(embedding) ? embedding : []);
-				unresolved.delete(row.hash);
-			}
-		}
-	}
-	return out;
-}
-/** Discard ambiguous vector spaces without removing unrelated provider caches or index rows. */
-function clearMemoryEmbeddingCacheIdentities(database, identities) {
-	const db = getNodeSqliteKysely(database);
-	for (const identity of identities) executeSqliteQuerySync(database, db.deleteFrom("memory_embedding_cache").where("provider", "=", identity.provider).where("model", "=", identity.model).where("provider_key", "=", identity.providerKey));
-}
-function prepareMemoryEmbeddingCacheUpsert(db) {
-	const { compiled, bind } = compileSqliteQueryBindings((parameter) => getNodeSqliteKysely(db).insertInto("memory_embedding_cache").values({
-		provider: parameter((row) => row.provider),
-		model: parameter((row) => row.model),
-		provider_key: parameter((row) => row.provider_key),
-		hash: parameter((row) => row.hash),
-		embedding: parameter((row) => row.embedding),
-		dims: parameter((row) => row.dims),
-		updated_at: parameter((row) => row.updated_at)
-	}).onConflict((conflict) => conflict.columns([
-		"provider",
-		"model",
-		"provider_key",
-		"hash"
-	]).doUpdateSet((eb) => ({
-		embedding: eb.ref("excluded.embedding"),
-		dims: eb.ref("excluded.dims"),
-		updated_at: eb.ref("excluded.updated_at")
-	}))));
-	const statement = db.prepare(compiled.sql);
-	statement.setReadBigInts(true);
-	return (row) => statement.run(...bind(row));
-}
-function upsertMemoryEmbeddingCache(params) {
-	const provider = params.provider;
-	if (!params.enabled || !provider || !params.providerKey || params.entries.length === 0) return;
-	const seenHashes = /* @__PURE__ */ new Set();
-	const uniqueEntries = [];
-	for (let index = params.entries.length - 1; index >= 0; index -= 1) {
-		const entry = params.entries[index];
-		if (entry && !seenHashes.has(entry.hash)) {
-			seenHashes.add(entry.hash);
-			uniqueEntries.push(entry);
-		}
-	}
-	uniqueEntries.reverse();
-	const maxEntries = typeof params.maxEntries === "number" && Number.isFinite(params.maxEntries) && params.maxEntries > 0 ? Math.floor(params.maxEntries) : void 0;
-	const retainedEntries = maxEntries === void 0 ? uniqueEntries : uniqueEntries.slice(-maxEntries);
-	if (retainedEntries.length === 0) return;
-	if (maxEntries !== void 0) reserveMemoryEmbeddingCacheCapacity({
-		db: params.db,
-		provider,
-		providerKey: params.providerKey,
-		hashes: retainedEntries.map((entry) => entry.hash),
-		maxEntries
-	});
-	const now = params.now ?? Date.now();
-	const upsert = prepareMemoryEmbeddingCacheUpsert(params.db);
-	for (const entry of retainedEntries) {
-		const embedding = entry.embedding ?? [];
-		upsert({
-			provider: provider.id,
-			model: provider.model,
-			provider_key: params.providerKey,
-			hash: entry.hash,
-			embedding: encodeMemoryEmbedding(embedding),
-			dims: embedding.length,
-			updated_at: now
-		});
-	}
-}
-function reserveMemoryEmbeddingCacheCapacity(params) {
-	const db = getNodeSqliteKysely(params.db);
-	for (let start = 0; start < params.hashes.length; start += 400) executeSqliteQuerySync(params.db, db.deleteFrom("memory_embedding_cache").where("provider", "=", params.provider.id).where("model", "=", params.provider.model).where("provider_key", "=", params.providerKey).where("hash", "in", params.hashes.slice(start, start + 400)));
-	executeSqliteQuerySync(params.db, db.deleteFrom("memory_embedding_cache").where("rowid", "in", db.selectFrom("memory_embedding_cache").select("rowid").orderBy("updated_at", "desc").orderBy("rowid", "desc").limit(-1).offset(params.maxEntries - params.hashes.length)));
-}
-function collectMemoryCachedEmbeddings(params) {
-	const embeddings = Array.from({ length: params.chunks.length }, () => []);
-	const missing = [];
-	for (let index = 0; index < params.chunks.length; index += 1) {
-		const chunk = params.chunks[index];
-		const hit = chunk?.hash ? params.cached.get(chunk.hash) : void 0;
-		if (hit && hit.length > 0) embeddings[index] = hit;
-		else if (chunk) missing.push({
-			index,
-			chunk
-		});
-	}
-	return {
-		embeddings,
-		missing
-	};
-}
-//#endregion
 //#region extensions/memory-core/src/memory/manager-embedding-errors.ts
 const MEMORY_EMBEDDING_OPERATION_ERROR_CODE = "MEMORY_EMBEDDING_OPERATION_FAILED";
 function createMemoryEmbeddingOperationError(params) {
@@ -665,10 +618,6 @@ function buildMemoryEmbeddingBatches(chunks, maxTokens) {
 			current = [];
 			currentTokens = 0;
 		}
-		if (current.length === 0 && estimate > maxTokens) {
-			batches.push([chunk]);
-			continue;
-		}
 		current.push(chunk);
 		currentTokens += estimate;
 	}
@@ -678,7 +627,7 @@ function buildMemoryEmbeddingBatches(chunks, maxTokens) {
 const RATE_LIMITED_MEMORY_EMBEDDING_ERROR_RE = /(rate[_ ]limit|too many requests|\b429\b|resource has been exhausted|tokens per day)/i;
 const RETRYABLE_MEMORY_EMBEDDING_SERVICE_ERROR_RE = /\b5\d\d\b|cloudflare/i;
 const RETRYABLE_MEMORY_EMBEDDING_TRANSPORT_ERROR_RE = /(fetch failed|other side closed|ECONNRESET|ECONNREFUSED|ETIMEDOUT|EPIPE|UND_ERR_|socket hang up|socket terminated|network error|read ECONN|timed out|connection (?:reset|refused|aborted|timed out)|EHOSTUNREACH|ENETUNREACH|ECONNABORTED|EAI_AGAIN)/i;
-const SPLITTABLE_MEMORY_EMBEDDING_BATCH_ERROR_RE = /(request_headers_too_large|request header fields too large|other side closed|ECONNRESET|EPIPE|UND_ERR_SOCKET|socket hang up|socket terminated|read ECONN|connection (?:reset|aborted)|\bembeddings (?:api input limit exceeded:\s*max\s+\d+\s*,\s*got\s+\d+|max input length is\s+\d+)\b|\bbatch size is invalid,?\s+it should not be larger than\s+\d+\b|\binput array max\s+\d+(?=\s*(?:["'}]|$)))/i;
+const SPLITTABLE_MEMORY_EMBEDDING_BATCH_ERROR_RE = /(request_headers_too_large|request header fields too large|other side closed|ECONNRESET|EPIPE|UND_ERR_SOCKET|socket hang up|socket terminated|read ECONN|connection (?:reset|aborted)|\bembeddings (?:api input limit exceeded:\s*max\s+\d+\s*,\s*got\s+\d+|max input length is\s+\d+)\b|\bbatch size is invalid,?\s+it should not be larger than\s+\d+\b|\binput array max\s+\d+(?=\s*(?:["'}]|$))|input\s*数组最大不得超过\s*\d+\s*条)/i;
 const SHORT_MEMORY_EMBEDDING_RETRY_BUDGET = {
 	attempts: 3,
 	baseDelayMs: 500,
@@ -789,31 +738,52 @@ async function runMemoryEmbeddingBatchRetryWithSplit(params) {
 	await params.onSuccess?.(params.items, outputs);
 	return outputs;
 }
-function buildTextEmbeddingInputs(chunks) {
-	return chunks.map((chunk) => chunk.embeddingInput ?? { text: chunk.text });
-}
 //#endregion
-//#region extensions/memory-core/src/memory/manager-index-source.ts
-async function readMemoryIndexSource({ absolutePath, workspaceDir, source, suppliedContent, memoryFiles }) {
-	const remoteRead = source === "memory" && memoryFiles ? await retryTransientMemoryRead(() => memoryFiles.readForIndexing(absolutePath), `read workspace memory for indexing ${absolutePath}`).catch((error) => {
-		if (!isFileMissingError(error)) throw error;
-		return null;
-	}) : void 0;
-	if (remoteRead === null) return null;
-	const pathClassification = await resolveMemoryPathClassification({
-		absolutePath,
-		source,
-		workspaceDir,
-		readSource: remoteRead
-	});
-	const content = remoteRead?.content ?? suppliedContent ?? await retryTransientMemoryRead(() => fs$1.readFile(absolutePath, "utf-8"), `read memory markdown for indexing ${absolutePath}`).catch((err) => {
-		if (source !== "memory" || !isFileMissingError(err)) throw err;
-		return null;
-	});
-	if (content === null) return null;
+//#region extensions/memory-core/src/memory/manager-provider-state.ts
+function resolveMemoryProviderLifecycle(result) {
+	if (result.provider && result.fallbackFrom) return {
+		mode: "fallback-active",
+		providerId: result.provider.id,
+		fallbackFrom: result.fallbackFrom,
+		reason: result.fallbackReason ?? "fallback activated"
+	};
+	if (result.provider) return {
+		mode: "active",
+		providerId: result.provider.id
+	};
 	return {
-		content,
-		pathClassification
+		mode: "fts-only",
+		reason: result.providerUnavailableReason ?? "No embedding provider available",
+		attemptedProviderId: result.requestedProvider
+	};
+}
+function resolveFallbackCurrentProviderId(params) {
+	if (params.provider) return params.provider.id;
+	if (params.lifecycle.mode === "degraded") return params.lifecycle.providerId;
+	return null;
+}
+function resolveMemoryPrimaryProviderRequest(params) {
+	return {
+		provider: params.settings.provider,
+		model: params.settings.model,
+		remote: params.settings.remote,
+		inputType: params.settings.inputType,
+		queryInputType: params.settings.queryInputType,
+		documentInputType: params.settings.documentInputType,
+		outputDimensionality: params.settings.outputDimensionality,
+		fallback: params.settings.fallback,
+		local: params.settings.local
+	};
+}
+function resolveMemoryFallbackProviderRequest(params) {
+	const fallback = params.settings.fallback;
+	if (!fallback || fallback === "none" || !params.currentProviderId || fallback === params.currentProviderId) return null;
+	return {
+		...resolveMemoryPrimaryProviderRequest({ settings: params.settings }),
+		provider: fallback,
+		model: resolveEmbeddingProviderFallbackModel(fallback, params.settings.model, params.cfg),
+		remote: resolveEmbeddingProviderFallbackRemote(params.settings.remote),
+		fallback: "none"
 	};
 }
 function resolveMemoryIndexProviderIdentities(params) {
@@ -848,9 +818,7 @@ function resolveConfiguredSourcesForMeta(sources) {
 	return normalized.length > 0 ? normalized : ["memory"];
 }
 function normalizeMetaSources(meta) {
-	if (!Array.isArray(meta.sources)) return ["memory"];
-	const normalized = Array.from(new Set(meta.sources.filter((source) => source === "memory" || source === "sessions"))).toSorted((left, right) => left.localeCompare(right));
-	return normalized.length > 0 ? normalized : ["memory"];
+	return resolveConfiguredSourcesForMeta(new Set(Array.isArray(meta.sources) ? meta.sources : []));
 }
 function configuredMetaSourcesDiffer(params) {
 	const metaSources = normalizeMetaSources(params.meta);
@@ -933,110 +901,99 @@ function resolveMemoryIndexIdentityState(params) {
 	return resolveConfigurationIndexIdentityState(params, meta);
 }
 //#endregion
-//#region extensions/memory-core/src/memory/manager-provider-state.ts
-function createPendingMemoryProviderLifecycle(requestedProvider) {
-	return {
-		mode: "pending",
-		requestedProvider
-	};
+//#region extensions/memory-core/src/memory/manager-sync-control.ts
+function hasTargetedSessionSyncParams(params) {
+	return Boolean(params?.sessions?.some((session) => session.sessionId.trim().length > 0) || params?.archiveFiles?.some((sessionFile) => sessionFile.trim().length > 0));
 }
-function createDegradedMemoryProviderLifecycle(params) {
-	return {
-		mode: "degraded",
-		providerId: params.providerId,
-		reason: params.reason,
-		...params.code ? { code: params.code } : {}
-	};
-}
-function resolveProviderLifecycle(result) {
-	if (result.provider && result.fallbackFrom) return {
-		mode: "fallback-active",
-		providerId: result.provider.id,
-		fallbackFrom: result.fallbackFrom,
-		reason: result.fallbackReason ?? "fallback activated"
-	};
-	if (result.provider) return {
-		mode: "active",
-		providerId: result.provider.id
-	};
-	return {
-		mode: "fts-only",
-		reason: result.providerUnavailableReason ?? "No embedding provider available",
-		attemptedProviderId: result.requestedProvider
-	};
-}
-function resolveFallbackCurrentProviderId(params) {
-	if (params.provider) return params.provider.id;
-	if (params.lifecycle.mode === "degraded") return params.lifecycle.providerId;
-	return null;
-}
-function resolveMemoryPrimaryProviderRequest(params) {
-	return {
-		provider: params.settings.provider,
-		model: params.settings.model,
-		remote: params.settings.remote,
-		inputType: params.settings.inputType,
-		queryInputType: params.settings.queryInputType,
-		documentInputType: params.settings.documentInputType,
-		outputDimensionality: params.settings.outputDimensionality,
-		fallback: params.settings.fallback,
-		local: params.settings.local
-	};
-}
-function resolveMemoryProviderState(result) {
-	return {
-		provider: result.provider,
-		fallbackFrom: result.fallbackFrom,
-		fallbackReason: result.fallbackReason,
-		providerUnavailableReason: result.providerUnavailableReason,
-		providerRuntime: result.runtime,
-		lifecycle: resolveProviderLifecycle(result)
-	};
-}
-function applyMemoryFallbackProviderState(params) {
-	return {
-		...params.current,
-		fallbackFrom: params.fallbackFrom,
-		fallbackReason: params.reason,
-		providerUnavailableReason: void 0,
-		provider: params.result.provider,
-		providerRuntime: params.result.runtime,
-		lifecycle: params.result.provider ? {
-			mode: "fallback-active",
-			providerId: params.result.provider.id,
-			fallbackFrom: params.fallbackFrom,
-			reason: params.reason
-		} : {
-			mode: "fts-only",
-			reason: params.reason,
-			attemptedProviderId: params.fallbackFrom
+var MemoryTargetedSessionSyncQueue = class {
+	constructor(owner) {
+		this.owner = owner;
+		this.archiveFiles = /* @__PURE__ */ new Set();
+		this.sessions = /* @__PURE__ */ new Map();
+		this.progressCallbacks = /* @__PURE__ */ new Set();
+		this.force = false;
+		this.pending = null;
+	}
+	get hasPending() {
+		return this.pending !== null || this.archiveFiles.size > 0 || this.sessions.size > 0;
+	}
+	clear() {
+		this.archiveFiles.clear();
+		this.sessions.clear();
+		this.force = false;
+		this.progressCallbacks.clear();
+	}
+	enqueue(targets) {
+		for (const sessionFile of targets?.archiveFiles ?? []) {
+			const trimmed = sessionFile.trim();
+			if (trimmed) this.archiveFiles.add(trimmed);
 		}
+		for (const session of targets?.sessions ?? []) {
+			const normalized = normalizeQueuedMemorySessionSyncTarget(session);
+			if (normalized) this.sessions.set(memorySessionSyncTargetKey(normalized), normalized);
+		}
+		if (this.archiveFiles.size === 0 && this.sessions.size === 0) return this.owner.getSyncing() ?? Promise.resolve();
+		if (targets?.force) this.force = true;
+		if (targets?.progress) this.progressCallbacks.add(targets.progress);
+		if (!this.pending) this.pending = (async () => {
+			try {
+				await this.owner.getSyncing()?.catch(() => void 0);
+				while (!this.owner.isClosed() && (this.archiveFiles.size > 0 || this.sessions.size > 0)) {
+					const pendingArchiveFiles = Array.from(this.archiveFiles);
+					const pendingSessions = Array.from(this.sessions.values());
+					const pendingForce = this.force;
+					const pendingProgressCallbacks = Array.from(this.progressCallbacks);
+					this.clear();
+					const progress = pendingProgressCallbacks.length > 0 ? (update) => {
+						for (const callback of pendingProgressCallbacks) callback(update);
+					} : void 0;
+					try {
+						await this.owner.sync({
+							reason: "queued-sessions",
+							...pendingForce ? { force: true } : {},
+							sessions: pendingSessions,
+							archiveFiles: pendingArchiveFiles,
+							...progress ? { progress } : {}
+						});
+					} catch (err) {
+						for (const archiveFile of pendingArchiveFiles) this.archiveFiles.add(archiveFile);
+						for (const session of pendingSessions) this.sessions.set(memorySessionSyncTargetKey(session), session);
+						if (pendingForce) this.force = true;
+						this.progressCallbacks.clear();
+						throw err;
+					}
+				}
+			} finally {
+				if (this.owner.isClosed()) this.clear();
+				this.pending = null;
+			}
+		})();
+		return this.pending ?? Promise.resolve();
+	}
+};
+function normalizeQueuedMemorySessionSyncTarget(target) {
+	const sessionId = target.sessionId.trim();
+	if (!sessionId) return null;
+	const agentId = target.agentId?.trim();
+	const sessionKey = target.sessionKey?.trim();
+	return {
+		...agentId ? { agentId } : {},
+		sessionId,
+		...sessionKey ? { sessionKey } : {}
 	};
 }
-function resolveMemoryFallbackProviderRequest(params) {
-	const fallback = params.settings.fallback;
-	if (!fallback || fallback === "none" || !params.currentProviderId || fallback === params.currentProviderId) return null;
-	return {
-		provider: fallback,
-		model: resolveEmbeddingProviderFallbackModel(fallback, params.settings.model, params.cfg),
-		remote: resolveEmbeddingProviderFallbackRemote(params.settings.remote),
-		inputType: params.settings.inputType,
-		queryInputType: params.settings.queryInputType,
-		documentInputType: params.settings.documentInputType,
-		outputDimensionality: params.settings.outputDimensionality,
-		fallback: "none",
-		local: params.settings.local
-	};
+function memorySessionSyncTargetKey(target) {
+	return [
+		target.agentId ?? "",
+		target.sessionId,
+		target.sessionKey ?? ""
+	].join("\0");
 }
 //#endregion
 //#region extensions/memory-core/src/memory/manager-session-reindex.ts
 function shouldSyncSessionsForReindex(params) {
 	if (!params.hasSessionSource) return false;
-	if (params.sync?.sessions?.some((session) => session.sessionId.trim().length > 0)) return true;
-	if (params.sync?.archiveFiles?.some((sessionFile) => sessionFile.trim().length > 0)) return true;
-	if (params.sync?.force) return true;
-	if (params.needsFullReindex) return true;
-	if (params.sessionsFullRetryDirty) return true;
+	if (hasTargetedSessionSyncParams(params.sync) || params.sync?.force || params.needsFullReindex || params.sessionsFullRetryDirty) return true;
 	const reason = params.sync?.reason;
 	if (reason === "session-start" || reason === "watch") return false;
 	return params.sessionsDirty;
@@ -1089,8 +1046,6 @@ function buildMemorySourceFilter(alias, sources) {
 }
 //#endregion
 //#region extensions/memory-core/src/memory/manager-sync-base.ts
-const META_KEY = MEMORY_INDEX_META_KEY;
-const VECTOR_TABLE$1 = MEMORY_INDEX_VECTOR_TABLE;
 const LEGACY_VECTOR_TABLE = "chunks_vec";
 const VECTOR_LOAD_TIMEOUT_MS = 3e4;
 const log$10 = createSubsystemLogger("memory");
@@ -1109,6 +1064,7 @@ var MemoryManagerSyncBase = class extends MemoryManagerDatabaseContext {
 		this.sessionUnsubscribe = null;
 		this.intervalTimer = null;
 		this.dirty = false;
+		this.memoryWatchGeneration = 0;
 		this.syncOutcomes = new MemorySyncOutcomeLedger();
 		this.memorySourceProvenanceRepairPending = false;
 		this.memoryFullRetryDirty = false;
@@ -1118,6 +1074,10 @@ var MemoryManagerSyncBase = class extends MemoryManagerDatabaseContext {
 		this.sessionsDirtyFiles = /* @__PURE__ */ new Set();
 		this.sessionPendingFiles = /* @__PURE__ */ new Set();
 		this.sessionPendingTargets = /* @__PURE__ */ new Map();
+	}
+	markMemoryWatchDirty() {
+		this.memoryWatchGeneration += 1;
+		this.dirty = true;
 	}
 	async withManagerOperation(run) {
 		this.memoryFiles?.assertCurrent();
@@ -1136,15 +1096,6 @@ var MemoryManagerSyncBase = class extends MemoryManagerDatabaseContext {
 			}
 		}
 	}
-	async indexFiles(items) {
-		for (const item of items) await this.indexFile(item.entry, { source: item.source });
-	}
-	emptySourceSyncPlan() {
-		return {
-			indexItems: [],
-			finalize: () => {}
-		};
-	}
 	snapshotReindexRetryState() {
 		return {
 			dirty: this.dirty,
@@ -1162,9 +1113,6 @@ var MemoryManagerSyncBase = class extends MemoryManagerDatabaseContext {
 		return snapshot;
 	}
 	adoptReindexRetryState(snapshot) {
-		this.restoreReindexRetryState(snapshot);
-	}
-	restoreReindexRetryState(snapshot) {
 		this.dirty = snapshot.dirty || this.dirty;
 		this.memoryFullRetryDirty = snapshot.memoryFullRetryDirty || this.memoryFullRetryDirty;
 		this.sessionsFullRetryDirty = snapshot.sessionsFullRetryDirty || this.sessionsFullRetryDirty;
@@ -1195,9 +1143,6 @@ var MemoryManagerSyncBase = class extends MemoryManagerDatabaseContext {
 	refreshSessionDirtyFlag() {
 		this.sessionsDirty = this.sessionsFullRetryDirty || this.sessionsReconcileDirty || this.sessionsDirtyFiles.size > 0;
 	}
-	shouldDeferSourceWideBatch() {
-		return Boolean(this.batch.enabled && this.provider && this.providerRuntime?.batchEmbed && this.providerRuntime.sourceWideBatchEmbed === true);
-	}
 	advanceSyncProgress(progress, count = 1) {
 		if (!progress) return;
 		progress.completed += count;
@@ -1214,33 +1159,28 @@ var MemoryManagerSyncBase = class extends MemoryManagerDatabaseContext {
 			label
 		});
 		await this.indexFiles(items);
-		for (const item of items) item.afterIndex?.();
 		this.advanceSyncProgress(progress, items.length);
 	}
-	async executeSourceSyncPlans(plans, progress) {
-		const indexItems = plans.flatMap((plan) => plan.indexItems);
-		const sources = new Set(indexItems.map((item) => item.source));
-		await this.indexQueuedFiles(indexItems, progress, sources.size > 1 ? "Indexing memory sources (batch)..." : void 0);
-		for (const plan of plans) await plan.finalize();
-	}
-	async executeSourceWideSync(params) {
+	async executeSourceSync(params) {
+		const deferIndex = this.shouldDeferSourceWideBatch();
 		const memoryPlan = params.shouldSyncMemory ? await this.syncMemoryFiles({
 			needsFullReindex: params.needsFullReindex,
 			progress: params.progress,
-			deferIndex: true
-		}) : this.emptySourceSyncPlan();
-		if (params.shouldSyncSessions) {
-			await this.syncArchiveFiles({
-				needsFullReindex: params.needsFullSessionReindex ?? params.needsFullReindex,
-				targetArchiveFiles: params.targetArchiveFiles,
-				progress: params.progress,
+			...deferIndex ? { deferIndex: true } : {}
+		}) : void 0;
+		if (params.shouldSyncSessions) await this.syncArchiveFiles({
+			needsFullReindex: params.needsFullSessionReindex ?? params.needsFullReindex,
+			targetArchiveFiles: params.targetArchiveFiles,
+			progress: params.progress,
+			...deferIndex ? {
 				deferIndex: true,
-				prefixIndexItems: memoryPlan.indexItems
-			});
-			await memoryPlan.finalize();
-			return;
-		}
-		await this.executeSourceSyncPlans([memoryPlan], params.progress);
+				prefixIndexItems: memoryPlan?.indexItems
+			} : {}
+		});
+		else if (deferIndex) await this.indexQueuedFiles(memoryPlan?.indexItems ?? [], params.progress);
+		if (deferIndex) await memoryPlan?.finalize();
+		if (params.shouldSyncSessions) this.clearSessionRetryState();
+		else this.refreshSessionDirtyFlag();
 	}
 	hasIndexedChunks() {
 		return this.db.prepare(`SELECT 1 as found FROM memory_index_chunks LIMIT 1`).get() !== void 0;
@@ -1286,11 +1226,7 @@ var MemoryManagerSyncBase = class extends MemoryManagerDatabaseContext {
 			configuredScopeHash: resolveConfiguredScopeHash({
 				workspaceDir: this.workspaceDir,
 				extraPaths: this.settings.extraPaths,
-				multimodal: {
-					enabled: this.settings.multimodal.enabled,
-					modalities: this.settings.multimodal.modalities,
-					maxFileBytes: this.settings.multimodal.maxFileBytes
-				}
+				multimodal: this.settings.multimodal
 			}),
 			chunkTokens: this.settings.chunking.tokens,
 			chunkOverlap: this.settings.chunking.overlap,
@@ -1375,7 +1311,7 @@ var MemoryManagerSyncBase = class extends MemoryManagerDatabaseContext {
 	hasVectorRebuildMarker() {
 		return requiresMemoryVectorRebuild({
 			db: this.db,
-			vectorTable: VECTOR_TABLE$1,
+			vectorTable: MEMORY_INDEX_VECTOR_TABLE,
 			metaVectorDims: this.readMeta()?.vectorDims,
 			hasSemanticChunks: this.hasSemanticChunks()
 		});
@@ -1389,9 +1325,9 @@ var MemoryManagerSyncBase = class extends MemoryManagerDatabaseContext {
 		}
 	}
 	ensureVectorTable(dimensions) {
-		if (this.vector.dims === dimensions && memoryTableExists(this.db, VECTOR_TABLE$1)) return;
-		if (!this.dropVectorTable()) throw new Error(`Failed to reset ${VECTOR_TABLE$1} before rebuilding vector dimensions`);
-		this.db.exec(`CREATE VIRTUAL TABLE IF NOT EXISTS ${VECTOR_TABLE$1} USING vec0(\n  id TEXT PRIMARY KEY,\n  embedding FLOAT[${dimensions}]\n)`);
+		if (this.vector.dims === dimensions && memoryTableExists(this.db, "memory_index_chunks_vec")) return;
+		if (!this.dropVectorTable()) throw new Error(`Failed to reset ${MEMORY_INDEX_VECTOR_TABLE} before rebuilding vector dimensions`);
+		this.db.exec(`CREATE VIRTUAL TABLE IF NOT EXISTS ${MEMORY_INDEX_VECTOR_TABLE} USING vec0(\n  id TEXT PRIMARY KEY,\n  embedding FLOAT[${dimensions}]\n)`);
 		this.vector.dims = dimensions;
 	}
 	dropLegacyVectorTable() {
@@ -1406,11 +1342,11 @@ var MemoryManagerSyncBase = class extends MemoryManagerDatabaseContext {
 	}
 	dropVectorTable() {
 		try {
-			this.db.exec(`DROP TABLE IF EXISTS ${VECTOR_TABLE$1}`);
+			this.db.exec(`DROP TABLE IF EXISTS ${MEMORY_INDEX_VECTOR_TABLE}`);
 			return true;
 		} catch (err) {
 			const message = formatErrorMessage(err);
-			log$10.debug(`Failed to drop ${VECTOR_TABLE$1}: ${message}`);
+			log$10.debug(`Failed to drop ${MEMORY_INDEX_VECTOR_TABLE}: ${message}`);
 			return false;
 		}
 	}
@@ -1438,21 +1374,23 @@ var MemoryManagerSyncBase = class extends MemoryManagerDatabaseContext {
 	writeMeta(meta) {
 		const value = JSON.stringify(meta);
 		if (this.database.lastMetaSerialized === value) return;
-		this.db.prepare(`INSERT INTO memory_index_meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value`).run(META_KEY, value);
+		this.db.prepare(`INSERT INTO memory_index_meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value`).run(MEMORY_INDEX_META_KEY, value);
 		this.database.lastMetaSerialized = value;
 	}
 };
 //#endregion
 //#region extensions/memory-core/src/memory/manager-watch-ops.ts
 const log$9 = createSubsystemLogger("memory");
-function runDetachedMemorySync(sync, reason) {
-	sync().catch((err) => {
-		log$9.warn(`memory sync failed (${reason}): ${String(err)}`);
-	});
-}
 var MemoryManagerWatchOps = class extends MemoryManagerSyncBase {
+	constructor(..._args) {
+		super(..._args);
+		this.memoryWatcherReady = Promise.resolve();
+	}
 	get memoryWatchCapacityDegraded() {
 		return this.fileWatcher?.capacityDegraded ?? false;
+	}
+	get memoryWatcherHealth() {
+		return this.fileWatcher?.health();
 	}
 	ensureWatcher() {
 		if (!this.sources.has("memory") || !this.settings.sync.watch || this.closed) return;
@@ -1462,11 +1400,11 @@ var MemoryManagerWatchOps = class extends MemoryManagerSyncBase {
 			this.memoryWatchSubscription = subscription;
 			const markDirty = (event) => {
 				if (subscription.signal.aborted || this.closed) return;
-				this.dirty = true;
+				this.markMemoryWatchDirty();
 				this.memoryWatchUnavailable ||= event === "unavailable";
-				runDetachedMemorySync(() => this.sync({ reason: "watch" }), "watch");
+				this.syncInBackground({ reason: "watch" });
 			};
-			this.memoryFiles.watch({
+			this.remoteWatchRetirement = this.memoryFiles.watch({
 				agentId: this.agentId,
 				settings: {
 					extraPaths: this.settings.extraPaths,
@@ -1476,29 +1414,74 @@ var MemoryManagerWatchOps = class extends MemoryManagerSyncBase {
 			}, markDirty, subscription.signal).then(() => markDirty("unavailable"), (error) => {
 				markDirty("unavailable");
 				if (!subscription.signal.aborted) log$9.warn(`memory workspace watcher unavailable: ${String(error)}`);
+				else if (error !== subscription.signal.reason) this.remoteWatchCloseFailure = { error };
 			});
 			return;
 		}
 		if (this.fileWatcher) return;
 		this.fileWatcher = new MemoryFileWatcher({
+			runInBackgroundContext: this.runInBackgroundContext,
 			workspaceDir: this.workspaceDir,
 			agentId: this.agentId,
 			settings: this.settings,
-			onDirty: () => {
-				this.dirty = true;
+			onDirty: () => this.markMemoryWatchDirty(),
+			onChange: () => {
+				this.markMemoryWatchDirty();
+				return this.sync({ reason: "watch" });
 			},
-			onChange: () => this.sync({ reason: "watch" }),
 			onUnavailable: () => {
+				this.memoryWatchUnavailable = true;
 				this.dirty = true;
 			}
 		});
-		this.fileWatcher.start();
+		this.memoryWatcherReady = this.fileWatcher.start().catch((error) => {
+			if (!this.closed) {
+				this.memoryWatchUnavailable = true;
+				this.dirty = true;
+				log$9.warn(`memory workspace watcher unavailable: ${String(error)}`);
+			}
+		});
 	}
-	async closeMemoryWatcher() {
+	async closeWatchResources() {
+		if (this.sessionWatchTimer) {
+			clearTimeout(this.sessionWatchTimer);
+			this.sessionWatchTimer = null;
+		}
+		if (this.intervalTimer) {
+			clearInterval(this.intervalTimer);
+			this.intervalTimer = null;
+		}
 		this.memoryWatchSubscription?.abort();
 		this.memoryWatchSubscription = void 0;
-		await this.fileWatcher?.close();
-		this.fileWatcher = void 0;
+		const errors = (await Promise.allSettled([
+			(async () => {
+				await this.remoteWatchRetirement;
+				if (this.remoteWatchCloseFailure) throw this.remoteWatchCloseFailure.error;
+				this.remoteWatchRetirement = void 0;
+			})(),
+			(async () => {
+				await this.fileWatcher?.close();
+				this.fileWatcher = void 0;
+			})(),
+			(async () => {
+				this.sessionUnsubscribe?.();
+				this.sessionUnsubscribe = null;
+			})()
+		])).flatMap((result) => result.status === "rejected" ? [result.reason] : []);
+		if (errors.length === 1) throw errors[0];
+		if (errors.length > 1) throw new AggregateError(errors, "Memory watch resources cleanup failed");
+	}
+	syncInBackground(params, failureReason = params.reason) {
+		const failed = (err) => {
+			log$9.warn(`memory sync failed (${failureReason}): ${String(err)}`);
+		};
+		try {
+			this.runInBackgroundContext(() => {
+				this.runInBackgroundContext(() => this.sync(params)).catch(failed);
+			});
+		} catch (err) {
+			failed(err);
+		}
 	}
 	ensureIntervalSync() {
 		const minutes = this.settings.sync.intervalMinutes;
@@ -1506,7 +1489,7 @@ var MemoryManagerWatchOps = class extends MemoryManagerSyncBase {
 		const ms = resolveTimerTimeoutMs(minutes * 60 * 1e3, 0, 0);
 		if (ms <= 0) return;
 		this.intervalTimer = setInterval(() => {
-			runDetachedMemorySync(() => this.sync({ reason: "interval" }), "interval");
+			this.syncInBackground({ reason: "interval" });
 		}, ms);
 	}
 };
@@ -1549,18 +1532,12 @@ var MemoryManagerSessionSyncOps = class extends MemoryManagerWatchOps {
 			includeContentRevision: false,
 			readOnly
 		});
-		const archivedSessions = new Map(listSessionTranscriptArchivesReadOnly({
-			agentId: this.agentId,
-			storePath: resolveSessionStorePathCore(this.cfg.session?.store, { agentId: this.agentId }),
-			sessionIds: entries.filter((entry) => entry.artifactKind === "archive-artifact").map((entry) => entry.sessionId)
-		}).map((archive) => [archive.archiveName, archive]));
-		const forgottenSessions = new Set(listMemorySessionTombstones({
+		const forgottenSessions = new Set((await listMemorySessionTombstones({
 			agentId: this.agentId,
 			sessionIds: entries.map((entry) => entry.sessionId)
-		}).map((entry) => entry.sessionId));
+		})).map((entry) => entry.sessionId));
 		return entries.filter((entry) => {
-			const archive = archivedSessions.get(path.basename(entry.sessionFile));
-			const archivedSessionKey = archive?.sessionId === entry.sessionId ? archive.sessionKey : void 0;
+			const archivedSessionKey = entry.artifactKind === "archive-artifact" ? entry.sessionKey : void 0;
 			return !forgottenSessions.has(entry.sessionId) && isMemorySessionIndexable(entry, archivedSessionKey);
 		});
 	}
@@ -1586,20 +1563,22 @@ var MemoryManagerSessionSyncOps = class extends MemoryManagerWatchOps {
 	}
 	ensureSessionListener() {
 		if (!this.sources.has("sessions") || this.sessionUnsubscribe) return;
-		this.sessionUnsubscribe = this.subscribeSessionTranscriptUpdates((update) => runInMemoryBackgroundContext(() => {
-			if (this.closing || this.closed) return;
-			const target = this.resolveSessionTranscriptUpdateSyncTarget(update);
-			if (target) {
-				this.scheduleSessionDirty(target);
-				return;
-			}
-			if (update.sessionFile) {
-				const sessionFile = update.sessionFile;
-				this.withManagerOperation(() => this.scheduleCorpusSessionFileDirty(sessionFile)).catch((err) => {
-					log$8.warn(`memory session corpus update failed: ${String(err)}`);
-				});
-			}
-		}));
+		this.sessionUnsubscribe = this.subscribeSessionTranscriptUpdates((update) => {
+			this.runInBackgroundContext(() => {
+				if (this.closing || this.closed) return;
+				const target = this.resolveSessionTranscriptUpdateSyncTarget(update);
+				if (target) {
+					this.scheduleSessionDirty(target);
+					return;
+				}
+				if (update.sessionFile) {
+					const sessionFile = update.sessionFile;
+					this.runInBackgroundContext(() => this.withManagerOperation(() => this.scheduleCorpusSessionFileDirty(sessionFile))).catch((err) => {
+						log$8.warn(`memory session corpus update failed: ${String(err)}`);
+					});
+				}
+			});
+		});
 	}
 	subscribeSessionTranscriptUpdates(listener) {
 		return onInternalSessionTranscriptUpdate(listener);
@@ -1608,11 +1587,9 @@ var MemoryManagerSessionSyncOps = class extends MemoryManagerWatchOps {
 		const resolvedSessionFile = path.resolve(sessionFile);
 		if ((await this.listSessionCorpusEntries()).some((entry) => entry.transcriptSource !== "sqlite" && path.resolve(entry.sessionFile) === resolvedSessionFile)) this.scheduleSessionDirty(resolvedSessionFile);
 	}
-	ensureSessionStartupCatchup() {
+	async ensureSessionStartupCatchup() {
 		if (!this.sources.has("sessions") || this.closing || this.closed) return;
-		this.withManagerOperation(() => this.runSessionStartupCatchup()).catch((err) => {
-			log$8.warn("memory session startup catch-up failed: " + String(err));
-		});
+		await this.withManagerOperation(() => this.runSessionStartupCatchup());
 	}
 	async markSessionStartupCatchupDirtyFiles(inspectSources = false) {
 		if (!this.sources.has("sessions") || this.closed) return [];
@@ -1622,15 +1599,21 @@ var MemoryManagerSessionSyncOps = class extends MemoryManagerWatchOps {
 			db: this.db,
 			source: "sessions"
 		});
+		const indexedPaths = new Set(existingRows.map((row) => row.path));
 		const sqliteCorpusEntries = corpusEntries.filter((entry) => entry.transcriptSource === "sqlite");
-		const transcriptStats = readTranscriptStatsBatchReadOnlySync(sqliteCorpusEntries.map((entry) => ({
+		const transcriptStats = await readMemoryTranscriptStatsInWorker(sqliteCorpusEntries.map((entry) => ({
 			agentId: entry.agentId,
 			sessionId: entry.sessionId,
 			...entry.sessionKey ? { sessionKey: entry.sessionKey } : {},
 			...entry.storePath ? { storePath: entry.storePath } : {}
 		})));
+		if (this.closed) return [];
 		const statsByEntry = new Map(sqliteCorpusEntries.map((entry, index) => [entry, transcriptStats[index]]));
-		const fileStates = (await runMemoryHostTasksWithConcurrency(corpusEntries.map((corpusEntry) => async () => {
+		const fileStates = (await runWithConcurrency(corpusEntries.map((corpusEntry) => async () => {
+			if (!indexedPaths.has(this.sessionPathForCorpusEntry(corpusEntry))) {
+				const entry = await buildSessionEntry(corpusEntry.sessionFile, this.buildSessionEntryOptions(corpusEntry));
+				if (entry && !isMemorySessionIndexable(entry)) return null;
+			}
 			if (corpusEntry.transcriptSource === "sqlite") {
 				const stats = statsByEntry.get(corpusEntry);
 				return stats ? statSessionEntrySync(corpusEntry.sessionFile, this.buildSessionEntryOptions(corpusEntry), stats) : null;
@@ -1669,23 +1652,26 @@ var MemoryManagerSessionSyncOps = class extends MemoryManagerWatchOps {
 	}
 	async runSessionStartupCatchup() {
 		const dirtyFiles = await this.markSessionStartupCatchupDirtyFiles();
-		if (!this.sessionsDirty || this.closed) return dirtyFiles;
-		this.sync({ reason: "session-startup-catchup" }).catch((err) => {
-			log$8.warn("memory sync failed (session-startup-catchup): " + String(err));
-		});
+		if (!this.sessionsDirty || this.closing || this.closed) return dirtyFiles;
+		this.syncInBackground({ reason: "session-startup-catchup" });
 		return dirtyFiles;
 	}
 	scheduleSessionDirty(target) {
 		if (this.closing || this.closed) return;
 		if (typeof target === "string") this.sessionPendingFiles.add(target);
-		else this.sessionPendingTargets.set(this.memorySessionSyncTargetKey(target), target);
+		else this.sessionPendingTargets.set(memorySessionSyncTargetKey(target), target);
 		if (this.sessionWatchTimer) return;
 		this.sessionWatchTimer = setTimeout(() => {
 			this.sessionWatchTimer = null;
 			if (this.closing || this.closed) return;
-			this.withManagerOperation(() => this.processSessionUpdateBatch()).catch((err) => {
+			const failed = (err) => {
 				log$8.warn(`memory session update failed: ${String(err)}`);
-			});
+			};
+			try {
+				this.runInBackgroundContext(() => this.withManagerOperation(() => this.processSessionUpdateBatch())).catch(failed);
+			} catch (err) {
+				failed(err);
+			}
 		}, SESSION_DIRTY_DEBOUNCE_MS);
 	}
 	async processSessionUpdateBatch() {
@@ -1698,13 +1684,11 @@ var MemoryManagerSessionSyncOps = class extends MemoryManagerWatchOps {
 		for (const sessionFile of pending) this.sessionsDirtyFiles.add(sessionFile);
 		if (pending.length > 0) {
 			this.sessionsDirty = true;
-			this.sync({
+			this.syncInBackground({
 				reason: "session-delta",
 				sessions: pendingTargets,
 				archiveFiles: pending
-			}).catch((err) => {
-				log$8.warn(`memory sync failed (session update): ${String(err)}`);
-			});
+			}, "session update");
 		}
 	}
 	resolveSessionTranscriptUpdateSyncTarget(update) {
@@ -1737,32 +1721,32 @@ var MemoryManagerSessionSyncOps = class extends MemoryManagerWatchOps {
 		if (targets.length === 0) return files;
 		const corpusEntries = knownCorpusEntries ?? await this.listSessionCorpusEntries();
 		const normalizedAgentId = normalizeAgentId(this.agentId);
+		let entriesBySessionId;
+		if (targets.length > 1) {
+			entriesBySessionId = /* @__PURE__ */ new Map();
+			for (const target of targets) {
+				const sessionId = target.sessionId.trim();
+				if (sessionId) entriesBySessionId.set(sessionId, []);
+			}
+			for (const entry of corpusEntries) entriesBySessionId.get(entry.sessionId)?.push(entry);
+		}
 		for (const rawSession of targets) {
 			const sessionId = rawSession.sessionId.trim();
 			const agentId = rawSession.agentId?.trim() || this.agentId;
 			if (!sessionId || normalizeAgentId(agentId) !== normalizedAgentId) continue;
 			const sessionKey = rawSession.sessionKey?.trim();
-			const matchingEntries = corpusEntries.filter((entry) => entry.sessionId === sessionId && normalizeAgentId(entry.agentId) === normalizedAgentId && (!sessionKey || entry.sessionKey === sessionKey));
+			const matchingEntries = (entriesBySessionId ? entriesBySessionId.get(sessionId) ?? [] : corpusEntries).filter((entry) => entry.sessionId === sessionId && normalizeAgentId(entry.agentId) === normalizedAgentId && (!sessionKey || entry.sessionKey === sessionKey));
 			for (const entry of matchingEntries) files.add(entry.transcriptSource === "sqlite" ? entry.sessionFile : path.resolve(entry.sessionFile));
 		}
 		return files;
 	}
 	async resolveTargetSessionSyncPlan(params) {
-		const files = /* @__PURE__ */ new Set();
 		const corpusEntries = await this.listSessionCorpusEntries();
-		for (const file of this.normalizeTargetArchiveFiles(params.archiveFiles, corpusEntries) ?? []) files.add(file);
-		for (const file of await this.resolveArchiveFilesForSyncTargets(params.sessions, corpusEntries)) files.add(file);
+		const files = /* @__PURE__ */ new Set([...this.normalizeTargetArchiveFiles(params.archiveFiles, corpusEntries) ?? [], ...await this.resolveArchiveFilesForSyncTargets(params.sessions, corpusEntries)]);
 		return files.size > 0 ? {
 			corpusEntries,
 			targetArchiveFiles: files
 		} : null;
-	}
-	memorySessionSyncTargetKey(target) {
-		return [
-			target.agentId ?? "",
-			target.sessionId,
-			target.sessionKey ?? ""
-		].join("\0");
 	}
 	shouldSyncSessions(params, needsFullReindex = false) {
 		return shouldSyncSessionsForReindex({
@@ -1799,18 +1783,22 @@ var MemoryManagerSourceSyncOps = class extends MemoryManagerSessionSyncOps {
 	async deleteIndexedFile(pathname, source, expectedHash) {
 		await withMemoryWorkspaceLock(this.workspaceDir, async () => {
 			const database = this.database;
-			const capturedHash = expectedHash ?? await this.withDatabaseRead(() => resolveMemorySourceExistingHash({
-				db: this.db,
-				path: pathname,
-				source
-			}));
+			const assertCurrent = () => {
+				if (this.closed || database.closed || database.readOnly || !database.db.isOpen || this.database !== database) throw new Error("Memory source owner changed before deletion");
+			};
+			const capturedHash = expectedHash ?? await database.read({
+				type: "source.hash",
+				input: {
+					path: pathname,
+					source
+				}
+			}, assertCurrent);
+			assertCurrent();
 			await database.deleteSource({
 				path: pathname,
 				source,
 				expectedHash: capturedHash
-			}, () => {
-				if (this.closed || database.closed || database.readOnly || !database.db.isOpen || this.database !== database) throw new Error("Memory source owner changed before deletion");
-			});
+			}, assertCurrent);
 		});
 	}
 	async deleteStaleSourceFiles(source, rows, activePaths) {
@@ -1878,10 +1866,9 @@ var MemoryManagerSourceSyncOps = class extends MemoryManagerSessionSyncOps {
 				await this.indexFile(entry, { source: "memory" });
 				this.advanceSyncProgress(params.progress);
 			});
-			await runMemoryHostTasksWithConcurrency(tasks, this.getIndexConcurrency());
+			await runWithConcurrency(tasks, this.getIndexConcurrency());
 		}
 		await deleteStaleRows();
-		return this.emptySourceSyncPlan();
 	}
 	async syncArchiveFiles(params) {
 		const updateUnchangedSessionSourceMetadata = this.db.prepare(`UPDATE memory_index_sources
@@ -1956,12 +1943,18 @@ var MemoryManagerSourceSyncOps = class extends MemoryManagerSessionSyncOps {
 				this.advanceSyncProgress(params.progress);
 				return null;
 			}
-			const existingHash = resolveMemorySourceExistingHash({
-				db: this.db,
-				source: "sessions",
-				path: entry.path,
-				existingHashes
-			});
+			const database = this.database;
+			const assertCurrent = () => {
+				if (this.closed || database.closed || !database.db.isOpen || this.database !== database) throw new Error("Memory source owner changed during hash lookup");
+			};
+			const existingHash = existingHashes ? existingHashes.get(entry.path) : await database.read({
+				type: "source.hash",
+				input: {
+					source: "sessions",
+					path: entry.path
+				}
+			}, assertCurrent);
+			assertCurrent();
 			const hash = entry.revisionMs === void 0 ? entry.hash : `sqlite:${entry.revisionMs}:${entry.hash}`;
 			const existingContentHash = existingHash?.startsWith("sqlite:") ? existingHash.slice(existingHash.lastIndexOf(":") + 1) : existingHash;
 			if (!params.needsFullReindex && existingHash !== void 0 && existingContentHash === entry.hash) {
@@ -1984,7 +1977,7 @@ var MemoryManagerSourceSyncOps = class extends MemoryManagerSessionSyncOps {
 			};
 			for (let start = 0; start < files.length; start += SOURCE_WIDE_SESSION_INDEX_FLUSH_FILES) {
 				const fileBatch = files.slice(start, start + SOURCE_WIDE_SESSION_INDEX_FLUSH_FILES);
-				const dirtyEntries = (await runMemoryHostTasksWithConcurrency(fileBatch.map((absPath) => async () => {
+				const dirtyEntries = (await runWithConcurrency(fileBatch.map((absPath) => async () => {
 					try {
 						return await resolveSessionIndexEntry(absPath);
 					} finally {
@@ -2000,7 +1993,7 @@ var MemoryManagerSourceSyncOps = class extends MemoryManagerSessionSyncOps {
 			await flushPendingIndexItems();
 			await deleteTargetArchiveStaleLiveRows();
 			await deleteStaleRows();
-			return this.emptySourceSyncPlan();
+			return;
 		}
 		if ((params.prefixIndexItems?.length ?? 0) > 0) throw new Error("Memory session sync prefix requires deferred source-wide indexing.");
 		const tasks = files.map((absPath) => async () => {
@@ -2016,25 +2009,19 @@ var MemoryManagerSourceSyncOps = class extends MemoryManagerSessionSyncOps {
 				await yieldAfterSessionFile();
 			}
 		});
-		await runMemoryHostTasksWithConcurrency(tasks, this.getIndexConcurrency());
+		await runWithConcurrency(tasks, this.getIndexConcurrency());
 		await deleteTargetArchiveStaleLiveRows();
 		await deleteStaleRows();
-		return this.emptySourceSyncPlan();
 	}
 };
 //#endregion
 //#region extensions/memory-core/src/memory/manager-targeted-sync.ts
-function clearMemorySyncedArchiveFiles(params) {
-	if (!params.targetArchiveFiles) params.sessionsDirtyFiles.clear();
-	else for (const targetArchiveFile of params.targetArchiveFiles) params.sessionsDirtyFiles.delete(targetArchiveFile);
-	return params.sessionsDirtyFiles.size > 0;
-}
 function markMemoryTargetArchiveFilesDirty(params) {
 	if (params.targetArchiveFiles) for (const targetArchiveFile of params.targetArchiveFiles) params.sessionsDirtyFiles.add(targetArchiveFile);
 	return params.sessionsDirtyFiles.size > 0;
 }
 async function runMemoryTargetedSessionSync(params) {
-	const hasPendingSessionWork = (hasDirtyFiles = params.sessionsDirtyFiles.size > 0) => params.sessionsFullRetryDirty || params.sessionsReconcileDirty || hasDirtyFiles;
+	const hasPendingSessionWork = () => params.sessionsFullRetryDirty || params.sessionsReconcileDirty || params.sessionsDirtyFiles.size > 0;
 	if (!params.hasSessionSource || !params.targetArchiveFiles) return {
 		handled: false,
 		sessionsDirty: hasPendingSessionWork()
@@ -2045,22 +2032,21 @@ async function runMemoryTargetedSessionSync(params) {
 			targetArchiveFiles: Array.from(params.targetArchiveFiles),
 			progress: params.progress
 		});
+		for (const file of params.targetArchiveFiles) params.sessionsDirtyFiles.delete(file);
 		return {
 			handled: true,
-			sessionsDirty: hasPendingSessionWork(clearMemorySyncedArchiveFiles({
-				sessionsDirtyFiles: params.sessionsDirtyFiles,
-				targetArchiveFiles: params.targetArchiveFiles
-			}))
+			sessionsDirty: hasPendingSessionWork()
 		};
 	} catch (err) {
 		const reason = formatErrorMessage(err);
-		if (!(params.shouldFallbackOnError(err) && await params.activateFallbackProvider(reason))) throw err;
+		if (!(isMemoryEmbeddingOperationError(err) && await params.activateFallbackProvider(reason))) throw err;
+		markMemoryTargetArchiveFilesDirty({
+			sessionsDirtyFiles: params.sessionsDirtyFiles,
+			targetArchiveFiles: params.targetArchiveFiles
+		});
 		return {
 			handled: true,
-			sessionsDirty: hasPendingSessionWork(markMemoryTargetArchiveFilesDirty({
-				sessionsDirtyFiles: params.sessionsDirtyFiles,
-				targetArchiveFiles: params.targetArchiveFiles
-			})),
+			sessionsDirty: hasPendingSessionWork(),
 			failure: { error: err }
 		};
 	}
@@ -2087,19 +2073,11 @@ var MemoryManagerSyncOps = class extends MemoryManagerSourceSyncOps {
 		if (generation.memoryFullRetryDirty || generation.sessionsFullRetryDirty) this.recordAutomaticRebuild();
 		return generation;
 	}
-	beginSyncProviderGeneration(_options) {}
-	endSyncProviderGeneration() {}
 	shouldDeferSourceWideBatch() {
 		const generation = this.syncProviderGeneration;
 		const provider = generation ? generation.provider : this.provider;
 		const providerRuntime = generation ? generation.kind === "semantic" ? generation.runtime : void 0 : this.providerRuntime;
 		return Boolean(this.batch.enabled && provider && providerRuntime?.batchEmbed && providerRuntime.sourceWideBatchEmbed === true);
-	}
-	async retireCurrentProvider() {
-		const provider = this.provider;
-		this.provider = null;
-		this.providerRuntime = void 0;
-		await provider?.close?.();
 	}
 	createSyncProgress(onProgress) {
 		const state = {
@@ -2128,7 +2106,7 @@ var MemoryManagerSyncOps = class extends MemoryManagerSourceSyncOps {
 		throw new Error(`Memory sync aborted: embedding provider "${this.settings.provider}" is configured but unavailable. Refusing to run sync in fts-only fallback mode to protect existing vector index (current model: ${existingMeta.model}).` + (providerFailure ? ` Provider failure: ${providerFailure}` : ""));
 	}
 	async runSync(params) {
-		const hasTargetSessionRequest = this.hasRequestedTargetSessionSync(params);
+		const hasTargetSessionRequest = hasTargetedSessionSyncParams(params);
 		let needsFullReindex = Boolean(params?.force && !hasTargetSessionRequest);
 		try {
 			this.assertFtsOnlySyncAllowed();
@@ -2164,11 +2142,7 @@ var MemoryManagerSyncOps = class extends MemoryManagerSourceSyncOps {
 				configuredScopeHash: resolveConfiguredScopeHash({
 					workspaceDir: this.workspaceDir,
 					extraPaths: this.settings.extraPaths,
-					multimodal: {
-						enabled: this.settings.multimodal.enabled,
-						modalities: this.settings.multimodal.modalities,
-						maxFileBytes: this.settings.multimodal.maxFileBytes
-					}
+					multimodal: this.settings.multimodal
 				}),
 				chunkTokens: this.settings.chunking.tokens,
 				chunkOverlap: this.settings.chunking.overlap,
@@ -2206,7 +2180,6 @@ var MemoryManagerSyncOps = class extends MemoryManagerSourceSyncOps {
 				const targetedSessionSync = await runMemoryTargetedSessionSync({
 					hasSessionSource: this.sources.has("sessions"),
 					targetArchiveFiles,
-					reason: params?.reason,
 					progress: progress ?? void 0,
 					sessionsFullRetryDirty: this.sessionsFullRetryDirty,
 					sessionsReconcileDirty: this.sessionsReconcileDirty,
@@ -2217,7 +2190,6 @@ var MemoryManagerSyncOps = class extends MemoryManagerSourceSyncOps {
 							corpusEntries: targetSessionSync?.corpusEntries
 						});
 					},
-					shouldFallbackOnError: (err) => this.shouldFallbackOnError(err),
 					activateFallbackProvider: async (reason) => {
 						this.endSyncProviderGeneration();
 						return await this.activateFallbackProvider(reason);
@@ -2232,58 +2204,33 @@ var MemoryManagerSyncOps = class extends MemoryManagerSourceSyncOps {
 			try {
 				if (needsFullReindex) {
 					if (params?.reason !== "cli") this.recordAutomaticRebuild();
-					await this.runInPlaceReindex({
-						reason: params?.reason,
-						force: params?.force,
-						progress: progress ?? void 0
-					});
+					await this.runInPlaceReindex(progress);
 					return;
 				}
 				const shouldSyncMemory = this.sources.has("memory") && (this.dirty || isSearchBootstrap);
 				const shouldSyncSessions = this.shouldSyncSessions(params, needsFullSessionReindex);
-				if (this.shouldDeferSourceWideBatch()) {
-					await this.executeSourceWideSync({
-						shouldSyncMemory,
-						shouldSyncSessions,
-						needsFullReindex,
-						needsFullSessionReindex,
-						targetArchiveFiles: targetArchiveFiles ? Array.from(targetArchiveFiles) : void 0,
-						progress: progress ?? void 0
-					});
-					if (shouldSyncSessions) this.clearSessionRetryState();
-					else this.refreshSessionDirtyFlag();
-				} else {
-					if (shouldSyncMemory) await this.syncMemoryFiles({
-						needsFullReindex,
-						progress: progress ?? void 0
-					});
-					if (shouldSyncSessions) {
-						await this.syncArchiveFiles({
-							needsFullReindex: needsFullSessionReindex,
-							targetArchiveFiles: targetArchiveFiles ? Array.from(targetArchiveFiles) : void 0,
-							progress: progress ?? void 0
-						});
-						this.clearSessionRetryState();
-					} else this.refreshSessionDirtyFlag();
-				}
+				await this.executeSourceSync({
+					shouldSyncMemory,
+					shouldSyncSessions,
+					needsFullReindex,
+					needsFullSessionReindex,
+					targetArchiveFiles: targetArchiveFiles ? Array.from(targetArchiveFiles) : void 0,
+					progress: progress ?? void 0
+				});
 			} catch (err) {
 				this.dirty ||= this.sources.has("memory");
 				const reason = formatErrorMessage(err);
-				const shouldFallback = this.shouldFallbackOnError(err);
+				const shouldFallback = isMemoryEmbeddingOperationError(err);
 				if (shouldFallback) this.endSyncProviderGeneration();
 				if (shouldFallback && await this.activateFallbackProvider(reason)) {
 					if ((needsFullReindex || isSearchBootstrap) && !hasTargetArchiveFiles) {
 						needsFullReindex = true;
 						this.beginSyncProviderGeneration();
-						await this.runInPlaceReindex({
-							reason: params?.reason ?? "fallback",
-							force: true,
-							progress: progress ?? void 0
-						});
+						await this.runInPlaceReindex(progress);
 					}
 					return;
 				}
-				if (!this.provider && this.fts.enabled && this.shouldFallbackOnError(err)) {
+				if (!this.provider && this.fts.enabled && isMemoryEmbeddingOperationError(err)) {
 					this.syncOutcomes.recordActiveFailure(err);
 					log$6.warn(`memory embeddings unavailable; leaving memory index dirty: ${reason}`);
 					return;
@@ -2293,12 +2240,6 @@ var MemoryManagerSyncOps = class extends MemoryManagerSourceSyncOps {
 		} finally {
 			if (!needsFullReindex) await this.pruneEmbeddingCacheIfNeeded();
 		}
-	}
-	shouldFallbackOnError(err) {
-		return isMemoryEmbeddingOperationError(err);
-	}
-	hasRequestedTargetSessionSync(params) {
-		return Boolean(params?.sessions?.some((session) => session.sessionId.trim().length > 0) || params?.archiveFiles?.some((sessionFile) => sessionFile.trim().length > 0));
 	}
 	resolveBatchConfig() {
 		const batch = this.settings.remote?.batch;
@@ -2322,9 +2263,6 @@ var MemoryManagerSyncOps = class extends MemoryManagerSourceSyncOps {
 			if (this.fallbackProviderInitPromise === activation) this.fallbackProviderInitPromise = null;
 		}
 	}
-	getPendingFallbackProviderInitialization() {
-		return this.fallbackProviderInitPromise;
-	}
 	async activateFallbackProviderOnce(reason) {
 		const currentProviderId = resolveFallbackCurrentProviderId({
 			provider: this.provider,
@@ -2337,14 +2275,6 @@ var MemoryManagerSyncOps = class extends MemoryManagerSourceSyncOps {
 		});
 		if (!fallbackRequest || !currentProviderId) return false;
 		if (this.fallbackFrom) return false;
-		const currentState = {
-			provider: this.provider,
-			fallbackFrom: this.fallbackFrom,
-			fallbackReason: this.fallbackReason,
-			providerUnavailableReason: void 0,
-			providerRuntime: this.providerRuntime,
-			lifecycle: this.providerLifecycle
-		};
 		this.providerLifecycle = {
 			mode: "degraded",
 			providerId: currentProviderId,
@@ -2369,33 +2299,30 @@ var MemoryManagerSyncOps = class extends MemoryManagerSourceSyncOps {
 			this.resetProviderInitializationForRetry();
 			return false;
 		}
-		const fallbackState = applyMemoryFallbackProviderState({
-			current: currentState,
+		this.providerLifecycle = resolveMemoryProviderLifecycle({
+			provider: fallbackResult.provider,
+			runtime: fallbackResult.runtime,
+			requestedProvider: currentProviderId,
 			fallbackFrom: currentProviderId,
-			reason,
-			result: fallbackResult
+			fallbackReason: reason
 		});
-		this.fallbackFrom = fallbackState.fallbackFrom;
-		this.fallbackReason = fallbackState.fallbackReason;
-		this.provider = fallbackState.provider;
-		this.providerRuntime = fallbackState.providerRuntime;
-		this.providerUnavailableReason = fallbackState.providerUnavailableReason;
-		this.providerLifecycle = fallbackState.lifecycle;
+		this.fallbackFrom = currentProviderId;
+		this.fallbackReason = reason;
+		this.provider = fallbackResult.provider;
+		this.providerRuntime = fallbackResult.runtime;
+		this.providerUnavailableReason = void 0;
 		this.providerKey = this.computeProviderKey();
 		this.batch = this.resolveBatchConfig();
 		log$6.warn(`memory embeddings: switched to fallback provider (${fallbackRequest.provider})`, { reason });
 		return true;
 	}
-	async runInPlaceReindex(params) {
+	async runInPlaceReindex(progress) {
 		const dbPath = resolveUserPath(this.settings.store.databasePath);
 		const tempDbPath = `${dbPath}.memory-reindex-${randomUUID()}`;
 		const originalDb = this.db;
 		const originalRetryState = this.snapshotReindexRetryState();
 		const shouldRetryMemoryOnFailure = this.sources.has("memory");
-		const shouldRetrySessionsOnFailure = this.shouldSyncSessions({
-			reason: params.reason,
-			force: params.force
-		}, true);
+		const shouldRetrySessionsOnFailure = this.shouldSyncSessions(void 0, true);
 		let shadowCleanup;
 		try {
 			await cleanupAgedMemoryReindexTempFiles(dbPath);
@@ -2410,28 +2337,12 @@ var MemoryManagerSyncOps = class extends MemoryManagerSourceSyncOps {
 					await this.withDatabaseWrite(() => this.ensureSchema());
 					const shouldSyncMemory = shouldRetryMemoryOnFailure;
 					const shouldSyncSessions = shouldRetrySessionsOnFailure;
-					if (this.shouldDeferSourceWideBatch()) {
-						await this.executeSourceWideSync({
-							shouldSyncMemory,
-							shouldSyncSessions,
-							needsFullReindex: true,
-							progress: params.progress
-						});
-						if (shouldSyncSessions) this.clearSessionRetryState();
-						else this.refreshSessionDirtyFlag();
-					} else {
-						if (shouldSyncMemory) await this.syncMemoryFiles({
-							needsFullReindex: true,
-							progress: params.progress
-						});
-						if (shouldSyncSessions) {
-							await this.syncArchiveFiles({
-								needsFullReindex: true,
-								progress: params.progress
-							});
-							this.clearSessionRetryState();
-						} else this.refreshSessionDirtyFlag();
-					}
+					await this.executeSourceSync({
+						shouldSyncMemory,
+						shouldSyncSessions,
+						needsFullReindex: true,
+						progress
+					});
 					if (!shouldSyncMemory) this.clearMemoryRetryState();
 					const syncProvider = this.syncProviderGeneration ? this.syncProviderGeneration.provider : this.provider;
 					const vectorIndexComplete = syncProvider === null || this.vector.available === true;
@@ -2443,11 +2354,7 @@ var MemoryManagerSyncOps = class extends MemoryManagerSourceSyncOps {
 						scopeHash: resolveConfiguredScopeHash({
 							workspaceDir: this.workspaceDir,
 							extraPaths: this.settings.extraPaths,
-							multimodal: {
-								enabled: this.settings.multimodal.enabled,
-								modalities: this.settings.multimodal.modalities,
-								maxFileBytes: this.settings.multimodal.maxFileBytes
-							}
+							multimodal: this.settings.multimodal
 						}),
 						chunkTokens: this.settings.chunking.tokens,
 						chunkOverlap: this.settings.chunking.overlap,
@@ -2489,7 +2396,7 @@ var MemoryManagerSyncOps = class extends MemoryManagerSourceSyncOps {
 			this.vector.dims = rebuilt.nextMeta.vectorDims;
 			await this.pruneEmbeddingCacheIfNeeded();
 		} catch (err) {
-			this.restoreReindexRetryState(originalRetryState);
+			this.adoptReindexRetryState(originalRetryState);
 			this.markFailedFullReindexRetry({
 				memory: shouldRetryMemoryOnFailure,
 				sessions: shouldRetrySessionsOnFailure
@@ -2508,55 +2415,179 @@ var MemoryManagerSyncOps = class extends MemoryManagerSourceSyncOps {
 	}
 };
 //#endregion
+//#region extensions/memory-core/src/memory/manager-embedding-cache-ops.ts
+var MemoryManagerEmbeddingCacheOps = class extends MemoryManagerSyncOps {
+	async pruneEmbeddingCacheIfNeeded() {
+		const max = this.cache.maxEntries;
+		if (!this.cache.enabled || !max || max <= 0) return;
+		const database = this.database;
+		const assertCurrent = () => {
+			if (this.closed || database.closed || !database.db.isOpen || this.database !== database) throw new Error("Memory database owner closed or changed before write admission");
+		};
+		while (await database.pruneEmbeddingCache(max, assertCurrent)) await setImmediate$1();
+	}
+	assertEmbeddingCacheGenerationCurrent(generation) {
+		if (this.closed || this.syncProviderGeneration !== generation || generation.database.closed || !generation.database.db.isOpen || this.publishedDatabase !== generation.database) throw new Error("Memory embedding generation changed during cache lookup");
+	}
+	async collectCachedEmbeddings(candidates, generation) {
+		const chunks = candidates.map((candidate) => candidate.chunk);
+		const cached = this.cache.enabled ? await generation.database.read({
+			type: "cache.read",
+			input: {
+				enabled: true,
+				providerIdentities: generation.identities,
+				hashes: chunks.map((chunk) => chunk.hash)
+			}
+		}, () => this.assertEmbeddingCacheGenerationCurrent(generation)) : /* @__PURE__ */ new Map();
+		this.assertEmbeddingCacheGenerationCurrent(generation);
+		for (const [hash, embedding] of cached) if (!isValidMemoryEmbedding(embedding, generation.embeddingDimensions)) cached.delete(hash);
+		else generation.embeddingDimensions ??= embedding.length;
+		const result = collectMemoryCachedEmbeddings({
+			chunks,
+			cached
+		});
+		return {
+			...result,
+			missingCandidates: result.missing.map((item) => expectDefined(candidates[item.index], "missing memory embedding candidate"))
+		};
+	}
+	async embedChunksInBatches(candidates, generation, maxTokens) {
+		const { embeddings, missing, missingCandidates } = await this.collectCachedEmbeddings(candidates, generation);
+		this.assertEmbeddingCacheGenerationCurrent(generation);
+		if (missing.length === 0) return embeddings;
+		const batches = buildMemoryEmbeddingBatches(missingCandidates.map((candidate) => candidate.chunk), maxTokens);
+		let cursor = 0;
+		for (const batchChunks of batches) {
+			const batchCandidates = missingCandidates.slice(cursor, cursor + batchChunks.length);
+			const inputs = batchChunks.map((chunk) => chunk.embeddingInput ?? { text: chunk.text });
+			const hasStructuredInputs = inputs.some((input) => hasNonTextEmbeddingParts(input));
+			const batchEmbeddings = await this.embedBatchWithRetry(hasStructuredInputs ? inputs : batchChunks.map((chunk) => chunk.text), generation, batchCandidates);
+			for (let i = 0; i < batchChunks.length; i += 1) {
+				const item = missing[cursor + i];
+				const embedding = batchEmbeddings[i] ?? [];
+				if (item) embeddings[item.index] = embedding;
+			}
+			cursor += batchChunks.length;
+		}
+		return embeddings;
+	}
+	async withGeneratedEmbeddingCacheWrite(generation, mutation) {
+		await this.withPublishedDatabase(async () => {
+			if (this.syncProviderGeneration !== generation || generation.cacheWritesInvalidated || generation.database.closed || this.database !== generation.database) return;
+			const assertCurrent = () => {
+				if (this.closed || generation.database.closed || !generation.database.db.isOpen || this.database !== generation.database) throw new Error("Memory database owner closed or changed before write admission");
+			};
+			await generation.database.mutateEmbeddingCache(mutation, assertCurrent, () => {
+				assertCurrent();
+				if (this.syncProviderGeneration !== generation || generation.cacheWritesInvalidated || generation.database.closed) return;
+				return generation.databaseRevision;
+			}, () => {
+				generation.cacheWritesInvalidated = true;
+			});
+		});
+	}
+	async persistGeneratedEmbeddings(candidates, embeddings, generation) {
+		if (!this.cache.enabled || candidates.length === 0 || this.syncProviderGeneration !== generation || generation.cacheWritesInvalidated || generation.database.closed) return;
+		const dimensions = generation.embeddingDimensions ?? embeddings[0]?.length;
+		if (embeddings.length !== candidates.length || !embeddings.every((embedding) => isValidMemoryEmbedding(embedding, dimensions))) {
+			if (generation.embeddingDimensions !== void 0 && embeddings.some((embedding) => isValidMemoryEmbedding(embedding) && embedding.length !== generation.embeddingDimensions)) await withMemoryWorkspaceLock(this.workspaceDir, async () => {
+				try {
+					await this.withGeneratedEmbeddingCacheWrite(generation, {
+						kind: "clear",
+						identities: generation.identities
+					});
+				} finally {
+					generation.cacheWritesInvalidated = true;
+				}
+			});
+			throw new Error("memory embeddings: malformed vector response (count, dimensions, or coordinates)");
+		}
+		generation.embeddingDimensions = dimensions;
+		await withMemoryWorkspaceLock(this.workspaceDir, async () => {
+			if (this.syncProviderGeneration !== generation || generation.cacheWritesInvalidated || generation.database.closed) return;
+			const entryValidity = /* @__PURE__ */ new Map();
+			const accepted = [];
+			for (const [index, candidate] of candidates.entries()) {
+				let valid = entryValidity.get(candidate.entry);
+				if (valid === void 0) {
+					if (candidate.source === "memory") valid = (await (this.memoryFiles?.inspectFile ?? buildFileEntry)(candidate.entry.absPath, this.workspaceDir, this.settings.multimodal))?.hash === candidate.entry.hash;
+					else {
+						const sessionId = candidate.entry.sessionId;
+						valid = Boolean(sessionId);
+					}
+					entryValidity.set(candidate.entry, valid);
+				}
+				if (valid) accepted.push({
+					hash: candidate.chunk.hash,
+					embedding: embeddings[index] ?? [],
+					...candidate.source === "sessions" ? { sessionId: candidate.entry.sessionId } : {}
+				});
+			}
+			if (accepted.length === 0) return;
+			await this.withGeneratedEmbeddingCacheWrite(generation, {
+				kind: "upsert",
+				header: {
+					agentId: this.agentId,
+					provider: {
+						id: generation.provider.id,
+						model: generation.provider.model
+					},
+					providerKey: generation.providerKey,
+					maxEntries: this.cache.maxEntries
+				},
+				entries: accepted
+			});
+		});
+	}
+};
+//#endregion
+//#region extensions/memory-core/src/memory/manager-index-source.ts
+async function readMemoryIndexSource({ absolutePath, workspaceDir, source, suppliedContent, memoryFiles }) {
+	const remoteRead = source === "memory" && memoryFiles ? await retryTransientMemoryRead(() => memoryFiles.readForIndexing(absolutePath), `read workspace memory for indexing ${absolutePath}`).catch((error) => {
+		if (!isFileMissingError(error)) throw error;
+		return null;
+	}) : void 0;
+	if (remoteRead === null) return null;
+	const pathClassification = await resolveMemoryPathClassification({
+		absolutePath,
+		source,
+		workspaceDir,
+		readSource: remoteRead
+	});
+	const content = remoteRead?.content ?? suppliedContent ?? await retryTransientMemoryRead(() => fs$1.readFile(absolutePath, "utf-8"), `read memory markdown for indexing ${absolutePath}`).catch((err) => {
+		if (source !== "memory" || !isFileMissingError(err)) throw err;
+		return null;
+	});
+	if (content === null) return null;
+	return {
+		content,
+		pathClassification
+	};
+}
+//#endregion
 //#region extensions/memory-core/src/memory/manager-embedding-ops.ts
-const EMBEDDING_CACHE_TABLE = MEMORY_EMBEDDING_CACHE_TABLE;
-const EMBEDDING_CACHE_PRUNE_BATCH_SIZE = 100;
 const EMBEDDING_BATCH_MAX_TOKENS = 8e3;
 const EMBEDDING_INDEX_CONCURRENCY = 4;
-const EMBEDDING_QUERY_TIMEOUT_REMOTE_MS = 6e4;
-const EMBEDDING_QUERY_TIMEOUT_LOCAL_MS = 3e5;
-const EMBEDDING_BATCH_TIMEOUT_REMOTE_MS = 12e4;
-const EMBEDDING_BATCH_TIMEOUT_LOCAL_MS = 6e5;
+const EMBEDDING_TIMEOUTS_MS = {
+	query: {
+		remote: 6e4,
+		local: 3e5
+	},
+	batch: {
+		remote: 12e4,
+		local: 6e5
+	}
+};
 const SOURCE_WIDE_BATCH_MAX_FILES = 2048;
 const SOURCE_WIDE_BATCH_MAX_REQUESTS = 5e4;
 const log$5 = createSubsystemLogger("memory");
-function resolveEmbeddingSecondsTimeoutMs(seconds) {
-	if (!Number.isFinite(seconds)) return MAX_TIMER_TIMEOUT_MS;
-	const timeoutMs = Math.floor(seconds * 1e3);
-	return resolveTimerTimeoutMs(Number.isFinite(timeoutMs) ? timeoutMs : MAX_TIMER_TIMEOUT_MS, MAX_TIMER_TIMEOUT_MS);
-}
 function countBatchSources(items) {
 	const counts = {};
 	for (const item of items) counts[item.source] = (counts[item.source] ?? 0) + 1;
 	return counts;
 }
-function formatBatchSourceLabel(counts) {
-	const sources = Object.keys(counts).toSorted();
-	return sources.length > 0 ? sources.join("+") : "unknown";
-}
 function formatBatchSourceCounts(counts) {
 	return Object.entries(counts).toSorted(([left], [right]) => left.localeCompare(right)).map(([source, count]) => `${source}=${count}`).join(",") || "none";
-}
-function splitSourceWideEmbeddingChunks(chunks, maxRequests) {
-	return chunkItems(chunks, Math.max(1, Math.floor(maxRequests)));
-}
-function resolveEmbeddingTimeoutMs(params) {
-	if (params.kind === "query") {
-		const runtimeTimeoutMs = params.providerRuntime?.inlineQueryTimeoutMs;
-		if (typeof runtimeTimeoutMs === "number" && runtimeTimeoutMs > 0) return resolveTimerTimeoutMs(runtimeTimeoutMs, EMBEDDING_QUERY_TIMEOUT_REMOTE_MS);
-		return params.providerId === "local" ? EMBEDDING_QUERY_TIMEOUT_LOCAL_MS : EMBEDDING_QUERY_TIMEOUT_REMOTE_MS;
-	}
-	const configuredTimeoutSeconds = params.configuredBatchTimeoutSeconds;
-	if (typeof configuredTimeoutSeconds === "number" && configuredTimeoutSeconds > 0) return resolveEmbeddingSecondsTimeoutMs(configuredTimeoutSeconds);
-	const runtimeTimeoutMs = params.providerRuntime?.inlineBatchTimeoutMs;
-	if (typeof runtimeTimeoutMs === "number" && runtimeTimeoutMs > 0) return resolveTimerTimeoutMs(runtimeTimeoutMs, EMBEDDING_BATCH_TIMEOUT_REMOTE_MS);
-	return params.providerId === "local" ? EMBEDDING_BATCH_TIMEOUT_LOCAL_MS : EMBEDDING_BATCH_TIMEOUT_REMOTE_MS;
-}
-function resolveMemoryIndexConcurrency(params) {
-	if (params.batch.enabled) return params.batch.concurrency;
-	const configured = params.configuredNonBatchConcurrency;
-	if (typeof configured === "number" && Number.isFinite(configured)) return Math.max(1, Math.floor(configured));
-	return params.providerId === "ollama" ? 1 : EMBEDDING_INDEX_CONCURRENCY;
 }
 async function runEmbeddingOperationWithTimeout(params) {
 	const controller = new AbortController();
@@ -2612,7 +2643,7 @@ async function runEmbeddingOperationWithTimeout(params) {
 		if (timer) clearTimeout(timer);
 	}
 }
-var MemoryManagerEmbeddingOps = class extends MemoryManagerSyncOps {
+var MemoryManagerEmbeddingOps = class extends MemoryManagerEmbeddingCacheOps {
 	constructor(..._args) {
 		super(..._args);
 		this.batchFailureLimit = 2;
@@ -2669,23 +2700,22 @@ var MemoryManagerEmbeddingOps = class extends MemoryManagerSyncOps {
 		});
 		const providerKey = expectDefined(identities.at(0), "primary memory provider identity").providerKey;
 		const database = this.database;
+		const generation = {
+			database,
+			databaseRevision: readMemoryDatabaseRevision(database.db),
+			cacheWritesInvalidated: false,
+			providerKey,
+			identities
+		};
 		this.syncProviderGeneration = provider ? {
+			...generation,
 			kind: "semantic",
-			database,
-			databaseRevision: readMemoryDatabaseRevision(database.db),
-			cacheWritesInvalidated: false,
 			provider,
-			...runtime ? { runtime } : {},
-			providerKey,
-			identities
+			...runtime ? { runtime } : {}
 		} : {
+			...generation,
 			kind: "fts-only",
-			database,
-			databaseRevision: readMemoryDatabaseRevision(database.db),
-			cacheWritesInvalidated: false,
-			provider: null,
-			providerKey,
-			identities
+			provider: null
 		};
 		this.syncProviderGenerationRelease = provider ? this.acquireProviderUse(provider) : null;
 		this.syncProviderGenerationOwners = 1;
@@ -2700,46 +2730,6 @@ var MemoryManagerEmbeddingOps = class extends MemoryManagerSyncOps {
 		this.syncProviderGenerationRelease?.();
 		this.syncProviderGenerationRelease = null;
 	}
-	async pruneEmbeddingCacheIfNeeded() {
-		const max = this.cache.maxEntries;
-		if (!this.cache.enabled || !max || max <= 0) return;
-		const count = this.db.prepare(`SELECT COUNT(*) as c FROM ${EMBEDDING_CACHE_TABLE}`);
-		const excess = () => Number(count.get()?.c ?? 0) - max;
-		const remove = this.db.prepare(`DELETE FROM ${EMBEDDING_CACHE_TABLE} WHERE rowid IN (
-         SELECT rowid FROM ${EMBEDDING_CACHE_TABLE} ORDER BY updated_at ASC LIMIT ?
-       )`);
-		while (excess() > 0) {
-			await runSqliteImmediateTransaction(this.db, async () => () => {
-				const currentExcess = excess();
-				if (currentExcess > 0) remove.run(Math.min(currentExcess, EMBEDDING_CACHE_PRUNE_BATCH_SIZE));
-			}, void 0, (write) => this.withDatabaseWrite(write));
-			await new Promise((resolve) => {
-				setImmediate(resolve);
-			});
-		}
-	}
-	async embedChunksInBatches(candidates, generation) {
-		const chunks = candidates.map((candidate) => candidate.chunk);
-		if (chunks.length === 0) return [];
-		const { embeddings, missing } = this.collectCachedEmbeddings(chunks, generation);
-		if (missing.length === 0) return embeddings;
-		const missingCandidates = missing.map((item) => expectDefined(candidates[item.index], "missing memory embedding candidate"));
-		const batches = buildMemoryEmbeddingBatches(missingCandidates.map((candidate) => candidate.chunk), EMBEDDING_BATCH_MAX_TOKENS);
-		let cursor = 0;
-		for (const batchChunks of batches) {
-			const batchCandidates = missingCandidates.slice(cursor, cursor + batchChunks.length);
-			const inputs = buildTextEmbeddingInputs(batchChunks);
-			const hasStructuredInputs = inputs.some((input) => hasNonTextEmbeddingParts(input));
-			const batchEmbeddings = await this.embedBatchWithRetry(hasStructuredInputs ? inputs : batchChunks.map((chunk) => chunk.text), generation, batchCandidates);
-			for (let i = 0; i < batchChunks.length; i += 1) {
-				const item = missing[cursor + i];
-				const embedding = batchEmbeddings[i] ?? [];
-				if (item) embeddings[item.index] = embedding;
-			}
-			cursor += batchChunks.length;
-		}
-		return embeddings;
-	}
 	computeProviderKey() {
 		return expectDefined(this.resolveProviderIndexIdentities().at(0), "primary memory provider identity").providerKey;
 	}
@@ -2750,65 +2740,37 @@ var MemoryManagerEmbeddingOps = class extends MemoryManagerSyncOps {
 			aliases: this.providerRuntime?.indexIdentityAliases
 		});
 	}
-	buildBatchDebug(source, chunks, context = {}) {
-		return (message, data) => log$5.debug(message, data ? {
-			...data,
-			source,
-			chunks: chunks.length,
-			...context
-		} : {
-			source,
-			chunks: chunks.length,
-			...context
-		});
-	}
 	async embedChunksWithBatch(candidates, source, generation, debugContext = {}) {
-		const chunks = candidates.map((candidate) => candidate.chunk);
 		const provider = generation.provider;
 		const batchEmbed = generation.runtime?.batchEmbed;
-		if (!batchEmbed) return this.embedChunksInBatches(candidates, generation);
-		if (chunks.length === 0) return [];
-		const { embeddings, missing } = this.collectCachedEmbeddings(chunks, generation);
+		if (!batchEmbed) return this.embedChunksInBatches(candidates, generation, EMBEDDING_BATCH_MAX_TOKENS);
+		const { embeddings, missing, missingCandidates } = await this.collectCachedEmbeddings(candidates, generation);
+		this.assertEmbeddingCacheGenerationCurrent(generation);
 		if (missing.length === 0) return embeddings;
-		const missingCandidates = missing.map((item) => expectDefined(candidates[item.index], "missing memory embedding candidate"));
 		const missingChunks = missingCandidates.map((candidate) => candidate.chunk);
 		const batchResult = await this.runBatchWithFallback({
 			provider: provider.id,
-			run: async () => await batchEmbed({
+			run: () => batchEmbed({
 				agentId: this.agentId,
 				chunks: missingChunks,
 				wait: this.batch.wait,
 				concurrency: this.batch.concurrency,
 				pollIntervalMs: this.batch.pollIntervalMs,
 				timeoutMs: this.batch.timeoutMs,
-				debug: this.buildBatchDebug(source, chunks, debugContext)
+				debug: (message, data) => log$5.debug(message, {
+					...data,
+					source,
+					chunks: candidates.length,
+					...debugContext
+				})
 			}),
-			fallback: async () => await this.embedChunksInBatches(missingCandidates, generation)
+			fallback: () => this.embedChunksInBatches(missingCandidates, generation, EMBEDDING_BATCH_MAX_TOKENS)
 		});
 		const batchEmbeddings = batchResult.value;
-		if (!batchEmbeddings) return this.embedChunksInBatches(candidates, generation);
+		if (!batchEmbeddings) return this.embedChunksInBatches(candidates, generation, EMBEDDING_BATCH_MAX_TOKENS);
 		if (batchResult.kind === "batch") await this.persistGeneratedEmbeddings(missingCandidates, batchEmbeddings, generation);
-		for (let index = 0; index < missing.length; index += 1) {
-			const item = missing[index];
-			const embedding = batchEmbeddings[index] ?? [];
-			if (!item) continue;
-			embeddings[item.index] = embedding;
-		}
+		for (const [index, item] of missing.entries()) embeddings[item.index] = batchEmbeddings[index] ?? [];
 		return embeddings;
-	}
-	collectCachedEmbeddings(chunks, generation) {
-		const cached = loadMemoryEmbeddingCache({
-			db: generation.database.db,
-			enabled: this.cache.enabled,
-			providerIdentities: generation.identities,
-			hashes: chunks.map((chunk) => chunk.hash)
-		});
-		for (const [hash, embedding] of cached) if (!isValidMemoryEmbedding(embedding, generation.embeddingDimensions)) cached.delete(hash);
-		else generation.embeddingDimensions ??= embedding.length;
-		return collectMemoryCachedEmbeddings({
-			chunks,
-			cached
-		});
 	}
 	async embedBatchWithRetry(inputs, generation, cacheCandidates) {
 		if (inputs.length === 0) return [];
@@ -2872,75 +2834,18 @@ var MemoryManagerEmbeddingOps = class extends MemoryManagerSyncOps {
 			});
 		}
 	}
-	async withGeneratedEmbeddingCacheWrite(generation, write) {
-		await this.withPublishedDatabase(async () => {
-			if (this.syncProviderGeneration !== generation || generation.cacheWritesInvalidated || generation.database.closed || this.database !== generation.database) return;
-			await this.withDatabaseWrite(() => runSqliteImmediateTransactionSync(generation.database.db, () => {
-				if (this.syncProviderGeneration !== generation || generation.cacheWritesInvalidated || generation.database.closed) return;
-				if (readMemoryDatabaseRevision(generation.database.db) !== generation.databaseRevision) {
-					generation.cacheWritesInvalidated = true;
-					return;
-				}
-				write();
-			}));
-		});
-	}
-	async persistGeneratedEmbeddings(candidates, embeddings, generation) {
-		if (!this.cache.enabled || candidates.length === 0 || this.syncProviderGeneration !== generation || generation.cacheWritesInvalidated || generation.database.closed) return;
-		const dimensions = generation.embeddingDimensions ?? embeddings[0]?.length;
-		if (embeddings.length !== candidates.length || !embeddings.every((embedding) => isValidMemoryEmbedding(embedding, dimensions))) {
-			if (generation.embeddingDimensions !== void 0 && embeddings.some((embedding) => isValidMemoryEmbedding(embedding) && embedding.length !== generation.embeddingDimensions)) await withMemoryWorkspaceLock(this.workspaceDir, () => this.withGeneratedEmbeddingCacheWrite(generation, () => {
-				clearMemoryEmbeddingCacheIdentities(generation.database.db, generation.identities);
-				generation.cacheWritesInvalidated = true;
-			}));
-			throw new Error("memory embeddings: malformed vector response (count, dimensions, or coordinates)");
-		}
-		generation.embeddingDimensions = dimensions;
-		await withMemoryWorkspaceLock(this.workspaceDir, async () => {
-			if (this.syncProviderGeneration !== generation || generation.cacheWritesInvalidated || generation.database.closed) return;
-			const entryValidity = /* @__PURE__ */ new Map();
-			const accepted = [];
-			for (const [index, candidate] of candidates.entries()) {
-				let valid = entryValidity.get(candidate.entry);
-				if (valid === void 0) {
-					if (candidate.source === "memory") valid = (await (this.memoryFiles?.inspectFile ?? buildFileEntry)(candidate.entry.absPath, this.workspaceDir, this.settings.multimodal))?.hash === candidate.entry.hash;
-					else {
-						const sessionId = candidate.entry.sessionId;
-						valid = Boolean(sessionId && !hasMemorySessionTombstone(generation.database.db, this.agentId, sessionId));
-					}
-					entryValidity.set(candidate.entry, valid);
-				}
-				if (valid) accepted.push({
-					hash: candidate.chunk.hash,
-					embedding: embeddings[index] ?? []
-				});
-			}
-			if (accepted.length === 0) return;
-			await this.withGeneratedEmbeddingCacheWrite(generation, () => {
-				upsertMemoryEmbeddingCache({
-					db: generation.database.db,
-					enabled: true,
-					provider: generation.provider,
-					providerKey: generation.providerKey,
-					entries: accepted,
-					maxEntries: this.cache.maxEntries
-				});
-			});
-		});
-	}
 	async waitForEmbeddingRetry(delayMs, action, signal) {
 		log$5.warn(`memory embeddings retryable error; ${action} in ${delayMs}ms`);
 		await sleepWithAbort(delayMs, signal);
 	}
 	resolveEmbeddingTimeout(kind, provider = this.provider, providerRuntime = this.providerRuntime) {
-		return resolveEmbeddingTimeoutMs({
-			kind,
-			providerId: provider?.id,
-			providerRuntime,
-			configuredBatchTimeoutSeconds: this.settings.sync.embeddingBatchTimeoutSeconds
-		});
+		const configuredTimeoutSeconds = this.settings.sync.embeddingBatchTimeoutSeconds;
+		if (kind === "batch" && typeof configuredTimeoutSeconds === "number" && configuredTimeoutSeconds > 0) return resolveTimerTimeoutMs(configuredTimeoutSeconds * 1e3, MAX_TIMER_TIMEOUT_MS);
+		const defaults = EMBEDDING_TIMEOUTS_MS[kind];
+		const runtimeTimeoutMs = kind === "query" ? providerRuntime?.inlineQueryTimeoutMs : providerRuntime?.inlineBatchTimeoutMs;
+		return typeof runtimeTimeoutMs === "number" && runtimeTimeoutMs > 0 ? resolveTimerTimeoutMs(runtimeTimeoutMs, defaults.remote) : defaults[provider?.id === "local" ? "local" : "remote"];
 	}
-	async embedQueryWithRetry(text, signal, providerOverride, markDegraded = true, providerRuntimeOverride, deadlineControl) {
+	async embedQueryWithRetry(text, signal, providerOverride, providerRuntimeOverride, deadlineControl) {
 		const provider = providerOverride ?? this.provider;
 		const providerRuntime = providerOverride ? providerRuntimeOverride : this.providerRuntime;
 		if (!provider) throw new Error("Cannot embed query in FTS-only mode (no embedding provider)");
@@ -2972,7 +2877,6 @@ var MemoryManagerEmbeddingOps = class extends MemoryManagerSyncOps {
 				}
 			}));
 		} catch (err) {
-			if (markDegraded) this.markLocalEmbeddingProviderDegraded(err);
 			throw createMemoryEmbeddingOperationError({
 				operation: "query",
 				providerId: provider.id,
@@ -3050,11 +2954,10 @@ var MemoryManagerEmbeddingOps = class extends MemoryManagerSyncOps {
 		};
 	}
 	getIndexConcurrency() {
-		return resolveMemoryIndexConcurrency({
-			batch: this.batch,
-			configuredNonBatchConcurrency: this.settings.remote?.nonBatchConcurrency,
-			providerId: this.syncProviderGeneration ? this.syncProviderGeneration.provider?.id : this.provider?.id
-		});
+		if (this.batch.enabled) return this.batch.concurrency;
+		const configured = this.settings.remote?.nonBatchConcurrency;
+		if (typeof configured === "number" && Number.isFinite(configured)) return Math.max(1, Math.floor(configured));
+		return (this.syncProviderGeneration ? this.syncProviderGeneration.provider : this.provider)?.id === "ollama" ? 1 : EMBEDDING_INDEX_CONCURRENCY;
 	}
 	async writeChunks({ entry, source, chunks }, generation, embeddings, vectorReady) {
 		await withMemoryWorkspaceLock(this.workspaceDir, async () => {
@@ -3062,13 +2965,6 @@ var MemoryManagerEmbeddingOps = class extends MemoryManagerSyncOps {
 			const assertCurrent = () => {
 				this.memoryFiles?.assertCurrent();
 				if (this.closed || database.closed || !database.db.isOpen || this.database !== database || generation && (generation.database !== this.publishedDatabase || generation.database.closed || !generation.database.db.isOpen || this.syncProviderGeneration !== generation)) throw new Error("Memory source owner changed before replacement");
-				if (source === "sessions" && hasMemorySessionTombstone((generation?.database ?? database).db, this.agentId, expectDefined(entry.sessionId, "memory index session identity"))) {
-					this.markFailedFullReindexRetry({
-						memory: false,
-						sessions: true
-					});
-					throw new Error("A session was forgotten while memory indexing was running; retry the memory index.");
-				}
 			};
 			const createReplacement = () => ({
 				entry: {
@@ -3097,6 +2993,13 @@ var MemoryManagerEmbeddingOps = class extends MemoryManagerSyncOps {
 					}
 				}
 				assertCurrent();
+				if (source === "sessions" && hasMemorySessionTombstone((generation?.database ?? database).db, this.agentId, expectDefined(entry.sessionId, "memory index session identity"))) {
+					this.markFailedFullReindexRetry({
+						memory: false,
+						sessions: true
+					});
+					throw new Error("A session was forgotten while memory indexing was running; retry the memory index.");
+				}
 				return true;
 			};
 			const published = await database.replaceSource(createReplacement(), assertCurrent, prepare);
@@ -3200,7 +3103,7 @@ var MemoryManagerEmbeddingOps = class extends MemoryManagerSyncOps {
 	async indexFilesWithGeneration(items, generation) {
 		const batchEmbed = generation?.kind === "semantic" ? generation.runtime?.batchEmbed : void 0;
 		if (generation?.kind !== "semantic" || !this.batch.enabled || !batchEmbed || generation.runtime?.sourceWideBatchEmbed !== true) {
-			await runMemoryHostTasksWithConcurrency(items.map((item) => async () => await this.indexFileWithGeneration(item.entry, { source: item.source }, generation)), this.getIndexConcurrency());
+			await runWithConcurrency(items.map((item) => async () => await this.indexFileWithGeneration(item.entry, { source: item.source }, generation)), this.getIndexConcurrency());
 			return;
 		}
 		const itemSourceCounts = countBatchSources(items);
@@ -3221,15 +3124,15 @@ var MemoryManagerEmbeddingOps = class extends MemoryManagerSyncOps {
 				entry: item.entry,
 				source: item.source
 			})));
-			const chunks = candidates.map((candidate) => candidate.chunk);
+			const chunkCount = candidates.length;
 			const sourceCounts = countBatchSources(current);
-			const source = formatBatchSourceLabel(sourceCounts);
+			const source = Object.keys(sourceCounts).toSorted().join("+") || "unknown";
 			sourceWideBatchGroup += 1;
-			const chunkBatches = splitSourceWideEmbeddingChunks(candidates, SOURCE_WIDE_BATCH_MAX_REQUESTS);
-			log$5.debug(`memory embeddings: source-wide batch submit group=${sourceWideBatchGroup} source=${source} files=${current.length} chunks=${chunks.length} requests=${chunkBatches.length} sources=${formatBatchSourceCounts(sourceCounts)} reason=${reason}`, {
+			const chunkBatches = chunkItems(candidates, SOURCE_WIDE_BATCH_MAX_REQUESTS);
+			log$5.debug(`memory embeddings: source-wide batch submit group=${sourceWideBatchGroup} source=${source} files=${current.length} chunks=${chunkCount} requests=${chunkBatches.length} sources=${formatBatchSourceCounts(sourceCounts)} reason=${reason}`, {
 				source,
 				files: current.length,
-				chunks: chunks.length,
+				chunks: chunkCount,
 				requests: chunkBatches.length,
 				sources: sourceCounts,
 				group: sourceWideBatchGroup,
@@ -3248,19 +3151,22 @@ var MemoryManagerEmbeddingOps = class extends MemoryManagerSyncOps {
 					sourceWideRequestGroups: chunkBatches.length
 				}));
 			}
+			candidates.length = 0;
+			chunkBatches.length = 0;
 			const sample = embeddings.find((embedding) => embedding.length > 0);
 			const vectorReady = sample ? await this.ensureVectorReady(sample.length) : false;
 			let offset = 0;
 			for (const item of current) {
 				const fileEmbeddings = embeddings.slice(offset, offset + item.chunks.length);
-				offset += item.chunks.length;
 				await this.writeChunks(item, generation, fileEmbeddings, vectorReady);
+				embeddings.fill([], offset, offset + item.chunks.length);
+				offset += item.chunks.length;
 			}
 			prepared = [];
 			preparedRequestCount = 0;
 		};
 		for (const item of items) {
-			if ("kind" in item.entry && item.entry.kind === "multimodal") {
+			if (item.entry.kind === "multimodal") {
 				await this.indexFileWithGeneration(item.entry, { source: item.source }, generation);
 				continue;
 			}
@@ -3284,7 +3190,7 @@ var MemoryManagerEmbeddingOps = class extends MemoryManagerSyncOps {
 		}
 	}
 	async indexFileWithGeneration(entry, options, generation) {
-		if (generation?.kind !== "semantic" && "kind" in entry && entry.kind === "multimodal") return;
+		if (generation?.kind !== "semantic" && entry.kind === "multimodal") return;
 		const prepared = await this.prepareIndexEntry(entry, options, generation);
 		if (!prepared) return;
 		if (generation?.kind !== "semantic") {
@@ -3293,18 +3199,15 @@ var MemoryManagerEmbeddingOps = class extends MemoryManagerSyncOps {
 		}
 		let embeddings;
 		try {
-			embeddings = this.batch.enabled ? await this.embedChunksWithBatch(prepared.chunks.map((chunk) => ({
+			const candidates = prepared.chunks.map((chunk) => ({
 				chunk,
 				entry: prepared.entry,
 				source: prepared.source
-			})), options.source, generation) : await this.embedChunksInBatches(prepared.chunks.map((chunk) => ({
-				chunk,
-				entry: prepared.entry,
-				source: prepared.source
-			})), generation);
+			}));
+			embeddings = this.batch.enabled ? await this.embedChunksWithBatch(candidates, options.source, generation) : await this.embedChunksInBatches(candidates, generation, EMBEDDING_BATCH_MAX_TOKENS);
 		} catch (err) {
 			const message = formatErrorMessage(err);
-			if ("kind" in entry && entry.kind === "multimodal" && /(413|payload too large|request too large|input too large|too many tokens|input limit|request size)/i.test(message)) {
+			if (entry.kind === "multimodal" && /(413|payload too large|request too large|input too large|too many tokens|input limit|request size)/i.test(message)) {
 				log$5.warn("memory embeddings: skipping multimodal file rejected as too large", {
 					path: entry.path,
 					bytes: prepared.structuredInputBytes,
@@ -3342,11 +3245,8 @@ function resolveEffectiveMemorySearchSettings(settings) {
 		}
 	};
 }
-function resolveConfiguredMemoryEmbeddingProvider(params) {
-	return resolveAgentConfig(params.cfg, normalizeAgentId(params.agentId))?.memory?.search?.provider ?? params.cfg.memory?.search?.provider;
-}
 function resolveMemoryEmbeddingProviderRequirement(params) {
-	const configuredProvider = resolveConfiguredMemoryEmbeddingProvider(params)?.trim();
+	const configuredProvider = (resolveAgentConfig(params.cfg, normalizeAgentId(params.agentId))?.memory?.search?.provider ?? params.cfg.memory?.search?.provider)?.trim();
 	if (params.settings.provider === "none" || configuredProvider === "none") return {
 		mode: "fts-only",
 		provider: params.settings.provider
@@ -3363,15 +3263,27 @@ function resolveMemoryEmbeddingProviderRequirement(params) {
 	};
 }
 var MemoryProviderLifecycle = class extends MemoryManagerEmbeddingOps {
+	constructor(..._args) {
+		super(..._args);
+		this.providerInitPromise = null;
+		this.providerInitialized = false;
+		this.providerRetirementPromise = Promise.resolve();
+		this.providersPendingRetirement = /* @__PURE__ */ new Set();
+		this.activeBackgroundSearchSyncs = /* @__PURE__ */ new Set();
+		this.indexIdentityDirty = false;
+		this.primaryRecoveryPromise = null;
+		this.primaryRecoveryRetryAt = 0;
+	}
 	applyProviderResult(providerResult) {
-		const providerState = resolveMemoryProviderState(providerResult);
-		this.provider = providerState.provider;
-		this.fallbackFrom = providerState.fallbackFrom;
-		this.fallbackReason = providerState.fallbackReason;
-		this.providerUnavailableReason = providerState.providerUnavailableReason;
-		this.providerLifecycle = providerState.lifecycle;
-		this.providerRuntime = providerState.providerRuntime;
+		this.provider = providerResult.provider;
+		this.fallbackFrom = providerResult.fallbackFrom;
+		this.fallbackReason = providerResult.fallbackReason;
+		this.providerUnavailableReason = providerResult.providerUnavailableReason;
+		this.providerLifecycle = resolveMemoryProviderLifecycle(providerResult);
+		this.providerRuntime = providerResult.runtime;
 		this.providerInitialized = true;
+		this.providerKey = this.computeProviderKey();
+		this.batch = this.resolveBatchConfig();
 	}
 	markEmbeddingBootstrapFailure(err, options) {
 		if (err instanceof MemoryManagerReloadError) throw err;
@@ -3392,10 +3304,11 @@ var MemoryProviderLifecycle = class extends MemoryManagerEmbeddingOps {
 		}
 		this.providerInitialized = true;
 		this.providerUnavailableReason = reason;
-		this.providerLifecycle = createDegradedMemoryProviderLifecycle({
+		this.providerLifecycle = {
+			mode: "degraded",
 			providerId: provider,
 			reason
-		});
+		};
 		this.embeddingBootstrapFailure = debug;
 		this.providerKey = this.computeProviderKey();
 		this.batch = this.resolveBatchConfig();
@@ -3408,6 +3321,7 @@ var MemoryProviderLifecycle = class extends MemoryManagerEmbeddingOps {
 	}
 	async ensureEmbeddingProviderForSearch(initialIndexState, onDebug) {
 		let indexState = initialIndexState;
+		await this.recoverPrimaryProviderForSearch(indexState);
 		const failure = this.embeddingBootstrapFailure;
 		if (failure) {
 			if (this.getCachedEmbeddingAvailability()?.ok === false) {
@@ -3527,10 +3441,59 @@ var MemoryProviderLifecycle = class extends MemoryManagerEmbeddingOps {
 			return false;
 		}
 	}
+	async recoverPrimaryProviderForSearch(indexState) {
+		if (this.primaryRecoveryPromise) {
+			await this.primaryRecoveryPromise;
+			return;
+		}
+		const fallback = this.provider;
+		const meta = indexState.meta;
+		if (!fallback || !this.fallbackFrom || !meta || this.closed || this.syncProviderGeneration || Date.now() < this.primaryRecoveryRetryAt || this.refreshIndexIdentityDirty({
+			providerKeyKnown: true,
+			indexState
+		}).status === "valid") return;
+		this.primaryRecoveryRetryAt = Date.now() + EMBEDDING_PROBE_CACHE_TTL_MS;
+		const recovery = (async () => {
+			let candidate = null;
+			try {
+				const result = await createEmbeddingProvider({
+					createProvider: this.createProvider,
+					config: this.cfg,
+					agentDir: resolveAgentDir(this.cfg, this.agentId),
+					...this.acquireLocalService ? { acquireLocalService: this.acquireLocalService } : {},
+					...resolveMemoryPrimaryProviderRequest({ settings: this.settings }),
+					fallback: "none"
+				});
+				candidate = result.provider;
+				if (!candidate || !resolveMemoryIndexProviderIdentities({
+					provider: candidate,
+					cacheKeyData: result.runtime?.cacheKeyData,
+					aliases: result.runtime?.indexIdentityAliases
+				}).some((identity) => identity.provider === meta.provider && identity.model === meta.model && identity.providerKey === meta.providerKey)) return;
+				await this.embedQueryWithRetry("ping", void 0, candidate, result.runtime);
+				if (this.closed || this.provider !== fallback || this.syncProviderGeneration || this.fallbackProviderInitPromise) return;
+				this.applyProviderResult(result);
+				candidate = null;
+				this.clearEmbeddingBootstrapFailureAfterRecovery();
+				await this.retireProvider(fallback);
+			} catch (err) {
+				if (err instanceof MemoryManagerReloadError) throw err;
+				log$4.debug(`memory embeddings: primary recovery deferred: ${formatErrorMessage(err)}`);
+			} finally {
+				if (candidate) await this.retireProvider(candidate);
+			}
+		})();
+		this.primaryRecoveryPromise = recovery;
+		try {
+			await recovery;
+		} finally {
+			this.primaryRecoveryPromise = null;
+		}
+	}
 	async ensureProviderInitialized() {
 		if (this.providerInitialized) {
 			if (!(this.embeddingBootstrapFailure !== void 0 && !this.provider && this.getCachedEmbeddingAvailability() === null)) {
-				await this.getPendingFallbackProviderInitialization()?.catch(() => void 0);
+				await this.fallbackProviderInitPromise?.catch(() => void 0);
 				return;
 			}
 			this.resetProviderInitializationForRetry();
@@ -3541,12 +3504,10 @@ var MemoryProviderLifecycle = class extends MemoryManagerEmbeddingOps {
 				requestedProvider: "none",
 				providerUnavailableReason: "No embedding provider available (FTS-only mode)"
 			});
-			this.providerKey = this.computeProviderKey();
-			this.batch = this.resolveBatchConfig();
 			return;
 		}
 		if (!this.providerInitPromise) this.providerInitPromise = (async () => {
-			await this.getPendingFallbackProviderInitialization()?.catch(() => void 0);
+			await this.fallbackProviderInitPromise?.catch(() => void 0);
 			await this.retireCurrentProvider();
 			if (this.closed) return;
 			const providerResult = await createEmbeddingProvider({
@@ -3557,8 +3518,6 @@ var MemoryProviderLifecycle = class extends MemoryManagerEmbeddingOps {
 				...resolveMemoryPrimaryProviderRequest({ settings: this.settings })
 			});
 			this.applyProviderResult(providerResult);
-			this.providerKey = this.computeProviderKey();
-			this.batch = this.resolveBatchConfig();
 		})();
 		try {
 			await this.providerInitPromise;
@@ -3574,7 +3533,10 @@ var MemoryProviderLifecycle = class extends MemoryManagerEmbeddingOps {
 		this.providerInitialized = false;
 		this.providerInitPromise = null;
 		this.providerUnavailableReason = void 0;
-		this.providerLifecycle = createPendingMemoryProviderLifecycle(this.requestedProvider);
+		this.providerLifecycle = {
+			mode: "pending",
+			requestedProvider: this.settings.provider
+		};
 	}
 	markLocalEmbeddingProviderDegraded(err) {
 		if (this.provider?.id !== "local") return;
@@ -3582,10 +3544,11 @@ var MemoryProviderLifecycle = class extends MemoryManagerEmbeddingOps {
 		const degradedProvider = this.provider;
 		this.retireCurrentProvider();
 		this.providerUnavailableReason = `Local embeddings degraded: ${message}`;
-		this.providerLifecycle = createDegradedMemoryProviderLifecycle({
+		this.providerLifecycle = {
+			mode: "degraded",
 			providerId: degradedProvider.id,
 			reason: message
-		});
+		};
 		this.embeddingProbeCache.delete(this.cacheKey);
 		this.providerKey = this.computeProviderKey();
 		this.batch = this.resolveBatchConfig();
@@ -3597,8 +3560,11 @@ var MemoryProviderLifecycle = class extends MemoryManagerEmbeddingOps {
 		if (provider) {
 			this.provider = null;
 			this.providerRuntime = void 0;
-			this.providersPendingRetirement.add(provider);
 		}
+		return this.retireProvider(provider);
+	}
+	retireProvider(provider) {
+		if (provider) this.providersPendingRetirement.add(provider);
 		if (this.providersPendingRetirement.size === 0) return this.providerRetirementPromise;
 		const retirement = this.providerRetirementPromise.catch(() => {}).then(async () => {
 			let firstError;
@@ -3630,9 +3596,6 @@ var MemoryProviderLifecycle = class extends MemoryManagerEmbeddingOps {
 		}
 		return errors;
 	}
-	isRequiredProviderUnavailable() {
-		return this.providerRequirement.mode === "required" && !this.provider;
-	}
 	buildRequiredProviderUnavailableError(operation) {
 		const registeredProviderIds = listRegisteredMemoryEmbeddingProviderAdapters().map((adapter) => adapter.id).toSorted();
 		const registeredProviders = registeredProviderIds.length > 0 ? registeredProviderIds.join(",") : "none";
@@ -3640,7 +3603,7 @@ var MemoryProviderLifecycle = class extends MemoryManagerEmbeddingOps {
 		return /* @__PURE__ */ new Error(`Memory ${operation} unavailable: embedding provider "${this.settings.provider}" is configured but unavailable. Reason: ${reason}. agentId=${this.agentId} purpose=${this.purpose} lifecycle=${JSON.stringify(this.providerLifecycle)} registeredMemoryEmbeddingProviders=${registeredProviders}`);
 	}
 	assertRequiredProviderAvailable(operation) {
-		if (this.isRequiredProviderUnavailable()) {
+		if (this.providerRequirement.mode === "required" && !this.provider) {
 			const error = this.buildRequiredProviderUnavailableError(operation);
 			this.resetProviderInitializationForRetry();
 			throw error;
@@ -3665,9 +3628,7 @@ var MemoryProviderLifecycle = class extends MemoryManagerEmbeddingOps {
 				hasIndexedChunks: params.indexState.hasIndexedChunks
 			} : {}
 		});
-		this.indexIdentityState = state;
-		this.indexIdentityDirty = state.status === "mismatched" || state.status === "missing" && (this.sources.has("memory") || (params?.indexState?.hasIndexedChunks ?? this.hasIndexedChunks()));
-		return state;
+		return this.updateIndexIdentityState(state, params?.indexState);
 	}
 	refreshKeywordFallbackIndexIdentity(indexState) {
 		const meta = indexState ? indexState.meta : this.readMeta();
@@ -3681,6 +3642,9 @@ var MemoryProviderLifecycle = class extends MemoryManagerEmbeddingOps {
 			vectorReady: false,
 			...indexState ? { hasIndexedChunks: indexState.hasIndexedChunks } : {}
 		});
+		return this.updateIndexIdentityState(state, indexState);
+	}
+	updateIndexIdentityState(state, indexState) {
 		this.indexIdentityState = state;
 		this.indexIdentityDirty = state.status === "mismatched" || state.status === "missing" && (this.sources.has("memory") || (indexState?.hasIndexedChunks ?? this.hasIndexedChunks()));
 		return state;
@@ -3793,9 +3757,6 @@ function resolveMemoryCoreLocalServiceHostIdentity(acquireLocalService) {
 //#endregion
 //#region extensions/memory-core/src/memory/manager-registry.ts
 const log$3 = createSubsystemLogger("memory");
-function isTransientMemoryIndexManagerPurpose(purpose) {
-	return purpose !== "default";
-}
 function normalizeMemoryIndexManagerPurpose(purpose) {
 	return purpose === "status" || purpose === "cli" || purpose === "maintenance" ? purpose : "default";
 }
@@ -3872,9 +3833,6 @@ var MemoryManagerRegistry = class {
 	releaseProvider(manager, provider) {
 		this.managers.get(manager)?.providers.delete(provider);
 	}
-	prepareReload(change) {
-		return prepareMemoryManagerReload(change, this.lifecycle);
-	}
 	prepareManagersForReload(reload) {
 		for (const [key, entry] of this.embeddingProbeCache) if (reload.retireRuntime || entry.adapters.some((adapter) => reload.adapters.has(adapter))) this.embeddingProbeCache.delete(key);
 		return async () => {
@@ -3900,7 +3858,6 @@ var MemoryManagerRegistry = class {
 			const prepared = await callbacks.prepare();
 			if (!prepared) return null;
 			if (this.reload?.retireRuntime) throw new MemoryManagerReloadError();
-			const transient = isTransientMemoryIndexManagerPurpose(params.purpose);
 			const create = async () => {
 				if (this.reload?.retireRuntime) throw new MemoryManagerReloadError();
 				const manager = await prepared.create();
@@ -3912,7 +3869,7 @@ var MemoryManagerRegistry = class {
 				}
 				return manager;
 			};
-			if (transient) return await create();
+			if (params.purpose !== "default") return await create();
 			const cachedManager = this.cache.get(prepared.key);
 			await this.closeScopeUnlocked({
 				agentId: params.agentId,
@@ -4054,13 +4011,10 @@ function importanceMultiplier(importance) {
 	return .75 + Math.max(1, Math.min(10, Math.floor(importance))) * .05;
 }
 function applyImportanceMultiplier(results) {
-	return results.map(applyEntryImportance);
-}
-function applyEntryImportance(entry) {
-	return {
+	return results.map((entry) => ({
 		...entry,
 		score: entry.score * importanceMultiplier(entry.importance)
-	};
+	}));
 }
 //#endregion
 //#region extensions/memory-core/src/memory/mmr.ts
@@ -4068,30 +4022,12 @@ const DEFAULT_MMR_CONFIG = {
 	enabled: false,
 	lambda: .7
 };
-/**
-* Compute MMR score for a candidate item.
-* MMR = λ * relevance - (1-λ) * max_similarity_to_selected
-*/
-function computeMMRScore(relevance, maxSimilarity, lambda) {
-	return lambda * relevance - (1 - lambda) * maxSimilarity;
-}
-/**
-* Re-rank items using Maximal Marginal Relevance (MMR).
-*
-* The algorithm iteratively selects items that balance relevance with diversity:
-* 1. Start with the highest-scoring item
-* 2. For each remaining slot, select the item that maximizes the MMR score
-* 3. MMR score = λ * relevance - (1-λ) * max_similarity_to_already_selected
-*
-* @param items - Items to re-rank, must have score and snippet
-* @param config - MMR configuration (lambda, enabled)
-* @returns Re-ranked items in MMR order
-*/
-function mmrRerank(items, config = {}) {
+function applyMMRToHybridResults(items, config = {}) {
+	if (items.length === 0) return items;
 	const { enabled = DEFAULT_MMR_CONFIG.enabled, lambda = DEFAULT_MMR_CONFIG.lambda } = config;
 	if (!enabled || items.length <= 1) return [...items];
 	const clampedLambda = Math.max(0, Math.min(1, lambda));
-	if (clampedLambda === 1) return [...items].toSorted((a, b) => b.score - a.score);
+	if (clampedLambda === 1) return items.toSorted((a, b) => b.score - a.score);
 	const prepared = items.map((item) => {
 		const snippet = item.snippet;
 		const tokens = tokenize(snippet);
@@ -4114,7 +4050,7 @@ function mmrRerank(items, config = {}) {
 		let bestItem = null;
 		let bestMMRScore = -Infinity;
 		for (const candidate of remaining) {
-			const mmrScore = computeMMRScore(candidate.relevance, candidate.maxSimilarity, clampedLambda);
+			const mmrScore = clampedLambda * candidate.relevance - (1 - clampedLambda) * candidate.maxSimilarity;
 			if (mmrScore > bestMMRScore || mmrScore === bestMMRScore && candidate.score > (bestItem?.score ?? -Infinity)) {
 				bestMMRScore = mmrScore;
 				bestItem = candidate;
@@ -4129,13 +4065,6 @@ function mmrRerank(items, config = {}) {
 		}
 	}
 	return selected;
-}
-/**
-* Apply MMR re-ranking to hybrid search results.
-*/
-function applyMMRToHybridResults(results, config = {}) {
-	if (results.length === 0) return results;
-	return mmrRerank(results, config);
 }
 //#endregion
 //#region extensions/memory-core/src/memory/project-ranking.ts
@@ -4172,7 +4101,6 @@ function parseMemoryDateFromPath(filePath) {
 	const year = Number(match[1]);
 	const month = Number(match[2]);
 	const day = Number(match[3]);
-	if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return null;
 	const timestamp = Date.UTC(year, month - 1, day);
 	const parsed = new Date(timestamp);
 	if (parsed.getUTCFullYear() !== year || parsed.getUTCMonth() !== month - 1 || parsed.getUTCDate() !== day) return null;
@@ -4246,62 +4174,47 @@ function scoreExactPathTieForTemporalDecay(contentScore) {
 	return (1 + Math.max(0, Math.min(1, contentScore))) / 2;
 }
 async function mergeHybridResults(params) {
-	const byId = /* @__PURE__ */ new Map();
-	for (const r of params.vector) byId.set(r.id, {
+	const createCandidate = (r) => ({
 		id: r.id,
 		path: r.path,
 		startLine: r.startLine,
 		endLine: r.endLine,
 		source: r.source,
 		snippet: r.snippet,
-		vectorScore: r.vectorScore,
+		vectorScore: 0,
 		textScore: 0,
 		rankingScore: 0,
 		pathScore: 0,
 		exactPathSpecificity: r.exactPathSpecificity ?? 0,
 		hasBodyMatch: false,
-		hasVector: true,
+		hasVector: false,
 		hasKeyword: false,
 		importance: r.importance,
 		triggers: r.triggers,
 		projectKey: r.projectKey,
 		...r.provenance ? { provenance: r.provenance } : {}
 	});
+	const byId = /* @__PURE__ */ new Map();
+	for (const r of params.vector) byId.set(r.id, {
+		...createCandidate(r),
+		vectorScore: r.vectorScore,
+		hasVector: true
+	});
 	for (const r of params.keyword) {
 		const exactPathSpecificity = r.exactPathSpecificity ?? 0;
-		const existing = byId.get(r.id);
-		if (existing) {
-			existing.textScore = r.textScore;
-			existing.hasBodyMatch = r.hasBodyMatch ?? r.textScore > 0;
-			existing.rankingScore = r.rankingScore ?? r.textScore;
-			existing.pathScore = r.pathScore ?? 0;
-			existing.exactPathSpecificity = Math.max(existing.exactPathSpecificity, exactPathSpecificity);
-			existing.hasKeyword = true;
-			existing.importance ??= r.importance;
-			existing.triggers ??= r.triggers;
-			existing.projectKey ??= r.projectKey;
-			if (!existing.provenance && r.provenance) existing.provenance = r.provenance;
-			if (r.snippet && r.snippet.length > 0) existing.snippet = r.snippet;
-		} else byId.set(r.id, {
-			id: r.id,
-			path: r.path,
-			startLine: r.startLine,
-			endLine: r.endLine,
-			source: r.source,
-			snippet: r.snippet,
-			vectorScore: 0,
-			textScore: r.textScore,
-			rankingScore: r.rankingScore ?? r.textScore,
-			pathScore: r.pathScore ?? 0,
-			exactPathSpecificity,
-			hasBodyMatch: r.hasBodyMatch ?? r.textScore > 0,
-			hasVector: false,
-			hasKeyword: true,
-			importance: r.importance,
-			triggers: r.triggers,
-			projectKey: r.projectKey,
-			...r.provenance ? { provenance: r.provenance } : {}
-		});
+		const existing = byId.get(r.id) ?? createCandidate(r);
+		existing.textScore = r.textScore;
+		existing.hasBodyMatch = r.hasBodyMatch ?? r.textScore > 0;
+		existing.rankingScore = r.rankingScore ?? r.textScore;
+		existing.pathScore = r.pathScore ?? 0;
+		existing.exactPathSpecificity = Math.max(existing.exactPathSpecificity, exactPathSpecificity);
+		existing.hasKeyword = true;
+		existing.importance ??= r.importance;
+		existing.triggers ??= r.triggers;
+		existing.projectKey ??= r.projectKey;
+		if (!existing.provenance && r.provenance) existing.provenance = r.provenance;
+		if (r.snippet && r.snippet.length > 0) existing.snippet = r.snippet;
+		byId.set(r.id, existing);
 	}
 	const temporalDecayConfig = {
 		...DEFAULT_TEMPORAL_DECAY_CONFIG,
@@ -4387,59 +4300,16 @@ function selectHybridSearchResults(params) {
 	return selected;
 }
 //#endregion
-//#region extensions/memory-core/src/memory/manager-hybrid-candidates.ts
-function projectHybridCandidates(query, vector, keyword) {
-	const matchExactPath = prepareExactPathMatcher(query);
-	return {
-		vector: vector.map((result) => ({
-			id: result.id,
-			path: result.path,
-			startLine: result.startLine,
-			endLine: result.endLine,
-			source: result.source,
-			snippet: result.snippet,
-			vectorScore: result.score,
-			importance: result.importance,
-			triggers: result.triggers,
-			projectKey: result.projectKey,
-			exactPathSpecificity: matchExactPath(result.path),
-			...result.provenance ? { provenance: result.provenance } : {}
-		})),
-		keyword: keyword.map((result) => ({
-			id: result.id,
-			path: result.path,
-			startLine: result.startLine,
-			endLine: result.endLine,
-			source: result.source,
-			snippet: result.snippet,
-			textScore: result.textScore,
-			hasBodyMatch: result.hasBodyMatch,
-			importance: result.importance,
-			triggers: result.triggers,
-			projectKey: result.projectKey,
-			rankingScore: result.score,
-			pathScore: result.pathScore,
-			exactPathSpecificity: result.exactPathSpecificity,
-			...result.provenance ? { provenance: result.provenance } : {}
-		}))
-	};
-}
-//#endregion
 //#region extensions/memory-core/src/memory/manager-keyword-retrieval.ts
 const SNIPPET_MAX_CHARS$1 = 700;
-const FTS_TABLE = MEMORY_INDEX_FTS_TABLE;
-const PATH_FTS_TABLE = MEMORY_INDEX_PATHS_FTS_TABLE;
 const KEYWORD_FALLBACK_SEARCH_TERM_LIMIT = 6;
 const EXACT_PATH_CANDIDATE_LIMIT = 200;
 const log$2 = createSubsystemLogger("memory");
-function keywordHitHasBody(hit) {
-	return hit.hasBodyMatch;
-}
 function compareKeywordSearchHits(a, b, preferExactBody = true) {
 	const specificityDelta = b.exactPathSpecificity - a.exactPathSpecificity;
 	if (specificityDelta !== 0) return specificityDelta;
 	if (preferExactBody && a.exactPathSpecificity > 0) {
-		const bodyPresenceDelta = Number(keywordHitHasBody(b)) - Number(keywordHitHasBody(a));
+		const bodyPresenceDelta = Number(b.hasBodyMatch) - Number(a.hasBodyMatch);
 		if (bodyPresenceDelta !== 0) return bodyPresenceDelta;
 	}
 	const relevanceDelta = b.score - a.score;
@@ -4453,11 +4323,6 @@ function compareKeywordSearchHits(a, b, preferExactBody = true) {
 	return a.path.localeCompare(b.path) || a.startLine - b.startLine || a.id.localeCompare(b.id);
 }
 var MemoryKeywordRetrieval = class extends MemoryProviderLifecycle {
-	selectScoredResults(results, maxResults, minScore, relaxedMinScore = minScore) {
-		const strict = results.filter((entry) => entry.score >= minScore);
-		if (strict.length > 0) return strict.slice(0, maxResults);
-		return results.filter((entry) => entry.score >= relaxedMinScore).slice(0, maxResults);
-	}
 	async listTriggerCandidates(opts) {
 		const limit = Math.max(1, Math.min(512, Math.floor(opts?.limit ?? 512)));
 		return await this.readCuratedMemoryCandidates({
@@ -4520,7 +4385,7 @@ var MemoryKeywordRetrieval = class extends MemoryProviderLifecycle {
 		const decayed = await applyTemporalDecayToHybridResults({
 			results: appliesTemporalDecay ? params.results.map((entry) => {
 				if (entry.exactPathSpecificity === 0) return entry;
-				const contentScore = keywordHitHasBody(entry) ? entry.score : 0;
+				const contentScore = entry.hasBodyMatch ? entry.score : 0;
 				return {
 					...entry,
 					score: scoreExactPathTieForTemporalDecay(contentScore)
@@ -4528,21 +4393,18 @@ var MemoryKeywordRetrieval = class extends MemoryProviderLifecycle {
 			}) : params.results,
 			temporalDecay: params.temporalDecay,
 			workspaceDir: this.workspaceDir,
-			sessionSourceMtimes: this.loadSessionSourceMtimes(params.results),
-			memorySourceMtimes: this.loadRemoteMemorySourceMtimes(params.results)
+			sessionSourceMtimes: this.loadSourceMtimes("sessions", params.results),
+			memorySourceMtimes: this.loadSourceMtimes("memory", params.results)
 		});
 		const activeProjects = prepareActiveProjectKeys(params.activeProjectKeys);
 		const ranked = applyProjectRanking(applyImportanceMultiplier(decayed), activeProjects).toSorted((left, right) => compareKeywordSearchHits(left, right, !appliesTemporalDecay)).map((entry) => entry.exactPathSpecificity > 0 ? Object.assign(entry, { score: projectScoreMultiplier(entry.projectKey, activeProjects) }) : entry);
-		return this.toMemorySearchResults(this.selectScoredResults(ranked, params.maxResults, params.minScore, 0));
+		const strict = ranked.filter((entry) => entry.score >= params.minScore);
+		const selected = strict.length > 0 ? strict : ranked.filter((entry) => entry.score >= 0);
+		return this.toMemorySearchResults(selected.slice(0, params.maxResults));
 	}
-	loadRemoteMemorySourceMtimes(results) {
-		if (!this.memoryFiles) return;
-		const entries = results.filter((entry) => entry.source === "memory");
-		if (entries.length === 0) return;
-		return new Map(entries.map((entry) => [entry.path, entry.sourceMtime]));
-	}
-	loadSessionSourceMtimes(results) {
-		const entries = results.filter((entry) => entry.source === "sessions");
+	loadSourceMtimes(source, results) {
+		if (source === "memory" && !this.memoryFiles) return;
+		const entries = results.filter((entry) => entry.source === source);
 		if (entries.length === 0) return;
 		return new Map(entries.map((entry) => [entry.path, entry.sourceMtime]));
 	}
@@ -4574,7 +4436,7 @@ var MemoryKeywordRetrieval = class extends MemoryProviderLifecycle {
 	buildKeywordSearchQuery(query, limit, options, sourceFilterList) {
 		return {
 			body: {
-				ftsTable: FTS_TABLE,
+				ftsTable: MEMORY_INDEX_FTS_TABLE,
 				query,
 				ftsTokenizer: this.settings.store.fts.tokenizer,
 				limit,
@@ -4584,14 +4446,14 @@ var MemoryKeywordRetrieval = class extends MemoryProviderLifecycle {
 				rankingQuery: options?.rankingQuery
 			},
 			path: {
-				pathFtsTable: PATH_FTS_TABLE,
+				pathFtsTable: MEMORY_INDEX_PATHS_FTS_TABLE,
 				query,
 				exactPathQuery: options?.exactPathQuery ?? query,
 				exactPathLimit: EXACT_PATH_CANDIDATE_LIMIT,
 				ftsTokenizer: this.settings.store.fts.tokenizer,
 				limit,
 				snippetMaxChars: SNIPPET_MAX_CHARS$1,
-				sourceFilter: this.buildSourceFilter(PATH_FTS_TABLE, sourceFilterList)
+				sourceFilter: this.buildSourceFilter(MEMORY_INDEX_PATHS_FTS_TABLE, sourceFilterList)
 			}
 		};
 	}
@@ -4656,7 +4518,7 @@ var MemoryKeywordRetrieval = class extends MemoryProviderLifecycle {
 				seenIds.set(result.id, Object.assign(result, { exactPathSpecificity: matchExactPath(result.path) }));
 				continue;
 			}
-			const existingHasBody = keywordHitHasBody(existing);
+			const existingHasBody = existing.hasBodyMatch;
 			const resultHasBody = result.hasBodyMatch;
 			const existingBodyScore = existingHasBody ? existing.score : 0;
 			const resultBodyScore = resultHasBody ? result.score : 0;
@@ -4668,13 +4530,13 @@ var MemoryKeywordRetrieval = class extends MemoryProviderLifecycle {
 			if (resultHasBody && !existingHasBody || resultHasBody === existingHasBody && result.snippet.length > existing.snippet.length) existing.snippet = result.snippet;
 		}
 		const merged = [...seenIds.values()];
-		for (const result of merged) if (!keywordHitHasBody(result)) result.score = result.exactPathSpecificity > 0 ? 1 : result.pathScore;
-		return merged.toSorted(compareKeywordSearchHits);
+		for (const result of merged) if (!result.hasBodyMatch) result.score = result.exactPathSpecificity > 0 ? 1 : result.pathScore;
+		return merged;
 	}
 	limitKeywordSearchHits(results, nonExactLimit) {
 		const ranked = results.toSorted(compareKeywordSearchHits);
-		const exactBody = ranked.filter((entry) => entry.exactPathSpecificity > 0 && keywordHitHasBody(entry)).slice(0, nonExactLimit);
-		const exactPathOnly = ranked.filter((entry) => entry.exactPathSpecificity > 0 && !keywordHitHasBody(entry));
+		const exactBody = ranked.filter((entry) => entry.exactPathSpecificity > 0 && entry.hasBodyMatch).slice(0, nonExactLimit);
+		const exactPathOnly = ranked.filter((entry) => entry.exactPathSpecificity > 0 && !entry.hasBodyMatch);
 		const boundedExact = exactBody.concat(exactPathOnly).toSorted(compareKeywordSearchHits);
 		const selectedPathKeys = /* @__PURE__ */ new Set();
 		for (const entry of boundedExact) {
@@ -4686,7 +4548,15 @@ var MemoryKeywordRetrieval = class extends MemoryProviderLifecycle {
 		return exact.concat(nonExact);
 	}
 	toMemorySearchResults(results) {
-		return results.map(({ id: _id, pathScore: _pathScore, exactPathSpecificity: _exactPathSpecificity, hasBodyMatch: _hasBodyMatch, ...result }) => result);
+		return results.map(({ id: _id, pathScore: _pathScore, exactPathSpecificity: _exactPathSpecificity, hasBodyMatch: _hasBodyMatch, path, startLine, endLine, score, textScore, snippet, source, ...metadata }) => Object.assign({
+			path,
+			startLine,
+			endLine,
+			score,
+			textScore,
+			snippet,
+			source
+		}, metadata));
 	}
 };
 //#endregion
@@ -4902,12 +4772,6 @@ async function runAdmittedVectorKnn(params) {
 		let callerSettled = false;
 		let terminationReason;
 		let killExitTimer;
-		const clearKillExitTimer = () => {
-			if (killExitTimer) {
-				clearTimeout(killExitTimer);
-				killExitTimer = void 0;
-			}
-		};
 		const settleCaller = (action) => {
 			if (callerSettled) return;
 			callerSettled = true;
@@ -4918,10 +4782,6 @@ async function runAdmittedVectorKnn(params) {
 			child.removeListener("error", onError);
 			child.removeListener("close", onClose);
 			action();
-		};
-		const releaseClosedChild = () => {
-			clearKillExitTimer();
-			params.signal?.removeEventListener("abort", abort);
 		};
 		const requestTermination = (reason) => {
 			if (terminationReason || closed) return;
@@ -4986,7 +4846,11 @@ async function runAdmittedVectorKnn(params) {
 		child.once("error", onError);
 		const onClose = (code, signal) => {
 			closed = true;
-			releaseClosedChild();
+			if (killExitTimer) {
+				clearTimeout(killExitTimer);
+				killExitTimer = void 0;
+			}
+			params.signal?.removeEventListener("abort", abort);
 			settleCaller(() => {
 				if (terminationReason) {
 					reject(terminationReason);
@@ -5001,32 +4865,15 @@ async function runAdmittedVectorKnn(params) {
 	});
 }
 //#endregion
-//#region extensions/memory-core/src/memory/manager-search-preflight.ts
-function resolveMemorySearchPreflight(params) {
-	const normalizedQuery = params.query.trim();
-	if (!normalizedQuery) return {
-		normalizedQuery,
-		shouldInitializeProvider: false,
-		shouldSearch: false
-	};
-	if (!params.hasIndexedContent) return {
-		normalizedQuery,
-		shouldInitializeProvider: false,
-		shouldSearch: false
-	};
-	return {
-		normalizedQuery,
-		shouldInitializeProvider: true,
-		shouldSearch: true
-	};
-}
-//#endregion
 //#region extensions/memory-core/src/memory/manager-search-orchestration.ts
 const SNIPPET_MAX_CHARS = 700;
 const SEARCH_CANDIDATE_UNIVERSE = 200;
-const VECTOR_TABLE = MEMORY_INDEX_VECTOR_TABLE;
 const log$1 = createSubsystemLogger("memory");
 var MemorySearchOrchestration = class extends MemoryKeywordRetrieval {
+	constructor(..._args) {
+		super(..._args);
+		this.sessionWarm = /* @__PURE__ */ new Set();
+	}
 	claimSessionWarmSync(sessionKey) {
 		if (!this.settings.sync.onSessionStart) return false;
 		const key = sessionKey?.trim() || "";
@@ -5104,7 +4951,7 @@ var MemorySearchOrchestration = class extends MemoryKeywordRetrieval {
 					await this.syncAdmitted({ reason: "search-bootstrap" }, { allowEmbeddingBootstrapFallback: true });
 				} catch (err) {
 					if (err instanceof WorkerTaskError && err.code === "overloaded") throw err;
-					if (this.providerRequirement.mode === "optional" && this.shouldFallbackOnError(err)) {
+					if (this.providerRequirement.mode === "optional" && isMemoryEmbeddingOperationError(err)) {
 						const failedProvider = this.provider?.id ?? this.settings.provider;
 						await this.retireCurrentProvider().catch((retireErr) => {
 							const message = redactSensitiveText(formatErrorMessage(retireErr), { mode: "tools" });
@@ -5121,25 +4968,20 @@ var MemorySearchOrchestration = class extends MemoryKeywordRetrieval {
 				indexState = await readIndexState();
 				hasIndexedContent = this.hasIndexedContent(indexState);
 			}
-			const preflight = resolveMemorySearchPreflight({
-				query: normalizedQuery,
-				hasIndexedContent
-			});
-			if (!preflight.shouldSearch) {
+			if (!hasIndexedContent) {
 				if (this.embeddingBootstrapFailure) opts?.onDebug?.({
 					backend: "builtin",
 					embeddingBootstrap: this.embeddingBootstrapFailure
 				});
 				return [];
 			}
-			const cleaned = preflight.normalizedQuery;
 			const recoveringEmbeddingProvider = this.embeddingBootstrapFailure !== void 0;
 			if (recoveringEmbeddingProvider) await releaseReadGeneration();
 			const embeddingBootstrapKeywordOnly = await this.ensureEmbeddingProviderForSearch(indexState, opts?.onDebug);
 			if (recoveringEmbeddingProvider) indexState = await readIndexState();
 			const sessionStartSync = this.claimSessionWarmSync(opts?.sessionKey);
 			const searchSyncEnabled = (this.settings.sync.onSearch || sessionStartSync) && (this.purpose === "default" || this.purpose === "cli");
-			if (!embeddingBootstrapKeywordOnly && preflight.shouldInitializeProvider && !this.provider && (this.providerLifecycle.mode === "pending" || this.providerLifecycle.mode === "degraded" && this.providerLifecycle.providerId !== this.settings.provider)) {
+			if (!embeddingBootstrapKeywordOnly && !this.provider && (this.providerLifecycle.mode === "pending" || this.providerLifecycle.mode === "degraded" && this.providerLifecycle.providerId !== this.settings.provider)) {
 				this.resetProviderInitializationForRetry();
 				await this.ensureProviderInitialized();
 			}
@@ -5153,10 +4995,11 @@ var MemorySearchOrchestration = class extends MemoryKeywordRetrieval {
 					indexState
 				});
 			}
-			const indexIdentity = embeddingBootstrapKeywordOnly ? this.refreshKeywordFallbackIndexIdentity(indexState) : this.refreshIndexIdentityDirty({
+			const refreshSearchIdentity = () => embeddingBootstrapKeywordOnly ? this.refreshKeywordFallbackIndexIdentity(indexState) : this.refreshIndexIdentityDirty({
 				providerKeyKnown: this.providerInitialized,
 				indexState
 			});
+			const indexIdentity = refreshSearchIdentity();
 			const shouldRepairIdentity = hasIndexedContent && (indexIdentity.status === "missing" || searchSyncEnabled && indexIdentity.status === "mismatched" && indexIdentity.owner === "openclaw" && indexIdentity.versionOrder === "older");
 			if (shouldRepairIdentity) {
 				await releaseReadGeneration();
@@ -5167,10 +5010,7 @@ var MemorySearchOrchestration = class extends MemoryKeywordRetrieval {
 				});
 				indexState = await readIndexState();
 			}
-			let repairedIndexIdentity = shouldRepairIdentity ? embeddingBootstrapKeywordOnly ? this.refreshKeywordFallbackIndexIdentity(indexState) : this.refreshIndexIdentityDirty({
-				providerKeyKnown: this.providerInitialized,
-				indexState
-			}) : indexIdentity;
+			let repairedIndexIdentity = shouldRepairIdentity ? refreshSearchIdentity() : indexIdentity;
 			if (repairedIndexIdentity.status === "mismatched" && !embeddingBootstrapKeywordOnly && await this.adoptPublishedFallbackProviderIfMatched(indexState)) repairedIndexIdentity = this.refreshIndexIdentityDirty({
 				providerKeyKnown: this.providerInitialized,
 				indexState
@@ -5193,10 +5033,7 @@ var MemorySearchOrchestration = class extends MemoryKeywordRetrieval {
 			let effectiveIdentity = repairedIndexIdentity;
 			for (let identityAttempt = 0; identityAttempt < 2; identityAttempt += 1) {
 				if (!releaseGeneration) indexState = await readIndexState();
-				const leasedIdentity = embeddingBootstrapKeywordOnly ? this.refreshKeywordFallbackIndexIdentity(indexState) : this.refreshIndexIdentityDirty({
-					providerKeyKnown: this.providerInitialized,
-					indexState
-				});
+				const leasedIdentity = refreshSearchIdentity();
 				effectiveIdentity = leasedIdentity;
 				if (leasedIdentity.status === "valid" || chunkingUpgradePendingKeywordOnly(leasedIdentity)) break;
 				await releaseReadGeneration();
@@ -5218,7 +5055,7 @@ var MemorySearchOrchestration = class extends MemoryKeywordRetrieval {
 			const loadKeywordResults = async () => {
 				const initialResult = preparedKeyword;
 				preparedKeyword = void 0;
-				const results = (keywordOnly || hybrid.enabled) && this.fts.enabled && this.fts.available ? await this.searchKeywordWithFallback(cleaned, candidates, keywordOptions, sourceFilterList, initialResult).catch((err) => {
+				const results = (keywordOnly || hybrid.enabled) && this.fts.enabled && this.fts.available ? await this.searchKeywordWithFallback(normalizedQuery, candidates, keywordOptions, sourceFilterList, initialResult).catch((err) => {
 					opts?.signal?.throwIfAborted();
 					if (err instanceof WorkerTaskError && err.code === "overloaded") throw err;
 					log$1.warn(`memory search: FTS keyword query failed: ${formatErrorMessage(err)}`);
@@ -5244,20 +5081,21 @@ var MemorySearchOrchestration = class extends MemoryKeywordRetrieval {
 				model: semanticProvider.model,
 				aliases: this.resolveProviderIndexIdentities().slice(1).map((identity) => identity.model)
 			};
+			const embedQuery = () => this.embedQueryWithRetry(normalizedQuery, opts?.signal, semanticProvider, semanticProviderRuntime, opts?.[MEMORY_SEARCH_DEADLINE_CONTROL]);
 			let keywordResults = [];
 			let queryVec;
 			const releaseSemanticProvider = this.acquireProviderUse(semanticProvider);
 			try {
 				keywordResults = await loadKeywordResults();
 				try {
-					queryVec = await this.embedQueryWithRetry(cleaned, opts?.signal, semanticProvider, false, semanticProviderRuntime, opts?.[MEMORY_SEARCH_DEADLINE_CONTROL]);
+					queryVec = await embedQuery();
 				} catch (err) {
 					releaseSemanticProvider();
 					if (opts?.signal?.aborted) throw err;
 					opts?.onPartialResults?.(null);
 					this.markLocalEmbeddingProviderDegraded(err);
 					const message = formatErrorMessage(err);
-					if (this.shouldFallbackOnError(err) ? await this.activateFallbackProvider(message).catch((fallbackErr) => {
+					if (isMemoryEmbeddingOperationError(err) ? await this.activateFallbackProvider(message).catch((fallbackErr) => {
 						log$1.warn(`memory search: failed to activate fallback provider: ${formatErrorMessage(fallbackErr)}`);
 						return false;
 					}) : false) {
@@ -5276,7 +5114,7 @@ var MemorySearchOrchestration = class extends MemoryKeywordRetrieval {
 						try {
 							keywordResults = await loadKeywordResults();
 							try {
-								queryVec = await this.embedQueryWithRetry(cleaned, opts?.signal, semanticProvider, false, semanticProviderRuntime, opts?.[MEMORY_SEARCH_DEADLINE_CONTROL]);
+								queryVec = await embedQuery();
 							} catch (fallbackErr) {
 								releaseFallbackProvider();
 								if (!opts?.signal?.aborted) this.markLocalEmbeddingProviderDegraded(fallbackErr);
@@ -5285,7 +5123,7 @@ var MemorySearchOrchestration = class extends MemoryKeywordRetrieval {
 						} finally {
 							releaseFallbackProvider();
 						}
-					} else if (!this.provider && this.fts.enabled && this.fts.available) {
+					} else if ((!this.provider || this.providerRequirement.mode !== "required") && this.fts.enabled && this.fts.available) {
 						this.assertRequiredProviderAvailable("search");
 						log$1.warn(`memory search: embeddings unavailable; using keyword-only results: ${message}`);
 						return await finalizeKeywords(keywordResults);
@@ -5305,22 +5143,33 @@ var MemorySearchOrchestration = class extends MemoryKeywordRetrieval {
 					results: vectorResults,
 					temporalDecay: hybrid.temporalDecay,
 					workspaceDir: this.workspaceDir,
-					sessionSourceMtimes: this.loadSessionSourceMtimes(vectorResults),
-					memorySourceMtimes: this.loadRemoteMemorySourceMtimes(vectorResults)
+					sessionSourceMtimes: this.loadSourceMtimes("sessions", vectorResults),
+					memorySourceMtimes: this.loadSourceMtimes("memory", vectorResults)
 				});
 				const activeProjects = prepareActiveProjectKeys(opts?.activeProjectKeys);
 				return applyProjectRanking(applyImportanceMultiplier(decayed), activeProjects).filter((entry) => entry.score >= minScore).toSorted((left, right) => right.score - left.score || left.path.localeCompare(right.path) || left.startLine - right.startLine || left.endLine - right.endLine).slice(0, maxResults);
 			}
+			const matchExactPath = prepareExactPathMatcher(normalizedQuery);
 			return selectHybridSearchResults({
-				merged: await this.mergeHybridResults({
-					query: cleaned,
-					vector: vectorResults,
-					keyword: keywordResults,
+				merged: await mergeHybridResults({
+					vector: vectorResults.map((entry) => ({
+						...entry,
+						vectorScore: entry.score,
+						exactPathSpecificity: matchExactPath(entry.path)
+					})),
+					keyword: keywordResults.map((entry) => ({
+						...entry,
+						rankingScore: entry.score
+					})),
 					vectorWeight: hybrid.vectorWeight,
 					textWeight: hybrid.textWeight,
+					isNonTextMediaPath: (path) => classifyMemoryMultimodalPath(path, this.settings.multimodal) !== null,
 					mmr: hybrid.mmr,
 					temporalDecay: hybrid.temporalDecay,
-					activeProjectKeys: opts?.activeProjectKeys
+					activeProjectKeys: opts?.activeProjectKeys,
+					workspaceDir: this.workspaceDir,
+					sessionSourceMtimes: this.loadSourceMtimes("sessions", [...keywordResults, ...vectorResults]),
+					memorySourceMtimes: this.loadSourceMtimes("memory", [...keywordResults, ...vectorResults])
 				}),
 				keyword: keywordResults,
 				maxResults,
@@ -5340,7 +5189,7 @@ var MemorySearchOrchestration = class extends MemoryKeywordRetrieval {
 	}
 	async searchVector(queryVec, limit, sourceFilterList, providerIdentity, indexState, signal) {
 		const results = await searchVector({
-			vectorTable: VECTOR_TABLE,
+			vectorTable: MEMORY_INDEX_VECTOR_TABLE,
 			providerModel: providerIdentity.model,
 			providerModelAliases: providerIdentity.aliases,
 			queryVec,
@@ -5384,20 +5233,6 @@ var MemorySearchOrchestration = class extends MemoryKeywordRetrieval {
 			sourceFilterVec: this.buildSourceFilter("c", sourceFilterList)
 		});
 		return this.attachRecallMetadata(results, signal, sourceFilterList);
-	}
-	mergeHybridResults(params) {
-		return mergeHybridResults({
-			...projectHybridCandidates(params.query, params.vector, params.keyword),
-			vectorWeight: params.vectorWeight,
-			textWeight: params.textWeight,
-			isNonTextMediaPath: (path) => classifyMemoryMultimodalPath(path, this.settings.multimodal) !== null,
-			mmr: params.mmr,
-			temporalDecay: params.temporalDecay,
-			activeProjectKeys: params.activeProjectKeys,
-			workspaceDir: this.workspaceDir,
-			sessionSourceMtimes: this.loadSessionSourceMtimes([...params.keyword, ...params.vector]),
-			memorySourceMtimes: this.loadRemoteMemorySourceMtimes([...params.keyword, ...params.vector])
-		});
 	}
 };
 //#endregion
@@ -5464,86 +5299,6 @@ function collectMemoryStatusAggregate(params) {
 	};
 }
 //#endregion
-//#region extensions/memory-core/src/memory/manager-sync-control.ts
-function hasTargetedSessionSyncParams(params) {
-	return Boolean(params?.sessions?.some((session) => session.sessionId.trim().length > 0) || params?.archiveFiles?.some((sessionFile) => sessionFile.trim().length > 0));
-}
-function enqueueMemoryTargetedSessionSync(state, targets) {
-	const queuedArchiveFiles = state.getQueuedArchiveFiles();
-	for (const sessionFile of targets?.archiveFiles ?? []) {
-		const trimmed = sessionFile.trim();
-		if (trimmed) queuedArchiveFiles.add(trimmed);
-	}
-	const queuedSessions = state.getQueuedSessions();
-	for (const session of targets?.sessions ?? []) {
-		const normalized = normalizeQueuedMemorySessionSyncTarget(session);
-		if (normalized) queuedSessions.set(memorySessionSyncTargetKey(normalized), normalized);
-	}
-	if (queuedArchiveFiles.size === 0 && queuedSessions.size === 0) return state.getSyncing() ?? Promise.resolve();
-	if (targets?.force) state.setQueuedForce(true);
-	if (targets?.progress) state.getQueuedProgressCallbacks().add(targets.progress);
-	if (!state.getQueuedSessionSync()) state.setQueuedSessionSync((async () => {
-		try {
-			await state.getSyncing()?.catch(() => void 0);
-			while (!state.isClosed() && (state.getQueuedArchiveFiles().size > 0 || state.getQueuedSessions().size > 0)) {
-				const pendingArchiveFiles = Array.from(state.getQueuedArchiveFiles());
-				const pendingSessions = Array.from(state.getQueuedSessions().values());
-				const pendingForce = state.getQueuedForce();
-				const pendingProgressCallbacks = Array.from(state.getQueuedProgressCallbacks());
-				state.getQueuedArchiveFiles().clear();
-				state.getQueuedSessions().clear();
-				state.setQueuedForce(false);
-				state.getQueuedProgressCallbacks().clear();
-				const progress = pendingProgressCallbacks.length > 0 ? (update) => {
-					for (const callback of pendingProgressCallbacks) callback(update);
-				} : void 0;
-				try {
-					await state.sync({
-						reason: "queued-sessions",
-						...pendingForce ? { force: true } : {},
-						sessions: pendingSessions,
-						archiveFiles: pendingArchiveFiles,
-						...progress ? { progress } : {}
-					});
-				} catch (err) {
-					for (const archiveFile of pendingArchiveFiles) state.getQueuedArchiveFiles().add(archiveFile);
-					for (const session of pendingSessions) state.getQueuedSessions().set(memorySessionSyncTargetKey(session), session);
-					if (pendingForce) state.setQueuedForce(true);
-					state.getQueuedProgressCallbacks().clear();
-					throw err;
-				}
-			}
-		} finally {
-			if (state.isClosed()) {
-				state.getQueuedArchiveFiles().clear();
-				state.getQueuedSessions().clear();
-				state.setQueuedForce(false);
-				state.getQueuedProgressCallbacks().clear();
-			}
-			state.setQueuedSessionSync(null);
-		}
-	})());
-	return state.getQueuedSessionSync() ?? Promise.resolve();
-}
-function normalizeQueuedMemorySessionSyncTarget(target) {
-	const sessionId = target.sessionId.trim();
-	if (!sessionId) return null;
-	const agentId = target.agentId?.trim();
-	const sessionKey = target.sessionKey?.trim();
-	return {
-		...agentId ? { agentId } : {},
-		sessionId,
-		...sessionKey ? { sessionKey } : {}
-	};
-}
-function memorySessionSyncTargetKey(target) {
-	return [
-		target.agentId ?? "",
-		target.sessionId,
-		target.sessionKey ?? ""
-	].join("\0");
-}
-//#endregion
 //#region extensions/memory-core/src/memory/manager.ts
 const log = createSubsystemLogger("memory");
 var MemoryIndexManager = class MemoryIndexManager extends MemorySearchOrchestration {
@@ -5605,6 +5360,7 @@ var MemoryIndexManager = class MemoryIndexManager extends MemorySearchOrchestrat
 								providerRequirement,
 								purpose,
 								acquireLocalService: params.acquireLocalService,
+								runInBackgroundContext: source?.backgroundRunner ?? params.runInBackgroundContext,
 								maintenanceSource: source,
 								databaseOptions
 							});
@@ -5612,6 +5368,7 @@ var MemoryIndexManager = class MemoryIndexManager extends MemorySearchOrchestrat
 							return manager;
 						};
 						manager = purpose === "status" ? create() : await withOpenClawAgentDatabaseWrite(databaseOptions, create, source?.publishedDatabase.db);
+						await manager.memoryWatcherReady;
 						if (params.inspectSources) await manager.inspectDiagnosticSourceState();
 						memoryFiles?.assertCurrent();
 						return manager;
@@ -5624,34 +5381,33 @@ var MemoryIndexManager = class MemoryIndexManager extends MemorySearchOrchestrat
 						throw error;
 					}
 				},
-				reuse: ({ closing, closed, db, memoryFiles: files }) => !closing && !closed && db.isOpen && files === memoryFiles
+				reuse: ({ closing, closed, db, memoryFiles: files, backgroundRunner }) => !closing && !closed && db.isOpen && files === memoryFiles && backgroundRunner === (source?.backgroundRunner ?? params.runInBackgroundContext)
 			};
 		} });
 	}
 	constructor(params) {
 		super(params.maintenanceSource?.automaticRebuildNotice);
 		this.createProvider = (adapter, create) => this.managerRegistry.createProvider(this, adapter, create);
-		this.providerInitPromise = null;
-		this.providerInitialized = false;
-		this.providerRetirementPromise = Promise.resolve();
-		this.providersPendingRetirement = /* @__PURE__ */ new Set();
+		this.runInBackgroundContext = (run) => {
+			if (!this.backgroundRunner) throw new Error("Memory background work requires a plugin lifecycle owner");
+			return this.backgroundRunner(run);
+		};
 		this.closePromise = null;
-		this.closeTeardownComplete = false;
-		this.activeBackgroundSearchSyncs = /* @__PURE__ */ new Set();
-		this.indexIdentityDirty = false;
-		this.sessionWarm = /* @__PURE__ */ new Set();
+		this.publishedDatabaseReleased = false;
 		this.syncing = null;
-		this.queuedArchiveFiles = /* @__PURE__ */ new Set();
-		this.queuedSessions = /* @__PURE__ */ new Map();
-		this.queuedForce = false;
-		this.queuedProgressCallbacks = /* @__PURE__ */ new Set();
-		this.queuedSessionSync = null;
+		this.syncingMemoryWatchGeneration = 0;
+		this.sessionSyncQueue = new MemoryTargetedSessionSyncQueue({
+			isClosed: () => this.closing || this.closed,
+			getSyncing: () => this.syncing,
+			sync: (params) => this.syncAdmitted(params, { queuedSessionOwner: true })
+		});
 		this.managerRegistry = params.managerRegistry;
 		const source = params.maintenanceSource;
 		const effectiveSettings = resolveEffectiveMemorySearchSettings(params.settings);
 		const dbPath = params.databaseOptions.path;
 		this.cacheKey = params.cacheKey;
 		this.acquireLocalService = params.acquireLocalService;
+		this.backgroundRunner = params.runInBackgroundContext;
 		this.purpose = params.purpose;
 		this.cfg = params.cfg;
 		this.agentId = params.agentId;
@@ -5665,8 +5421,10 @@ var MemoryIndexManager = class MemoryIndexManager extends MemorySearchOrchestrat
 			}
 		};
 		this.providerRequirement = params.providerRequirement;
-		this.requestedProvider = effectiveSettings.provider;
-		this.providerLifecycle = createPendingMemoryProviderLifecycle(this.requestedProvider);
+		this.providerLifecycle = {
+			mode: "pending",
+			requestedProvider: this.settings.provider
+		};
 		for (const memorySource of effectiveSettings.sources) this.sources.add(memorySource);
 		const readOnly = this.purpose === "status";
 		if (source && (!source.publishedDatabase.db.isOpen || this.purpose !== "maintenance")) throw new Error("Memory maintenance source connection is unavailable");
@@ -5696,7 +5454,7 @@ var MemoryIndexManager = class MemoryIndexManager extends MemorySearchOrchestrat
 				providerKeyKnown: false
 			});
 			this.indexIdentityDirty = this.indexIdentityState.status === "mismatched" || this.indexIdentityState.status === "missing" && this.sources.has("memory");
-			const transient = isTransientMemoryIndexManagerPurpose(this.purpose);
+			const transient = this.purpose !== "default";
 			const invalidatedSources = new Set(this.db.prepare("SELECT DISTINCT source FROM memory_index_sources WHERE hash = ''").all().flatMap((row) => row.source === "memory" || row.source === "sessions" ? [row.source] : []));
 			this.memorySourceProvenanceRepairPending = this.sources.has("memory") && invalidatedSources.has("memory");
 			this.dirty = this.sources.has("memory") && (!transient || !meta) || this.memorySourceProvenanceRepairPending;
@@ -5705,11 +5463,13 @@ var MemoryIndexManager = class MemoryIndexManager extends MemorySearchOrchestrat
 				this.sessionsFullRetryDirty = true;
 			}
 			this.batch = this.resolveBatchConfig();
-			if (!transient) runInMemoryBackgroundContext(() => {
+			if (!transient) this.runInBackgroundContext(() => {
 				this.ensureWatcher();
 				this.ensureSessionListener();
 				this.ensureIntervalSync();
-				this.ensureSessionStartupCatchup();
+				this.runInBackgroundContext(() => this.ensureSessionStartupCatchup()).catch((err) => {
+					log.warn("memory session startup catch-up failed: " + String(err));
+				});
 			});
 		} catch (err) {
 			this.publishedDatabase.release();
@@ -5720,7 +5480,7 @@ var MemoryIndexManager = class MemoryIndexManager extends MemorySearchOrchestrat
 		if (this.purpose === "status") throw new Error("Memory status managers are read-only");
 		if (this.closing || this.closed) return;
 		return await this.withManagerOperation(async () => {
-			if (hasTargetedSessionSyncParams(params) && (this.queuedSessionSync !== null || this.queuedArchiveFiles.size > 0 || this.queuedSessions.size > 0)) return await this.enqueueTargetedSessionSync(params);
+			if (hasTargetedSessionSyncParams(params) && this.sessionSyncQueue.hasPending) return await this.sessionSyncQueue.enqueue(params);
 			return await this.syncAdmitted(params);
 		});
 	}
@@ -5729,7 +5489,7 @@ var MemoryIndexManager = class MemoryIndexManager extends MemorySearchOrchestrat
 		await this.syncOutcomes.track(() => runMemorySearchMaintenance({
 			reason: params.reason,
 			takeDirtyGeneration: () => this.takeSearchMaintenanceRequest(),
-			restoreDirtyGeneration: (generation) => this.restoreReindexRetryState(generation),
+			restoreDirtyGeneration: (generation) => this.adoptReindexRetryState(generation),
 			acquireManager: () => MemoryIndexManager.get({
 				cfg: this.cfg,
 				agentId: this.agentId,
@@ -5747,10 +5507,12 @@ var MemoryIndexManager = class MemoryIndexManager extends MemorySearchOrchestrat
 					if (this.closing || this.closed) return;
 					return await this.syncAdmitted(params, options);
 				}
-				return this.enqueueTargetedSessionSync(params);
+				return this.sessionSyncQueue.enqueue(params);
 			}
 			try {
-				return await this.syncing;
+				await this.syncing;
+				if (params?.reason === "watch" && this.dirty && !this.closing && !this.closed && this.memoryWatchGeneration > this.syncingMemoryWatchGeneration) return await this.syncAdmitted(params, options);
+				return;
 			} catch (err) {
 				if (options?.allowEmbeddingBootstrapFallback && this.providerRequirement.mode === "optional" && (!this.providerInitialized || this.embeddingBootstrapFailure !== void 0)) {
 					if (!this.embeddingBootstrapFailure) this.markEmbeddingBootstrapFailure(err);
@@ -5759,6 +5521,7 @@ var MemoryIndexManager = class MemoryIndexManager extends MemorySearchOrchestrat
 				throw err;
 			}
 		}
+		this.syncingMemoryWatchGeneration = this.memoryWatchGeneration;
 		const run = async () => {
 			const hadBootstrapFailure = this.embeddingBootstrapFailure !== void 0;
 			let forceFtsOnly = this.embeddingBootstrapFailure !== void 0 && this.getCachedEmbeddingAvailability()?.ok === false;
@@ -5806,7 +5569,7 @@ var MemoryIndexManager = class MemoryIndexManager extends MemorySearchOrchestrat
 			try {
 				await runGeneration(forceFtsOnly);
 			} catch (err) {
-				if (!(this.providerRequirement.mode === "optional" && (options?.allowEmbeddingBootstrapFallback || hadBootstrapFailure) && this.shouldFallbackOnError(err))) throw err;
+				if (!(this.providerRequirement.mode === "optional" && (options?.allowEmbeddingBootstrapFallback || hadBootstrapFailure) && isMemoryEmbeddingOperationError(err))) throw err;
 				const failedProvider = this.provider?.id ?? this.settings.provider;
 				this.markEmbeddingBootstrapFailure(err, {
 					retainProvider: this.provider !== null,
@@ -5820,25 +5583,7 @@ var MemoryIndexManager = class MemoryIndexManager extends MemorySearchOrchestrat
 		this.syncing = this.syncOutcomes.track(run, true).finally(() => {
 			this.syncing = null;
 		});
-		return this.syncing ?? Promise.resolve();
-	}
-	enqueueTargetedSessionSync(targets) {
-		return enqueueMemoryTargetedSessionSync({
-			isClosed: () => this.closing || this.closed,
-			getSyncing: () => this.syncing,
-			getQueuedArchiveFiles: () => this.queuedArchiveFiles,
-			getQueuedSessions: () => this.queuedSessions,
-			getQueuedForce: () => this.queuedForce,
-			setQueuedForce: (value) => {
-				this.queuedForce = value;
-			},
-			getQueuedProgressCallbacks: () => this.queuedProgressCallbacks,
-			getQueuedSessionSync: () => this.queuedSessionSync,
-			setQueuedSessionSync: (value) => {
-				this.queuedSessionSync = value;
-			},
-			sync: async (params) => await this.syncAdmitted(params, { queuedSessionOwner: true })
-		}, targets);
+		return this.syncing;
 	}
 	status() {
 		if (this.closing || this.closed) throw new Error("Memory index manager is closed");
@@ -5858,7 +5603,7 @@ var MemoryIndexManager = class MemoryIndexManager extends MemorySearchOrchestrat
 		const providerInfo = resolveStatusProviderInfo({
 			provider: this.embeddingBootstrapFailure ? null : this.provider,
 			providerInitialized: this.embeddingBootstrapFailure ? true : this.providerInitialized,
-			requestedProvider: this.requestedProvider,
+			requestedProvider: this.settings.provider,
 			resolveConfiguredModel: () => this.resolveConfiguredIndexIdentity()?.provider.model || this.settings.model
 		});
 		const storage = this.sourceInspections.size > 0 ? collectMemoryStorageStatus(this.db, resolveUserPath(this.settings.store.databasePath)) : void 0;
@@ -5873,7 +5618,7 @@ var MemoryIndexManager = class MemoryIndexManager extends MemorySearchOrchestrat
 			storage,
 			provider: providerInfo.provider,
 			model: providerInfo.model,
-			requestedProvider: this.requestedProvider,
+			requestedProvider: this.settings.provider,
 			sources: Array.from(this.sources),
 			extraPaths: this.settings.extraPaths,
 			sourceCounts: aggregateState.sourceCounts.map((entry) => Object.assign(entry, this.sourceInspections.get(entry.source) ?? {})),
@@ -5921,6 +5666,7 @@ var MemoryIndexManager = class MemoryIndexManager extends MemorySearchOrchestrat
 				lastProvider: this.batchFailure.lastProvider
 			},
 			custom: {
+				watcher: this.memoryWatcherHealth,
 				llamaCppRuntime: getLocalEmbeddingRuntimeFacts(this.provider),
 				searchMode: providerInfo.searchMode,
 				providerState: this.providerLifecycle,
@@ -5936,7 +5682,7 @@ var MemoryIndexManager = class MemoryIndexManager extends MemorySearchOrchestrat
 			await existingClose;
 			return;
 		}
-		const closeOperation = this.withPublishedDatabase(() => this.closeTeardownComplete ? this.retryFailedClose() : this.closeOnce());
+		const closeOperation = this.withPublishedDatabase(() => this.publishedDatabaseReleased ? this.retryFailedClose() : this.closeOnce());
 		this.closePromise = closeOperation;
 		try {
 			await closeOperation;
@@ -5947,45 +5693,34 @@ var MemoryIndexManager = class MemoryIndexManager extends MemorySearchOrchestrat
 		}
 	}
 	async retryFailedClose() {
+		const errors = [];
+		await this.closeWatchResources().catch((error) => errors.push(error));
 		const retirementErrors = await this.drainPendingProviderRetirements();
-		if (this.providersPendingRetirement.size > 0) throw toErrorObject(retirementErrors.at(-1), "Embedding provider retirement failed");
+		if (this.providersPendingRetirement.size > 0) errors.push(toErrorObject(retirementErrors.at(-1), "Embedding provider retirement failed"));
+		if (!this.publishedDatabaseReleased) try {
+			await this.publishedDatabase.closePublicationWorker();
+			this.publishedDatabase.release();
+			this.publishedDatabaseReleased = true;
+		} catch (error) {
+			errors.push(error);
+		}
+		if (errors.length === 1) throw errors[0];
+		if (errors.length > 1) throw new AggregateError(errors, "Memory manager cleanup failed");
 	}
 	async closeOnce() {
 		this.closing = true;
-		this.queuedArchiveFiles.clear();
-		this.queuedSessions.clear();
-		this.queuedForce = false;
-		this.queuedProgressCallbacks.clear();
+		this.sessionSyncQueue.clear();
 		await this.awaitManagerIdle();
 		this.closed = true;
 		const pendingProviderInit = this.providerInitPromise;
-		const pendingFallbackInit = this.getPendingFallbackProviderInitialization();
-		if (this.sessionWatchTimer) {
-			clearTimeout(this.sessionWatchTimer);
-			this.sessionWatchTimer = null;
-		}
-		if (this.intervalTimer) {
-			clearInterval(this.intervalTimer);
-			this.intervalTimer = null;
-		}
-		await this.closeMemoryWatcher();
-		if (this.sessionUnsubscribe) {
-			this.sessionUnsubscribe();
-			this.sessionUnsubscribe = null;
-		}
+		const pendingFallbackInit = this.fallbackProviderInitPromise;
 		const reportPendingWorkError = (err) => {
 			log.warn(`memory close: pending manager work failed: ${formatErrorMessage(err)}`);
 		};
 		await pendingProviderInit?.catch(reportPendingWorkError);
 		await pendingFallbackInit?.catch(reportPendingWorkError);
 		await this.syncing?.catch(reportPendingWorkError);
-		try {
-			await this.retryFailedClose();
-		} finally {
-			await this.publishedDatabase.closePublicationWorker();
-			this.publishedDatabase.release();
-			this.closeTeardownComplete = true;
-		}
+		await this.retryFailedClose();
 	}
 };
 const managerRegistryStore = createPluginRuntimeStore({

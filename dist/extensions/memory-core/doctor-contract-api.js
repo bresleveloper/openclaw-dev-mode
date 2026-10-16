@@ -1,298 +1,261 @@
-import { a as asOptionalRecord, i as asOptionalObjectRecord } from "../../record-coerce-DItp3I4t.mjs";
-import { o as resolveUserPath } from "../../home-dir-BKwhAL2c.mjs";
-import { w as root } from "../../fs-safe-BAPek8At.mjs";
-import { n as normalizeAgentId } from "../../agent-id-GA8mwdTG.mjs";
-import { a as reclaimDefinitelyStaleFileLock } from "../../file-lock-BmQQ9PQF.mjs";
-import "../../string-coerce-runtime-C_MKhRVt.mjs";
-import "../../routing-gwrpgNm_.mjs";
-import "../../runtime-doctor-migrations-_pMXigSc.mjs";
-import { n as legacyStateFileExists, t as archiveLegacyStateSource } from "../../doctor-state-migration-fs-CfVap4xL.mjs";
-import "../../memory-core-host-engine-fs-BixOt6Kf.mjs";
-import { b as writeMemoryCoreWorkspaceEntries, d as SHORT_TERM_RECALL_NAMESPACE, i as DREAMING_SESSION_INGESTION_SEEN_NAMESPACE, l as SHORT_TERM_META_NAMESPACE, p as configureMemoryCoreDreamingState, r as DREAMING_SESSION_INGESTION_FILES_NAMESPACE, t as DREAMING_DAILY_INGESTION_NAMESPACE, u as SHORT_TERM_PHASE_SIGNAL_NAMESPACE, x as writeMemoryCoreWorkspaceEntry, y as readMemoryCoreWorkspaceEntries } from "../../dreaming-state-DJfKblhZ.mjs";
-import { D as normalizeShortTermRecallStore, n as normalizeShortTermPhaseSignalStore } from "../../short-term-promotion-store-CMmsbVWh.mjs";
-import { i as normalizeDailyIngestionState, o as normalizeSessionIngestionState } from "../../dreaming-ingestion-state-BH9hcR6l.mjs";
-import { isDeepStrictEqual } from "node:util";
+import { o as resolveUserPath } from "../../home-dir-Dc6nN6HB.mjs";
+import { c as isRecord, i as asOptionalObjectRecord } from "../../record-coerce-TIsquoVR.mjs";
+import { w as root } from "../../fs-safe-BUXBSN-4.mjs";
+import { n as normalizeAgentId } from "../../agent-id-D1-Q6vR4.mjs";
+import { a as reclaimDefinitelyStaleFileLock } from "../../file-lock-CkzOvhYo.mjs";
+import "../../string-coerce-runtime-50qKeWeL.mjs";
+import "../../routing-CEr1aXk1.mjs";
+import "../../runtime-doctor-migrations-4UZBewWQ.mjs";
+import { n as legacyStateFileExists } from "../../doctor-state-migration-fs-Ch3NmmKk.mjs";
+import "../../memory-core-host-engine-fs-Can1vT0D.mjs";
+import { c as SHORT_TERM_META_NAMESPACE, f as configureMemoryCoreDreamingState, g as normalizeMemoryCoreWorkspaceKey, i as DREAMING_SESSION_INGESTION_SEEN_NAMESPACE, l as SHORT_TERM_PHASE_SIGNAL_NAMESPACE, r as DREAMING_SESSION_INGESTION_FILES_NAMESPACE, t as DREAMING_DAILY_INGESTION_NAMESPACE, u as SHORT_TERM_RECALL_NAMESPACE, v as readMemoryCoreWorkspaceEntries } from "../../dreaming-state-BHlTqX1G.mjs";
+import { n as MANAGED_DREAMING_DECLARATION_KEY, t as classifyDreamingCronJob } from "../../dreaming-cron-classifier-BE1wMvoX.mjs";
 import path from "node:path";
 import fs from "node:fs/promises";
-import crypto, { createHash } from "node:crypto";
+import { isDeepStrictEqual } from "node:util";
+import crypto from "node:crypto";
+import { walkDirectory } from "@openclaw/fs-safe/walk";
+//#region extensions/memory-core/src/migration/doctor-dreaming-cron.ts
+async function planDreamingCronRepair(inventory, config) {
+	const constants = await import("../../plugin-sdk/memory-core-host-status.js");
+	const { resolveMemoryDreamingPluginConfig } = await import("../../plugin-sdk/memory-core-host-runtime-core.js");
+	const enabled = constants.resolveMemoryDeepDreamingConfig({
+		cfg: config,
+		pluginConfig: resolveMemoryDreamingPluginConfig(config)
+	}).enabled;
+	const changes = [];
+	const warnings = [];
+	const partitions = /* @__PURE__ */ new Map();
+	for (const job of inventory.jobs) {
+		if (!job.definition) {
+			warnings.push(`Could not inspect cron job ${job.id} in ${job.storeKey}: invalid definition JSON; row retained.`);
+			continue;
+		}
+		const kind = classifyDreamingCronJob(job.definition, constants);
+		if (!kind) continue;
+		if (kind === "ambiguous") {
+			warnings.push(`Dreaming cron job ${job.id} in ${job.storeKey} retains a historical dreaming tag with an authored payload; review its ownership manually. Row retained.`);
+			continue;
+		}
+		if (job.invalidReason) {
+			warnings.push(`Dreaming cron job ${job.id} in ${job.storeKey} needs cron repair (${job.invalidReason}); row retained.`);
+			continue;
+		}
+		const entries = partitions.get(job.storeKey) ?? [];
+		entries.push({
+			job,
+			kind
+		});
+		partitions.set(job.storeKey, entries);
+	}
+	for (const entries of partitions.values()) {
+		if (!enabled) {
+			changes.push(...entries.map(({ job }) => ({
+				job,
+				definition: null
+			})));
+			continue;
+		}
+		const survivor = entries.toSorted((left, right) => {
+			if (left.kind !== right.kind) {
+				const priority = {
+					declared: 0,
+					legacy: 1,
+					phase: 2
+				};
+				return priority[left.kind] - priority[right.kind];
+			}
+			const leftCreated = left.job.definition?.createdAtMs;
+			const rightCreated = right.job.definition?.createdAtMs;
+			const ageOrder = (typeof leftCreated === "number" ? leftCreated : Number.MAX_SAFE_INTEGER) - (typeof rightCreated === "number" ? rightCreated : Number.MAX_SAFE_INTEGER);
+			if (ageOrder !== 0) return ageOrder;
+			return left.job.id.localeCompare(right.job.id);
+		})[0];
+		if (!survivor?.job.definition) continue;
+		const raw = survivor.job.definition;
+		const definition = {
+			...raw,
+			declarationKey: MANAGED_DREAMING_DECLARATION_KEY
+		};
+		const payload = isRecord(raw.payload) ? raw.payload : {};
+		const delivery = isRecord(raw.delivery) ? raw.delivery : {};
+		definition.sessionTarget = "isolated";
+		if (payload.kind !== "agentTurn" || survivor.kind === "phase") {
+			const { text: _legacyText, ...retainedPayload } = payload;
+			definition.payload = {
+				...retainedPayload,
+				kind: "agentTurn",
+				message: constants.MEMORY_DREAMING_SYSTEM_EVENT_TEXT,
+				lightContext: true
+			};
+		} else definition.payload = {
+			...payload,
+			lightContext: true
+		};
+		definition.delivery = {
+			...delivery,
+			mode: "none"
+		};
+		if (survivor.kind === "phase") {
+			if (raw.name === constants.LEGACY_MEMORY_LIGHT_DREAMING_CRON_NAME || raw.name === constants.LEGACY_MEMORY_REM_DREAMING_CRON_NAME) definition.name = constants.MANAGED_MEMORY_DREAMING_CRON_NAME;
+			if (typeof raw.description === "string") definition.description = raw.description.replace(constants.LEGACY_MEMORY_LIGHT_DREAMING_CRON_TAG, constants.MANAGED_MEMORY_DREAMING_CRON_TAG).replace(constants.LEGACY_MEMORY_REM_DREAMING_CRON_TAG, constants.MANAGED_MEMORY_DREAMING_CRON_TAG);
+		}
+		if (!isDeepStrictEqual(definition, raw)) changes.push({
+			job: survivor.job,
+			definition
+		});
+		for (const { job } of entries) if (job.id !== survivor.job.id) changes.push({
+			job,
+			definition: null
+		});
+	}
+	return {
+		changes,
+		warnings,
+		enabled
+	};
+}
+function deferredCronInspection(error) {
+	return `Dreaming cron inspection remains pending; existing cron rows were retained. Retry with "openclaw doctor --fix". ${String(error)}`;
+}
+const dreamingCronMigration = {
+	id: "memory-core-dreaming-cron",
+	label: "memory-core dreaming cron ownership",
+	doctorOnly: true,
+	phase: "after-session-repair",
+	collectBackupResources: () => [],
+	async detectLegacyState({ context, config }) {
+		if (!context.inspectCronJobs) return null;
+		let inventory;
+		try {
+			inventory = await context.inspectCronJobs();
+		} catch (error) {
+			return { preview: [deferredCronInspection(error)] };
+		}
+		const plan = await planDreamingCronRepair(inventory, config);
+		const preview = [...plan.changes.length ? [`Repair ${plan.changes.length} historical dreaming cron row(s) after a verified SQLite backup.`] : [], ...plan.warnings];
+		return preview.length ? { preview } : null;
+	},
+	async migrateLegacyState({ context, config }) {
+		if (!context.inspectCronJobs || !context.repairCronJobs) return {
+			changes: [],
+			warnings: ["Dreaming cron repair requires a host with offline Doctor cron maintenance support."],
+			warningDisposition: "recoverable"
+		};
+		let inventory;
+		try {
+			inventory = await context.inspectCronJobs();
+		} catch (error) {
+			return {
+				changes: [],
+				warnings: [deferredCronInspection(error)],
+				warningDisposition: "recoverable"
+			};
+		}
+		const plan = await planDreamingCronRepair(inventory, config);
+		if (!plan.changes.length) return {
+			changes: [],
+			warnings: plan.warnings,
+			warningDisposition: "recoverable"
+		};
+		const result = await context.repairCronJobs(inventory, plan.changes);
+		return {
+			changes: result.changed ? [plan.enabled ? `Repaired ${result.changed} historical dreaming cron row(s); survivor IDs, order, and runtime state preserved. SQLite backup: ${result.backupPath}.` : `Retired ${result.changed} managed dreaming cron row(s) because dreaming is disabled. SQLite backup: ${result.backupPath}.`] : [],
+			warnings: plan.warnings,
+			warningDisposition: "recoverable"
+		};
+	}
+};
+//#endregion
 //#region extensions/memory-core/src/migration/doctor-workspaces.ts
 async function resolveConfiguredWorkspaces(config, env) {
 	const { resolveMemoryDreamingWorkspaces } = await import("../../plugin-sdk/memory-core-host-status.js");
 	return resolveMemoryDreamingWorkspaces(config, { env }).map((entry) => entry.workspaceDir);
 }
 //#endregion
-//#region extensions/memory-core/src/migration/dreaming-state-comparison.ts
-const LEGACY_SOURCE_ACKNOWLEDGEMENT_NAMESPACE = "legacy-dreaming-source-acknowledgements";
-function targetNamespacesForSource(label) {
-	if (label === "daily ingestion") return [DREAMING_DAILY_INGESTION_NAMESPACE];
-	if (label === "session ingestion") return [DREAMING_SESSION_INGESTION_FILES_NAMESPACE, DREAMING_SESSION_INGESTION_SEEN_NAMESPACE];
-	return [label === "short-term recall" ? SHORT_TERM_RECALL_NAMESPACE : SHORT_TERM_PHASE_SIGNAL_NAMESPACE];
-}
-async function memoryCoreLegacyTargetHasRows(source) {
-	return (await Promise.all(targetNamespacesForSource(source.label).map(async (namespace) => (await readMemoryCoreWorkspaceEntries({
-		namespace,
-		workspaceDir: source.workspaceDir
-	})).length))).some((count) => count > 0);
-}
-async function memoryCoreLegacySourceMatchesCanonical(source, raw) {
-	if (source.label === "daily ingestion") {
-		const rows = await readMemoryCoreWorkspaceEntries({
-			namespace: DREAMING_DAILY_INGESTION_NAMESPACE,
-			workspaceDir: source.workspaceDir
-		});
-		return isDeepStrictEqual(normalizeDailyIngestionState(raw), normalizeDailyIngestionState({
-			version: 1,
-			files: Object.fromEntries(rows.map((row) => [row.key, row.value]))
-		}));
-	}
-	if (source.label === "session ingestion") {
-		const [fileRows, seenRows] = await Promise.all([readMemoryCoreWorkspaceEntries({
-			namespace: DREAMING_SESSION_INGESTION_FILES_NAMESPACE,
-			workspaceDir: source.workspaceDir
-		}), readMemoryCoreWorkspaceEntries({
-			namespace: DREAMING_SESSION_INGESTION_SEEN_NAMESPACE,
-			workspaceDir: source.workspaceDir
-		})]);
-		const chunksByScope = /* @__PURE__ */ new Map();
-		for (const row of seenRows) {
-			const chunks = chunksByScope.get(row.value.scope) ?? [];
-			chunks.push({
-				index: row.value.index,
-				hashes: row.value.hashes
-			});
-			chunksByScope.set(row.value.scope, chunks);
-		}
-		return isDeepStrictEqual(normalizeSessionIngestionState(raw), normalizeSessionIngestionState({
-			version: 3,
-			files: Object.fromEntries(fileRows.map((row) => [row.key, row.value])),
-			seenMessages: Object.fromEntries([...chunksByScope].map(([scope, chunks]) => [scope, chunks.toSorted((left, right) => left.index - right.index).flatMap((row) => row.hashes)]))
-		}));
-	}
-	const [entryRows, metaRows] = await Promise.all([readMemoryCoreWorkspaceEntries({
-		namespace: source.label === "short-term recall" ? SHORT_TERM_RECALL_NAMESPACE : SHORT_TERM_PHASE_SIGNAL_NAMESPACE,
-		workspaceDir: source.workspaceDir
-	}), readMemoryCoreWorkspaceEntries({
-		namespace: SHORT_TERM_META_NAMESPACE,
-		workspaceDir: source.workspaceDir
-	})]);
-	const metaKey = source.label === "short-term recall" ? "recall" : "phase";
-	const updatedAt = metaRows.find((row) => row.key === metaKey)?.value.updatedAt;
-	if (typeof updatedAt !== "string" || updatedAt.length === 0) return false;
-	const canonicalRaw = {
-		version: 1,
-		updatedAt,
-		entries: Object.fromEntries(entryRows.map((row) => [row.key, row.value]))
-	};
-	if (source.label === "short-term recall") {
-		const canonical = normalizeShortTermRecallStore(canonicalRaw, updatedAt);
-		const fallbackCandidates = /* @__PURE__ */ new Set([updatedAt]);
-		for (const row of entryRows) {
-			const value = asOptionalRecord(row.value);
-			for (const key of ["firstRecalledAt", "lastRecalledAt"]) if (typeof value?.[key] === "string") fallbackCandidates.add(value[key]);
-		}
-		return [...fallbackCandidates].some((fallback) => isDeepStrictEqual(normalizeShortTermRecallStore(raw, fallback), canonical));
-	}
-	return isDeepStrictEqual(normalizeShortTermPhaseSignalStore(raw, updatedAt), normalizeShortTermPhaseSignalStore(canonicalRaw, updatedAt));
-}
-async function memoryCoreLegacySourceIsAcknowledged(source) {
-	const contents = await fs.readFile(source.filePath);
-	const sha256 = createHash("sha256").update(contents).digest("hex");
-	const markerKey = `legacy-source:${source.label}`;
-	if ((await readMemoryCoreWorkspaceEntries({
-		namespace: LEGACY_SOURCE_ACKNOWLEDGEMENT_NAMESPACE,
-		workspaceDir: source.workspaceDir
-	})).find((row) => row.key === markerKey)?.value.sha256 === sha256) return true;
-	let archiveNames = [];
-	try {
-		const archivePrefix = `${path.basename(source.filePath)}.migrated`;
-		archiveNames = (await fs.readdir(path.dirname(source.filePath))).filter((name) => {
-			if (name === archivePrefix) return true;
-			const suffix = name.slice(archivePrefix.length + 1);
-			const archiveIndex = Number(suffix);
-			return name.startsWith(`${archivePrefix}.`) && Number.isSafeInteger(archiveIndex) && archiveIndex >= 2 && String(archiveIndex) === suffix;
-		});
-	} catch {}
-	let matchesArchive = false;
-	for (const archiveName of archiveNames) try {
-		if (contents.equals(await fs.readFile(path.join(path.dirname(source.filePath), archiveName)))) {
-			matchesArchive = true;
-			break;
-		}
-	} catch {}
-	if (!matchesArchive && !await memoryCoreLegacySourceMatchesCanonical(source, JSON.parse(contents.toString("utf8")))) return false;
-	await writeMemoryCoreWorkspaceEntry({
-		namespace: LEGACY_SOURCE_ACKNOWLEDGEMENT_NAMESPACE,
-		workspaceDir: source.workspaceDir,
-		key: markerKey,
-		value: { sha256 }
-	});
-	return true;
-}
-const dreamingStateComparison = {
-	targetHasRows: memoryCoreLegacyTargetHasRows,
-	sourceIsAcknowledged: memoryCoreLegacySourceIsAcknowledged
-};
-//#endregion
 //#region extensions/memory-core/src/migration/doctor-dreaming-state.ts
-const LEGACY_DREAMING_STATE_DIR = path.join("memory", ".dreams");
-async function readJsonFile(filePath) {
-	return JSON.parse(await fs.readFile(filePath, "utf8"));
-}
-async function collectLegacySources(config, env) {
-	const sources = [];
-	for (const workspaceDir of await resolveConfiguredWorkspaces(config, env)) for (const candidate of [
-		{
-			label: "daily ingestion",
-			fileName: "daily-ingestion.json"
-		},
-		{
-			label: "session ingestion",
-			fileName: "session-ingestion.json"
-		},
-		{
-			label: "short-term recall",
-			fileName: "short-term-recall.json"
-		},
-		{
-			label: "phase signals",
-			fileName: "phase-signals.json"
-		}
-	]) {
-		const filePath = path.join(workspaceDir, LEGACY_DREAMING_STATE_DIR, candidate.fileName);
-		if (await legacyStateFileExists(filePath)) sources.push({
-			workspaceDir,
-			label: candidate.label,
-			filePath
-		});
+const RETIRED_DREAMING_SOURCES = [
+	{
+		label: "daily ingestion",
+		fileName: "daily-ingestion.json",
+		namespaces: [DREAMING_DAILY_INGESTION_NAMESPACE]
+	},
+	{
+		label: "session ingestion",
+		fileName: "session-ingestion.json",
+		namespaces: [DREAMING_SESSION_INGESTION_FILES_NAMESPACE, DREAMING_SESSION_INGESTION_SEEN_NAMESPACE]
+	},
+	{
+		label: "short-term recall",
+		fileName: "short-term-recall.json",
+		namespaces: [SHORT_TERM_RECALL_NAMESPACE],
+		metaKey: "recall"
+	},
+	{
+		label: "phase signals",
+		fileName: "phase-signals.json",
+		namespaces: [SHORT_TERM_PHASE_SIGNAL_NAMESPACE],
+		metaKey: "phase"
 	}
-	return sources;
-}
-async function migrateDailyIngestion(source) {
-	const state = normalizeDailyIngestionState(await readJsonFile(source.filePath));
-	await writeMemoryCoreWorkspaceEntries({
-		namespace: DREAMING_DAILY_INGESTION_NAMESPACE,
-		workspaceDir: source.workspaceDir,
-		entries: Object.entries(state.files).map(([key, value]) => ({
-			key,
-			value
-		}))
-	});
-	return Object.keys(state.files).length;
-}
-async function migrateSessionIngestion(source) {
-	const state = normalizeSessionIngestionState(await readJsonFile(source.filePath));
-	const seenEntries = Object.entries(state.seenMessages).flatMap(([scope, hashes]) => Array.from({ length: Math.ceil(hashes.length / 512) }, (_, index) => ({
-		key: `${scope}:${index}`,
-		value: {
-			scope,
-			index,
-			hashes: hashes.slice(index * 512, (index + 1) * 512)
+];
+async function unsupportedDreamingSources(params) {
+	configureMemoryCoreDreamingState(params.context.openPluginStateKeyedStore);
+	const warnings = [];
+	for (const workspaceDir of await resolveConfiguredWorkspaces(params.config, params.env)) {
+		const sources = [];
+		for (const source of RETIRED_DREAMING_SOURCES) {
+			const filePath = path.join(workspaceDir, "memory", ".dreams", source.fileName);
+			if (await legacyStateFileExists(filePath)) sources.push({
+				...source,
+				filePath
+			});
 		}
-	})));
-	await Promise.all([writeMemoryCoreWorkspaceEntries({
-		namespace: DREAMING_SESSION_INGESTION_FILES_NAMESPACE,
-		workspaceDir: source.workspaceDir,
-		entries: Object.entries(state.files).map(([key, value]) => ({
-			key,
-			value
-		}))
-	}), writeMemoryCoreWorkspaceEntries({
-		namespace: DREAMING_SESSION_INGESTION_SEEN_NAMESPACE,
-		workspaceDir: source.workspaceDir,
-		entries: seenEntries
-	})]);
-	return Object.keys(state.files).length + Object.keys(state.seenMessages).length;
-}
-async function migrateShortTermStore(source, kind) {
-	const nowIso = (/* @__PURE__ */ new Date()).toISOString();
-	const raw = await readJsonFile(source.filePath);
-	const state = kind === "recall" ? normalizeShortTermRecallStore(raw, nowIso) : normalizeShortTermPhaseSignalStore(raw, nowIso);
-	await Promise.all([writeMemoryCoreWorkspaceEntries({
-		namespace: kind === "recall" ? SHORT_TERM_RECALL_NAMESPACE : SHORT_TERM_PHASE_SIGNAL_NAMESPACE,
-		workspaceDir: source.workspaceDir,
-		entries: Object.entries(state.entries).map(([key, value]) => ({
-			key,
-			value
-		}))
-	}), writeMemoryCoreWorkspaceEntry({
-		namespace: SHORT_TERM_META_NAMESPACE,
-		workspaceDir: source.workspaceDir,
-		key: kind,
-		value: { updatedAt: state.updatedAt }
-	})]);
-	return Object.keys(state.entries).length;
-}
-async function migrateSource(source) {
-	if (source.label === "daily ingestion") return await migrateDailyIngestion(source);
-	if (source.label === "session ingestion") return await migrateSessionIngestion(source);
-	return await migrateShortTermStore(source, source.label === "short-term recall" ? "recall" : "phase");
+		if (sources.length === 0) continue;
+		const acknowledgements = await readMemoryCoreWorkspaceEntries({
+			namespace: "legacy-dreaming-source-acknowledgements",
+			workspaceDir
+		});
+		const metadata = await readMemoryCoreWorkspaceEntries({
+			namespace: SHORT_TERM_META_NAMESPACE,
+			workspaceDir
+		});
+		for (const source of sources) {
+			if (acknowledgements.some((entry) => entry.key === `legacy-source:${source.label}`) || source.metaKey && metadata.some((entry) => entry.key === source.metaKey)) continue;
+			if ((await Promise.all(source.namespaces.map((namespace) => readMemoryCoreWorkspaceEntries({
+				namespace,
+				workspaceDir
+			})))).some((rows) => rows.length > 0)) continue;
+			warnings.push(`Memory Core ${source.label}: upgrades from pre-July-2026 dreaming JSON are no longer migrated (${source.filePath}). No canonical SQLite state was found; an empty ingestion store cannot be distinguished from unmigrated state. Restore a backup produced by a July 2026 or newer release, or back up and move this retired file aside after verifying the SQLite state, then rerun openclaw doctor --fix. The file was left unchanged.`);
+		}
+	}
+	return warnings;
 }
 const dreamingStateMigration = {
 	id: "memory-core-dreams-json-to-sqlite",
-	label: "Memory Core dreaming state",
+	label: "Memory Core unsupported dreaming JSON",
+	collectBackupResources: () => [],
 	async detectLegacyState(params) {
-		configureMemoryCoreDreamingState(params.context.openPluginStateKeyedStore);
-		const sources = await collectLegacySources(params.config, params.env);
-		if (sources.length === 0) return null;
-		return { preview: sources.map((source) => `- Memory Core ${source.label}: ${source.filePath} -> SQLite plugin state`) };
+		const warnings = await unsupportedDreamingSources(params);
+		return warnings.length > 0 ? { preview: warnings.map((warning) => `- ${warning}`) } : null;
 	},
 	async migrateLegacyState(params) {
-		configureMemoryCoreDreamingState(params.context.openPluginStateKeyedStore);
-		const changes = [];
-		const warnings = [];
-		const notices = [];
-		for (const source of await collectLegacySources(params.config, params.env)) {
-			if (await dreamingStateComparison.targetHasRows(source)) {
-				let sourceAcknowledged;
-				try {
-					sourceAcknowledged = await dreamingStateComparison.sourceIsAcknowledged(source);
-				} catch (err) {
-					warnings.push(`Skipped Memory Core ${source.label} import for ${source.workspaceDir} because the legacy source could not be compared: ${String(err)}`);
-					continue;
-				}
-				if (sourceAcknowledged) {
-					notices.push(`Retained acknowledged Memory Core ${source.label} legacy source for rollback: ${source.filePath}`);
-					continue;
-				}
-				changes.push(`Resolved Memory Core ${source.label} legacy conflict by keeping canonical SQLite plugin state`);
-				await archiveLegacyStateSource({
-					filePath: source.filePath,
-					label: `Memory Core ${source.label} conflicting legacy source`,
-					changes,
-					warnings
-				});
-				continue;
-			}
-			let imported;
-			try {
-				imported = await migrateSource(source);
-			} catch (err) {
-				warnings.push(`Skipped Memory Core ${source.label} import for ${source.workspaceDir} because the legacy source could not be imported: ${String(err)}`);
-				continue;
-			}
-			changes.push(`Migrated Memory Core ${source.label} -> SQLite plugin state (${imported} row(s))`);
-			await archiveLegacyStateSource({
-				filePath: source.filePath,
-				label: `Memory Core ${source.label}`,
-				changes,
-				warnings
-			});
-		}
 		return {
-			changes,
-			warnings,
-			...notices.length > 0 ? { notices } : {}
+			changes: [],
+			warnings: await unsupportedDreamingSources(params)
 		};
 	}
 };
 //#endregion
 //#region extensions/memory-core/src/migration/doctor-host-event-sources.ts
-function normalizeMemoryHostWorkspaceKey(workspaceDir) {
-	const resolved = path.resolve(workspaceDir).replace(/\\/g, "/");
-	return process.platform === "win32" ? resolved.toLowerCase() : resolved;
+function legacyMemoryHostEventPatterns(relativePath) {
+	const baseName = path.basename(relativePath).replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+	return {
+		archivePattern: new RegExp(`^${baseName}\\.migrated(?:\\.([2-9]|[1-9][0-9]+))?$`, "u"),
+		claimPattern: new RegExp(`^\\.${baseName}\\.doctor-importing(?:\\.([2-9]|[1-9][0-9]+))?$`, "u")
+	};
 }
 function memoryHostWorkspacePrefix(workspaceDir) {
-	return crypto.createHash("sha256").update(normalizeMemoryHostWorkspaceKey(workspaceDir)).digest("hex").slice(0, 24);
+	return crypto.createHash("sha256").update(normalizeMemoryCoreWorkspaceKey(workspaceDir)).digest("hex").slice(0, 24);
 }
 async function collectLegacyMemoryHostEventSources(config, env) {
 	const { resolveMemoryHostEventLogPath } = await import("../../plugin-sdk/memory-host-events.js");
@@ -314,9 +277,7 @@ async function collectLegacyMemoryHostEventSources(config, env) {
 			filePath = resolveMemoryHostEventLogPath(canonicalWorkspaceDir);
 			const relativePath = path.relative(canonicalWorkspaceDir, filePath);
 			const directoryRelativePath = path.dirname(relativePath);
-			const baseName = path.basename(relativePath).replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
-			const archivePattern = new RegExp(`^${baseName}\\.migrated(?:\\.([2-9]|[1-9][0-9]+))?$`, "u");
-			const claimPattern = new RegExp(`^\\.${baseName}\\.doctor-importing(?:\\.([2-9]|[1-9][0-9]+))?$`, "u");
+			const { archivePattern, claimPattern } = legacyMemoryHostEventPatterns(relativePath);
 			const entries = await fs.readdir(path.join(workspaceRoot.rootReal, directoryRelativePath));
 			const candidates = [];
 			for (const entry of entries) {
@@ -385,9 +346,7 @@ async function resolveMemoryHostEventArchivePath(source) {
 	const { resolveMemoryHostEventLogPath } = await import("../../plugin-sdk/memory-host-events.js");
 	const activeRelativePath = path.relative(source.workspaceDir, resolveMemoryHostEventLogPath(source.workspaceDir));
 	const directoryPath = path.join(source.root.rootReal, path.dirname(activeRelativePath));
-	const baseName = path.basename(activeRelativePath).replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
-	const archivePattern = new RegExp(`^${baseName}\\.migrated(?:\\.([2-9]|[1-9][0-9]+))?$`, "u");
-	const claimPattern = new RegExp(`^\\.${baseName}\\.doctor-importing(?:\\.([2-9]|[1-9][0-9]+))?$`, "u");
+	const { archivePattern, claimPattern } = legacyMemoryHostEventPatterns(activeRelativePath);
 	let latestGeneration = 0n;
 	for (const entry of await fs.readdir(directoryPath)) {
 		const match = archivePattern.exec(entry) ?? claimPattern.exec(entry);
@@ -726,6 +685,31 @@ const hostEventsStateMigration = {
 	id: "memory-core-host-events-jsonl-to-sqlite",
 	label: "Memory Core host events",
 	doctorOnly: true,
+	async collectBackupResources(params) {
+		const sources = await collectLegacyMemoryHostEventSources(params.config, params.env);
+		const resources = [];
+		for (const source of sources) {
+			if (source.kind !== "ready") continue;
+			resources.push({
+				path: source.filePath,
+				kind: "file"
+			});
+			if (source.storage === "active") {
+				const generation = await resolveMemoryHostEventArchivePath(source);
+				resources.push({
+					path: path.join(source.workspaceDir, generation.claimRelativePath),
+					kind: "file"
+				}, {
+					path: path.join(source.workspaceDir, generation.archiveRelativePath),
+					kind: "file"
+				});
+			} else if (source.archiveRelativePath) resources.push({
+				path: path.join(source.workspaceDir, source.archiveRelativePath),
+				kind: "file"
+			});
+		}
+		return resources;
+	},
 	async detectLegacyState(params) {
 		const sources = await collectLegacyMemoryHostEventSources(params.config, params.env);
 		const pending = [];
@@ -777,16 +761,22 @@ const LEGACY_MEMORY_SIDECAR_SUFFIXES = [
 	"-shm",
 	"-journal"
 ];
+async function existingLegacySidecarPaths(basePath) {
+	return (await Promise.all(LEGACY_MEMORY_SIDECAR_SUFFIXES.map(async (suffix) => {
+		const filePath = `${basePath}${suffix}`;
+		return await legacyStateFileExists(filePath) ? filePath : null;
+	}))).filter((filePath) => filePath !== null);
+}
 function formatLegacyVectorRows(count) {
 	return count === void 0 ? "legacy vector rows" : `${count} vector row(s)`;
 }
 function resolveConfiguredAgentIds(config) {
-	const cfg = config;
-	const entries = asOptionalObjectRecord(cfg.agents?.entries);
-	const listedIds = Array.isArray(cfg.agents?.list) ? cfg.agents.list.flatMap((entry) => {
+	const agents = asOptionalObjectRecord(asOptionalObjectRecord(config)?.agents);
+	const entries = asOptionalObjectRecord(agents?.entries);
+	const listedIds = (Object.prototype.propertyIsEnumerable.call(agents ?? {}, "list") && Array.isArray(agents?.list) ? agents.list : []).flatMap((entry) => {
 		const id = asOptionalObjectRecord(entry)?.id;
 		return typeof id === "string" ? [id] : [];
-	}) : [];
+	});
 	const ids = new Set([...Object.keys(entries ?? {}), ...listedIds].map(normalizeAgentId));
 	return ids.size > 0 ? [...ids] : [normalizeAgentId(void 0)];
 }
@@ -796,7 +786,7 @@ function readAgentMemorySearch(config, agentId) {
 	const keyedEntry = keyedEntries ? Object.entries(keyedEntries).find(([id]) => normalizeAgentId(id) === agentId)?.[1] : void 0;
 	const keyedSearch = asOptionalObjectRecord(asOptionalObjectRecord(asOptionalObjectRecord(keyedEntry)?.memory)?.search);
 	if (keyedSearch) return keyedSearch;
-	const entry = (Array.isArray(agents?.list) ? agents.list : []).map(asOptionalObjectRecord).find((candidate) => normalizeAgentId(typeof candidate?.id === "string" ? candidate.id : void 0) === agentId);
+	const entry = (Object.prototype.propertyIsEnumerable.call(agents ?? {}, "list") && Array.isArray(agents?.list) ? agents.list : []).map(asOptionalObjectRecord).find((candidate) => normalizeAgentId(typeof candidate?.id === "string" ? candidate.id : void 0) === agentId);
 	return asOptionalObjectRecord(asOptionalObjectRecord(entry?.memory)?.search);
 }
 function readMemorySearchLayers(config, agentId) {
@@ -807,8 +797,8 @@ function readMemorySearchLayers(config, agentId) {
 		asOptionalObjectRecord(cfg?.memorySearch)
 	].filter((value) => value !== void 0);
 }
-function readStoreLayers(config, agentId) {
-	return readMemorySearchLayers(config, agentId).flatMap((search) => {
+function readStoreLayers(searchLayers) {
+	return searchLayers.flatMap((search) => {
 		const store = asOptionalObjectRecord(search.store);
 		return store ? [store] : [];
 	});
@@ -816,31 +806,22 @@ function readStoreLayers(config, agentId) {
 function firstDefined(layers, key) {
 	return layers.find((layer) => layer[key] !== void 0)?.[key];
 }
-function readNestedStoreLayers(config, agentId, key) {
-	return readStoreLayers(config, agentId).flatMap((store) => {
-		const nested = asOptionalObjectRecord(store[key]);
-		return nested ? [nested] : [];
-	});
-}
-function readMemorySearchVectorExtensionPath(config, agentId) {
-	const raw = firstDefined(readNestedStoreLayers(config, agentId, "vector"), "extensionPath");
-	return typeof raw === "string" && raw.trim() ? raw.trim() : void 0;
-}
-function readMemorySearchVectorEnabled(config, agentId) {
-	if (readMemorySearchProvider(config, agentId) === "none") return false;
-	const raw = firstDefined(readNestedStoreLayers(config, agentId, "vector"), "enabled");
-	return typeof raw === "boolean" ? raw : true;
-}
-function readMemorySearchProvider(config, agentId) {
-	const raw = firstDefined(readMemorySearchLayers(config, agentId), "provider");
-	return typeof raw === "string" && raw.trim() ? raw.trim() : void 0;
+function readMemorySearchMigrationOptions(config, agentId) {
+	const searchLayers = readMemorySearchLayers(config, agentId);
+	const stores = readStoreLayers(searchLayers);
+	const nestedOption = (section, key) => stores.map((store) => asOptionalObjectRecord(store[section])?.[key]).find((value) => value !== void 0);
+	const tokenizer = nestedOption("fts", "tokenizer");
+	const provider = firstDefined(searchLayers, "provider");
+	const enabled = nestedOption("vector", "enabled");
+	const extensionPath = nestedOption("vector", "extensionPath");
+	return {
+		ftsTokenizer: tokenizer === "unicode61" || tokenizer === "trigram" ? tokenizer : void 0,
+		vectorEnabled: !(typeof provider === "string" && provider.trim() === "none") && (typeof enabled === "boolean" ? enabled : true),
+		vectorExtensionPath: typeof extensionPath === "string" && extensionPath.trim() ? extensionPath.trim() : void 0
+	};
 }
 function readLegacyMemorySearchStorePaths(config, agentId) {
-	return [...new Set(readStoreLayers(config, agentId).flatMap((store) => typeof store.path === "string" && store.path.trim() ? [store.path.trim()] : []))];
-}
-function readMemorySearchFtsTokenizer(config, agentId) {
-	const raw = firstDefined(readNestedStoreLayers(config, agentId, "fts"), "tokenizer");
-	return raw === "unicode61" || raw === "trigram" ? raw : void 0;
+	return [...new Set(readStoreLayers(readMemorySearchLayers(config, agentId)).flatMap((store) => typeof store.path === "string" && store.path.trim() ? [store.path.trim()] : []))];
 }
 async function isCanonicalAgentDatabaseSymlink(params) {
 	try {
@@ -909,10 +890,7 @@ async function collectLegacyMemorySidecarSources(params) {
 	return sources;
 }
 async function archiveLegacyMemorySidecar(params) {
-	const existingSources = (await Promise.all(LEGACY_MEMORY_SIDECAR_SUFFIXES.map(async (suffix) => {
-		const filePath = `${params.source.legacyPath}${suffix}`;
-		return await legacyStateFileExists(filePath) ? filePath : null;
-	}))).filter((filePath) => filePath !== null);
+	const existingSources = await existingLegacySidecarPaths(params.source.legacyPath);
 	if (existingSources.length === 0) return;
 	const existingArchives = (await Promise.all(existingSources.map(async (sourcePath) => {
 		const archivedPath = `${sourcePath}.migrated`;
@@ -949,18 +927,12 @@ async function preserveLegacyMemorySidecarRetryPath(params) {
 	const resolvedSourcePath = path.resolve(params.source.legacyPath);
 	const sourceName = path.basename(resolvedSourcePath);
 	if (path.dirname(resolvedSourcePath) === path.resolve(params.source.stateDir, "memory") && sourceName.startsWith(`${params.source.agentId}.retry-`) && sourceName.endsWith(".sqlite")) return;
-	const targetBasePath = (await Promise.all(LEGACY_MEMORY_SIDECAR_SUFFIXES.map(async (suffix) => {
-		const targetPath = `${retryPath}${suffix}`;
-		return await legacyStateFileExists(targetPath) ? targetPath : null;
-	}))).filter((targetPath) => targetPath !== null).length === 0 ? retryPath : path.join(params.source.stateDir, "memory", `${params.source.agentId}.retry-${crypto.createHash("sha256").update(path.resolve(params.source.legacyPath)).digest("hex").slice(0, 12)}.sqlite`);
+	const targetBasePath = (await existingLegacySidecarPaths(retryPath)).length === 0 ? retryPath : path.join(params.source.stateDir, "memory", `${params.source.agentId}.retry-${crypto.createHash("sha256").update(path.resolve(params.source.legacyPath)).digest("hex").slice(0, 12)}.sqlite`);
 	if (await legacyStateFileExists(targetBasePath)) return;
-	const existingSources = (await Promise.all(LEGACY_MEMORY_SIDECAR_SUFFIXES.map(async (suffix) => {
-		const sourcePath = `${params.source.legacyPath}${suffix}`;
-		return await legacyStateFileExists(sourcePath) ? {
-			sourcePath,
-			targetPath: `${targetBasePath}${suffix}`
-		} : null;
-	}))).filter((entry) => entry !== null);
+	const existingSources = (await existingLegacySidecarPaths(params.source.legacyPath)).map((sourcePath) => ({
+		sourcePath,
+		targetPath: `${targetBasePath}${sourcePath.slice(params.source.legacyPath.length)}`
+	}));
 	if (existingSources.length === 0) return;
 	await fs.mkdir(path.dirname(targetBasePath), { recursive: true });
 	const copied = [];
@@ -1012,7 +984,7 @@ async function migrateLegacyMemorySidecarSource(params) {
 			return { archiveReady: false };
 		}
 	}
-	const { importLegacyMemorySidecarIndex, LegacyMemoryDerivedRowsConflictError } = await import("../../doctor-memory-sidecar-import-DHYi28th.mjs");
+	const { importLegacyMemorySidecarIndex, LegacyMemoryDerivedRowsConflictError } = await import("../../doctor-memory-sidecar-import-BHhCGtbx.mjs");
 	const { ensureMemoryIndexSchema, loadSqliteVecExtension } = await import("../../plugin-sdk/memory-core-host-engine-schema.js");
 	const { ensureOpenClawAgentDatabaseSchema, openNodeSqliteDatabase } = await import("../../plugin-sdk/sqlite-runtime.js");
 	await fs.mkdir(path.dirname(params.source.agentDatabasePath), { recursive: true });
@@ -1028,15 +1000,13 @@ async function migrateLegacyMemorySidecarSource(params) {
 			path: params.source.agentDatabasePath,
 			register: true
 		});
-		const ftsTokenizer = readMemorySearchFtsTokenizer(params.config, params.source.agentId);
+		const { ftsTokenizer, vectorEnabled, vectorExtensionPath } = readMemorySearchMigrationOptions(params.config, params.source.agentId);
 		ensureMemoryIndexSchema({
 			db,
 			cacheEnabled: true,
 			ftsEnabled: true,
 			ftsTokenizer
 		});
-		const vectorEnabled = readMemorySearchVectorEnabled(params.config, params.source.agentId);
-		const vectorExtensionPath = vectorEnabled ? readMemorySearchVectorExtensionPath(params.config, params.source.agentId) : void 0;
 		const loadedVector = vectorEnabled ? await loadSqliteVecExtension({
 			db,
 			extensionPath: vectorExtensionPath ? resolveUserPath(vectorExtensionPath, params.env) : void 0
@@ -1088,36 +1058,46 @@ async function migrateLegacyMemorySidecarSource(params) {
 		db.close();
 	}
 }
-function groupLegacyMemorySidecarSourcesByPath(sources) {
-	const groups = /* @__PURE__ */ new Map();
-	for (const source of sources) {
-		const group = groups.get(source.legacyPath) ?? [];
-		group.push(source);
-		groups.set(source.legacyPath, group);
-	}
-	return [...groups.values()];
-}
 const memorySidecarStateMigration = {
 	id: "memory-core-legacy-sidecar-index-to-agent-sqlite",
 	label: "Memory Core legacy memory index sidecar",
+	async collectBackupResources(params) {
+		const sources = await collectLegacyMemorySidecarSources(params);
+		const resources = [];
+		for (const source of sources) {
+			resources.push({
+				path: source.agentDatabasePath,
+				kind: "sqlite"
+			});
+			for (const sourcePath of await existingLegacySidecarPaths(source.legacyPath)) resources.push({
+				path: sourcePath,
+				kind: "file"
+			}, {
+				path: `${sourcePath}.migrated`,
+				kind: "file"
+			});
+			for (const name of [`${source.agentId}.sqlite`, `${source.agentId}.retry-${crypto.createHash("sha256").update(path.resolve(source.legacyPath)).digest("hex").slice(0, 12)}.sqlite`]) for (const suffix of LEGACY_MEMORY_SIDECAR_SUFFIXES) resources.push({
+				path: path.join(params.stateDir, "memory", `${name}${suffix}`),
+				kind: "file"
+			});
+		}
+		return resources;
+	},
 	async detectLegacyState(params) {
-		const sources = await collectLegacyMemorySidecarSources({
-			config: params.config,
-			env: params.env,
-			stateDir: params.stateDir
-		});
+		const sources = await collectLegacyMemorySidecarSources(params);
 		if (sources.length === 0) return null;
 		return { preview: sources.map((source) => `- Memory Core legacy memory index: ${source.legacyPath} -> ${source.agentDatabasePath}`) };
 	},
 	async migrateLegacyState(params) {
 		const changes = [];
 		const warnings = [];
-		const groups = groupLegacyMemorySidecarSourcesByPath(await collectLegacyMemorySidecarSources({
-			config: params.config,
-			env: params.env,
-			stateDir: params.stateDir
-		}));
-		for (const sources of groups) {
+		const groups = /* @__PURE__ */ new Map();
+		for (const source of await collectLegacyMemorySidecarSources(params)) {
+			const group = groups.get(source.legacyPath) ?? [];
+			group.push(source);
+			groups.set(source.legacyPath, group);
+		}
+		for (const sources of groups.values()) {
 			let archiveReady = true;
 			for (const source of sources) try {
 				const result = await migrateLegacyMemorySidecarSource({
@@ -1151,44 +1131,32 @@ const memorySidecarStateMigration = {
 };
 const RETIRED_QMD_GLOBAL_LOCK_NAME = "embed.lock.lock";
 const RETIRED_QMD_AGENT_LOCK_NAME = "qmd-write.lock.lock";
-async function readDirectoryEntries(directoryPath) {
-	try {
-		return (await fs.readdir(directoryPath, { withFileTypes: true })).toSorted((left, right) => left.name.localeCompare(right.name));
-	} catch {
-		return [];
-	}
-}
 async function collectRetiredQmdFileLocks(stateDir) {
-	const stateEntries = await readDirectoryEntries(stateDir);
-	const lockPaths = [];
-	if (stateEntries.some((entry) => entry.name === "qmd" && entry.isDirectory())) {
-		const qmdDir = path.join(stateDir, "qmd");
-		if ((await readDirectoryEntries(qmdDir)).some((entry) => entry.name === RETIRED_QMD_GLOBAL_LOCK_NAME && entry.isFile())) lockPaths.push(path.join(qmdDir, RETIRED_QMD_GLOBAL_LOCK_NAME));
-	}
-	if (!stateEntries.some((entry) => entry.name === "agents" && entry.isDirectory())) return lockPaths;
-	const agentsDir = path.join(stateDir, "agents");
-	for (const entry of await readDirectoryEntries(agentsDir)) {
-		if (!entry.isDirectory() || entry.name !== normalizeAgentId(entry.name)) continue;
-		const agentDir = path.join(agentsDir, entry.name);
-		if ((await readDirectoryEntries(agentDir)).some((agentEntry) => agentEntry.name === RETIRED_QMD_AGENT_LOCK_NAME && agentEntry.isFile())) lockPaths.push(path.join(agentDir, RETIRED_QMD_AGENT_LOCK_NAME));
-	}
-	return lockPaths;
+	const { entries } = await walkDirectory(stateDir, {
+		maxDepth: 3,
+		symlinks: "skip",
+		descend: (entry) => entry.depth === 1 && (entry.name === "qmd" || entry.name === "agents") || entry.depth === 2 && path.dirname(entry.relativePath) === "agents" && entry.name === normalizeAgentId(entry.name),
+		include: (entry) => entry.kind === "file" && (entry.relativePath === path.join("qmd", RETIRED_QMD_GLOBAL_LOCK_NAME) || entry.depth === 3 && entry.name === RETIRED_QMD_AGENT_LOCK_NAME)
+	});
+	return entries.toSorted((left, right) => left.depth - right.depth || left.path.localeCompare(right.path)).map((entry) => entry.path);
 }
 async function collectRetiredQmdWorkspaceHomes(stateDir) {
-	const agentsDir = path.join(stateDir, "agents");
+	const { entries } = await walkDirectory(path.join(stateDir, "agents"), {
+		maxDepth: 2,
+		symlinks: "skip",
+		descend: (entry) => entry.depth === 1 && entry.name === normalizeAgentId(entry.name),
+		include: (entry) => entry.depth === 2 && entry.kind === "directory" && entry.name === "qmd"
+	});
 	const homes = [];
-	for (const entry of await readDirectoryEntries(agentsDir)) {
-		if (!entry.isDirectory() || entry.name !== normalizeAgentId(entry.name)) continue;
-		const agentDir = path.join(agentsDir, entry.name);
-		if ((await readDirectoryEntries(agentDir)).some((candidate) => candidate.name === "qmd" && candidate.isDirectory())) homes.push(path.join(agentDir, "qmd"));
-	}
-	return homes;
+	for (const entry of entries) if ((await fs.readdir(entry.path).catch(() => void 0))?.length === 0) homes.push(entry.path);
+	return homes.toSorted((left, right) => left.localeCompare(right));
 }
 //#endregion
 //#region extensions/memory-core/doctor-contract-api.ts
 const stateMigrations = [
 	hostEventsStateMigration,
 	dreamingStateMigration,
+	dreamingCronMigration,
 	memorySidecarStateMigration,
 	{
 		id: "memory-core-qmd-workspace-retired",
@@ -1197,17 +1165,14 @@ const stateMigrations = [
 		async detectLegacyState(params) {
 			const homes = await collectRetiredQmdWorkspaceHomes(params.stateDir);
 			if (homes.length === 0) return null;
-			return { preview: homes.map((home) => `- Retired Memory Core QMD workspace: ${home} -> remove derived index, config, cache, and session-export artifacts`) };
+			return { preview: homes.map((home) => `- Empty retired Memory Core QMD workspace: ${home} -> remove empty directory`) };
 		},
 		async migrateLegacyState(params) {
 			const changes = [];
 			const warnings = [];
 			for (const home of await collectRetiredQmdWorkspaceHomes(params.stateDir)) try {
-				await fs.rm(home, {
-					recursive: true,
-					force: true
-				});
-				changes.push(`Removed retired Memory Core QMD workspace: ${home}`);
+				await fs.rmdir(home);
+				changes.push(`Removed empty retired Memory Core QMD workspace: ${home}`);
 			} catch (err) {
 				warnings.push(`Skipped retired Memory Core QMD workspace cleanup. Run openclaw doctor --fix to retry. ${home}: ${String(err)}`);
 			}

@@ -1,17 +1,12 @@
-import { kt as EmbeddingProvider, yn as SsrFPolicy } from "../../runtime-api-CkahAQr_.js";
-import { n as OpenClawConfig } from "../../types.openclaw-mR7pAsVG.js";
-import { a as createConfiguredOllamaStreamFn, c as resolveOllamaBaseUrlForRun, d as resolveOllamaCompatNumCtxEnabled, f as shouldInjectOllamaCompatNumCtx, i as convertToOllamaMessages, l as createConfiguredOllamaCompatStreamWrapper, m as DEFAULT_OLLAMA_EMBEDDING_MODEL, n as buildAssistantMessage, o as createOllamaStreamFn, p as wrapOllamaCompatNumCtx, r as buildOllamaChatRequest, s as parseNdjsonStream, t as OLLAMA_NATIVE_BASE_URL, u as isOllamaCompatProvider } from "../../stream-api-Dp-NqH-M.js";
+import { n as OpenClawPluginApi, zt as EmbeddingProvider } from "../../agent-harness-runtime-Du4B564s.js";
+import { X as OpenClawConfig, j as SsrFPolicy } from "../../runtime-types-LI_BBveH.js";
+import "../../ssrf-runtime-DBBZ0Uv6.js";
+import { a as createConfiguredOllamaStreamFn, c as resolveOllamaBaseUrlForRun, d as resolveOllamaCompatNumCtxEnabled, f as shouldInjectOllamaCompatNumCtx, i as convertToOllamaMessages, l as createConfiguredOllamaCompatStreamWrapper, m as DEFAULT_OLLAMA_EMBEDDING_MODEL, n as buildAssistantMessage, o as createOllamaStreamFn, p as wrapOllamaCompatNumCtx, r as buildOllamaChatRequest, s as parseNdjsonStream, t as OLLAMA_NATIVE_BASE_URL, u as isOllamaCompatProvider } from "../../stream-api-Y8IfSq32.js";
 declare namespace embedding_provider_runtime_d_exports {
   export { DEFAULT_OLLAMA_EMBEDDING_MODEL, OllamaEmbeddingClient, OllamaEmbeddingProvider, createOllamaEmbeddingProvider$1 as createOllamaEmbeddingProvider };
 }
 type OllamaEmbeddingProvider = EmbeddingProvider;
-type MemoryCoreAcquireLocalService = (target: {
-  providerId: string;
-  baseUrl: string;
-  headers?: HeadersInit;
-}, signal?: AbortSignal | null) => Promise<{
-  release: () => void;
-} | undefined>;
+type MemoryCoreAcquireLocalService = OpenClawPluginApi["runtime"]["llm"]["acquireLocalService"];
 type OllamaEmbeddingOptions = {
   config: OpenClawConfig;
   agentDir?: string;

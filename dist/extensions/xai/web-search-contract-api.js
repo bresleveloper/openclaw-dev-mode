@@ -1,4 +1,4 @@
-import { t as buildXaiWebSearchProviderBase } from "../../web-search-provider-shared-yH-DfXcC.mjs";
+import { t as buildXaiWebSearchProviderBase } from "../../web-search-provider-shared-Dx3y6IjJ.mjs";
 //#region extensions/xai/web-search-contract-api.ts
 function createXaiWebSearchProvider() {
 	return {

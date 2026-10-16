@@ -1,4 +1,4 @@
-import { a as resolveOpenAIProjectedToolsStrictToolFlag, i as normalizeStrictOpenAIJsonSchema, n as isStrictOpenAIJsonSchemaCompatible, o as findOpenAIStrictSchemaViolations, r as normalizeOpenAIStrictToolParameters, s as normalizeOpenAIStrictCompatSchema, t as findOpenAIStrictToolProjectionDiagnostics } from "../openai-tool-schema-ynZBgqW-.mjs";
+import { a as resolveOpenAIProjectedToolsStrictToolFlag, i as normalizeStrictOpenAIJsonSchema, n as isStrictOpenAIJsonSchemaCompatible, o as findOpenAIStrictSchemaViolations, r as normalizeOpenAIStrictToolParameters, s as normalizeOpenAIStrictCompatSchema, t as findOpenAIStrictToolProjectionDiagnostics } from "../openai-tool-schema-a5ysBBga.mjs";
 import { TSchema } from "typebox";
 //#region packages/ai/src/providers/agent-tools-parameter-schema.d.ts
 /**

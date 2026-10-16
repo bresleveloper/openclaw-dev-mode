@@ -1,8 +1,8 @@
-import { l as normalizeOptionalString } from "../../string-coerce-CIXf7egm.mjs";
-import "../../string-coerce-runtime-C_MKhRVt.mjs";
-import { a as normalizeXaiTtsBaseUrl, c as resolveDirectXaiAudioApiKey, l as resolveXaiSpeechResponseFormat, o as readXaiSpeechOverrides, s as readXaiSpeechProviderConfig, t as XAI_TTS_FALLBACK_VOICES, u as xaiSpeechResponseFormatToFileExtension } from "../../speech-provider-metadata-factory-UbZbU00a.mjs";
-import { t as createXaiSpeechProviderMetadata } from "../../speech-provider-metadata-BFWPZCyQ.mjs";
-import { n as xaiTTS, r as xaiTTSStream, t as listXaiTtsVoices } from "../../tts-DLYeCcsA.mjs";
+import { l as normalizeOptionalString } from "../../string-coerce-1VuiLaaR.mjs";
+import "../../string-coerce-runtime-50qKeWeL.mjs";
+import { a as normalizeXaiTtsBaseUrl, c as resolveDirectXaiAudioApiKey, l as resolveXaiSpeechResponseFormat, o as readXaiSpeechOverrides, s as readXaiSpeechProviderConfig, t as XAI_TTS_FALLBACK_VOICES, u as xaiSpeechResponseFormatToFileExtension } from "../../speech-provider-metadata-factory-D6-ksoFn.mjs";
+import { t as createXaiSpeechProviderMetadata } from "../../speech-provider-metadata-t_Ki6J2_.mjs";
+import { n as xaiTTS, r as xaiTTSStream, t as listXaiTtsVoices } from "../../tts-hkhyIDVn.mjs";
 //#region extensions/xai/speech-provider.ts
 async function resolveXaiSpeechSynthesisRequest(req, forcedResponseFormat) {
 	const config = readXaiSpeechProviderConfig(req.providerConfig);

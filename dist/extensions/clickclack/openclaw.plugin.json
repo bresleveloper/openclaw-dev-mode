@@ -237,6 +237,9 @@
           "requireMention": {
             "type": "boolean"
           },
+          "requireMentionInBotThreads": {
+            "type": "boolean"
+          },
           "mentionPatterns": {
             "type": "array",
             "items": {
@@ -252,6 +255,9 @@
               "type": "object",
               "properties": {
                 "requireMention": {
+                  "type": "boolean"
+                },
+                "requireMentionInBotThreads": {
                   "type": "boolean"
                 },
                 "mentionPatterns": {
@@ -548,6 +554,9 @@
                 "requireMention": {
                   "type": "boolean"
                 },
+                "requireMentionInBotThreads": {
+                  "type": "boolean"
+                },
                 "mentionPatterns": {
                   "type": "array",
                   "items": {
@@ -563,6 +572,9 @@
                     "type": "object",
                     "properties": {
                       "requireMention": {
+                        "type": "boolean"
+                      },
+                      "requireMentionInBotThreads": {
                         "type": "boolean"
                       },
                       "mentionPatterns": {
@@ -640,7 +652,25 @@
         "additionalProperties": false
       },
       "label": "ClickClack",
-      "description": "ClickClack channel accounts and group activation policy."
+      "description": "ClickClack channel accounts and group activation policy.",
+      "uiHints": {
+        "requireMentionInBotThreads": {
+          "label": "Require Mention in Bot Threads",
+          "help": "Override mention requirements in threads rooted in this bot's messages. Unset keeps the normal mention policy."
+        },
+        "groups.*.requireMentionInBotThreads": {
+          "label": "Require Mention in Bot Threads",
+          "help": "Override the account policy for threads rooted in this bot's messages in this channel."
+        },
+        "accounts.*.requireMentionInBotThreads": {
+          "label": "Require Mention in Bot Threads",
+          "help": "Override mention requirements in threads rooted in this bot's messages. Unset inherits the channel configuration."
+        },
+        "accounts.*.groups.*.requireMentionInBotThreads": {
+          "label": "Require Mention in Bot Threads",
+          "help": "Override the account policy for threads rooted in this bot's messages in this channel."
+        }
+      }
     }
   },
   "contracts": {

@@ -1,3 +1,3 @@
-import { s as isLoopbackHost } from "../net-DU4aWKLv.mjs";
-import { t as resolveRequestUrl } from "../request-url-mkjwFsAV.mjs";
+import { s as isLoopbackHost } from "../net-C6WEu3pd.mjs";
+import { t as resolveRequestUrl } from "../request-url-Xhm6jrOi.mjs";
 export { isLoopbackHost, resolveRequestUrl };

@@ -1,4 +1,4 @@
-import { t as defineBundledChannelEntry } from "../../channel-entry-contract-DDxZbSmZ.mjs";
+import { t as defineBundledChannelEntry } from "../../channel-entry-contract-C_-pMc2_.mjs";
 //#region extensions/a2a/index.ts
 var a2a_default = defineBundledChannelEntry({
 	id: "a2a",

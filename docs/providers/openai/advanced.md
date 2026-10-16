@@ -125,6 +125,13 @@ fallback even with explicit `agentRuntime.id: "codex"`; see
     }
     ```
 
+    For cached ChatGPT Responses WebSocket requests, an explicit "Rustponses
+    cannot replay" rejection before any response event triggers one retry on a
+    fresh connection with full input instead of the cached response reference.
+    The retry preserves reasoning, compaction, and completed tool results; it
+    does not rerun tools. Rejections of full input and failures after response
+    events remain terminal.
+
     Related OpenAI docs:
     - [Responses API WebSocket mode](https://developers.openai.com/api/docs/guides/websocket-mode)
     - [Streaming API responses (SSE)](https://platform.openai.com/docs/guides/streaming-responses)
@@ -134,7 +141,7 @@ fallback even with explicit `agentRuntime.id: "codex"`; see
   <Accordion title="Fast mode">
     OpenClaw exposes a shared fast-mode toggle for `openai/*`:
 
-    - **Chat/UI:** `/fast status|auto|on|off`
+    - **Chat/UI:** `/fast status|auto|on|off|ultrafast|default`
     - **Config:** `agents.defaults.models["<provider>/<model>"].params.fastMode`
 
     Valid `params.fastMode` / `params.fast_mode` values and valid cutoff keys
@@ -144,11 +151,27 @@ fallback even with explicit `agentRuntime.id: "codex"`; see
 
     When enabled on the embedded runtime, OpenClaw maps fast mode to OpenAI API
     Fast mode (formerly Priority processing) and sends
-    `service_tier = "priority"`. Fast mode does not rewrite `reasoning` or
+    `service_tier = "priority"`. Explicit `/fast ultrafast` or
+    `params.fastMode: "ultrafast"` sends `service_tier = "ultrafast"` instead.
+    The selected account and model must support that tier; the provider can
+    reject it or return a different effective tier. Fast mode does not rewrite `reasoning` or
     `text.verbosity`. `fastMode: "auto"` starts new model calls fast until the
     auto cutoff, then starts later retry, fallback, tool-result, or continuation
     calls without fast mode. The cutoff defaults to 60 seconds; set
     `params.fastAutoOnSeconds` on the active model to change it.
+
+    For the embedded OpenClaw runtime, available API-key OpenAI Responses
+    routes that support Fast mode offer Standard, Fast, and Ultrafast in the
+    Control UI without requiring a catalog to advertise the tier, whether the
+    key comes from an auth profile, environment, or provider config (including
+    SecretRefs). If a response
+    to an Ultrafast request echoes a different `service_tier`, OpenClaw records
+    the downgrade for that selected credential, model, and route and removes
+    Ultrafast from later model-list results. Profile observations clear when
+    account discovery refreshes or credentials change; direct-key observations
+    clear when their configured binding changes. Both clear when the prepared
+    runtime retires. ChatGPT-account
+    availability remains based on authenticated account catalog discovery.
 
     ```json5
     {
@@ -206,14 +229,15 @@ fallback even with explicit `agentRuntime.id: "codex"`; see
     }
     ```
 
-    Supported values: `auto`, `default`, `flex`, `priority`.
+    Supported values: `auto`, `default`, `flex`, `priority`, `ultrafast`.
+    Availability depends on the selected provider route, account, and model.
 
     <Warning>
     `params.serviceTier` is an authored embedded-provider setting, not native
     Codex app-server configuration. It is forwarded only by the embedded
-    runtime to native OpenAI endpoints (`api.openai.com`) and native ChatGPT
-    endpoints (`chatgpt.com/backend-api`). If you route either provider through
-    a proxy, OpenClaw leaves `service_tier` untouched. Configure the native
+    runtime on OpenAI Responses routes, including compatible base URLs, and native
+    ChatGPT endpoints (`chatgpt.com/backend-api`). Compatible endpoints must honor
+    the requested tier; a saved preference does not guarantee fulfillment. Configure the native
     harness separately with `plugins.entries.codex.config.appServer.serviceTier`;
     the shared Fast-mode run control can supersede that value.
     </Warning>
@@ -246,6 +270,13 @@ fallback even with explicit `agentRuntime.id: "codex"`; see
     route, session, and auth identity, preserves it across worker transcript
     commits, and filters it from user-visible history and diagnostics. Never
     display or log the encrypted content.
+
+    The next foreground turn waits for any pending local transcript projection
+    rebuild before reading the checkpoint. Request token counts need not fall
+    below the compaction threshold: instructions and tools are sent again, and
+    tool results or reasoning produced after the checkpoint remain in context.
+    To check replay, inspect item types rather than token totals: the newest
+    `compaction` item replaces the covered prefix, followed only by later items.
 
     <Tabs>
       <Tab title="Enable explicitly">
@@ -304,11 +335,10 @@ fallback even with explicit `agentRuntime.id: "codex"`; see
     <Note>
     `responsesServerCompaction` only controls `context_management` injection.
     The public OpenAI Responses API also uses `/responses/compact` by default
-    for budget-triggered compaction. Set
-    `params.responsesCompactEndpoint: false` to disable this separate endpoint.
-    Provider-confirmed overflow and endpoint failures use client-side
-    summarization. Manual compaction keeps its existing behavior unless this
-    endpoint is explicitly enabled with `params.responsesCompactEndpoint: true`.
+    for budget-triggered compaction and for `/compact` without focus
+    instructions. Set `params.responsesCompactEndpoint: false` to disable this
+    separate endpoint. `/compact <focus>`, provider-confirmed overflow, and
+    endpoint failures use client-side summarization.
 
     Direct OpenAI Responses models still force `store: true` unless compat
     sets `supportsStore: false`.
@@ -369,6 +399,10 @@ fallback even with explicit `agentRuntime.id: "codex"`; see
       OpenAI does not get these headers, even though it is a native route)
     - Keep OpenAI-only request shaping (`service_tier`, `store`,
       reasoning-compat, prompt-cache hints)
+    - Send tool-bearing turns for reasoning models configured with
+      `openai-completions` on `api.openai.com` to `/v1/responses`, because
+      Chat Completions rejects function tools with reasoning for current GPT
+      models. Credentials, endpoint host, and proxy routes are unchanged.
 
     **Proxy/compatible routes:**
     - Use looser compat behavior

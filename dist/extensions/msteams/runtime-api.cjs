@@ -2,14 +2,12 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
 const require_runtime = require("./.setup/runtime-gZTAuFux.cjs");
 let openclaw_plugin_sdk_channel_outbound = require("openclaw/plugin-sdk/channel-outbound");
 let openclaw_plugin_sdk_channel_pairing = require("openclaw/plugin-sdk/channel-pairing");
-let openclaw_plugin_sdk_channel_policy = require("openclaw/plugin-sdk/channel-policy");
 let openclaw_plugin_sdk_allow_from = require("openclaw/plugin-sdk/allow-from");
 let openclaw_plugin_sdk_account_id = require("openclaw/plugin-sdk/account-id");
 let openclaw_plugin_sdk_channel_status = require("openclaw/plugin-sdk/channel-status");
 let openclaw_plugin_sdk_channel_targets = require("openclaw/plugin-sdk/channel-targets");
 let openclaw_plugin_sdk_dangerous_name_runtime = require("openclaw/plugin-sdk/dangerous-name-runtime");
 let openclaw_plugin_sdk_runtime_group_policy = require("openclaw/plugin-sdk/runtime-group-policy");
-let openclaw_plugin_sdk_file_lock = require("openclaw/plugin-sdk/file-lock");
 let openclaw_plugin_sdk_media_runtime = require("openclaw/plugin-sdk/media-runtime");
 let openclaw_plugin_sdk_account_helpers = require("openclaw/plugin-sdk/account-helpers");
 let openclaw_plugin_sdk_outbound_media = require("openclaw/plugin-sdk/outbound-media");
@@ -114,12 +112,6 @@ Object.defineProperty(exports, "isDangerousNameMatchingEnabled", {
 		return openclaw_plugin_sdk_dangerous_name_runtime.isDangerousNameMatchingEnabled;
 	}
 });
-Object.defineProperty(exports, "keepHttpServerTaskAlive", {
-	enumerable: true,
-	get: function() {
-		return openclaw_plugin_sdk_channel_outbound.keepHttpServerTaskAlive;
-	}
-});
 Object.defineProperty(exports, "loadOutboundMediaFromUrl", {
 	enumerable: true,
 	get: function() {
@@ -150,12 +142,6 @@ Object.defineProperty(exports, "normalizeStringEntries", {
 		return openclaw_plugin_sdk_string_normalization_runtime.normalizeStringEntries;
 	}
 });
-Object.defineProperty(exports, "resolveAllowlistMatchSimple", {
-	enumerable: true,
-	get: function() {
-		return openclaw_plugin_sdk_allow_from.resolveAllowlistMatchSimple;
-	}
-});
 Object.defineProperty(exports, "resolveChannelEntryMatchWithFallback", {
 	enumerable: true,
 	get: function() {
@@ -180,22 +166,10 @@ Object.defineProperty(exports, "resolveNestedAllowlistDecision", {
 		return openclaw_plugin_sdk_channel_targets.resolveNestedAllowlistDecision;
 	}
 });
-Object.defineProperty(exports, "resolveToolsBySender", {
-	enumerable: true,
-	get: function() {
-		return openclaw_plugin_sdk_channel_policy.resolveToolsBySender;
-	}
-});
 exports.setMSTeamsRuntime = require_runtime.setMSTeamsRuntime;
 Object.defineProperty(exports, "summarizeMapping", {
 	enumerable: true,
 	get: function() {
 		return openclaw_plugin_sdk_allow_from.summarizeMapping;
-	}
-});
-Object.defineProperty(exports, "withFileLock", {
-	enumerable: true,
-	get: function() {
-		return openclaw_plugin_sdk_file_lock.withFileLock;
 	}
 });

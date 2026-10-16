@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function withReplySystemEventContext(e,n){return{...e,[t]:n}}function getReplySystemEventContext(e){return e?.[t]}var t,n=e((()=>{t=Symbol(`openclaw.reply.systemEventContext`)}));export{n,withReplySystemEventContext as r,getReplySystemEventContext as t};

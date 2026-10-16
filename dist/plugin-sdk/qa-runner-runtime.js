@@ -1,7 +1,7 @@
-import { r as resolveOpenClawPackageRootSync } from "../openclaw-root-Cur9Uhkp.mjs";
-import { n as loadBundledPluginManifestRegistry } from "../manifest-registry-build-BbQTPsvD.mjs";
-import { t as loadPluginManifestRegistryCore } from "../manifest-registry-CEG7WMVu.mjs";
-import { a as tryLoadActivatedBundledPluginPublicSurfaceModuleSync, r as loadBundledPluginPublicSurfaceModuleSync } from "../facade-runtime-CSNstsFk.mjs";
+import { r as resolveOpenClawPackageRootSync } from "../openclaw-root-CBoxhfke.mjs";
+import { n as loadBundledPluginManifestRegistry } from "../manifest-registry-build-BTWjXT8m.mjs";
+import { t as loadPluginManifestRegistryCore } from "../manifest-registry-U3x0s0Ho.mjs";
+import { a as tryLoadActivatedBundledPluginPublicSurfaceModuleSync, r as loadBundledPluginPublicSurfaceModuleSync } from "../facade-runtime-B-yS8AQL.mjs";
 import fs from "node:fs";
 import path from "node:path";
 //#region src/plugin-sdk/private-qa-bundled-env.ts
@@ -39,28 +39,9 @@ function collectLiveTransportQaStringOption(value, previous) {
 	return trimmed ? [...previous, trimmed] : previous;
 }
 function mapLiveTransportQaCommanderOptions(opts, normalizeInactiveSelectionOptions) {
-	if (!normalizeInactiveSelectionOptions) return {
-		...opts.channelDriver ? { channelDriver: opts.channelDriver } : {},
-		concurrency: opts.concurrency,
-		repoRoot: opts.repoRoot,
-		outputDir: opts.outputDir,
-		providerMode: opts.providerMode,
-		primaryModel: opts.model,
-		alternateModel: opts.altModel,
-		fastMode: opts.fast,
-		allowFailures: opts.allowFailures,
-		failFast: opts.failFast,
-		profile: opts.profile,
-		scenarioIds: opts.scenario,
-		listScenarios: opts.listScenarios,
-		sutAccountId: opts.sutAccount,
-		credentialFile: opts.credentialFile,
-		credentialSource: opts.credentialSource,
-		credentialRole: opts.credentialRole
-	};
 	return {
 		...opts.channelDriver ? { channelDriver: opts.channelDriver } : {},
-		...opts.concurrency !== void 0 ? { concurrency: opts.concurrency } : {},
+		...!normalizeInactiveSelectionOptions || opts.concurrency !== void 0 ? { concurrency: opts.concurrency } : {},
 		repoRoot: opts.repoRoot,
 		outputDir: opts.outputDir,
 		providerMode: opts.providerMode,
@@ -71,9 +52,9 @@ function mapLiveTransportQaCommanderOptions(opts, normalizeInactiveSelectionOpti
 		failFast: opts.failFast,
 		profile: opts.profile,
 		scenarioIds: opts.scenario,
-		listScenarios: opts.listScenarios || void 0,
+		listScenarios: normalizeInactiveSelectionOptions ? opts.listScenarios || void 0 : opts.listScenarios,
 		sutAccountId: opts.sutAccount,
-		...opts.credentialFile ? { credentialFile: opts.credentialFile } : {},
+		...!normalizeInactiveSelectionOptions || opts.credentialFile ? { credentialFile: opts.credentialFile } : {},
 		credentialSource: opts.credentialSource,
 		credentialRole: opts.credentialRole
 	};
@@ -109,12 +90,6 @@ function createLiveTransportQaCliRegistration(params) {
 		}
 	};
 }
-const QA_RUNNER_API_ARTIFACT_BASENAME = "qa-runner-api.js";
-const LEGACY_QA_RUNNER_API_ARTIFACT_BASENAME = "runtime-api.js";
-function isMissingQaRuntimeError(error) {
-	if (!(error instanceof Error)) return false;
-	return error.message.includes("qa-lab") && (error.message.includes("runtime-api.js") || error.message.startsWith("Unable to open bundled plugin public surface "));
-}
 /** Load the private QA Lab runtime facade used by QA runner commands. */
 function loadQaRuntimeModule() {
 	const env = resolvePrivateQaBundledPluginsEnv();
@@ -139,7 +114,7 @@ function isQaRuntimeAvailable() {
 		loadQaRuntimeModule();
 		return true;
 	} catch (error) {
-		if (isMissingQaRuntimeError(error)) return false;
+		if (error instanceof Error && error.message.includes("qa-lab") && (error.message.includes("runtime-api.js") || error.message.startsWith("Unable to open bundled plugin public surface "))) return false;
 		throw error;
 	}
 }
@@ -148,11 +123,7 @@ async function runLiveTransportQaSuiteCommand(params) {
 	return await loadQaRuntimeModule().runLiveTransportQaSuiteCommand(params);
 }
 function listDeclaredQaRunnerPlugins(env = resolvePrivateQaBundledPluginsEnv()) {
-	return (env ? loadBundledPluginManifestRegistry({ env }) : loadPluginManifestRegistryCore()).plugins.filter((plugin) => Array.isArray(plugin.qaRunners) && plugin.qaRunners.length > 0).toSorted((left, right) => {
-		const idCompare = left.id.localeCompare(right.id);
-		if (idCompare !== 0) return idCompare;
-		return left.rootDir.localeCompare(right.rootDir);
-	});
+	return (env ? loadBundledPluginManifestRegistry({ env }) : loadPluginManifestRegistryCore()).plugins.filter((plugin) => Array.isArray(plugin.qaRunners) && plugin.qaRunners.length > 0).toSorted((left, right) => left.id.localeCompare(right.id) || left.rootDir.localeCompare(right.rootDir));
 }
 function indexRuntimeRegistrations(pluginId, surface) {
 	const registrations = surface.qaRunnerCliRegistrations ?? [];
@@ -164,33 +135,16 @@ function indexRuntimeRegistrations(pluginId, surface) {
 	}
 	return registrationByCommandName;
 }
-function loadQaRunnerSurface(plugin, env) {
-	if (plugin.origin === "bundled") return loadBundledPluginPublicSurfaceModuleSync({
-		dirName: plugin.id,
-		artifactBasename: QA_RUNNER_API_ARTIFACT_BASENAME,
-		...env ? { env } : {}
-	});
-	try {
-		return tryLoadActivatedBundledPluginPublicSurfaceModuleSync({
-			dirName: plugin.id,
-			artifactBasename: QA_RUNNER_API_ARTIFACT_BASENAME,
-			...env ? { env } : {}
-		});
-	} catch (error) {
-		if (!(error instanceof Error) || error.message !== `Unable to resolve bundled plugin public surface ${plugin.id}/${QA_RUNNER_API_ARTIFACT_BASENAME}`) throw error;
-	}
-	return tryLoadActivatedBundledPluginPublicSurfaceModuleSync({
-		dirName: plugin.id,
-		artifactBasename: LEGACY_QA_RUNNER_API_ARTIFACT_BASENAME,
-		...env ? { env } : {}
-	});
-}
 /** List QA runner CLI contributions declared by manifests and backed by runtime registrations. */
 function listQaRunnerCliContributions() {
 	const env = resolvePrivateQaBundledPluginsEnv();
 	const contributions = /* @__PURE__ */ new Map();
 	for (const plugin of listDeclaredQaRunnerPlugins(env)) {
-		const runnerSurface = loadQaRunnerSurface(plugin, env);
+		const runnerSurface = (plugin.origin === "bundled" ? loadBundledPluginPublicSurfaceModuleSync : tryLoadActivatedBundledPluginPublicSurfaceModuleSync)({
+			dirName: plugin.id,
+			artifactBasename: "qa-runner-api.js",
+			...env ? { env } : {}
+		});
 		const runtimeRegistrationByCommandName = runnerSurface ? indexRuntimeRegistrations(plugin.id, runnerSurface) : null;
 		const declaredCommandNames = new Set(plugin.qaRunners.map((runner) => runner.commandName));
 		for (const runner of plugin.qaRunners) {

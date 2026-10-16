@@ -1,34 +1,35 @@
-import { r as createLazyRuntimeModule } from "../../lazy-runtime-BPNHa36e.mjs";
-import { t as findNormalizedProviderKey } from "../../provider-id-DCtsDflE.mjs";
-import { a as coerceSecretRef } from "../../types.secrets-B5xWSzLp.mjs";
-import { n as collectConfiguredModelRefValues } from "../../configured-model-refs-ngXQhRsV.mjs";
-import { t as resolveConfiguredSecretInputString } from "../../resolve-configured-secret-input-string-SF_iuPva.mjs";
-import { s as isNonSecretApiKeyMarker } from "../../model-auth-markers-BfYDKFYI.mjs";
-import { a as buildOpenAICompatibleReplayPolicy } from "../../provider-replay-helpers-CXnvOz8t.mjs";
-import { n as buildApiKeyCredential } from "../../provider-auth-helpers-BC5ODME5.mjs";
-import { t as definePluginEntry } from "../../plugin-entry-BOulgRcx.mjs";
-import "../../provider-model-shared-CvgLZp0K.mjs";
-import { r as resolvePluginConfigObject } from "../../plugin-config-runtime-CaI6yWBc.mjs";
-import "../../provider-auth-DFHjplgz.mjs";
-import { n as createProviderApiKeyAuthMethod } from "../../provider-api-key-auth-LIByB6QG.mjs";
-import { h as runLiveProviderCatalog } from "../../provider-catalog-live-runtime-BprkJHe2.mjs";
-import "../../provider-entry-DP2O-chg.mjs";
-import { r as buildProviderToolCompatFamilyHooks } from "../../provider-tools-BDV45rRZ.mjs";
-import "../../secret-input-runtime-C01-y7l7.mjs";
+import { a as createLazyRuntimeSurface, r as createLazyRuntimeModule } from "../../lazy-runtime-CJrzFzqU.mjs";
+import { a as coerceSecretRef } from "../../types.secrets-DsPRn9Dz.mjs";
+import { t as findNormalizedProviderKey } from "../../provider-id-D1VImdKk.mjs";
+import { t as splitTrailingAuthProfile } from "../../model-ref-profile-BNjB2hED.mjs";
+import { j as collectConfiguredModelRefValues } from "../../runtime-snapshot-DYptB0Cf.mjs";
+import { s as isNonSecretApiKeyMarker } from "../../model-auth-markers-Cuz_bq6T.mjs";
+import { a as buildOpenAICompatibleReplayPolicy } from "../../provider-replay-helpers-Da6bKlcZ.mjs";
+import { n as buildApiKeyCredential } from "../../provider-auth-helpers-DYE6_4KQ.mjs";
+import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
+import "../../provider-model-shared-BZZnLgoM.mjs";
+import "../../model-ref-parse-BI8o1mtw.mjs";
+import { r as resolvePluginConfigObject } from "../../plugin-config-runtime-DKh00pJ1.mjs";
+import "../../provider-auth-C3BBF7yn.mjs";
+import { n as createProviderApiKeyAuthMethod } from "../../provider-api-key-auth-Cg1OHhgW.mjs";
+import { h as runLiveProviderCatalog } from "../../provider-catalog-live-runtime-NaavztHY.mjs";
+import "../../provider-entry-B2Tqqb69.mjs";
+import "../../provider-model-metadata-fSBArSt7.mjs";
+import { r as buildProviderToolCompatFamilyHooks } from "../../provider-tools-DajrfQK1.mjs";
+import { n as resolveConfiguredSecretInputString } from "../../secret-input-runtime-BO-nQ7OX.mjs";
 import { a as OLLAMA_DEFAULT_API_KEY, d as OLLAMA_GLM52_CLOUD_MODEL_ID, g as resolveOllamaSetupDefaultBaseUrl, i as OLLAMA_CLOUD_PROVIDER_ID, n as OLLAMA_CLOUD_BASE_URL, o as OLLAMA_DEFAULT_BASE_URL, r as OLLAMA_CLOUD_DEFAULT_MODELS, t as DEFAULT_OLLAMA_EMBEDDING_MODEL } from "../../defaults-Dkg1KktH.mjs";
 import { t as readProviderBaseUrl } from "../../provider-base-url-Crmh7W8f.mjs";
-import { i as resolveThinkingProfile, n as normalizeResolvedModel } from "../../provider-policy-api-R68zEW3g.mjs";
-import { _ as queryOllamaModelShowInfo, a as capLocalOllamaModelContext, d as isOllamaCloudModel, i as buildOllamaProvider, l as fetchLoadedOllamaModelNames, o as capLocalOllamaProviderContext, r as buildOllamaModelDefinition, t as buildDefaultOllamaCloudModelDefinition, u as fetchOllamaModels, y as resolveOllamaApiBase } from "../../provider-models-BmHg3h1J.mjs";
-import { c as orderPreferredOllamaModelIds, d as isLocalOllamaBaseUrl, f as resolveOllamaDiscoveryResult, i as findAvailableOllamaModelName, m as shouldUseSyntheticOllamaAuth, p as resolveOllamaRuntimeBaseUrl, u as OLLAMA_PROVIDER_ID } from "../../setup-model-selection-Dr8Ahrsp.mjs";
-import { c as OLLAMA_MODELS_COMMAND, d as OLLAMA_NODE_INFERENCE_DEFAULT_PLATFORMS, f as ollamaNodeInferenceToolDefinition, l as OLLAMA_NODE_INFERENCE_CAPABILITY, s as OLLAMA_CHAT_COMMAND, u as OLLAMA_NODE_INFERENCE_COMMANDS } from "../../node-inference-contract-D1sQshq_.mjs";
-import { r as resolveConfiguredOllamaProviderConfig, t as createConfiguredOllamaCompatStreamWrapper } from "../../stream-compat-DB63PX0c.mjs";
+import { i as resolveThinkingProfile, n as normalizeResolvedModel } from "../../provider-policy-api-B0-eG6lF.mjs";
+import { _ as queryOllamaModelShowInfo, a as capLocalOllamaModelContext, d as isOllamaCloudModel, i as buildOllamaProvider, l as fetchLoadedOllamaModelNames, o as capLocalOllamaProviderContext, r as buildOllamaModelDefinition, t as buildDefaultOllamaCloudModelDefinition, u as fetchOllamaModels, y as resolveOllamaApiBase } from "../../provider-models-CZCvuhcN.mjs";
+import { c as orderPreferredOllamaModelIds, d as isLocalOllamaBaseUrl, f as readOllamaStringValue, h as shouldUseSyntheticOllamaAuth, i as findAvailableOllamaModelName, m as resolveOllamaRuntimeBaseUrl, p as resolveOllamaDiscoveryResult, u as OLLAMA_PROVIDER_ID } from "../../setup-model-selection-BR4BEEpE.mjs";
+import { c as OLLAMA_MODELS_COMMAND, d as OLLAMA_NODE_INFERENCE_DEFAULT_PLATFORMS, f as ollamaNodeInferenceToolDefinition, l as OLLAMA_NODE_INFERENCE_CAPABILITY, s as OLLAMA_CHAT_COMMAND, u as OLLAMA_NODE_INFERENCE_COMMANDS } from "../../node-inference-contract-CmzLt7E_.mjs";
+import { r as resolveConfiguredOllamaProviderConfig, t as createConfiguredOllamaCompatStreamWrapper } from "../../stream-compat-CWr-528v.mjs";
 import "../../stream-contract-CaPxW4Jp.mjs";
-import { t as createLazyOllamaWebSearchProvider } from "../../web-search-provider-registration-DCFgsdJB.mjs";
+import { t as createLazyOllamaWebSearchProvider } from "../../web-search-provider-registration-Cjh4L3HW.mjs";
 //#region extensions/ollama/src/node-inference-registration.ts
-const loadOllamaNodeInference = createLazyRuntimeModule(() => import("../../node-inference-jXUrtdRd.mjs"));
+const loadOllamaNodeInference = createLazyRuntimeModule(() => import("../../node-inference-Ce9JhWRO.mjs"));
 function createLazyNodeHostCommand(command) {
-	let runtimeCommandPromise;
-	const loadRuntimeCommand = () => runtimeCommandPromise ??= loadOllamaNodeInference().then((runtime) => {
+	const loadRuntimeCommand = createLazyRuntimeSurface(loadOllamaNodeInference, (runtime) => {
 		const runtimeCommand = runtime.createOllamaNodeHostCommands().find((candidate) => candidate.command === command);
 		if (!runtimeCommand) throw new Error(`Ollama node inference runtime missing ${command}`);
 		return runtimeCommand;
@@ -53,8 +54,7 @@ function createOllamaNodeInvokePolicy() {
 	};
 }
 function createLazyOllamaNodeInferenceTool(api) {
-	let toolPromise;
-	const loadTool = () => toolPromise ??= loadOllamaNodeInference().then((runtime) => runtime.createOllamaNodeInferenceTool(api));
+	const loadTool = createLazyRuntimeSurface(loadOllamaNodeInference, (runtime) => runtime.createOllamaNodeInferenceTool(api));
 	return {
 		...ollamaNodeInferenceToolDefinition,
 		execute: async (...args) => {
@@ -64,7 +64,7 @@ function createLazyOllamaNodeInferenceTool(api) {
 }
 //#endregion
 //#region extensions/ollama/src/stream-registration.ts
-const loadOllamaStreamRuntime = createLazyRuntimeModule(() => import("../../stream.runtime-DIXZxWG8.mjs"));
+const loadOllamaStreamRuntime = createLazyRuntimeModule(() => import("../../stream.runtime-DYZ9twvP.mjs"));
 function createLazyConfiguredOllamaStreamFn(params) {
 	const streamFnPromise = loadOllamaStreamRuntime().then((runtime) => runtime.createConfiguredOllamaStreamFn(params));
 	return async (...args) => {
@@ -73,8 +73,8 @@ function createLazyConfiguredOllamaStreamFn(params) {
 }
 //#endregion
 //#region extensions/ollama/index.ts
-const loadOllamaSetup = createLazyRuntimeModule(() => import("../../setup.runtime-CiE33QBd.mjs"));
-const loadOllamaMemoryEmbeddingProviderAdapter = createLazyRuntimeModule(async () => (await import("../../memory-embedding-adapter-BmP1DYJj.mjs")).ollamaMemoryEmbeddingProviderAdapter);
+const loadOllamaSetup = createLazyRuntimeModule(() => import("../../setup.runtime-VTMhdzai.mjs"));
+const loadOllamaMemoryEmbeddingProviderAdapter = createLazyRuntimeModule(async () => (await import("../../memory-embedding-adapter-B8E-_KpN.mjs")).ollamaMemoryEmbeddingProviderAdapter);
 const lazyOllamaMemoryEmbeddingProviderAdapter = {
 	id: OLLAMA_PROVIDER_ID,
 	defaultModel: DEFAULT_OLLAMA_EMBEDDING_MODEL,
@@ -92,7 +92,7 @@ async function checkWsl2CrashLoopRiskLazily(api) {
 	try {
 		const { isWSL2Sync } = await import("../../plugin-sdk/runtime-env.js");
 		if (!isWSL2Sync()) return;
-		const { checkWsl2CrashLoopRisk } = await import("../../wsl2-crash-loop-check-DLfUeMAy.mjs");
+		const { checkWsl2CrashLoopRisk } = await import("../../wsl2-crash-loop-check-D3-HpY01.mjs");
 		await checkWsl2CrashLoopRisk(api.logger);
 	} catch {}
 }
@@ -104,9 +104,6 @@ function buildNativeOllamaReplayPolicy() {
 }
 function matchesOllamaContextOverflowError(errorMessage) {
 	return /\bollama\b.*(?:context length|too many tokens|context window)/i.test(errorMessage) || /\btruncating input\b.*\btoo long\b/i.test(errorMessage);
-}
-function classifyOllamaFailoverReason(errorMessage) {
-	return errorMessage.trim() === "Ollama API stream ended without a final response" ? "server_error" : void 0;
 }
 const OLLAMA_CLOUD_DEFAULT_MODEL_REF = `${OLLAMA_CLOUD_PROVIDER_ID}/${OLLAMA_CLOUD_DEFAULT_MODELS[0].id}`;
 const OLLAMA_CONFIGURED_SHOW_CONCURRENCY = 4;
@@ -222,39 +219,12 @@ function toDynamicOllamaModel(params) {
 		...params.model.params ? { params: params.model.params } : {}
 	};
 }
-function stripTrailingAuthProfile(raw) {
-	const trimmed = raw.trim();
-	const lastSlash = trimmed.lastIndexOf("/");
-	let delimiter = trimmed.indexOf("@", lastSlash + 1);
-	if (delimiter <= 0) return trimmed;
-	const suffix = () => trimmed.slice(delimiter + 1);
-	if (/^\d{8}(?:@|$)/.test(suffix())) {
-		const next = trimmed.indexOf("@", delimiter + 9);
-		if (next < 0) return trimmed;
-		delimiter = next;
-	}
-	if (/^(?:i?q\d+(?:_[a-z0-9]+)*|\d+bit)(?:@|$)/i.test(suffix())) {
-		const next = trimmed.indexOf("@", delimiter + 1);
-		if (next < 0) return trimmed;
-		delimiter = next;
-	}
-	const model = trimmed.slice(0, delimiter).trim();
-	const profile = trimmed.slice(delimiter + 1).trim();
-	return model && profile ? model : trimmed;
-}
 function needsOllamaCatalogMetadata(entry) {
 	return !(entry.contextWindow !== void 0 || entry.contextTokens !== void 0) || entry.reasoning === void 0 || entry.input === void 0 || entry.compat === void 0;
 }
-function readConfiguredOllamaApiKey(value) {
-	if (typeof value === "string") return value.trim() || void 0;
-	if (value && typeof value === "object" && "value" in value) {
-		const resolved = value.value;
-		if (typeof resolved === "string") return resolved.trim() || void 0;
-	}
-}
 function readConcreteOllamaApiKey(value) {
 	if (coerceSecretRef(value)) return;
-	const apiKey = readConfiguredOllamaApiKey(value);
+	const apiKey = readOllamaStringValue(value);
 	return apiKey && !isNonSecretApiKeyMarker(apiKey) ? apiKey : void 0;
 }
 async function resolveAppGuidedOllamaApiKey(ctx, provider) {
@@ -272,7 +242,7 @@ async function resolveAppGuidedOllamaApiKey(ctx, provider) {
 		unresolvedReasonStyle: "detailed"
 	});
 	if (resolved.unresolvedRefReason) return;
-	const value = readConfiguredOllamaApiKey(resolved.value);
+	const value = readOllamaStringValue(resolved.value);
 	return value === "OLLAMA_API_KEY" ? readConcreteOllamaApiKey(ctx.env.OLLAMA_API_KEY) : readConcreteOllamaApiKey(value);
 }
 function readEnvBackedOllamaApiKey(value, env) {
@@ -287,7 +257,7 @@ function readUsableOllamaShowApiKey(params) {
 	if (explicitEnvApiKey) return explicitEnvApiKey;
 	const explicitApiKey = readConcreteOllamaApiKey(params.explicitApiKey);
 	if (explicitApiKey) return explicitApiKey;
-	const resolvedApiKey = readConfiguredOllamaApiKey(params.resolved?.apiKey);
+	const resolvedApiKey = readOllamaStringValue(params.resolved?.apiKey);
 	const canUseResolvedDiscovery = params.allowAmbientEnvFallback || !isAmbientOllamaApiKeyMarker(resolvedApiKey);
 	const discoveryApiKey = readConcreteOllamaApiKey(params.resolved?.discoveryApiKey);
 	if (discoveryApiKey && canUseResolvedDiscovery) return discoveryApiKey;
@@ -306,11 +276,8 @@ function collectConfiguredOllamaModelIds(params) {
 		const trimmedName = typeof name === "string" ? name.trim() : "";
 		const existing = models.get(trimmed);
 		if (existing) {
-			if (!existing.api && api || !existing.name && trimmedName) models.set(trimmed, {
-				...existing,
-				...api && !existing.api ? { api } : {},
-				...trimmedName && !existing.name ? { name: trimmedName } : {}
-			});
+			if (!existing.api && api) existing.api = api;
+			if (!existing.name && trimmedName) existing.name = trimmedName;
 			return;
 		}
 		models.set(trimmed, {
@@ -321,7 +288,7 @@ function collectConfiguredOllamaModelIds(params) {
 	};
 	const addRef = (raw) => {
 		if (typeof raw !== "string") return;
-		const trimmed = stripTrailingAuthProfile(raw);
+		const trimmed = splitTrailingAuthProfile(raw).model;
 		if (!trimmed.toLowerCase().startsWith(providerPrefix)) return;
 		const modelId = trimmed.slice(providerPrefix.length).trim();
 		addModelId(modelId);
@@ -442,7 +409,7 @@ const createOllamaSharedProviderHooks = (api) => ({
 	normalizeResolvedModel,
 	wrapStreamFn: createConfiguredOllamaCompatStreamWrapper,
 	matchesContextOverflowError: ({ errorMessage }) => matchesOllamaContextOverflowError(errorMessage),
-	classifyFailoverReason: ({ errorMessage }) => classifyOllamaFailoverReason(errorMessage)
+	classifyFailoverReason: ({ errorMessage }) => errorMessage.trim() === "Ollama API stream ended without a final response" ? "server_error" : void 0
 });
 var ollama_default = definePluginEntry({
 	id: "ollama",
@@ -682,7 +649,7 @@ var ollama_default = definePluginEntry({
 						unresolvedReasonStyle: "detailed"
 					});
 					if (resolved.unresolvedRefReason) return;
-					const resolvedApiKey = readConfiguredOllamaApiKey(resolved.value);
+					const resolvedApiKey = readOllamaStringValue(resolved.value);
 					const configuredSecretRef = coerceSecretRef(providerConfig.apiKey);
 					discoveryApiKey = configuredSecretRef ? resolvedApiKey : resolvedApiKey === "OLLAMA_API_KEY" ? readConcreteOllamaApiKey(process.env.OLLAMA_API_KEY) : readConcreteOllamaApiKey(resolvedApiKey);
 					if (configuredSecretRef && !discoveryApiKey) return;

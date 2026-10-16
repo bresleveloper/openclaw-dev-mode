@@ -1,4 +1,4 @@
-import { n as listBuzzDirectoryPeersFromConfig, t as listBuzzDirectoryGroupsFromConfig } from "./.setup/directory-config-CzHz6fzo.mjs";
+import { n as listBuzzDirectoryPeersFromConfig, t as listBuzzDirectoryGroupsFromConfig } from "./.setup/directory-config-M9KSexdh.mjs";
 //#region extensions/buzz/directory-contract-api.ts
 const buzzDirectoryContractPlugin = {
 	id: "buzz",

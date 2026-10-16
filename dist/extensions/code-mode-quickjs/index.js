@@ -1,4 +1,4 @@
-import { t as definePluginEntry } from "../../plugin-entry-BOulgRcx.mjs";
+import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
 //#region extensions/code-mode-quickjs/index.ts
 var code_mode_quickjs_default = definePluginEntry({
 	id: "code-mode-quickjs",

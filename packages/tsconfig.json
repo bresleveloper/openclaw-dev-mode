@@ -1,0 +1,11 @@
+{
+  "extends": "../config/tsconfig/oxlint.source.json",
+  // Package fallback files previously used the repository graph, which excludes
+  // JavaScript and test-only session compatibility. Preserve both contracts.
+  "compilerOptions": { "allowJs": false },
+  "files": [
+    "../src/agents/sessions/keybindings.ts",
+    "../src/cli/program/openclaw-command.ts",
+    "../src/infra/host-env-security-policy.d.ts"
+  ]
+}

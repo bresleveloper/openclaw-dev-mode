@@ -1,11 +1,14 @@
-import { C as withStateDatabaseCoordinatorRuntimeDirectory, f as attachStateLifecycleDelegate } from "../../sqlite-source-handle-C0wvRR5v.mjs";
-import { a as closeOpenClawStateDatabase } from "../../openclaw-state-db-cache-Ci98mtX8.mjs";
-import { s as resolveOpenClawStateSqlitePath } from "../../openclaw-state-db.paths-DYMh54HD.mjs";
-import "../../openclaw-state-db-BFK9cMiV.mjs";
-import { c as claimOpenClawAgentDatabaseLease, g as releaseOpenClawAgentDatabaseLease } from "../../openclaw-agent-db-lease-DexIwF6s.mjs";
-import { n as openOpenClawAgentDatabaseReadOnly } from "../../openclaw-agent-db-readonly-open-_lavN1YB.mjs";
-import { n as serveWorkerTasks } from "../../worker-task-server-CwtaNZgU.mjs";
-import { c as listSessionsNeedingTranscriptIndexReconcile, v as prepareMemorySessionTranscriptProjection, y as prepareSessionTranscriptProjection } from "../../session-transcript-index-UaRlRUAw.mjs";
+import { n as assertExistingDatabaseIdentity } from "../../sqlite-worker-identity-KSR14F6C.mjs";
+import { c as resolveOpenClawStateSqlitePath } from "../../openclaw-state-db.paths-DfifnSGp.mjs";
+import { l as readSqliteSchemaCookie } from "../../sqlite-schema-contract-BTxZz0OV.mjs";
+import { i as closeOpenClawStateDatabase, t as borrowOpenClawStateDatabaseForAsyncRead } from "../../openclaw-state-db-cache-BKCnj4of.mjs";
+import { n as assertExistingOpenClawStateRuntimeSchema } from "../../openclaw-state-db-existing-schema-C4QR2GGf.mjs";
+import "../../openclaw-state-db-D1jWDzK3.mjs";
+import { c as claimOpenClawAgentDatabaseLease, g as releaseOpenClawAgentDatabaseLease } from "../../openclaw-agent-db-lease-D8zYIRzn.mjs";
+import { n as openOpenClawAgentDatabaseReadOnly, t as hasOpenClawAgentReadOnlySchema } from "../../openclaw-agent-db-readonly-open-hQ4ohjUT.mjs";
+import { n as serveWorkerTasks } from "../../worker-task-server-BC_7U18u.mjs";
+import { c as listSessionsNeedingTranscriptIndexReconcile, v as prepareMemorySessionTranscriptProjection, y as prepareSessionTranscriptProjection } from "../../session-transcript-index-FbEuN6S5.mjs";
+import { t as runSqliteReconciliationLifecyclePhase } from "../../session-accessor.sqlite-worker-coordination-CnWXpMvZ.mjs";
 import { MessagePort } from "node:worker_threads";
 //#region src/config/sessions/session-transcript-reconcile.worker.ts
 /** Worker entrypoint for transcript parsing and active-branch resolution only. */
@@ -24,10 +27,11 @@ function parseWorkerInput(value) {
 		stateDir: input.stateDir,
 		externallySupervised: input.externallySupervised
 	};
-	if (input.mode === "release" && typeof input.leaseId === "string") return {
+	if (input.mode === "release" && typeof input.leaseId === "string" && typeof input.path === "string") return {
 		...owner,
 		mode: "release",
-		leaseId: input.leaseId
+		leaseId: input.leaseId,
+		path: input.path
 	};
 	if (typeof input.agentId !== "string" || typeof input.path !== "string") return;
 	if (input.preferredSessionId !== void 0 && typeof input.preferredSessionId !== "string") return;
@@ -56,7 +60,10 @@ function resolveLeaseEnvironment(owner) {
 function releaseLease(owner, port, readOnlyClosed = false) {
 	let failure;
 	try {
-		releaseOpenClawAgentDatabaseLease(owner.leaseId, { env: resolveLeaseEnvironment(owner) }, readOnlyClosed ? "read-only" : void 0);
+		releaseOpenClawAgentDatabaseLease(owner.leaseId, {
+			env: resolveLeaseEnvironment(owner),
+			initializationAgentPaths: [owner.path]
+		}, readOnlyClosed ? "read-only" : void 0);
 	} catch (error) {
 		failure = error instanceof Error ? error : new Error(String(error));
 	} finally {
@@ -175,42 +182,75 @@ async function prepareMemoryProjection(sessionId, port) {
 		}
 	}
 }
-async function run(input, port) {
+async function run(input, port, coordination, sourceIdentity) {
+	let unsettled = false;
+	const phase = (name, operation) => coordination ? runSqliteReconciliationLifecyclePhase(coordination, name, operation, () => {
+		unsettled = true;
+	}) : Promise.resolve(operation());
+	const assertSource = () => {
+		if (input.mode === "disk") {
+			if (!sourceIdentity) throw new Error("Transcript worker lost its captured source identity");
+			assertExistingDatabaseIdentity(input.path, sourceIdentity);
+		}
+	};
 	if (input.mode === "release") {
-		releaseLease(input, port);
+		await phase("close", () => releaseLease(input, port));
 		return;
 	}
 	const reconcileInput = input;
 	let closeDatabase;
+	let sharedBorrow;
+	let assertAdmittedSchemas;
 	let terminalMessage;
 	try {
-		const database = (() => {
+		const database = await phase("open", () => {
 			if (reconcileInput.mode === "memory") return;
 			const options = {
 				agentId: reconcileInput.agentId,
 				path: reconcileInput.path,
 				env: resolveLeaseEnvironment(reconcileInput)
 			};
+			assertSource();
 			claimOpenClawAgentDatabaseLease(options, reconcileInput.leaseId);
 			const opened = openOpenClawAgentDatabaseReadOnly(options);
 			if (!opened.found) throw new Error(`Cannot prepare transcript indexes: ${opened.reason}`);
 			closeDatabase = opened.database.close;
+			assertSource();
+			if (coordination?.reconciliation) {
+				sharedBorrow = borrowOpenClawStateDatabaseForAsyncRead(coordination.databasePath);
+				if (!sharedBorrow) throw new Error("Transcript worker lost its admitted shared-state handle");
+				const shared = sharedBorrow.database;
+				const sharedSchema = readSqliteSchemaCookie(shared.db);
+				const agentSchema = readSqliteSchemaCookie(opened.database.db);
+				if (typeof sharedSchema !== "number" || typeof agentSchema !== "number") throw new Error("Transcript worker cannot retain its admitted schema identities");
+				assertAdmittedSchemas = () => {
+					sharedBorrow?.assertCurrent();
+					if (!shared.db.isOpen || readSqliteSchemaCookie(shared.db) !== sharedSchema || readSqliteSchemaCookie(opened.database.db) !== agentSchema) throw new Error("Transcript worker schema changed between lifecycle phases");
+					assertExistingOpenClawStateRuntimeSchema(shared.db, shared.path);
+					if (!hasOpenClawAgentReadOnlySchema(opened.database)) throw new Error("Transcript worker lost its admitted agent schema");
+				};
+			}
 			return opened.database;
-		})();
+		});
 		const sessionIds = reconcileInput.mode === "memory" ? reconcileInput.sessionIds : orderSessionIds(listSessionsNeedingTranscriptIndexReconcile(database.db), reconcileInput.preferredSessionId);
 		for (const sessionId of sessionIds) {
+			assertSource();
 			const plan = reconcileInput.mode === "memory" ? await prepareMemoryProjection(sessionId, port) : prepareSessionTranscriptProjection(database.db, sessionId);
-			if (plan) await streamPreparedProjection(plan, port);
+			if (plan) {
+				await streamPreparedProjection(plan, port);
+				assertSource();
+			}
 		}
 		terminalMessage = { type: "done" };
 	} catch (error) {
+		if (unsettled) throw error;
 		terminalMessage = {
 			type: "failed",
 			error: error instanceof Error ? error.message : String(error)
 		};
 	}
 	try {
-		closeDatabase?.();
+		if (!coordination?.reconciliation) closeDatabase?.();
 		port.postMessage(terminalMessage);
 		if (reconcileInput.mode === "disk") {
 			await new Promise((resolve, reject) => {
@@ -222,7 +262,16 @@ async function run(input, port) {
 					resolve();
 				});
 			});
-			releaseLease(reconcileInput, port, closeDatabase !== void 0);
+			await phase("close", () => {
+				assertSource();
+				assertAdmittedSchemas?.();
+				if (coordination?.reconciliation) {
+					closeDatabase?.();
+					sharedBorrow?.release();
+					sharedBorrow = void 0;
+				}
+				releaseLease(reconcileInput, port, closeDatabase !== void 0);
+			});
 		}
 	} finally {
 		if (reconcileInput.mode === "memory") port.close();
@@ -236,18 +285,9 @@ serveWorkerTasks(async (value) => {
 	try {
 		if (input.mode === "memory") await run(input, port);
 		else {
-			const { coordination } = value;
-			if (!coordination?.stateLifecycle || coordination.actorId !== `transcript:${input.mode}:${input.leaseId}` || coordination.databasePath !== resolveOpenClawStateSqlitePath(resolveLeaseEnvironment(input))) throw new Error("Transcript worker shared-state owner changed");
-			const delegate = await attachStateLifecycleDelegate(coordination.stateLifecycle, {
-				actorId: coordination.actorId,
-				databasePath: coordination.databasePath,
-				runtimeDirectory: coordination.stateContext.coordinatorRuntime.directory
-			});
-			try {
-				await withStateDatabaseCoordinatorRuntimeDirectory(coordination.stateContext.coordinatorRuntime, () => delegate.run(() => run(input, port)));
-			} finally {
-				delegate.close();
-			}
+			const { coordination, sourceIdentity } = value;
+			if (!coordination?.reconciliation || coordination.actorId !== `transcript:${input.mode}:${input.leaseId}` || coordination.databasePath !== resolveOpenClawStateSqlitePath(resolveLeaseEnvironment(input))) throw new Error("Transcript worker shared-state owner changed");
+			await run(input, port, coordination, sourceIdentity);
 		}
 	} catch {
 		process.exit(1);

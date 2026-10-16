@@ -1,41 +1,27 @@
-import { s as getRuntimeConfigSnapshot } from "../../runtime-snapshot-DbgWcCyV.mjs";
+import { o as getRuntimeConfigSnapshot } from "../../runtime-snapshot-DYptB0Cf.mjs";
 import { t as jsonResult } from "../../tool-results-BCM3fdVS.mjs";
-import { h as readToolStringParam } from "../../common-XfKigJno.mjs";
-import "../../runtime-config-snapshot-CyQh9ezF.mjs";
-import "../../provider-web-search-CRDOBhl4.mjs";
+import { m as readToolStringParam } from "../../common-Dyxcwsy8.mjs";
+import "../../runtime-config-snapshot-DgZgcXUX.mjs";
+import "../../provider-web-search-DUaDxxRi.mjs";
 import { n as createCodeExecutionToolDefinition, t as buildMissingCodeExecutionApiKeyPayload } from "../../code-execution-tool-shared-CeAkKo1Y.mjs";
-import { a as XAI_DEFAULT_MODEL_ID } from "../../model-definitions-DA8Fbxqz.mjs";
-import { r as resolveXaiToolApiKeyWithAuth } from "../../tool-auth-shared-BKm-JLrq.mjs";
-import { n as readPluginCodeExecutionConfig, r as resolveCodeExecutionEnabled, t as readCodeExecutionConfigRecord } from "../../code-execution-config-B0N75YRG.mjs";
-import { a as requestXaiResponsesTool, i as XAI_RESPONSES_ENDPOINT, l as resolveXaiToolDefaultReasoningEffort, n as resolveNormalizedXaiToolModel, o as requireXaiResponseTextAndCitations, r as resolvePositiveIntegerToolConfig } from "../../tool-config-shared-_zNuelzU.mjs";
+import { a as XAI_DEFAULT_MODEL_ID } from "../../model-definitions-BTg9V4Hq.mjs";
+import { r as resolveXaiToolApiKeyWithAuth } from "../../tool-auth-shared-DfHEiTF0.mjs";
+import { n as readPluginCodeExecutionConfig, r as resolveCodeExecutionEnabled, t as readCodeExecutionConfigRecord } from "../../code-execution-config-LHbglujB.mjs";
+import { a as requireXaiResponseTextAndCitations, c as resolveXaiToolDefaultReasoningEffort, i as requestXaiResponsesTool, n as resolvePositiveIntegerToolConfig, r as XAI_RESPONSES_ENDPOINT, t as resolveNormalizedXaiToolModel } from "../../tool-config-shared-Dzdme5jp.mjs";
 //#region extensions/xai/src/code-execution-shared.ts
-const XAI_CODE_EXECUTION_ENDPOINT = XAI_RESPONSES_ENDPOINT;
-const XAI_DEFAULT_CODE_EXECUTION_MODEL = XAI_DEFAULT_MODEL_ID;
 function resolveXaiCodeExecutionModel(config) {
 	return resolveNormalizedXaiToolModel({
 		config,
-		defaultModel: XAI_DEFAULT_CODE_EXECUTION_MODEL
+		defaultModel: XAI_DEFAULT_MODEL_ID
 	});
 }
 function resolveXaiCodeExecutionMaxTurns(config) {
 	return resolvePositiveIntegerToolConfig(config, "maxTurns");
 }
-function buildXaiCodeExecutionPayload(params) {
-	return {
-		task: params.task,
-		provider: "xai",
-		model: params.model,
-		tookMs: params.tookMs,
-		content: params.content,
-		citations: params.citations,
-		usedCodeExecution: params.usedCodeExecution,
-		outputTypes: params.outputTypes
-	};
-}
 async function requestXaiCodeExecution(params) {
 	return await requestXaiResponsesTool({
 		...params,
-		endpoint: XAI_CODE_EXECUTION_ENDPOINT,
+		endpoint: XAI_RESPONSES_ENDPOINT,
 		inputText: params.task,
 		tools: [{ type: "code_interpreter" }],
 		reasoningEffort: resolveXaiToolDefaultReasoningEffort(params.model, "low"),
@@ -82,15 +68,13 @@ function createCodeExecutionTool(options) {
 			maxTurns,
 			task
 		});
-		return jsonResult(buildXaiCodeExecutionPayload({
+		return jsonResult({
 			task,
+			provider: "xai",
 			model,
 			tookMs: Date.now() - startedAt,
-			content: result.content,
-			citations: result.citations,
-			usedCodeExecution: result.usedCodeExecution,
-			outputTypes: result.outputTypes
-		}));
+			...result
+		});
 	});
 }
 //#endregion

@@ -6,6 +6,11 @@ import type { ISyncData, IRooms, IStoredClientOpts } from "matrix-js-sdk/lib/mat
 import { KeyedAsyncQueue } from "openclaw/plugin-sdk/keyed-async-queue";
 import type { PluginStateKeyedStore } from "openclaw/plugin-sdk/plugin-state-runtime";
 import { isRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
+import {
+  chunkMatrixStateJson,
+  readMatrixStateChunks,
+  writeMatrixStateChunks,
+} from "../chunked-state.js";
 import { resolveMatrixSqliteStateEnv } from "../sqlite-state.js";
 
 export const MATRIX_SYNC_CACHE_VERSION = 1;
@@ -144,42 +149,18 @@ async function readPersistedStore(
   if (!isSyncCacheMeta(meta)) {
     return null;
   }
-  // Preserve the published host floor where lookupMany is not yet available.
-  const records = await store.lookupMany?.(
+  const chunks = await readMatrixStateChunks(
+    store,
     Array.from({ length: meta.chunkCount }, (_, index) =>
       chunkKey(stateKey, meta.generation, index),
     ),
+    "sync-chunk",
   );
-  const chunks: string[] = [];
-  for (let index = 0; index < meta.chunkCount; index += 1) {
-    const result = records?.[index];
-    if (result && !result.ok) {
-      throw result.error;
-    }
-    const chunk = records
-      ? result?.value
-      : await store.lookup(chunkKey(stateKey, meta.generation, index));
-    if (!isSyncCacheChunk(chunk) || chunk.index !== index) {
-      return normalizePersistedStore({
-        version: MATRIX_SYNC_CACHE_VERSION,
-        savedSync: null,
-        clientOptions: meta.clientOptions,
-        cleanShutdown: false,
-      });
-    }
-    chunks.push(chunk.data);
-  }
+  const syncJson = chunks?.join("") ?? "";
+  const intact =
+    chunks !== null && (chunks.length === 0 || meta.syncDigest === digestText(syncJson));
   let savedSync: ISyncData | null = null;
-  if (chunks.length > 0) {
-    const syncJson = chunks.join("");
-    if (meta.syncDigest !== digestText(syncJson)) {
-      return normalizePersistedStore({
-        version: MATRIX_SYNC_CACHE_VERSION,
-        savedSync: null,
-        clientOptions: meta.clientOptions,
-        cleanShutdown: false,
-      });
-    }
+  if (intact && chunks.length > 0) {
     try {
       savedSync = toPersistedSyncData(JSON.parse(syncJson));
     } catch {
@@ -190,7 +171,7 @@ async function readPersistedStore(
     version: MATRIX_SYNC_CACHE_VERSION,
     savedSync,
     clientOptions: meta.clientOptions,
-    cleanShutdown: meta.cleanShutdown,
+    cleanShutdown: intact && meta.cleanShutdown,
   });
 }
 
@@ -228,43 +209,6 @@ function isSyncCacheMeta(value: unknown): value is MatrixSyncCacheMeta {
   );
 }
 
-function isSyncCacheChunk(value: unknown): value is MatrixSyncCacheChunk {
-  return (
-    isRecord(value) &&
-    value.kind === "sync-chunk" &&
-    typeof value.index === "number" &&
-    Number.isSafeInteger(value.index) &&
-    value.index >= 0 &&
-    typeof value.data === "string"
-  );
-}
-
-function chunkSyncCacheJson(value: string): string[] {
-  const chunks: string[] = [];
-  const pushChunk = (chunk: string) => {
-    if (chunks.length >= SYNC_CACHE_MAX_CHUNKS) {
-      throw new Error("Matrix sync cache exceeds SQLite chunk limit");
-    }
-    chunks.push(chunk);
-  };
-  let current = "";
-  let currentBytes = 0;
-  for (const char of value) {
-    const charBytes = Buffer.byteLength(char, "utf8");
-    if (current && currentBytes + charBytes > SYNC_CACHE_CHUNK_BYTES) {
-      pushChunk(current);
-      current = "";
-      currentBytes = 0;
-    }
-    current += char;
-    currentBytes += charBytes;
-  }
-  if (current) {
-    pushChunk(current);
-  }
-  return chunks;
-}
-
 function buildSyncCacheRows(
   stateKey: string,
   payload: PersistedMatrixSyncStore,
@@ -275,7 +219,12 @@ function buildSyncCacheRows(
 } {
   const generation = randomUUID().replaceAll("-", "");
   const syncJson = payload.savedSync ? JSON.stringify(payload.savedSync) : "";
-  const chunkValues = syncJson ? chunkSyncCacheJson(syncJson) : [];
+  const chunkValues = chunkMatrixStateJson(
+    syncJson,
+    SYNC_CACHE_CHUNK_BYTES,
+    SYNC_CACHE_MAX_CHUNKS,
+    "Matrix sync cache exceeds SQLite chunk limit",
+  );
   const chunks = chunkValues.map((data, index) => ({
     key: chunkKey(stateKey, generation, index),
     value: {
@@ -332,17 +281,9 @@ export async function writeMatrixSyncCacheStateToStore(params: {
   const { storageRootDir, store, payload } = params;
   const stateKey = SYNC_CACHE_STATE_KEY;
   const rows = buildSyncCacheRows(stateKey, payload);
-  return syncCacheOperations.enqueue(path.resolve(storageRootDir), async () => {
-    for (const row of rows.chunks) {
-      await store.register(row.key, row.value);
-    }
-    await store.register(rows.meta.key, rows.meta.value);
-    for (const row of await store.entries()) {
-      if (row.key.startsWith(chunkKeyPrefix(stateKey)) && !rows.nextChunkKeys.has(row.key)) {
-        await store.delete(row.key);
-      }
-    }
-  });
+  return syncCacheOperations.enqueue(path.resolve(storageRootDir), () =>
+    writeMatrixStateChunks(store, rows, chunkKeyPrefix(stateKey)),
+  );
 }
 
 export function openMatrixSyncCacheStoreOptions(storageRootDir: string) {

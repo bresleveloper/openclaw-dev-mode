@@ -1,12 +1,11 @@
-import { i as PluginRuntime } from "../../cli-backend.types-B-oosdMB.js";
-import { n as ReviewApprovalStore, r as ReefFriendManager, t as ReefMessageFlow } from "../../flow-B3Nir4ui.js";
+import { c as PluginRuntime } from "../../net-CNd-dg0-.js";
+import "../../flow-tKggAzpf.js";
 //#region extensions/reef/src/runtime.d.ts
-type ActiveReef = {
-  flow: ReefMessageFlow;
-  friends: ReefFriendManager;
-  reviews: ReviewApprovalStore;
+declare const { setRuntime: setReefRuntime, tryGetRuntime: getOptionalReefRuntime, getRuntime: getReefRuntime }: {
+  setRuntime: (next: PluginRuntime) => void;
+  clearRuntime: () => void;
+  tryGetRuntime: () => PluginRuntime | null;
+  getRuntime: () => PluginRuntime;
 };
-declare const setReefRuntime: (next: PluginRuntime) => void, getOptionalReefRuntime: () => PluginRuntime | null, getReefRuntime: () => PluginRuntime;
-export declare function getActiveReef(): ActiveReef;
 //#endregion
-export { getReefRuntime, setReefRuntime };
+export { setReefRuntime };

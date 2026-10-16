@@ -1,4 +1,4 @@
-import { a as inspectFaceTimeNativePackage, c as uninstallFaceTimeDriver, i as inspectFaceTimeArtifacts, l as resolveFaceTimeConfig, o as inspectFaceTimeDriver, t as runFaceTimeSetup, u as validateFaceTimeConfig } from "./.setup/setup-DUgC9yE7.mjs";
+import { a as inspectFaceTimeNativePackage, c as uninstallFaceTimeDriver, i as inspectFaceTimeArtifacts, l as resolveFaceTimeConfig, o as inspectFaceTimeDriver, t as runFaceTimeSetup, u as validateFaceTimeConfig } from "./.setup/setup-zO6FazjC.mjs";
 import { formatErrorMessage } from "openclaw/plugin-sdk/error-runtime";
 import { ErrorCodes, errorShape } from "openclaw/plugin-sdk/gateway-runtime";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
@@ -201,6 +201,9 @@ const faceTimePlugin = definePluginEntry({
 				runCommandWithTimeout: api.runtime.system.runCommandWithTimeout
 			});
 		};
+		const stopRuntime = () => stopRetainedRuntime(runtimePromise, (stopped) => {
+			if (runtimePromise === stopped) runtimePromise = void 0;
+		});
 		api.registerTool(() => createFaceTimeCallTool({
 			ensureRuntime,
 			getStatus
@@ -219,11 +222,7 @@ const faceTimePlugin = definePluginEntry({
 					api.logger.warn(`[facetime] startup skipped: ${formatErrorMessage(error)}`);
 				}
 			},
-			async stop() {
-				await stopRetainedRuntime(runtimePromise, (stopped) => {
-					if (runtimePromise === stopped) runtimePromise = void 0;
-				});
-			}
+			stop: stopRuntime
 		});
 		const registerGateway = (name, scope, handler) => {
 			api.registerGatewayMethod(name, async (options) => {
@@ -270,10 +269,7 @@ const faceTimePlugin = definePluginEntry({
 			if (uninstalling) throw new Error("facetime native uninstall is already in progress");
 			uninstalling = true;
 			try {
-				const current = runtimePromise;
-				if (current) await stopRetainedRuntime(current, (stopped) => {
-					if (runtimePromise === stopped) runtimePromise = void 0;
-				});
+				await stopRuntime();
 				await uninstallFaceTimeDriver({
 					pluginRoot,
 					runCommandWithTimeout: api.runtime.system.runCommandWithTimeout

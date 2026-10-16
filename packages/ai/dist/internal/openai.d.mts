@@ -1,12 +1,14 @@
-import { G as SimpleStreamOptions, J as StreamFunction, K as StopReason, O as Model, d as Context } from "../types-qZFbaDbK.mjs";
-import { C as supportsOpenAITemperature, S as supportsOpenAIReasoningEffort, _ as normalizeOpenAIReasoningEffort, a as BaseOpenAIStreamOptions, b as resolveOpenAIReasoningEffortMapping, d as OpenAIApiReasoningEffort, f as OpenAIReasoningEffort, g as isOpenAIGpt6Model, h as isOpenAIGpt56Model, l as codeModeToolSurfaceObserver, m as isOpenAIGpt55Model, o as CodeModeToolSurfaceObservation, p as isOpenAIGpt54MiniModel, s as OpenAICompletionsOptions, u as reasoningTagTextPolicy, v as resolveOpenAIModelReasoningEfforts, x as resolveOpenAISupportedReasoningEfforts, y as resolveOpenAIReasoningEffortForModel } from "../provider-options-DZYq53lj.mjs";
+import "../index-D27wAoOr.mjs";
+import { $ as StopReason, Q as SimpleStreamOptions, d as Context, k as Model, tt as StreamFunction } from "../types-DvzmWW8J.mjs";
+import { C as supportsOpenAIReasoningEffort, S as resolveOpenAISupportedReasoningEfforts, _ as isOpenAIGpt6Model, a as BaseOpenAIStreamOptions, b as resolveOpenAIReasoningEffortForModel, c as OpenAICompletionsOptions, d as reasoningTagTextPolicy, f as OpenAIApiReasoningEffort, g as isOpenAIGpt56Model, h as isOpenAIGpt55Model, m as isOpenAIGpt54MiniModel, o as CodeModeToolSurfaceObservation, p as OpenAIReasoningEffort, u as codeModeToolSurfaceObserver, v as normalizeOpenAIReasoningEffort, w as supportsOpenAITemperature, x as resolveOpenAIReasoningEffortMapping, y as resolveOpenAIModelReasoningEfforts } from "../provider-options-CkieKvNJ.mjs";
 import { a as reconcileOpenAIResponsesToolChoice, i as reconcileOpenAICompletionsToolChoice, n as OpenAIToolProjection, r as projectOpenAITools, t as OpenAICompletionsToolChoice } from "../openai-tool-projection-793cE3QX.mjs";
-import "../types-DTvddOfm.mjs";
-import { t as ResolvedOpenAICompletionsCompat } from "../openai-completions-compat-DfJG1wSO.mjs";
-import { a as ResponsesPromptObservation, l as OpenAIRequestReasoningEffort, o as responsesPromptObserver } from "../openai-responses-contracts-B1ENJFpI.mjs";
-import { n as clampOpenAIPromptCacheKey, r as resolveOpenAIPromptCacheParams, t as OPENAI_PROMPT_CACHE_KEY_MAX_LENGTH } from "../openai-prompt-cache-C4RHdN4n.mjs";
-import { a as resolveResponsesTerminalStopReason, i as readResponsesReasoningTokens, n as isResponsesOutputLimitToolCallError, r as mapResponsesTerminalUsage, t as ResponsesTerminalUsagePayload } from "../openai-responses-terminal-usage-BNFbvY9f.mjs";
-import { ResponseCreateParamsStreaming } from "openai/resources/responses/responses.js";
+import "../types-UlNana-2.mjs";
+import { t as ResolvedOpenAICompletionsCompat } from "../openai-completions-compat-BgPg1BRs.mjs";
+import { a as ResponsesPromptObservation, c as responsesServiceTierObserver, d as OpenAIRequestReasoningEffort, o as ResponsesServiceTierObservation, s as responsesPromptObserver } from "../openai-responses-contracts-D5yVZBp-.mjs";
+import { n as clampOpenAIPromptCacheKey, r as resolveOpenAIPromptCacheParams, t as OPENAI_PROMPT_CACHE_KEY_MAX_LENGTH } from "../openai-prompt-cache-CFviG_D4.mjs";
+import { a as resolveResponsesTerminalStopReason, i as readResponsesReasoningTokens, n as isResponsesOutputLimitToolCallError, r as mapResponsesTerminalUsage, t as ResponsesTerminalUsagePayload } from "../openai-responses-terminal-usage-CempLedn.mjs";
+import "../openai-responses-compaction-replay-BBNo098-.mjs";
+import { ResponseCreateParamsStreaming, ResponseInputItem } from "openai/resources/responses/responses.js";
 import { ChatCompletionMessageParam } from "openai/resources/chat/completions.js";
 //#region packages/ai/src/providers/azure-deployment-map.d.ts
 /** Parses AZURE_OPENAI_DEPLOYMENT_MAP-style model=deployment entries. */
@@ -109,6 +111,7 @@ export declare function createResponsesToolCallTracker<TState extends ResponsesT
   forget(toolCall: TState): void;
   markArgumentsUnreliable(): void;
   hasActive(): boolean;
+  values(): TState[];
   hasExactlyActive(expected: readonly TState[]): boolean;
 };
 //#endregion
@@ -120,6 +123,9 @@ export type OpenAIStopReasonResult = {
 export declare function mapOpenAIStopReason(reason: string | null, options?: {
   allowSingularToolCall?: boolean;
 }): OpenAIStopReasonResult;
+//#endregion
+//#region packages/ai/src/providers/openai-web-search-tools.d.ts
+export declare function hasResponsesWebSearchTool(tools: unknown): boolean;
 //#endregion
 //#region packages/ai/src/transports/openai-responses-request-lifecycle.d.ts
 /** Host-owned authority for a single explicitly acknowledged Responses request. */
@@ -135,4 +141,25 @@ export declare const responsesRequestLifecycle: {
   get(options: object | undefined): ResponsesRequestLifecycle | undefined;
 };
 //#endregion
-export { type CodeModeToolSurfaceObservation, OPENAI_PROMPT_CACHE_KEY_MAX_LENGTH, OpenAIApiReasoningEffort, type OpenAICompletionsOptions, type OpenAICompletionsToolChoice, OpenAIReasoningEffort, type OpenAIToolProjection, type ResponsesPromptObservation, ResponsesTerminalUsagePayload, clampOpenAIPromptCacheKey, codeModeToolSurfaceObserver, isOpenAIGpt54MiniModel, isOpenAIGpt55Model, isOpenAIGpt56Model, isOpenAIGpt6Model, isResponsesOutputLimitToolCallError, mapResponsesTerminalUsage, normalizeOpenAIReasoningEffort, projectOpenAITools, readResponsesReasoningTokens, reasoningTagTextPolicy, reconcileOpenAICompletionsToolChoice, reconcileOpenAIResponsesToolChoice, resolveOpenAIModelReasoningEfforts, resolveOpenAIPromptCacheParams, resolveOpenAIReasoningEffortForModel, resolveOpenAIReasoningEffortMapping, resolveOpenAISupportedReasoningEfforts, resolveResponsesTerminalStopReason, responsesPromptObserver, supportsOpenAIReasoningEffort, supportsOpenAITemperature };
+//#region packages/ai/src/transports/openai-responses-replay-messages-internal.d.ts
+/** Source identity survives payload spreads but never enters serialized provider input. */
+export declare function bindResponsesInputMessage(source: Extract<Context["messages"][number], {
+  role: "user";
+}>): (input: unknown) => boolean;
+//#endregion
+//#region packages/ai/src/transports/model-request-body.d.ts
+type EncodedModelRequestBody = {
+  body: Uint8Array<ArrayBuffer>;
+  stream: boolean;
+};
+type ModelRequestBodyState = {
+  enabled?: boolean;
+  encode?: (payload: unknown) => Promise<EncodedModelRequestBody>;
+  onBytes?: (bytes: number) => void;
+};
+/** Call-local state survives option spreads; no payload is cached across requests. */
+export declare function modelRequestBodyState(options: object, inheritFrom?: object): ModelRequestBodyState;
+export declare function serializeModelRequestBody(payload: unknown): EncodedModelRequestBody;
+export declare function encodedModelRequestBodyStream(body: unknown): boolean | undefined;
+//#endregion
+export { type CodeModeToolSurfaceObservation, OPENAI_PROMPT_CACHE_KEY_MAX_LENGTH, OpenAIApiReasoningEffort, type OpenAICompletionsOptions, type OpenAICompletionsToolChoice, OpenAIReasoningEffort, type OpenAIToolProjection, type ResponsesPromptObservation, type ResponsesServiceTierObservation, ResponsesTerminalUsagePayload, clampOpenAIPromptCacheKey, codeModeToolSurfaceObserver, isOpenAIGpt54MiniModel, isOpenAIGpt55Model, isOpenAIGpt56Model, isOpenAIGpt6Model, isResponsesOutputLimitToolCallError, mapResponsesTerminalUsage, normalizeOpenAIReasoningEffort, projectOpenAITools, readResponsesReasoningTokens, reasoningTagTextPolicy, reconcileOpenAICompletionsToolChoice, reconcileOpenAIResponsesToolChoice, resolveOpenAIModelReasoningEfforts, resolveOpenAIPromptCacheParams, resolveOpenAIReasoningEffortForModel, resolveOpenAIReasoningEffortMapping, resolveOpenAISupportedReasoningEfforts, resolveResponsesTerminalStopReason, responsesPromptObserver, responsesServiceTierObserver, supportsOpenAIReasoningEffort, supportsOpenAITemperature };

@@ -49,16 +49,6 @@ const ZERO_COST = {
 	cacheRead: 0,
 	cacheWrite: 0
 };
-/**
-* Build a lookup from the bundled DeepSeek model catalog so we can hydrate
-* missing metadata (contextWindow, cost, maxTokens) into user-configured
-* model rows without overwriting explicit overrides.
-*/
-function buildCatalogIndex() {
-	const index = /* @__PURE__ */ new Map();
-	for (const model of DEEPSEEK_MODEL_CATALOG) index.set(model.id, model);
-	return index;
-}
 function isPositiveNumber(value) {
 	return typeof value === "number" && Number.isFinite(value) && value > 0;
 }
@@ -89,32 +79,19 @@ function isPreviousBundledMetadataSnapshot(raw, previous) {
 function normalizeConfig(params) {
 	const { providerConfig } = params;
 	if (!Array.isArray(providerConfig.models) || providerConfig.models.length === 0) return providerConfig;
-	const catalog = buildCatalogIndex();
+	const catalog = new Map(DEEPSEEK_MODEL_CATALOG.map((model) => [model.id, model]));
 	let mutated = false;
 	const nextModels = providerConfig.models.map((model) => {
-		const raw = model;
-		const catalogEntry = catalog.get(raw.id);
+		const catalogEntry = catalog.get(model.id);
 		if (!catalogEntry) return model;
-		const previousEntry = PREVIOUS_BUNDLED_METADATA[raw.id];
-		const hasPreviousBundledMetadata = isPreviousBundledMetadataSnapshot(raw, previousEntry);
-		let modelMutated = false;
+		const hasPreviousBundledMetadata = isPreviousBundledMetadataSnapshot(model, PREVIOUS_BUNDLED_METADATA[model.id]);
 		const patched = {};
-		if ((!isPositiveNumber(raw.contextWindow) || hasPreviousBundledMetadata && raw.contextWindow !== catalogEntry.contextWindow) && isPositiveNumber(catalogEntry.contextWindow)) {
-			patched.contextWindow = catalogEntry.contextWindow;
-			modelMutated = true;
-		}
-		if ((!isPositiveNumber(raw.maxTokens) || hasPreviousBundledMetadata && raw.maxTokens !== catalogEntry.maxTokens) && isPositiveNumber(catalogEntry.maxTokens)) {
-			patched.maxTokens = catalogEntry.maxTokens;
-			modelMutated = true;
-		}
-		if ((!hasCostValues(raw.cost) || hasPreviousBundledMetadata) && hasCostValues(catalogEntry.cost) && !hasSameCost(raw.cost, catalogEntry.cost)) {
-			patched.cost = catalogEntry.cost;
-			modelMutated = true;
-		}
-		if (!modelMutated) return model;
+		for (const key of ["contextWindow", "maxTokens"]) if ((!isPositiveNumber(model[key]) || hasPreviousBundledMetadata && model[key] !== catalogEntry[key]) && isPositiveNumber(catalogEntry[key])) patched[key] = catalogEntry[key];
+		if ((!hasCostValues(model.cost) || hasPreviousBundledMetadata) && hasCostValues(catalogEntry.cost) && !hasSameCost(model.cost, catalogEntry.cost)) patched.cost = catalogEntry.cost;
+		if (Object.keys(patched).length === 0) return model;
 		mutated = true;
 		return {
-			...raw,
+			...model,
 			...patched
 		};
 	});

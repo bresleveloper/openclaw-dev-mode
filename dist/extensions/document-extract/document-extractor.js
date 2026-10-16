@@ -1,7 +1,7 @@
-import { r as resolveRuntimeWorkerUrl } from "../../runtime-worker-url-B4o9tqvO.mjs";
-import { t as WorkerTaskPool } from "../../worker-task-pool-cppt7dT0.mjs";
+import { i as resolveRuntimeWorkerUrl } from "../../runtime-worker-url-DoBSDhBS.mjs";
+import { t as WorkerTaskPool } from "../../worker-task-pool-iI3pfrsK.mjs";
 import { t as documentExtractorWorkerEntrypoint } from "../../document-extractor-worker-entrypoint-DcfMvI4N.mjs";
-import "../../process-runtime-BF3dUvYO.mjs";
+import "../../process-runtime-CYiH_oPH.mjs";
 //#region extensions/document-extract/document-extractor.ts
 const pool = new WorkerTaskPool({
 	workerUrl: resolveRuntimeWorkerUrl(documentExtractorWorkerEntrypoint),

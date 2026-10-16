@@ -1,15 +1,15 @@
-import { n as getEnvApiKey, t as findEnvKeys } from "../env-api-keys-DrgeBuva.mjs";
 import { a as isProviderRefusalAssistantError } from "../diagnostics-DzrF1h4J.mjs";
-import { a as getEventStreamCompletion } from "../event-stream-D8PARQfL.mjs";
-import { n as createApiRegistry, t as createLlmRuntime } from "../stream-CREqxHgU.mjs";
-import { A as headersToRecord, F as modelsAreEqual, M as calculateCost, N as clampThinkingLevel, P as getSupportedThinkingLevels, j as applyProviderReportedUsageCost, v as sanitizeSurrogates } from "../host-yTvBrYM2.mjs";
-import { D as repairJson, E as parseStreamingJson, O as shortHash, T as parseJsonWithRepair, h as parseTerminalToolCallArguments, w as createToolArgumentPreviewSchedule } from "../transport-stream-shared-B5RioB_Q.mjs";
+import { o as getEventStreamCompletion } from "../event-stream-C5AbCAaZ.mjs";
+import { r as createApiRegistry, t as createLlmRuntime } from "../stream-DFaRxi2D.mjs";
+import { A as getSupportedThinkingLevels, D as applyProviderReportedUsageCost, E as headersToRecord, O as calculateCost, j as modelsAreEqual, k as clampThinkingLevel } from "../host-u3o8XiAp.mjs";
+import { i as registerSessionResourceCleanupObserver, n as getSessionResourceOwnerId, r as registerSessionResourceCleanup, t as cleanupSessionResources } from "../session-resources-D1wgDQ8C.mjs";
+import { A as shortHash, D as parseJsonWithRepair, E as createToolArgumentPreviewSchedule, O as parseStreamingJson, P as sanitizeSurrogates, g as parseTerminalToolCallArguments, k as repairJson } from "../transport-stream-shared-CCR7hSW0.mjs";
+import { n as getEnvApiKey, t as findEnvKeys } from "../env-api-keys-CyX4VKGO.mjs";
 import { t as createDeferredEventBuffer } from "../deferred-event-buffer-DAvyP7qA.mjs";
-import { n as onLlmRequestActivity, t as notifyLlmRequestActivity } from "../llm-request-activity-BjtkplhG.mjs";
-import { a as withFirstStreamEventTimeout, i as getFirstStreamEventTimeoutMs, n as createFirstStreamEventTimeoutError, r as getFirstStreamEventTimeoutHandler, t as createFirstStreamEventAbortController } from "../stream-first-event-timeout-BeptfRL6.mjs";
-import { t as createReasoningTagTextPartitioner } from "../reasoning-tag-text-partitioner-BKmeGUBE.mjs";
+import { n as onLlmRequestActivity, t as notifyLlmRequestActivity } from "../llm-request-activity-D8f_oxHj.mjs";
+import { a as withFirstStreamEventTimeout, i as getFirstStreamEventTimeoutMs, n as createFirstStreamEventTimeoutError, r as getFirstStreamEventTimeoutHandler, t as createFirstStreamEventAbortController } from "../stream-first-event-timeout-D9ZmL_s9.mjs";
+import { t as createReasoningTagTextPartitioner } from "../reasoning-tag-text-partitioner-Ju9VpUGl.mjs";
 import { t as createSseByteGuard } from "../streaming-byte-guard-CC-HMn_u.mjs";
-import { n as registerSessionResourceCleanup, t as cleanupSessionResources } from "../session-resources-CkR4WWy1.mjs";
 import { n as resolveOpenAICodexAccountId, t as decodeOpenAICodexJwtPayload } from "../openai-chatgpt-jwt-KWcgd0d_.mjs";
 //#region packages/ai/src/internal/default-runtime.ts
 const DEFAULT_RUNTIME_KEY = Symbol.for("openclaw.ai.defaultRuntime");
@@ -108,15 +108,6 @@ const CONTEXT_OVERFLOW_PATTERN_SCOPES = {
 function matchesContextOverflowMessage(errorMessage, scope) {
 	return CONTEXT_OVERFLOW_PATTERN_SCOPES[scope].some((pattern) => pattern.test(errorMessage));
 }
-/**
-* Patterns that indicate non-overflow errors (e.g. rate limiting, server errors).
-* Error messages matching any of these are excluded from overflow detection
-* even if they also match an OVERFLOW_PATTERN.
-*
-* Example: Bedrock formats throttling errors as "ThrottlingException: Too many tokens,
-* please wait before trying again." which would match the /too many tokens/i overflow
-* pattern without this exclusion.
-*/
 const NON_OVERFLOW_PATTERNS = [
 	/^(Throttling error|Service unavailable):/i,
 	/rate limit/i,
@@ -128,55 +119,9 @@ function resolveContextInputTokens(message) {
 	return message.usage.input + message.usage.cacheRead + message.usage.cacheWrite;
 }
 /**
-* Check if an assistant message represents a context overflow error.
-*
-* This handles two cases:
-* 1. Error-based overflow: Most providers return stopReason "error" with a
-*    specific error message pattern.
-* 2. Silent overflow: Some providers accept overflow requests and return
-*    successfully. For these, we check if usage.input exceeds the context window.
-*
-* ## Reliability by Provider
-*
-* **Reliable detection (returns error with detectable message):**
-* - Anthropic: "prompt is too long: X tokens > Y maximum" or "request_too_large"
-* - OpenAI (Completions & Responses): "exceeds the context window" or "exceeds the model's maximum context length of X tokens"
-* - Google Gemini: "input token count exceeds the maximum"
-* - xAI (Grok): "maximum prompt length is X but request contains Y"
-* - Groq: "reduce the length of the messages"
-* - Cerebras: 413 status code (no body)
-* - Mistral: "Prompt contains X tokens ... too large for model with Y maximum context length"
-* - OpenRouter (all backends): "maximum context length is X tokens"
-* - Together AI: "The input (X tokens) is longer than the model's context length (Y tokens)."
-* - llama.cpp: "exceeds the available context size"
-* - LM Studio: "greater than the context length"
-* - Kimi For Coding: "exceeded model token limit: X (requested: Y)"
-* - z.ai: "tokens in request more than max tokens allowed" or "Prompt exceeds max length"
-*
-* **Unreliable detection:**
-* - z.ai: Sometimes accepts overflow silently (detectable via usage.input > contextWindow),
-*   sometimes returns rate limit errors instead of the explicit overflow error above. Pass
-*   contextWindow param to detect silent overflow.
-* - Xiaomi MiMo: Truncates input to fit contextWindow then returns stopReason "length" with
-*   output=0. Pass contextWindow param to detect via the "filled context + zero output" signal.
-* - Ollama: May truncate input silently for some setups, but may also return explicit
-*   overflow errors that match the patterns above. Silent truncation still cannot be
-*   detected here because we do not know the expected token count.
-*
-* ## Custom Providers
-*
-* If you've added custom models via settings.json, this function may not detect
-* overflow errors from those providers. To add support:
-*
-* 1. Send a request that exceeds the model's context window
-* 2. Check the errorMessage in the response
-* 3. Create a regex pattern that matches the error
-* 4. The pattern should be added to the appropriate canonical scope in this file, or
-*    check the errorMessage yourself before calling this function
-*
-* @param message - The assistant message to check
-* @param contextWindow - Optional context window size for detecting silent overflow (z.ai)
-* @returns true if the message indicates a context overflow
+* Match provider overflow errors, or infer overflow from reported context usage.
+* A context window enables silent-overflow detection; silent truncation without
+* a length stop remains undetectable because the original token count is unknown.
 */
 function isContextOverflow(message, contextWindow) {
 	if (isProviderRefusalAssistantError(message)) return false;
@@ -195,4 +140,4 @@ function isContextOverflow(message, contextWindow) {
 	return false;
 }
 //#endregion
-export { applyProviderReportedUsageCost, calculateCost, clampThinkingLevel, cleanupSessionResources, clearApiProviders, complete, completeSimple, createDeferredEventBuffer, createFirstStreamEventAbortController, createFirstStreamEventTimeoutError, createReasoningTagTextPartitioner, createSseByteGuard, createToolArgumentPreviewSchedule, decodeOpenAICodexJwtPayload, defaultApiRegistry, defaultLlmRuntime, findEnvKeys, getApiProvider, getApiProviders, getEnvApiKey, getEventStreamCompletion, getFirstStreamEventTimeoutHandler, getFirstStreamEventTimeoutMs, getSupportedThinkingLevels, headersToRecord, isContextOverflow, matchesContextOverflowMessage, modelsAreEqual, notifyLlmRequestActivity, onLlmRequestActivity, parseJsonWithRepair, parseStreamingJson, parseTerminalToolCallArguments, registerSessionResourceCleanup, repairJson, resolveOpenAICodexAccountId, sanitizeSurrogates, shortHash, stream, streamSimple, withFirstStreamEventTimeout };
+export { applyProviderReportedUsageCost, calculateCost, clampThinkingLevel, cleanupSessionResources, clearApiProviders, complete, completeSimple, createDeferredEventBuffer, createFirstStreamEventAbortController, createFirstStreamEventTimeoutError, createReasoningTagTextPartitioner, createSseByteGuard, createToolArgumentPreviewSchedule, decodeOpenAICodexJwtPayload, defaultApiRegistry, defaultLlmRuntime, findEnvKeys, getApiProvider, getApiProviders, getEnvApiKey, getEventStreamCompletion, getFirstStreamEventTimeoutHandler, getFirstStreamEventTimeoutMs, getSessionResourceOwnerId, getSupportedThinkingLevels, headersToRecord, isContextOverflow, matchesContextOverflowMessage, modelsAreEqual, notifyLlmRequestActivity, onLlmRequestActivity, parseJsonWithRepair, parseStreamingJson, parseTerminalToolCallArguments, registerSessionResourceCleanup, registerSessionResourceCleanupObserver, repairJson, resolveOpenAICodexAccountId, sanitizeSurrogates, shortHash, stream, streamSimple, withFirstStreamEventTimeout };

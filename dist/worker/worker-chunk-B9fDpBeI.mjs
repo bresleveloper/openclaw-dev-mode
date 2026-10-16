@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function normalizeAgentPromptSurfaceKind(e){return e===`pi_main`?`openclaw_main`:e}function isOpenClawMainPromptSurface(e){return normalizeAgentPromptSurfaceKind(e)===`openclaw_main`}var t=e((()=>{}));export{isOpenClawMainPromptSurface as n,normalizeAgentPromptSurfaceKind as r,t};

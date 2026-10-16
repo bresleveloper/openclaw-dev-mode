@@ -1,4 +1,4 @@
-import { t as migrateElevenLabsLegacyTalkConfig } from "./.setup/config-compat-B0fJcbjn.mjs";
+import { t as migrateElevenLabsLegacyTalkConfig } from "./.setup/config-compat-ClsSqmpW.mjs";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 //#region extensions/elevenlabs/setup-api.ts
 var setup_api_default = definePluginEntry({

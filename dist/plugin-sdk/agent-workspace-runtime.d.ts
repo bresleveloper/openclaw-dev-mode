@@ -1,17 +1,18 @@
-import { Pu as EmbeddingInput, _u as SandboxFsBridge } from "../agent-harness-runtime-wMciqZ6Z.js";
-import { r as OpenClawConfig } from "../types.openclaw-Ccmw-oTa.js";
-import { c as MemoryEntryProvenance, d as MemoryReadResult, l as MemoryExtraPath } from "../paths-UINMFCfh.js";
-import { C as UserTurnTranscriptRecorder } from "../templating-0ElMwhje.js";
+import { r as OpenClawConfig } from "../types.openclaw-DWWUw8hA.js";
+import { c as MemoryEntryProvenance, d as MemoryReadResult, l as MemoryExtraPath } from "../paths-BfUTg5dU.js";
+import { Ot as UserTurnTranscriptRecorder } from "../reply-payload-DazZPys5.js";
 import { t as SkillLibraryFile } from "../skill-library-DVzEZ7Hi.js";
-import "../index-hVvy_KTe.js";
+import "../index-B4F-ENEv.js";
+import { Sl as EmbeddingInput, Yo as SandboxFsBridge } from "../agent-harness-runtime-DZjstJNb.js";
 import { n as MediaFact } from "../media-facts-BUTxYH1x.js";
-import { t as Skill } from "../skill-contract-ChC4fiJP.js";
-import { a as SkillInstallSpec, i as SkillEntry, o as SkillResourceSourceReader, u as SkillsInstallPreferences } from "../types-CHfKS7Qr.js";
-import { K as PluginHookSkillChangedEvent, U as PluginHookSkillArtifact, d as createWorkspaceBootstrapFilePolicy } from "../hook-runner-global-CDmmGFJp.js";
-import "../common-Y4Bsty3O.js";
-import "../agent-scope-BV0uIQk3.js";
-import { a as MemoryMultimodalSettings, i as MemoryMultimodalModality, t as ResolvedMemorySearchConfig } from "../memory-search-DbArNuIS.js";
-import { a as ArchiveLogger } from "../archive-LnFcwSkz.js";
+import { t as Skill } from "../skill-contract-B-d775sU.js";
+import { a as SkillInstallSpec, i as SkillEntry, o as SkillResourceSourceReader, u as SkillsInstallPreferences } from "../types-D0Cawybo.js";
+import "../common-K-HB_vKp.js";
+import { R as PluginHookSkillArtifact, V as PluginHookSkillChangedEvent } from "../hook-runner-global-Jvv9WFUW.js";
+import "../agent-scope-CQBriA71.js";
+import { a as MemoryMultimodalSettings, i as MemoryMultimodalModality, t as ResolvedMemorySearchConfig } from "../memory-search-Cw2OPp4i.js";
+import { r as createWorkspaceBootstrapFilePolicy } from "../workspace-BKLUW5Z-.js";
+import { a as ArchiveLogger } from "../archive-DSpJVZFx.js";
 import { Static, Type } from "typebox";
 //#region packages/memory-host-sdk/src/host/markdown-chunks.d.ts
 type MemoryChunk = {
@@ -205,6 +206,8 @@ type SkillRootInstallFiles = {
   timeoutMs?: number;
   logger?: ArchiveLogger;
   rootMarkers?: readonly string[];
+  /** Revalidate the caller at the workspace host's final filesystem publication. */
+  beforePersistentApply?: () => void;
   /** Undefined skips the native update guard; null means the install was absent. */
   expectedClawHubState?: ClawHubSkillFileState | null;
 };
@@ -237,26 +240,14 @@ type ClawHubSkillVerificationLock = {
   security?: unknown;
   signature?: unknown;
 };
-type ClawHubSkillLockEntry = {
+type ClawHubSkillLockEntry = Omit<ClawHubSkillOrigin, "version" | "slug" | "installedVersion" | "registry"> & {
   version: string;
-  installedAt: number;
   registry?: string;
-  ownerHandle?: string;
-  requestedReference?: string;
-  trustState?: ClawHubSkillsShTrustState;
-  sourceUrl?: string;
-  artifact?: ClawHubSkillDownloadedArtifactLock;
-  skillFile?: ClawHubSkillFileLock;
-  fileTreeSha256?: string;
   verification?: ClawHubSkillVerificationLock;
 };
-type ClawHubSkillOrigin = {
+type ClawHubSkillOrigin = ClawHubSkillRef & {
   version: 1;
   registry: string;
-  slug: string;
-  ownerHandle?: string;
-  requestedReference?: string;
-  trustState?: ClawHubSkillsShTrustState;
   installedVersion: string;
   installedAt: number;
   sourceUrl?: string;
@@ -275,12 +266,8 @@ type ClawHubSkillRef = {
   trustState?: ClawHubSkillsShTrustState;
 };
 type ClawHubSkillVerificationSelector = "installed-version" | "version" | "tag" | "latest";
-type ClawHubSkillVerificationTargetResult = {
+type ClawHubSkillVerificationTargetResult = (ClawHubSkillRef & {
   ok: true;
-  slug: string;
-  ownerHandle?: string;
-  requestedReference?: string;
-  trustState?: ClawHubSkillsShTrustState;
   baseUrl: string;
   version: string | undefined;
   tag: string | undefined;
@@ -291,7 +278,7 @@ type ClawHubSkillVerificationTargetResult = {
     skillDir: string | undefined;
     installedVersion: string | undefined;
   };
-} | {
+}) | {
   ok: false;
   error: string;
 };
@@ -305,29 +292,21 @@ type ClawHubSkillInstallPreflightResult = {
   code: string;
   error: string;
 };
-type TrackedUpdateTarget = {
+type TrackedUpdateTarget = (ClawHubSkillRef & {
   ok: true;
-  slug: string;
-  ownerHandle?: string;
-  requestedReference?: string;
-  trustState?: ClawHubSkillsShTrustState;
   baseUrl?: string;
   previousVersion: string | null;
-} | {
+}) | {
   ok: false;
   slug: string;
   error: string;
 };
-type ClawHubSkillUninstallPlan = {
+type ClawHubSkillUninstallPlan = ClawHubSkillFileState & {
   workspaceDir: string;
   requestedRef: string;
-  slug: string;
   version: string;
   installedAt: number;
   targetDir: string;
-  skillFilePath: string;
-  skillFileSha256: string;
-  fileTreeSha256: string;
 };
 type ClawHubSkillUninstallPlanResult = {
   ok: true;
@@ -453,23 +432,12 @@ type WorkspaceSkillLifecycle = {
     error: string;
   }>;
 };
-type ClawHubSkillStatusLink = {
+type ClawHubSkillStatusLink = (Omit<ClawHubSkillOrigin, "version"> & {
   status: "linked";
   valid: true;
-  registry: string;
-  slug: string;
-  ownerHandle?: string;
-  requestedReference?: string;
-  trustState?: ClawHubSkillsShTrustState;
-  installedVersion: string;
-  installedAt: number;
   originPath: string;
   lockPath: string;
-  sourceUrl?: string;
-  artifact?: ClawHubSkillDownloadedArtifactLock;
-  skillFile?: ClawHubSkillFileLock;
-  fileTreeSha256?: string;
-} | {
+}) | {
   status: "invalid";
   valid: false;
   reason: string;
@@ -540,6 +508,8 @@ type WorkspaceSkillSourceRequest = {
 type WorkspaceSkillSource = {
   dir: string;
   source: string;
+  /** Prepared diagnostic provenance, preserved when roots cross hosts. */
+  worktree?: boolean;
   tier: "extra" | "bundled" | "workshop" | "managed" | "personal" | "workspace";
   rejectHardlinks?: boolean;
   /** Original root precedence, retained when discovery is split between hosts. */
@@ -558,6 +528,13 @@ type WorkspaceSkillSourcePlan = {
   userHomeDir?: string;
 };
 //#endregion
+//#region src/agents/workspace-attachments.local.d.ts
+type LocalAttachmentExecutionContext = {
+  config?: OpenClawConfig;
+  readAllowed: boolean;
+  maxChars: number;
+};
+//#endregion
 //#region src/agents/workspace-access.d.ts
 type WorkspaceAttachmentTurn = {
   abortSignal?: AbortSignal;
@@ -573,14 +550,14 @@ type AgentWorkspaceAccess = {
   installSkillDependencies?: WorkspaceSkillLifecycle["installSkillDependencies"];
   /** Read native source tiers and execution-host facts without applying Gateway policy. */
   loadSkills?: (request: WorkspaceSkillSourceRequest) => Promise<WorkspaceSkillSources>;
-  /** Keep a host subscription alive until aborted; notify without transferring file contents. */
-  watchSkills?: (request: Pick<WorkspaceSkillSourceRequest, "sourcePlan" | "executionWorkspaceDir">, onChange: (event: "change" | "unavailable") => void, signal: AbortSignal) => Promise<void>;
+  /** Keep the subscription alive until aborted; available certifies verified coverage after loss. */
+  watchSkills?: (request: Pick<WorkspaceSkillSourceRequest, "sourcePlan" | "executionWorkspaceDir">, onChange: (event: "change" | "unavailable" | "available") => void, signal: AbortSignal) => Promise<void>;
   skillResources?: SkillResourceSourceReader;
   /** Transfer the source tree and apply it on the host; run beforeInstall on Gateway. */
   applySkillRoot?: WorkspaceSkillLifecycle["applyExtractedSkillRoot"];
   recordSkillSourceInstall?: WorkspaceSkillLifecycle["recordSkillSourceInstall"];
   clawHubSkills?: Omit<WorkspaceSkillLifecycle, "installSkillDependencies" | "applyExtractedSkillRoot" | "recordSkillSourceInstall">;
-  bridge: Pick<SandboxFsBridge, "readFile" | "readFileWithSource" | "readDirectory" | "writeFile" | "stat">;
+  bridge: Pick<SandboxFsBridge, "readFile" | "readFileWithSource" | "readDirectory" | "writeFile" | "createFileExclusive" | "stat">;
   /** Purpose-scoped output reads; the document bridge need not allow attachment paths. */
   outboundMedia?: {
     localRoots: readonly string[];
@@ -611,6 +588,10 @@ export declare function prepareAgentWorkspaceAttachments(params: {
     userTurnTranscriptRecorder?: UserTurnTranscriptRecorder;
   };
   assertCurrent: () => void;
+  /** Final attempt policy; omission retains the remote-adapter-only SDK contract. */
+  localExecution?: LocalAttachmentExecutionContext;
+  /** Reject declared attachments that cannot be prepared for execution. */
+  requirePreparation?: boolean;
 }): Promise<string | undefined>;
 //#endregion
 //#region src/agents/workspace-attachment-preparer.d.ts

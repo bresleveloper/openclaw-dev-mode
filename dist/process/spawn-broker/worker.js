@@ -1,11 +1,11 @@
-import { spawn, spawnSync } from "node:child_process";
 import { Socket, createConnection, createServer } from "node:net";
-import fsSync, { opendirSync, readFileSync, readdirSync } from "node:fs";
+import { spawn, spawnSync } from "node:child_process";
+import fs, { opendirSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { tmpdir } from "node:os";
-import { stripVTControlCharacters } from "node:util";
+import { isDeepStrictEqual, stripVTControlCharacters } from "node:util";
 import { execa } from "execa";
-import { once } from "node:events";
+import { EventEmitter, once } from "node:events";
 import { mkdtemp, rm } from "node:fs/promises";
 import { Transform } from "node:stream";
 import { deserialize, serialize } from "node:v8";
@@ -32,8 +32,13 @@ function toErrorObject(value, fallbackMessage) {
 function extractErrorCode(err) {
 	if (!err || typeof err !== "object") return;
 	const code = readProperty(err, "code");
-	if (typeof code === "string") return code;
-	if (typeof code === "number") return String(code);
+	return typeof code === "string" || typeof code === "number" ? String(code) : void 0;
+}
+//#endregion
+//#region packages/normalization-core/src/record-coerce.ts
+/** Type guard for non-array object records at browser-safe boundaries. */
+function isRecord(value) {
+	return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 //#endregion
 //#region packages/agent-core/src/harness/env/kill-tree.ts
@@ -65,7 +70,7 @@ function killProcessTree(pid, opts) {
 	if (!Number.isFinite(pid) || pid <= 0) return;
 	if (process.platform === "win32") {
 		if (opts?.force === true) {
-			signalProcessTreeWindows(pid, "SIGKILL");
+			signalProcessTreeWindowsAndWait(pid, "SIGKILL");
 			return;
 		}
 		killProcessTreeWindows(pid, normalizeGraceMs(opts?.graceMs));
@@ -107,9 +112,15 @@ function normalizeGraceMs(value) {
 function isProcessAlive(pid) {
 	try {
 		process.kill(pid, 0);
-		return true;
+	} catch (error) {
+		if ((typeof error === "object" && error !== null && "code" in error ? error.code : void 0) !== "EPERM") return false;
+	}
+	if (pid < 0 || process.platform !== "linux") return true;
+	try {
+		const status = readFileSync(`/proc/${pid}/status`, "utf8");
+		return !(status.match(/^State:\s+(\S)/m)?.[1] === "Z" && /^Threads:[ \t]+1[ \t]*$/m.test(status));
 	} catch {
-		return false;
+		return true;
 	}
 }
 function parseProcessGroupId(value) {
@@ -117,80 +128,57 @@ function parseProcessGroupId(value) {
 	const pgid = Number(value.trim());
 	return Number.isSafeInteger(pgid) && pgid > 0 ? pgid : void 0;
 }
-function readProcessGroupIdFromPs(pid) {
+function readPsOutput(args) {
 	try {
-		const res = spawnSync("ps", [
-			"-p",
-			String(pid),
-			"-o",
-			"pgid="
-		], {
+		const result = spawnSync("ps", args, {
 			encoding: "utf8",
 			timeout: 500
 		});
-		if (res.error || res.status !== 0) return;
-		return parseProcessGroupId(res.stdout);
+		return result.error || result.status !== 0 ? void 0 : result.stdout;
 	} catch {
 		return;
 	}
 }
-function readProcessGroupIdFromProc(pid) {
+function readProcStatFields(pid) {
 	try {
 		const stat = readFileSync(`/proc/${pid}/stat`, "utf8");
 		const commEnd = stat.lastIndexOf(")");
 		if (commEnd < 0) return;
-		return parseProcessGroupId(stat.slice(commEnd + 1).trim().split(/\s+/)[2]);
+		return stat.slice(commEnd + 1).trim().split(/\s+/);
 	} catch {
 		return;
 	}
 }
 /** Fail closed to direct-PID signaling when group ownership cannot be proved. */
 function isProcessGroupLeader(pid) {
-	return ((process.platform === "linux" ? readProcessGroupIdFromProc(pid) : void 0) ?? readProcessGroupIdFromPs(pid)) === pid;
+	return ((process.platform === "linux" ? parseProcessGroupId(readProcStatFields(pid)?.[2]) : void 0) ?? parseProcessGroupId(readPsOutput([
+		"-p",
+		String(pid),
+		"-o",
+		"pgid="
+	]))) === pid;
 }
 function parsePositivePids(value) {
 	if (typeof value !== "string") return [];
 	return value.trim().split(/\s+/u).map((entry) => Number(entry)).filter((entry) => Number.isSafeInteger(entry) && entry > 0);
 }
-/**
-* Read a stable process-instance identity for `pid`. Linux `starttime` from
-* `/proc/<pid>/stat` distinguishes recycled PIDs. Other Unix platforms do not
-* expose a sufficiently precise portable identity, so attached snapshots stay
-* disabled there rather than authorizing a stale signal.
-*/
 function readUnixProcessIdentity(pid, deadlineMs) {
 	return readUnixProcessInstance(pid, deadlineMs)?.identity;
 }
-/**
-* Read a process-instance identity and its current parent PID from
-* `/proc/<pid>/stat`. The `ppid` lets the caller revalidate that a numeric PID
-* reported by `/proc/<parent>/children` still belongs to the verified parent at
-* capture time, so a PID reused between the children read and this read cannot
-* be admitted as an authorized descendant.
-*/
+/** Capture identity and parent together so a recycled child PID cannot authorize a foreign tree. */
 function readUnixProcessInstance(pid, deadlineMs) {
 	if (deadlineMs !== void 0 && Date.now() >= deadlineMs) return;
 	if (process.platform !== "linux") return;
-	try {
-		const stat = readFileSync(`/proc/${pid}/stat`, "utf8");
-		const commEnd = stat.lastIndexOf(")");
-		if (commEnd < 0) return;
-		const fields = stat.slice(commEnd + 1).trim().split(/\s+/);
-		const ppid = Number(fields[1]);
-		const starttime = fields[19];
-		if (!starttime || !/^\d+$/u.test(starttime) || !Number.isSafeInteger(ppid)) return;
-		return {
-			identity: `${pid}:${starttime}`,
-			ppid
-		};
-	} catch {
-		return;
-	}
+	const fields = readProcStatFields(pid);
+	const ppid = Number(fields?.[1]);
+	const starttime = fields?.[19];
+	if (!starttime || !/^\d+$/u.test(starttime) || !Number.isSafeInteger(ppid)) return;
+	return {
+		identity: `${pid}:${starttime}`,
+		ppid
+	};
 }
-/**
-* True when the captured process instance is still alive at the same identity.
-* Missing identities are never eligible for an attached-tree signal.
-*/
+/** Missing identities are never eligible for an attached-tree signal. */
 function verifiedProcessInstanceAlive(entry) {
 	if (!entry.identity || !isProcessAlive(entry.pid)) return false;
 	return readUnixProcessIdentity(entry.pid) === entry.identity;
@@ -214,19 +202,7 @@ function* readUnixProcessChildren(pid, canReadTask) {
 		} catch {}
 	}
 }
-/**
-* Capture an attached process tree before signaling its root.
-* Descendants are returned first so they retain their parent relationship.
-*
-* Each entry carries a stable process-instance identity captured at discovery
-* time so delayed grace-period signals can be verified against the original
-* instance instead of a numeric PID that may have been recycled. A descendant
-* whose identity cannot be captured is omitted (fail-closed for that subtree)
-* rather than retained as an identity-less PID that a delayed signal could
-* target after reuse. The supervisor-owned root PID is always trusted as the
-* caller's direct child, so the snapshot always contains it once the root's own
-* identity verifies, even when every descendant probe fails.
-*/
+/** Capture verified descendants before their parents; an unverified subtree is omitted. */
 function collectUnixProcessTree(rootPid) {
 	if (process.platform !== "linux") return;
 	const descendants = [];
@@ -268,9 +244,7 @@ function signalProcessTreeUnix(pid, signal, useGroupKill, processTree) {
 	const targets = processTree ?? [{ pid }];
 	for (const entry of targets) {
 		if (processTree && !verifiedProcessInstanceAlive(entry)) continue;
-		try {
-			process.kill(entry.pid, signal);
-		} catch {}
+		signalUnixTarget(entry.pid, signal);
 	}
 }
 function signalUnixTarget(pid, signal) {
@@ -314,16 +288,13 @@ function killProcessTreeWindows(pid, graceMs) {
 			graceTimer = void 0;
 		}
 		if (!isProcessAlive(pid)) return;
-		signalProcessTreeWindows(pid, "SIGKILL");
+		signalProcessTreeWindowsAndWait(pid, "SIGKILL");
 	};
-	signalProcessTreeWindows(pid, "SIGTERM", (code) => {
+	signalProcessTreeWindowsAndWait(pid, "SIGTERM", (code) => {
 		if (code !== null && code !== 0) forceKill();
 	});
 	graceTimer = setTimeout(forceKill, graceMs);
 	graceTimer.unref();
-}
-function signalProcessTreeWindows(pid, signal, onExit) {
-	signalProcessTreeWindowsAndWait(pid, signal, onExit);
 }
 function signalProcessTreeWindowsAndWait(pid, signal, onExit) {
 	return runTaskkill(signal === "SIGKILL" ? [
@@ -338,6 +309,44 @@ function signalProcessTreeWindowsAndWait(pid, signal, onExit) {
 	], onExit);
 }
 //#endregion
+//#region src/process/linux-oom-score.ts
+const OOM_SCORE_WRAP_SHELL = "/bin/sh";
+const OOM_SCORE_WRAP_SCRIPT = "echo 1000 > /proc/self/oom_score_adj 2>/dev/null; exec \"$0\" \"$@\"";
+[
+	"echo 1000 > /proc/self/oom_score_adj 2>/dev/null; if [ \"${OC_INTERNAL_OOM_EXEC_BASH_ENV+x}\" = x ]; then BASH_ENV=\"$OC_INTERNAL_OOM_EXEC_BASH_ENV\"; export BASH_ENV; fi; unset OC_INTERNAL_OOM_EXEC_BASH_ENV",
+	"if [ \"${OC_INTERNAL_OOM_EXEC_ENV+x}\" = x ]; then ENV=\"$OC_INTERNAL_OOM_EXEC_ENV\"; export ENV; fi; unset OC_INTERNAL_OOM_EXEC_ENV",
+	"if [ \"${OC_INTERNAL_OOM_EXEC_CDPATH+x}\" = x ]; then CDPATH=\"$OC_INTERNAL_OOM_EXEC_CDPATH\"; export CDPATH; fi; unset OC_INTERNAL_OOM_EXEC_CDPATH",
+	"if [ \"${OC_INTERNAL_OOM_EXEC_PS4+x}\" = x ]; then PS4=\"$OC_INTERNAL_OOM_EXEC_PS4\"; export PS4; fi; unset OC_INTERNAL_OOM_EXEC_PS4; exec \"$0\" \"$@\""
+].join("; ");
+function isWrapped(command, args) {
+	return command === OOM_SCORE_WRAP_SHELL && args[0] === "-c" && args[1] === OOM_SCORE_WRAP_SCRIPT;
+}
+/** Only small spawn owners may temporarily raise their score; never call from the Gateway. */
+function spawnWithInheritedOomScore(command, args, options) {
+	if (process.platform !== "linux" || !isWrapped(command, args) || !args[2] || options.shell || options.argv0 !== void 0) return spawn(command, args, options);
+	let scoreFd;
+	let original;
+	try {
+		scoreFd = fs.openSync("/proc/self/oom_score_adj", "r+");
+		original = fs.readFileSync(scoreFd, "utf8").trim();
+		fs.writeSync(scoreFd, "1000", 0, "utf8");
+	} catch {
+		if (scoreFd !== void 0) fs.closeSync(scoreFd);
+		return spawn(command, args, options);
+	}
+	try {
+		return spawn(args[2], args.slice(3), options);
+	} finally {
+		try {
+			fs.writeSync(scoreFd, original, 0, "utf8");
+		} catch {
+			process.emitWarning("Could not restore spawn owner's Linux OOM score");
+		} finally {
+			fs.closeSync(scoreFd);
+		}
+	}
+}
+//#endregion
 //#region src/process/supervisor/cancellation-policy.ts
 const GRACEFUL_CANCEL_TIMEOUT_MS = 5e3;
 //#endregion
@@ -346,19 +355,25 @@ function isValidPid(pid) {
 	return Number.isInteger(pid) && pid > 0;
 }
 /**
-* Check if every thread has exited by reading Linux /proc/<pid>/status.
-* Returns false on non-Linux platforms or if the proc file can't be read.
+* Check whether a Linux task is terminal and has no live sibling threads.
+* Missing or reaped procfs snapshots require a fresh existence probe.
 */
-function isZombieProcess(pid) {
+function isExitedLinuxProcess(pid) {
 	if (process.platform !== "linux") return false;
 	try {
-		const status = fsSync.readFileSync(`/proc/${pid}/status`, "utf8");
-		return status.match(/^State:\s+(\S)/m)?.[1] === "Z" && /^Threads:[ \t]+1[ \t]*$/m.test(status);
-	} catch {
-		return false;
+		const status = fs.readFileSync(`/proc/${pid}/status`, "utf8");
+		const state = status.match(/^State:\s+(\S)/m)?.[1];
+		const threads = status.match(/^Threads:[ \t]+(\d+)[ \t]*$/m)?.[1];
+		if (threads !== "0") return (state === "Z" || state === "X") && threads === "1";
+	} catch {}
+	try {
+		process.kill(pid, 0);
+	} catch (error) {
+		return error.code === "ESRCH";
 	}
+	return false;
 }
-/** Returns true only when the PID is invalid, missing, or known to be a Linux zombie. */
+/** Returns true only when the PID is invalid, missing, or a known terminal Linux task. */
 function isPidDefinitelyDead(pid) {
 	if (!isValidPid(pid)) return true;
 	try {
@@ -366,10 +381,20 @@ function isPidDefinitelyDead(pid) {
 	} catch (err) {
 		return err.code === "ESRCH";
 	}
-	return isZombieProcess(pid);
+	return isExitedLinuxProcess(pid);
 }
 //#endregion
 //#region src/process/supervisor/service-child-group-ownership.ts
+function readLinuxProcessUid(pid) {
+	try {
+		const lines = readFileSync(`/proc/${pid}/status`, "utf8").split("\n").filter((line) => line.startsWith("Uid:"));
+		const ids = (lines.length === 1 ? /^Uid:[ \t]+(\d+)[ \t]+(\d+)[ \t]+(\d+)[ \t]+(\d+)[ \t]*$/.exec(lines[0]) : null)?.slice(1).map(Number);
+		const inspectorUid = process.getuid?.();
+		return ids?.every((uid) => Number.isSafeInteger(uid) && uid <= 4294967295) ? ids.find((uid) => uid === inspectorUid) ?? ids[0] : void 0;
+	} catch {
+		return;
+	}
+}
 /** The caller supplies native command inspection; the standalone group worker stays dependency-free. */
 function* readProcessGroupMembers(timeoutMs, commandInspection) {
 	const includeCommand = commandInspection !== void 0;
@@ -381,18 +406,35 @@ function* readProcessGroupMembers(timeoutMs, commandInspection) {
 			const pid = Number(name);
 			let stat;
 			let argv;
+			let uid;
+			let opaqueForeignOwner = false;
 			try {
 				stat = readFileSync(`/proc/${name}/stat`, "utf8");
-				if (includeCommand) argv = readFileSync(`/proc/${name}/cmdline`, "utf8").split("\0").filter(Boolean);
+				if (includeCommand) {
+					uid = readLinuxProcessUid(pid);
+					try {
+						argv = readFileSync(`/proc/${name}/cmdline`, "utf8").split("\0").filter(Boolean);
+					} catch (error) {
+						const inspectorUid = process.getuid?.();
+						opaqueForeignOwner = uid !== void 0 && inspectorUid !== void 0 && uid !== inspectorUid && ["EACCES", "EPERM"].includes(extractErrorCode(error) ?? "");
+						if (!opaqueForeignOwner) throw error;
+					}
+				}
 			} catch (error) {
 				if (pid !== process.pid && ["ENOENT", "ESRCH"].includes(extractErrorCode(error) ?? "")) continue;
-				throw error;
+				throw new Error(`Could not classify PID ${pid}: process command inspection failed (${extractErrorCode(error) ?? "unavailable"}).`, { cause: error });
 			}
 			const match = /^(\d+) \([\s\S]*\) (\S) (\d+) (\d+)(?:\s|$)/.exec(stat);
 			if (!match || Number(match[1]) !== pid || Date.now() >= deadline) throw new Error("Process group census is unavailable");
 			if (argv?.length === 0) {
 				const flags = Number(stat.slice(stat.lastIndexOf(")") + 2).split(/\s+/)[6]);
-				if (!(Number.isInteger(flags) && (flags & 2097152) !== 0) && !isPidDefinitelyDead(pid)) throw new Error(`Cannot identify live process ${pid}`);
+				if (!(Number.isInteger(flags) && (flags & 2097152) !== 0) && !isPidDefinitelyDead(pid)) {
+					const inspectorUid = process.getuid?.();
+					if (uid !== void 0 && inspectorUid !== void 0 && uid !== inspectorUid) {
+						opaqueForeignOwner = true;
+						argv = void 0;
+					} else throw new Error(`Could not classify PID ${pid}: live userspace process has no readable arguments.`);
+				}
 			}
 			yield {
 				pid,
@@ -400,7 +442,12 @@ function* readProcessGroupMembers(timeoutMs, commandInspection) {
 				state: match[2],
 				...argv ? { command: {
 					ppid: Number(match[3]),
-					argv
+					argv,
+					...uid === void 0 ? {} : { uid }
+				} } : opaqueForeignOwner && uid !== void 0 ? { command: {
+					ppid: Number(match[3]),
+					argvUnavailable: true,
+					uid
 				} } : {}
 			};
 		}
@@ -434,7 +481,8 @@ function* readProcessGroupMembers(timeoutMs, commandInspection) {
 				state: match[3],
 				...command ? { command: {
 					ppid: Number(match[4]),
-					...command
+					...command,
+					uid: Number(match[5]) >>> 0
 				} } : {}
 			};
 		}
@@ -501,6 +549,26 @@ function serializeExecaError(error, output = {}) {
 		...encodeExecaMessage(error.message, output),
 		..."code" in error && typeof error.code === "string" ? { code: error.code } : {},
 		...error.cause instanceof Error ? { cause: serializeExecaError(error.cause) } : {}
+	};
+}
+//#endregion
+//#region src/process/process-deadline.ts
+/** Let pending child exit and output notifications run before accepting a deadline. */
+function setProcessTimeout(callback, delayMs) {
+	let decision;
+	const timer = setTimeout(() => {
+		decision = setTimeout(callback, 0);
+	}, delayMs);
+	return {
+		clear() {
+			clearTimeout(timer);
+			clearTimeout(decision);
+		},
+		refresh() {
+			clearTimeout(decision);
+			decision = void 0;
+			timer.refresh();
+		}
 	};
 }
 //#endregion
@@ -637,7 +705,7 @@ async function startBrokerExeca(argv, options, assertCurrent) {
 			if (outputOption(options, fd) === "pipe" && buffered !== false) outputs.set(fd, await createExecaOutput());
 		}
 		assertCurrent();
-		const { encoding, ...processOptions } = options;
+		const { encoding, executionDeadlineMs, ...processOptions } = options;
 		const spawnOptions = {
 			...processOptions,
 			...outputs.has(1) ? { stdout: {
@@ -650,13 +718,19 @@ async function startBrokerExeca(argv, options, assertCurrent) {
 			} } : {},
 			cancelSignal: controller.signal
 		};
-		const subprocess = encoding === void 0 || encoding === "utf8" || encoding === "utf16le" ? execa(argv[0], argv.slice(1), {
+		const start = () => encoding === void 0 || encoding === "utf8" || encoding === "utf16le" ? execa(argv[0], argv.slice(1), {
 			...spawnOptions,
 			encoding
 		}) : execa(argv[0], argv.slice(1), {
 			...spawnOptions,
 			encoding
 		});
+		let subprocess;
+		try {
+			subprocess = start();
+		} catch (error) {
+			throw await adoptAbandonedSpawnError(error);
+		}
 		const child = subprocess.nodeChildProcess;
 		const stdio = [
 			0,
@@ -670,17 +744,35 @@ async function startBrokerExeca(argv, options, assertCurrent) {
 			if (fd > 0) holdPipeForTransfer(stream);
 			return stream;
 		});
-		const result = subprocess.then(serializeResult, (error) => {
-			if (error instanceof Error && "failed" in error && error.failed === true) return serializeResult(error);
+		let executionTimedOut = false;
+		const deadline = executionDeadlineMs === void 0 ? void 0 : setProcessTimeout(() => {
+			if (child.exitCode === null && child.signalCode === null) {
+				executionTimedOut = true;
+				subprocess.kill();
+			}
+		}, executionDeadlineMs);
+		const clearDeadline = () => deadline?.clear();
+		child.once("exit", clearDeadline);
+		const result = subprocess.then((value) => serializeResult(value, executionTimedOut), (error) => {
+			if (error instanceof Error && "failed" in error && error.failed === true) return serializeResult(error, executionTimedOut);
 			throw error;
+		}).finally(() => {
+			clearDeadline();
+			child.removeListener("exit", clearDeadline);
 		});
 		result.catch(() => {});
 		return {
 			child,
 			stdio,
 			result,
-			cancel: () => controller.abort(),
-			kill: (signal) => subprocess.kill(signal),
+			cancel() {
+				clearDeadline();
+				controller.abort();
+			},
+			kill(signal) {
+				clearDeadline();
+				return subprocess.kill(signal);
+			},
 			outputDrained(fd, error) {
 				const output = outputs.get(fd);
 				if (output) {
@@ -703,17 +795,46 @@ async function startBrokerExeca(argv, options, assertCurrent) {
 		throw error;
 	}
 }
-function serializeResult(result) {
+function isDescriptorSpawnError(error) {
+	if (!(error instanceof Error)) return false;
+	const syscall = "syscall" in error ? error.syscall : void 0;
+	const code = "code" in error ? error.code : void 0;
+	return typeof syscall === "string" && syscall.startsWith("spawn") && (code === "EMFILE" || code === "ENFILE");
+}
+async function adoptAbandonedSpawnError(thrown) {
+	if (!(thrown instanceof TypeError)) return thrown;
+	return await new Promise((resolve) => {
+		const settle = (error) => {
+			process.off("uncaughtException", onUncaught);
+			clearImmediate(deadline);
+			resolve(error);
+		};
+		const onUncaught = (error) => {
+			if (isDescriptorSpawnError(error)) {
+				settle(error);
+				return;
+			}
+			settle(thrown);
+			process.nextTick(() => {
+				throw error;
+			});
+		};
+		process.on("uncaughtException", onUncaught);
+		const deadline = setImmediate(() => settle(thrown));
+	});
+}
+function serializeResult(result, executionTimedOut) {
 	const output = {
 		stdout: byteOrTextOutput(result.stdout),
 		stderr: byteOrTextOutput(result.stderr)
 	};
+	const error = result instanceof Error ? result : executionTimedOut ? /* @__PURE__ */ new Error("Command timed out") : void 0;
 	return {
 		...output,
 		exitCode: result.exitCode,
 		signal: result.signal,
-		failed: result.failed,
-		timedOut: result.timedOut,
+		failed: result.failed || executionTimedOut,
+		timedOut: result.timedOut || executionTimedOut,
 		isCanceled: result.isCanceled,
 		isGracefullyCanceled: result.isGracefullyCanceled,
 		isMaxBuffer: result.isMaxBuffer,
@@ -727,7 +848,7 @@ function serializeResult(result) {
 		cwd: result.cwd,
 		durationMs: result.durationMs,
 		signalDescription: result.signalDescription,
-		...result instanceof Error ? { error: serializeExecaError(result, output) } : {}
+		...error ? { error: serializeExecaError(error, output) } : {}
 	};
 }
 function byteOrTextOutput(output) {
@@ -737,8 +858,6 @@ function byteOrTextOutput(output) {
 //#endregion
 //#region src/process/spawn-broker/ipc.ts
 const FRAME_BYTES = 1048576;
-const MAX_PENDING_BYTES = 268435456;
-const MAX_PENDING_MESSAGES = 1024;
 const FRAME_KIND = "openclaw-spawn-broker-frame";
 /** Frame large inputs/results while bounding both native writes and retained payloads. */
 function createBrokerSender(send) {
@@ -754,7 +873,7 @@ function createBrokerSender(send) {
 		}
 	});
 	const enqueue = (size, operation) => {
-		if (bytes + size > MAX_PENDING_BYTES || messages >= MAX_PENDING_MESSAGES) return Promise.reject(new SpawnBrokerError("Spawn broker IPC capacity exceeded"));
+		if (bytes + size > 268435456 || messages >= 1024) return Promise.reject(new SpawnBrokerError("Spawn broker IPC capacity exceeded"));
 		bytes += size;
 		messages += 1;
 		const completion = previous.then(operation);
@@ -817,10 +936,10 @@ function createBrokerReceiver() {
 		receive(message) {
 			if (!message || typeof message !== "object" || !("kind" in message) || message.kind !== FRAME_KIND) return message;
 			const frame = message;
-			if (!Number.isSafeInteger(frame.id) || !Number.isSafeInteger(frame.total) || frame.total <= FRAME_BYTES || frame.total > MAX_PENDING_BYTES || !Number.isSafeInteger(frame.offset) || !Buffer.isBuffer(frame.bytes) || frame.bytes.length === 0 || frame.bytes.length > FRAME_BYTES) throw new SpawnBrokerError("Invalid spawn broker IPC frame");
+			if (!Number.isSafeInteger(frame.id) || !Number.isSafeInteger(frame.total) || frame.total <= FRAME_BYTES || frame.total > 268435456 || !Number.isSafeInteger(frame.offset) || !Buffer.isBuffer(frame.bytes) || frame.bytes.length === 0 || frame.bytes.length > FRAME_BYTES) throw new SpawnBrokerError("Invalid spawn broker IPC frame");
 			let assembly = pending.get(frame.id);
 			if (!assembly) {
-				if (frame.offset !== 0 || pending.size >= MAX_PENDING_MESSAGES || reserved + frame.total > MAX_PENDING_BYTES) throw new SpawnBrokerError("Spawn broker receive capacity exceeded");
+				if (frame.offset !== 0 || pending.size >= 1024 || reserved + frame.total > 268435456) throw new SpawnBrokerError("Spawn broker receive capacity exceeded");
 				assembly = {
 					total: frame.total,
 					received: 0,
@@ -840,6 +959,574 @@ function createBrokerReceiver() {
 		clear() {
 			pending.clear();
 			reserved = 0;
+		}
+	};
+}
+//#endregion
+//#region src/infra/worker-native-error.ts
+const errorConstructors = new Map([
+	EvalError,
+	RangeError,
+	ReferenceError,
+	SyntaxError,
+	TypeError,
+	URIError,
+	Error
+].map((constructor) => [constructor.name, constructor]));
+/** Node's Worker error events use prototype-only Errors that a second clone would erase. */
+function encodeNativeWorkerFailure(value) {
+	const seen = /* @__PURE__ */ new Map();
+	const encode = (current) => {
+		if (!(current instanceof Error)) return {
+			kind: "value",
+			value: current
+		};
+		const prior = seen.get(current);
+		if (prior) return prior;
+		const node = {
+			kind: "error",
+			constructorName: current instanceof AggregateError ? "AggregateError" : [...errorConstructors].find(([, Constructor]) => current instanceof Constructor)?.[0] ?? "Error",
+			name: current.name,
+			message: current.message,
+			stack: current.stack
+		};
+		seen.set(current, node);
+		const code = Object.getOwnPropertyDescriptor(current, "code")?.value;
+		if (typeof code === "string" || typeof code === "number") node.code = code;
+		for (const key of ["errcode", "errno"]) {
+			const field = Object.getOwnPropertyDescriptor(current, key)?.value;
+			if (typeof field === "number") node[key] = field;
+		}
+		if (Object.hasOwn(current, "cause")) node.cause = encode(current.cause);
+		const errors = Object.getOwnPropertyDescriptor(current, "errors")?.value;
+		if (Array.isArray(errors)) node.errors = errors.map(encode);
+		return node;
+	};
+	return encode(value);
+}
+//#endregion
+//#region src/process/spawn-broker/resource-port.ts
+/** A logical resource port; closing it does not assert anything about a native child. */
+var BrokerResourcePort = class extends EventEmitter {
+	constructor(send) {
+		super();
+		this.send = send;
+		this.closed = false;
+	}
+	postMessage(value) {
+		if (this.closed) throw new Error("Native resource message port is closed");
+		this.send(value);
+	}
+	receive(value) {
+		if (!this.closed) this.emit("message", value);
+	}
+	close() {
+		if (!this.closed) {
+			this.closed = true;
+			this.emit("close");
+		}
+	}
+};
+//#endregion
+//#region src/process/spawn-broker/resource-protocol.ts
+const SPAWN_BROKER_STARTUP_TIMEOUT_MS = 15e3;
+//#endregion
+//#region src/process/spawn-broker/resource-socket.ts
+/** Byte transport only: socket closure says nothing about a resource's native lifetime. */
+function createBrokerResourceSocket(socket, handlers) {
+	const receiver = createBrokerReceiver();
+	const header = Buffer.alloc(4);
+	let headerBytes = 0;
+	let body;
+	let bodyBytes = 0;
+	let stopped = false;
+	let failure;
+	let pendingWrite;
+	const stop = (error) => {
+		if (stopped) return;
+		stopped = true;
+		failure = error;
+		receiver.clear();
+		body = void 0;
+		pendingWrite?.(error ?? new SpawnBrokerError("Spawn broker resource socket closed"));
+		socket.destroy();
+	};
+	const sender = createBrokerSender((message, _handle, callback) => {
+		if (stopped || socket.destroyed) {
+			callback(failure ?? new SpawnBrokerError("Spawn broker resource socket closed"));
+			return;
+		}
+		const payload = serialize(message);
+		if (payload.length > 268435456) {
+			callback(new SpawnBrokerError("Spawn broker resource frame exceeds capacity"));
+			return;
+		}
+		const packet = Buffer.allocUnsafe(4 + payload.length);
+		packet.writeUInt32BE(payload.length);
+		payload.copy(packet, 4);
+		const complete = (error) => {
+			if (pendingWrite !== complete) return;
+			pendingWrite = void 0;
+			callback(error);
+			if (error) stop(error);
+		};
+		pendingWrite = complete;
+		try {
+			socket.write(packet, (error) => complete(error ?? null));
+		} catch (error) {
+			complete(toErrorObject(error, "Spawn broker resource write failed"));
+		}
+	});
+	socket.on("data", (chunk) => {
+		try {
+			let offset = 0;
+			while (offset < chunk.length) {
+				if (stopped) break;
+				if (!body) {
+					const count = Math.min(4 - headerBytes, chunk.length - offset);
+					chunk.copy(header, headerBytes, offset, offset + count);
+					headerBytes += count;
+					offset += count;
+					if (headerBytes !== 4) continue;
+					const length = header.readUInt32BE();
+					if (length === 0 || length > 268435456) throw new SpawnBrokerError("Invalid spawn broker resource frame length");
+					body = Buffer.allocUnsafe(length);
+					headerBytes = 0;
+				}
+				const count = Math.min(body.length - bodyBytes, chunk.length - offset);
+				chunk.copy(body, bodyBytes, offset, offset + count);
+				bodyBytes += count;
+				offset += count;
+				if (bodyBytes !== body.length) continue;
+				const decoded = receiver.receive(deserialize(body));
+				body = void 0;
+				bodyBytes = 0;
+				if (decoded !== void 0) {
+					if (!decoded || typeof decoded !== "object" || !("value" in decoded)) throw new SpawnBrokerError("Invalid spawn broker resource message");
+					handlers.message(decoded.value);
+				}
+			}
+		} catch (error) {
+			stop(toErrorObject(error, "Spawn broker resource read failed"));
+		}
+	});
+	socket.once("end", () => stop(body || headerBytes ? new SpawnBrokerError("Spawn broker resource socket ended during a frame") : void 0));
+	socket.once("error", stop);
+	socket.once("close", () => {
+		stop();
+		handlers.close(failure);
+	});
+	return {
+		async send(value) {
+			if (stopped || socket.destroyed) throw failure ?? new SpawnBrokerError("Spawn broker resource socket closed");
+			await sender({ value });
+		},
+		close: () => stop()
+	};
+}
+//#endregion
+//#region src/process/spawn-broker/resource-server.ts
+/** The broker retains resource owners independently of their submitting Worker's socket. */
+async function createBrokerNativeResourceServer(options) {
+	const resources = /* @__PURE__ */ new Map();
+	const connections = /* @__PURE__ */ new Set();
+	let available = true;
+	let sourceSealed = false;
+	let ownerBufferedBytes = 0;
+	let ownerBufferedMessages = 0;
+	const live = () => available && process.connected;
+	const publishParent = (message) => {
+		options.reportParent(message).catch(() => disconnect());
+	};
+	const publishSocket = (resource, message) => {
+		const socket = resource.socket;
+		if (socket) socket.send(message).catch(() => socket.close());
+	};
+	const publish = (resource, message) => {
+		publishSocket(resource, message);
+		publishParent(message);
+	};
+	const failed = (resource, error) => {
+		publish(resource, {
+			type: "resource-failed",
+			id: resource.attachment.id,
+			error: encodeNativeWorkerFailure(error)
+		});
+	};
+	const seal = (resource, ports) => {
+		for (const port of ports) try {
+			port?.close();
+		} catch (error) {
+			if (live()) failed(resource, error);
+		}
+	};
+	const closeError = (resource, requestId, error) => {
+		const fields = {
+			type: "resource-close-error",
+			id: resource.attachment.id,
+			requestId
+		};
+		let reply;
+		try {
+			if (resource.owner?.encodeCloseError) reply = {
+				...fields,
+				error: resource.owner.encodeCloseError(error),
+				resourceError: true
+			};
+			else reply = {
+				...fields,
+				error: encodeNativeWorkerFailure(error),
+				resourceError: false
+			};
+		} catch (encodingError) {
+			reply = {
+				...fields,
+				error: encodeNativeWorkerFailure(new AggregateError([error, encodingError], "Native resource cleanup error encoding failed", { cause: error })),
+				resourceError: false
+			};
+		}
+		publish(resource, reply);
+	};
+	const closeResource = async (resource, requestId) => {
+		if (resource.closed) {
+			publish(resource, {
+				type: "resource-closed",
+				id: resource.attachment.id,
+				requestId
+			});
+			return;
+		}
+		const origin = requestId > 0 ? "worker" : "parent";
+		if (resource.closing) {
+			const existing = resource.closeObservers[origin];
+			if (existing !== void 0 && existing !== requestId) closeError(resource, requestId, /* @__PURE__ */ new Error("Native resource close observer capacity exceeded"));
+			else resource.closeObservers[origin] = requestId;
+			return;
+		}
+		resource.closeObservers[origin] = requestId;
+		resource.closing = true;
+		let outcome;
+		try {
+			await new Promise((resolve) => {
+				if (sourceSealed) {
+					resolve();
+					return;
+				}
+				resource.finishInitializationWait = resolve;
+				resource.initialized.then(resolve);
+			});
+			resource.finishInitializationWait = void 0;
+			if (!live()) return;
+			if (!resource.closed) {
+				await resource.owner?.close();
+				resource.closed = true;
+				seal(resource, [resource.target, resource.ownerPort]);
+			}
+			outcome = { ok: true };
+		} catch (error) {
+			outcome = {
+				ok: false,
+				error
+			};
+		} finally {
+			const observers = resource.closeObservers;
+			resource.closeObservers = {};
+			resource.finishInitializationWait = void 0;
+			resource.closing = false;
+			if (live() && outcome) for (const observer of [observers.worker, observers.parent]) {
+				if (observer === void 0) continue;
+				if (outcome.ok) publish(resource, {
+					type: "resource-closed",
+					id: resource.attachment.id,
+					requestId: observer
+				});
+				else closeError(resource, observer, outcome.error);
+			}
+		}
+	};
+	const receiveOwner = (resource, request) => {
+		const acknowledge = (sequence) => publish(resource, resource.ownerFailures.get(sequence)?.response ?? {
+			type: "resource-owner-received",
+			id: resource.attachment.id,
+			sequence
+		});
+		if (!Number.isSafeInteger(request.sequence) || request.sequence <= 0) throw new Error("Invalid native resource owner sequence");
+		if (request.sequence <= resource.ownerSequence) {
+			acknowledge(request.sequence);
+			return;
+		}
+		if (!resource.ownerPort || resource.closed || !resource.created) throw new Error("Native resource owner port is unavailable");
+		const ownerPort = resource.ownerPort;
+		const apply = (sequence, value) => {
+			resource.ownerSequence = sequence;
+			try {
+				ownerPort.receive(value);
+			} catch (error) {
+				try {
+					const response = {
+						type: "resource-owner-rejected",
+						id: resource.attachment.id,
+						sequence,
+						error: encodeNativeWorkerFailure(error)
+					};
+					const size = serialize(response).length;
+					if (ownerBufferedBytes + size > 268435456 || ownerBufferedMessages >= 1024) throw new Error("Native resource owner receipt capacity exceeded", { cause: error });
+					resource.ownerFailures.set(sequence, {
+						response,
+						size
+					});
+					ownerBufferedBytes += size;
+					ownerBufferedMessages++;
+				} catch (receiptError) {
+					failed(resource, receiptError);
+					disconnect();
+					return false;
+				}
+			}
+			acknowledge(sequence);
+			return true;
+		};
+		if (request.sequence !== resource.ownerSequence + 1) {
+			if (resource.ownerMessages.has(request.sequence)) return;
+			const size = serialize(request).length;
+			if (ownerBufferedBytes + size > 268435456 || ownerBufferedMessages >= 1024) throw new Error("Native resource owner receive capacity exceeded");
+			resource.ownerMessages.set(request.sequence, {
+				value: request.value,
+				size
+			});
+			ownerBufferedBytes += size;
+			ownerBufferedMessages++;
+			return;
+		}
+		if (!apply(request.sequence, request.value)) return;
+		for (;;) {
+			const next = resource.ownerMessages.get(resource.ownerSequence + 1);
+			if (!next) return;
+			resource.ownerMessages.delete(++resource.ownerSequence);
+			ownerBufferedBytes -= next.size;
+			ownerBufferedMessages--;
+			if (!apply(resource.ownerSequence, next.value)) return;
+		}
+	};
+	const receive = (request) => {
+		if (!live()) return;
+		if (request.type === "resource-seal") {
+			sourceSealed = true;
+			for (const resource of resources.values()) resource.finishInitializationWait?.();
+			return;
+		}
+		if (request.type === "resource-close" && (!Number.isSafeInteger(request.requestId) || request.requestId === 0)) {
+			publishParent({
+				type: "resource-failed",
+				id: request.id,
+				error: encodeNativeWorkerFailure(/* @__PURE__ */ new Error("Invalid native resource close request ID"))
+			});
+			return;
+		}
+		const resource = resources.get(request.id);
+		if (!resource) {
+			if (sourceSealed && request.type === "resource-close") {
+				publishParent({
+					type: "resource-closed",
+					id: request.id,
+					requestId: request.requestId
+				});
+				return;
+			}
+			publishParent({
+				type: "resource-failed",
+				id: request.id,
+				error: encodeNativeWorkerFailure(/* @__PURE__ */ new Error("Native resource owner is unavailable"))
+			});
+			return;
+		}
+		if (request.type === "resource-owner") try {
+			receiveOwner(resource, request);
+		} catch (error) {
+			failed(resource, error);
+		}
+		else if (request.type === "resource-close") closeResource(resource, request.requestId);
+		else if (request.type === "resource-release") {
+			if (!resource.closed) {
+				failed(resource, /* @__PURE__ */ new Error("Native resource must close before release"));
+				return;
+			}
+			resources.delete(request.id);
+			for (const pending of resource.ownerMessages.values()) {
+				ownerBufferedBytes -= pending.size;
+				ownerBufferedMessages--;
+			}
+			resource.ownerMessages.clear();
+			for (const outcome of resource.ownerFailures.values()) {
+				ownerBufferedBytes -= outcome.size;
+				ownerBufferedMessages--;
+			}
+			resource.ownerFailures.clear();
+			resource.socket?.close();
+		} else if (!resource.created || resource.closed || (resource.closing || sourceSealed) && request.type === "resource-target") failed(resource, /* @__PURE__ */ new Error("Native resource is not accepting messages"));
+		else try {
+			if (resource.targetSealed) throw new Error("Native resource target port is closed");
+			resource.target.receive(request.value);
+		} catch (error) {
+			failed(resource, error);
+		}
+	};
+	const server = createServer((socket) => {
+		let attached;
+		const transport = createBrokerResourceSocket(socket, {
+			message(value) {
+				if (!live() || !value || typeof value !== "object" || !("type" in value)) {
+					transport.close();
+					return;
+				}
+				const request = value;
+				if (request.type === "resource-seal") {
+					transport.close();
+					return;
+				}
+				if (request.type !== "resource-attach") {
+					if (!attached || request.id !== attached.attachment.id || ![
+						"resource-target",
+						"resource-owner",
+						"resource-close",
+						"resource-release"
+					].includes(request.type)) {
+						transport.close();
+						return;
+					}
+					receive(request);
+					return;
+				}
+				const attachment = request.attachment;
+				if (sourceSealed || attached || !attachment || attachment.secret !== options.secret || attachment.generation !== options.generation || attachment.endpoint !== options.endpoint || !Number.isSafeInteger(attachment.id) || attachment.id <= 0 || typeof attachment.moduleUrl !== "string" || typeof attachment.ownerPort !== "boolean") {
+					transport.close();
+					return;
+				}
+				let resource = resources.get(attachment.id);
+				const fresh = resource === void 0;
+				if (resource) {
+					if (resource.socket || resource.attachment.moduleUrl !== attachment.moduleUrl || resource.attachment.ownerPort !== attachment.ownerPort || !isDeepStrictEqual(resource.attachment.input, attachment.input)) {
+						transport.close();
+						return;
+					}
+				} else {
+					if (!options.canAdmit()) {
+						transport.send({
+							type: "resource-failed",
+							id: attachment.id,
+							error: encodeNativeWorkerFailure(/* @__PURE__ */ new Error("Spawn broker request capacity exceeded"))
+						}).finally(() => transport.close()).catch(() => {});
+						return;
+					}
+					const current = {
+						attachment,
+						target: new BrokerResourcePort((message) => {
+							publishSocket(current, {
+								type: "resource-target",
+								id: attachment.id,
+								value: message
+							});
+						}),
+						initialized: Promise.resolve(),
+						created: false,
+						targetSealed: false,
+						closing: false,
+						closeObservers: {},
+						closed: false,
+						sequence: 0,
+						ownerSequence: 0,
+						ownerMessages: /* @__PURE__ */ new Map(),
+						ownerFailures: /* @__PURE__ */ new Map()
+					};
+					if (attachment.ownerPort) current.ownerPort = new BrokerResourcePort((message) => {
+						publish(current, {
+							type: "resource-owner",
+							id: attachment.id,
+							sequence: ++current.sequence,
+							value: message
+						});
+					});
+					resource = current;
+					resources.set(attachment.id, current);
+				}
+				attached = resource;
+				resource.socket = transport;
+				socket.setTimeout(0);
+				const ready = {
+					type: "resource-ready",
+					id: attachment.id,
+					pid: process.pid,
+					generation: options.generation
+				};
+				const readySent = transport.send(ready);
+				publishParent(ready);
+				if (resource.created) readySent.then(() => transport.send({
+					type: "resource-created",
+					id: attachment.id
+				})).catch(() => transport.close());
+				else if (fresh) {
+					const current = resource;
+					current.initialized = (async () => {
+						await readySent;
+						if (!live() || sourceSealed) return;
+						const module = await import(attachment.moduleUrl);
+						if (!live() || sourceSealed) return;
+						current.owner = module.createNativeWorkerResource(current.target, attachment.input, current.ownerPort);
+						current.created = true;
+						publish(current, {
+							type: "resource-created",
+							id: attachment.id
+						});
+					})().catch((error) => {
+						current.initializationFailure = encodeNativeWorkerFailure(error);
+						failed(current, error);
+					});
+				} else {
+					const current = resource;
+					readySent.then(async () => {
+						await current.initialized;
+						if (current.initializationFailure) await transport.send({
+							type: "resource-failed",
+							id: attachment.id,
+							error: current.initializationFailure
+						});
+					}).catch(() => transport.close());
+				}
+			},
+			close() {
+				connections.delete(transport);
+				if (attached?.socket === transport) {
+					attached.socket = void 0;
+					attached.targetSealed = true;
+					seal(attached, [attached.target]);
+				}
+			}
+		});
+		connections.add(transport);
+		socket.setTimeout(SPAWN_BROKER_STARTUP_TIMEOUT_MS, () => transport.close());
+		if (!live()) transport.close();
+	});
+	server.maxConnections = 256;
+	function disconnect() {
+		if (!available) return;
+		available = false;
+		server.close();
+		for (const connection of connections) connection.close();
+		for (const resource of resources.values()) seal(resource, [resource.target, resource.ownerPort]);
+	}
+	await new Promise((resolve, reject) => {
+		server.once("error", reject);
+		server.listen(options.endpoint, () => {
+			server.off("error", reject);
+			server.on("error", disconnect);
+			resolve();
+		});
+	});
+	return {
+		receive,
+		disconnect,
+		get size() {
+			return resources.size;
 		}
 	};
 }
@@ -914,6 +1601,8 @@ const owned = /* @__PURE__ */ new Map();
 const receiver = createBrokerReceiver();
 let stopping = false;
 const starting = /* @__PURE__ */ new Map();
+let resources;
+let startup = "waiting";
 const sender = createWorkerSender((message, handle, callback) => {
 	if (!process.send || !process.connected) {
 		callback(/* @__PURE__ */ new Error("Spawn broker parent disconnected"));
@@ -933,6 +1622,7 @@ function forget(id, entry) {
 function shutdown() {
 	if (stopping) return;
 	stopping = true;
+	resources?.disconnect();
 	sender.close(/* @__PURE__ */ new Error("Spawn broker parent disconnected"));
 	receiver.clear();
 	const terminations = [];
@@ -954,7 +1644,7 @@ function shutdown() {
 		process.exit(0);
 	};
 	signalGroup("SIGTERM");
-	if (owned.size === 0 && starting.size === 0 && hasLiveOwnedProcessGroupMembers() === false) {
+	if (owned.size === 0 && starting.size === 0 && !resources?.size && hasLiveOwnedProcessGroupMembers() === false) {
 		finish();
 		return;
 	}
@@ -968,7 +1658,7 @@ function disposeFailedChild(child) {
 	for (const stream of child.stdio ?? []) stream?.destroy();
 }
 async function launch(message) {
-	if (stopping || owned.size + starting.size >= 256) {
+	if (stopping || owned.size + starting.size + (resources?.size ?? 0) >= 256) {
 		const error = new SpawnBrokerError("Spawn broker request capacity exceeded");
 		await report({
 			type: "execa-result",
@@ -1007,7 +1697,7 @@ async function launch(message) {
 		const admission = await sender.reserve(async (publish) => {
 			assertActive();
 			const execa = message.type === "spawn-execa" ? await startBrokerExeca(message.argv, message.options, assertActive) : void 0;
-			const child = execa?.child ?? (message.type === "spawn" ? spawn(message.argv[0], message.argv.slice(1), message.options) : void 0);
+			const child = execa?.child ?? (message.type === "spawn" ? spawnWithInheritedOomScore(message.argv[0], message.argv.slice(1), message.options) : void 0);
 			spawnedChild = child;
 			if (!child) throw new Error("Spawn broker command did not start");
 			if (!execa) {
@@ -1194,6 +1884,15 @@ const onSupervisorSignal = () => {
 process.on("SIGTERM", onSupervisorSignal);
 process.on("SIGINT", onSupervisorSignal);
 process.on("message", (raw, handle) => {
+	if (startup === "waiting") {
+		startup = "initializing";
+		initialize(raw).catch(shutdown);
+		return;
+	}
+	if (startup !== "ready") {
+		shutdown();
+		return;
+	}
 	let decoded;
 	try {
 		decoded = receiver.receive(raw);
@@ -1213,6 +1912,10 @@ process.on("message", (raw, handle) => {
 	}
 	if (message.type === "spawn" || message.type === "spawn-execa") {
 		launch(message).catch(shutdown);
+		return;
+	}
+	if (message.type === "resource-seal" || message.type === "resource-target" || message.type === "resource-owner" || message.type === "resource-close" || message.type === "resource-release") {
+		resources?.receive(message);
 		return;
 	}
 	const entry = owned.get(message.id);
@@ -1252,9 +1955,29 @@ process.on("message", (raw, handle) => {
 		}
 	}
 });
-report({
-	type: "ready",
-	pid: process.pid
-}).catch(shutdown);
+async function initialize(raw) {
+	if (!isRecord(raw) || raw.type !== "bootstrap") throw new Error("Invalid spawn broker bootstrap");
+	if (stopping || !process.connected) return;
+	if (raw.nativeResource !== void 0) {
+		const authority = raw.nativeResource;
+		if (!isRecord(authority) || typeof authority.endpoint !== "string" || !authority.endpoint || typeof authority.secret !== "string" || !authority.secret || typeof authority.generation !== "number" || !Number.isSafeInteger(authority.generation) || authority.generation < 0) throw new Error("Invalid native resource bootstrap authority");
+		resources = await createBrokerNativeResourceServer({
+			endpoint: authority.endpoint,
+			secret: authority.secret,
+			generation: authority.generation,
+			reportParent: report,
+			canAdmit: () => !stopping && owned.size + starting.size + (resources?.size ?? 0) < 256
+		});
+		if (stopping) {
+			resources.disconnect();
+			return;
+		}
+	}
+	startup = "ready";
+	await report({
+		type: "ready",
+		pid: process.pid
+	});
+}
 //#endregion
 export {};

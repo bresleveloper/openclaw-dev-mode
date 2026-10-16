@@ -119,6 +119,7 @@ turn it into OpenClaw-native concept pages and compiled digests.
 - unknown `type` values are accepted as generic concepts
 - `index.md` and `log.md` are reserved and never imported as concepts
 - broken or external markdown links are left unchanged
+- links inside inline code, fenced code, and indented code blocks remain literal
 
 Imported pages flatten under `concepts/` so existing compile, search, get, and
 dashboard flows see them without a second wiki tree. Each page keeps the
@@ -222,6 +223,10 @@ vault or install file watchers.
 After rollback quarantine, a compile in the running process clears the owner
 immediately; a separate compiler process requires plugin lifecycle refresh so
 the daemon can confirm the new durable publication.
+When automatic compilation is enabled, source synchronization for status and
+wiki tools checks for a valid externally published cache before rebuilding a
+missing in-process snapshot. An unchanged vault reuses that publication;
+changed imports, missing indexes, or an invalid cache still require compilation.
 ChatGPT import rollback records post-import edits before compile and keeps
 their recovery paths in plugin state, so an interrupted rollback can reconcile
 the recovery directory and report the same preserved pages on retry. Target
@@ -425,11 +430,18 @@ normalized agent id:
 ```json5
 {
   agents: {
+    ownership: "explicit",
+    defaults: {
+      heartbeat: { agentId: "support" },
+      systemAgent: { agentId: "support" },
+      authInheritance: { agentId: "support" },
+    },
     entries: {
-      support: { default: true },
+      support: { workspace: "~/.openclaw/workspace" },
       marketing: {},
     },
   },
+  talk: { agentId: "support" },
   plugins: {
     entries: {
       "memory-wiki": {

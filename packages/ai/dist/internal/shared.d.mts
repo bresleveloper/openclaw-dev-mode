@@ -1,7 +1,7 @@
-import { D as Message, G as SimpleStreamOptions, O as Model, Q as ThinkingBudgets, Y as StreamOptions, a as AssistantMessage, et as ThinkingLevel, n as Api } from "../types-qZFbaDbK.mjs";
-import { a as readAssistantThinkingAppend } from "../event-stream-CjnIZZst.mjs";
-import "../types-DTvddOfm.mjs";
-import { t as sanitizeSurrogates } from "../sanitize-unicode-BZiVbGwK.mjs";
+import { O as Message, Q as SimpleStreamOptions, a as AssistantMessage, at as ThinkingBudgets, k as Model, n as Api, nt as StreamOptions, st as ThinkingLevel } from "../types-DvzmWW8J.mjs";
+import { a as readAssistantThinkingAppend } from "../event-stream-DrRM_90c.mjs";
+import "../types-UlNana-2.mjs";
+import { t as sanitizeSurrogates } from "../sanitize-unicode-CjDG6jJx.mjs";
 import { i as projectProviderError } from "../provider-error-xumb1V3F.mjs";
 import { n as createDiagnosticRecord } from "../credential-redaction-BKv49aiv.mjs";
 import { n as normalizeStructuredPromptSection, r as sortPromptCacheToolsByName, t as normalizePromptCapabilityIds } from "../prompt-cache-stability-Cwcjv_fx.mjs";
@@ -21,15 +21,6 @@ export declare function adjustMaxTokensForThinking(baseMaxTokens: number | undef
 };
 //#endregion
 //#region packages/ai/src/providers/tool-result-text.d.ts
-/** Media metadata alone is not an attachment; provider emitters need inline bytes. */
-export declare function hasMediaPayload(block: unknown): block is Record<string, unknown> & {
-  data: string;
-};
-/** Image metadata alone is not an attachment; provider emitters need inline bytes. */
-export declare function isImageWithMediaPayload<T>(block: T): block is T & {
-  type: "image";
-  data: string;
-};
 export declare function describeToolResultMediaPlaceholder(blocks: readonly unknown[]): string | undefined;
 export declare function extractToolResultBlockText(block: unknown): string | undefined;
 export declare function extractToolResultText(blocks: readonly unknown[], options?: {
@@ -47,6 +38,17 @@ export declare function formatToolResultText(params: {
   omittedMediaPlaceholder?: string;
   isError: boolean;
 }): string;
+//#endregion
+//#region packages/ai/src/media-payload.d.ts
+/** Media metadata alone is not an attachment; provider emitters need inline bytes. */
+export declare function hasMediaPayload(block: unknown): block is Record<string, unknown> & {
+  data: string;
+};
+/** Image metadata alone is not an attachment; provider emitters need inline bytes. */
+export declare function isImageWithMediaPayload<T>(block: T): block is T & {
+  type: "image";
+  data: string;
+};
 //#endregion
 //#region packages/ai/src/transcript-transform.d.ts
 export declare function transformMessages<TApi extends Api>(messages: Message[], model: Model<TApi>, normalizeToolCallId?: (id: string, model: Model<TApi>, source: AssistantMessage) => string): Message[];
@@ -108,6 +110,8 @@ export declare function inspectTlsCertificateError(error: unknown): TlsCertifica
 export declare function projectCopilotRequestFacts(messages: readonly {
   role: string;
   content: unknown;
+  runtimeContext?: unknown;
+  runtimeContextCarrier?: unknown;
 }[], contentMode: "direct" | "nested", hasImages?: boolean): {
   initiator: "user" | "agent";
   hasImages: boolean;

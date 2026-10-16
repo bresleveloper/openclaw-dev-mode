@@ -1,26 +1,29 @@
 import { a as __require, o as __toCommonJS, s as __toESM, t as __commonJSMin } from "../../rolldown-runtime-Dr7-SnC6.mjs";
-import { t as asNonArrayRecord } from "../../record-coerce-DItp3I4t.mjs";
+import { a as asOptionalRecord } from "../../record-coerce-TIsquoVR.mjs";
+import { n as filterStringEntries } from "../../string-normalization-CECOqf64.mjs";
 import { r as truncateUtf16Safe } from "../../utf16-slice-D_ngcYKd.mjs";
-import { t as formatErrorMessage } from "../../errors-DnjwnOju.mjs";
-import { t as require_ipaddr } from "../../ipaddr-DW0YfeGv.mjs";
+import { t as formatErrorMessage } from "../../errors-O33D01XW.mjs";
 import { t as truncateUtf8Prefix } from "../../utf8-truncate-_hf7tp13.mjs";
-import { c as meetsIdentifierAuthentication } from "../../runtime-BE9Vuw6Z.mjs";
-import "../../error-runtime-Bf1fYXFh.mjs";
-import "../../string-coerce-runtime-C_MKhRVt.mjs";
-import "../../text-utility-runtime-D7I29NA0.mjs";
+import { x as require_ipaddr } from "../../ip-jvtZlu_y.mjs";
+import { c as meetsIdentifierAuthentication } from "../../runtime-DxH1m116.mjs";
+import "../../error-runtime-BmospGvZ.mjs";
+import "../../string-coerce-runtime-50qKeWeL.mjs";
+import "../../security-runtime-CpTHQYW2.mjs";
+import { t as safeEqualSecret } from "../../secret-equal-DRsL8lKD.mjs";
+import "../../text-utility-runtime-BDs7x8Fk.mjs";
 import { t as require_punycode } from "../../punycode-Dq0oGAUU.mjs";
-import { t as definePluginEntry } from "../../plugin-entry-BOulgRcx.mjs";
-import "../../channel-ingress-runtime-DJmv78Aj.mjs";
+import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
+import "../../channel-ingress-runtime-BLOEnESE.mjs";
 import { i as require_build$1, o as init_tslib_es6, r as require_bytes, s as tslib_es6_exports, t as require_encoding } from "../../encoding-sPH5iPPy.mjs";
 import net from "node:net";
-import { PassThrough, Transform } from "node:stream";
-import crypto, { createHash, timingSafeEqual } from "node:crypto";
+import crypto, { createHash } from "node:crypto";
 import { EventEmitter } from "node:events";
+import { PassThrough, Transform } from "node:stream";
 import zlib from "node:zlib";
-import iconv from "iconv-lite";
-import tls from "node:tls";
 import dns from "node:dns";
 import { Resolver } from "node:dns/promises";
+import tls from "node:tls";
+import iconv from "iconv-lite";
 //#region extensions/imap/src/config.ts
 const SENDER_STRENGTHS = [
 	"mutable",
@@ -28,27 +31,24 @@ const SENDER_STRENGTHS = [
 	"asserted",
 	"verified"
 ];
-function stringList(value) {
-	return Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
-}
 function resolveImapConfig(value, onUnavailableAccount) {
-	const configured = asNonArrayRecord(asNonArrayRecord(value)?.accounts);
+	const configured = asOptionalRecord(asOptionalRecord(value)?.accounts);
 	const accounts = {};
 	for (const [accountId, input] of Object.entries(configured ?? {})) {
 		if (!/^[A-Za-z0-9][A-Za-z0-9_-]*$/u.test(accountId)) throw new Error(`IMAP account id ${JSON.stringify(accountId)} is not session-safe`);
-		const account = asNonArrayRecord(input);
+		const account = asOptionalRecord(input);
 		if (!account) throw new Error(`IMAP account ${accountId} must be an object`);
 		const { host, user, password, agentId } = account;
 		if (typeof host !== "string" || typeof user !== "string" || typeof agentId !== "string") throw new Error(`IMAP account ${accountId} requires host, user, resolved password, and agentId`);
 		if (typeof password !== "string") {
-			if (asNonArrayRecord(password)) {
+			if (asOptionalRecord(password)) {
 				onUnavailableAccount?.(accountId);
 				continue;
 			}
 			throw new Error(`IMAP account ${accountId} requires a resolved password`);
 		}
-		const watch = asNonArrayRecord(account.watch);
-		const senderAuth = asNonArrayRecord(account.senderAuth);
+		const watch = asOptionalRecord(account.watch);
+		const senderAuth = asOptionalRecord(account.senderAuth);
 		const mode = watch?.mode;
 		const min = senderAuth?.min;
 		const thinking = [
@@ -74,17 +74,17 @@ function resolveImapConfig(value, onUnavailableAccount) {
 				mode: mode === "idle" || mode === "interval" ? mode : "auto",
 				pollSeconds: Math.max(15, typeof watch?.pollSeconds === "number" ? watch.pollSeconds : 60)
 			},
-			allowedSenders: stringList(account.allowedSenders),
+			allowedSenders: filterStringEntries(account.allowedSenders),
 			senderAuth: {
 				min: SENDER_STRENGTHS.find((strength) => strength === min) ?? "verified",
-				trustedAuthservIds: stringList(senderAuth?.trustedAuthservIds),
+				trustedAuthservIds: filterStringEntries(senderAuth?.trustedAuthservIds),
 				acceptTrustedAuthservId: senderAuth?.acceptTrustedAuthservId === true
 			},
 			addressTokens: Array.isArray(account.addressTokens) ? account.addressTokens.flatMap((entry) => {
-				const tokenEntry = asNonArrayRecord(entry);
+				const tokenEntry = asOptionalRecord(entry);
 				return typeof tokenEntry?.token === "string" ? [{
 					token: tokenEntry.token,
-					senders: stringList(tokenEntry.senders)
+					senders: filterStringEntries(tokenEntry.senders)
 				}] : [];
 			}) : [],
 			deliver: account.deliver === true,
@@ -168,7 +168,7 @@ async function recordImapAttempt(state, messageKey, reason) {
 	return count;
 }
 //#endregion
-//#region node_modules/.pnpm/encoding-japanese@2.3.0/node_modules/encoding-japanese/src/util.js
+//#region node_modules/.pnpm/encoding-japanese@2.4.0/node_modules/encoding-japanese/src/util.js
 var require_util$3 = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var config = require_config$1();
 	var fromCharCode = String.fromCharCode;
@@ -570,10 +570,11 @@ var require_util$3 = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.base64decode = base64decode;
 }));
 //#endregion
-//#region node_modules/.pnpm/encoding-japanese@2.3.0/node_modules/encoding-japanese/src/utf8-to-jis-table.js
+//#region node_modules/.pnpm/encoding-japanese@2.4.0/node_modules/encoding-japanese/src/utf8-to-jis-table.js
 var require_utf8_to_jis_table$1 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	/**
 	* Encoding conversion table for UTF-8 to JIS
+	* { UTF-8 : JIS }
 	*/
 	module.exports = {
 		15711649: 33,
@@ -7966,15 +7967,37 @@ var require_utf8_to_jis_table$1 = /* @__PURE__ */ __commonJSMin(((exports, modul
 		15711367: 31869,
 		15711362: 31870,
 		14846117: 8514,
-		15712162: 8780,
-		14846098: 74077
+		15712162: 8780
 	};
 }));
 //#endregion
-//#region node_modules/.pnpm/encoding-japanese@2.3.0/node_modules/encoding-japanese/src/utf8-to-jisx0212-table.js
+//#region node_modules/.pnpm/encoding-japanese@2.4.0/node_modules/encoding-japanese/src/utf8-to-jis-alias-table.js
+var require_utf8_to_jis_alias_table = /* @__PURE__ */ __commonJSMin(((exports, module) => {
+	/**
+	* Encoding conversion table for UTF-8 to JIS (encode only)
+	*
+	* Accepts Unicode characters that differ between CP932 and JIS X 0208 mappings
+	* (e.g., WAVE DASH vs. FULLWIDTH TILDE).
+	*
+	* { UTF-8 : JIS }
+	*/
+	module.exports = {
+		14846098: 8541,
+		14909596: 8513,
+		49826: 8561,
+		49827: 8562
+	};
+}));
+//#endregion
+//#region node_modules/.pnpm/encoding-japanese@2.4.0/node_modules/encoding-japanese/src/utf8-to-jisx0212-table.js
 var require_utf8_to_jisx0212_table$1 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	/**
 	* Encoding conversion table for UTF-8 to JIS X 0212:1990 (Hojo-Kanji)
+	*
+	* Character mappings based on:
+	* https://www.unicode.org/Public/MAPPINGS/OBSOLETE/EASTASIA/JIS/JIS0212.TXT
+	* Keys have been converted to UTF-8
+	* { UTF-8 : JIS }
 	*/
 	module.exports = {
 		52120: 8751,
@@ -14043,30 +14066,30 @@ var require_utf8_to_jisx0212_table$1 = /* @__PURE__ */ __commonJSMin(((exports, 
 		15318689: 28e3,
 		15318690: 28001,
 		15318691: 28002,
-		15318693: 28003,
-		14909596: 8513
+		15318693: 28003
 	};
 }));
 //#endregion
-//#region node_modules/.pnpm/encoding-japanese@2.3.0/node_modules/encoding-japanese/src/jis-to-utf8-table.js
+//#region node_modules/.pnpm/encoding-japanese@2.4.0/node_modules/encoding-japanese/src/jis-to-utf8-table.js
 var require_jis_to_utf8_table$1 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	module.exports = null;
 }));
 //#endregion
-//#region node_modules/.pnpm/encoding-japanese@2.3.0/node_modules/encoding-japanese/src/jisx0212-to-utf8-table.js
+//#region node_modules/.pnpm/encoding-japanese@2.4.0/node_modules/encoding-japanese/src/jisx0212-to-utf8-table.js
 var require_jisx0212_to_utf8_table$1 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	module.exports = null;
 }));
 //#endregion
-//#region node_modules/.pnpm/encoding-japanese@2.3.0/node_modules/encoding-japanese/src/encoding-table.js
+//#region node_modules/.pnpm/encoding-japanese@2.4.0/node_modules/encoding-japanese/src/encoding-table.js
 var require_encoding_table$1 = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.UTF8_TO_JIS_TABLE = require_utf8_to_jis_table$1();
+	exports.UTF8_TO_JIS_ALIAS_TABLE = require_utf8_to_jis_alias_table();
 	exports.UTF8_TO_JISX0212_TABLE = require_utf8_to_jisx0212_table$1();
 	exports.JIS_TO_UTF8_TABLE = require_jis_to_utf8_table$1();
 	exports.JISX0212_TO_UTF8_TABLE = require_jisx0212_to_utf8_table$1();
 }));
 //#endregion
-//#region node_modules/.pnpm/encoding-japanese@2.3.0/node_modules/encoding-japanese/src/config.js
+//#region node_modules/.pnpm/encoding-japanese@2.4.0/node_modules/encoding-japanese/src/config.js
 var require_config$1 = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var util = require_util$3();
 	var EncodingTable = require_encoding_table$1();
@@ -14158,7 +14181,7 @@ var require_config$1 = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.init_JIS_TO_UTF8_TABLE = init_JIS_TO_UTF8_TABLE;
 }));
 //#endregion
-//#region node_modules/.pnpm/encoding-japanese@2.3.0/node_modules/encoding-japanese/src/encoding-detect.js
+//#region node_modules/.pnpm/encoding-japanese@2.4.0/node_modules/encoding-japanese/src/encoding-detect.js
 var require_encoding_detect$1 = /* @__PURE__ */ __commonJSMin(((exports) => {
 	/**
 	* Binary (exe, images and so, etc.)
@@ -14451,7 +14474,7 @@ var require_encoding_detect$1 = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.isUNICODE = isUNICODE;
 }));
 //#endregion
-//#region node_modules/.pnpm/encoding-japanese@2.3.0/node_modules/encoding-japanese/src/sjis-ext.js
+//#region node_modules/.pnpm/encoding-japanese@2.4.0/node_modules/encoding-japanese/src/sjis-ext.js
 var require_sjis_ext = /* @__PURE__ */ __commonJSMin(((exports) => {
 	/**
 	* Remapping CP932 (Windows-31J) IBM extended characters (0xFA40 - 0xFC4B)
@@ -14542,7 +14565,7 @@ var require_sjis_ext = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.hasCP932DuplicateCode = hasCP932DuplicateCode;
 }));
 //#endregion
-//#region node_modules/.pnpm/encoding-japanese@2.3.0/node_modules/encoding-japanese/src/encoding-convert.js
+//#region node_modules/.pnpm/encoding-japanese@2.4.0/node_modules/encoding-japanese/src/encoding-convert.js
 var require_encoding_convert$1 = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var config = require_config$1();
 	var util = require_util$3();
@@ -14658,13 +14681,23 @@ var require_encoding_convert$1 = /* @__PURE__ */ __commonJSMin(((exports) => {
 				}
 				results[results.length] = b1 - 128 & 255;
 			} else if (b1 >= 128) {
+				b2 = data[++i];
+				if (b2 === 127) {
+					if (index !== 0) {
+						index = 0;
+						results[results.length] = esc[0];
+						results[results.length] = esc[1];
+						results[results.length] = esc[2];
+					}
+					results[results.length] = config.FALLBACK_CHARACTER;
+					continue;
+				}
 				if (index !== 1) {
 					index = 1;
 					results[results.length] = esc[3];
 					results[results.length] = esc[4];
 					results[results.length] = esc[5];
 				}
-				b2 = data[++i];
 				if (sjisExt.hasCP932DuplicateCode(b1)) {
 					remapped = sjisExt.remapCP932DuplicateCode(b1, b2);
 					b1 = remapped >> 8;
@@ -14716,6 +14749,10 @@ var require_encoding_convert$1 = /* @__PURE__ */ __commonJSMin(((exports) => {
 				results[results.length] = b1;
 			} else if (b1 >= 129) {
 				b2 = data[++i];
+				if (b2 === 127) {
+					results[results.length] = config.FALLBACK_CHARACTER;
+					continue;
+				}
 				if (sjisExt.hasCP932DuplicateCode(b1)) {
 					remapped = sjisExt.remapCP932DuplicateCode(b1, b2);
 					b1 = remapped >> 8;
@@ -14865,6 +14902,10 @@ var require_encoding_convert$1 = /* @__PURE__ */ __commonJSMin(((exports) => {
 				results[results.length] = u3 & 255;
 			} else if (b >= 128) {
 				b2 = data[++i];
+				if (b2 === 127) {
+					results[results.length] = config.FALLBACK_CHARACTER;
+					continue;
+				}
 				if (sjisExt.hasCP932DuplicateCode(b)) {
 					remapped = sjisExt.remapCP932DuplicateCode(b, b2);
 					b = remapped >> 8;
@@ -15035,13 +15076,12 @@ var require_encoding_convert$1 = /* @__PURE__ */ __commonJSMin(((exports) => {
 					];
 					utf8 = (b << 24) + (data[++i] << 16) + (data[++i] << 8) + (data[++i] & 255);
 				}
-				jis = EncodingTable.UTF8_TO_JIS_TABLE[utf8];
+				jis = EncodingTable.UTF8_TO_JIS_TABLE[utf8] || EncodingTable.UTF8_TO_JIS_ALIAS_TABLE[utf8];
 				if (jis == null) {
 					if (fallbackOption) handleFallback(results, bytes, fallbackOption);
 					else results[results.length] = config.FALLBACK_CHARACTER;
 				} else if (jis < 255) results[results.length] = jis + 128;
 				else {
-					if (jis > 65536) jis -= 65536;
 					b1 = jis >> 8;
 					b2 = jis & 255;
 					if (b1 & 1) {
@@ -15071,7 +15111,7 @@ var require_encoding_convert$1 = /* @__PURE__ */ __commonJSMin(((exports) => {
 		var results = [];
 		var i = 0;
 		var len = data && data.length;
-		var b, bytes, utf8, jis;
+		var b, bytes, utf8, jis, isJISX0212;
 		var fallbackOption = options && options.fallback;
 		for (; i < len; i++) {
 			b = data[i];
@@ -15095,27 +15135,19 @@ var require_encoding_convert$1 = /* @__PURE__ */ __commonJSMin(((exports) => {
 					];
 					utf8 = (b << 24) + (data[++i] << 16) + (data[++i] << 8) + (data[++i] & 255);
 				}
-				jis = EncodingTable.UTF8_TO_JIS_TABLE[utf8];
-				if (jis != null && EncodingTable.UTF8_TO_JISX0212_TABLE[utf8] != null) jis = null;
+				jis = EncodingTable.UTF8_TO_JISX0212_TABLE[utf8];
+				isJISX0212 = jis != null;
+				if (jis == null) jis = EncodingTable.UTF8_TO_JIS_TABLE[utf8] || EncodingTable.UTF8_TO_JIS_ALIAS_TABLE[utf8];
 				if (jis == null) {
-					jis = EncodingTable.UTF8_TO_JISX0212_TABLE[utf8];
-					if (jis == null) {
-						if (fallbackOption) handleFallback(results, bytes, fallbackOption);
-						else results[results.length] = config.FALLBACK_CHARACTER;
-					} else {
-						results[results.length] = 143;
-						results[results.length] = (jis >> 8) - 128 & 255;
-						results[results.length] = (jis & 255) - 128 & 255;
-					}
+					if (fallbackOption) handleFallback(results, bytes, fallbackOption);
+					else results[results.length] = config.FALLBACK_CHARACTER;
+				} else if (jis < 255) {
+					results[results.length] = 142;
+					results[results.length] = jis - 128 & 255;
 				} else {
-					if (jis > 65536) jis -= 65536;
-					if (jis < 255) {
-						results[results.length] = 142;
-						results[results.length] = jis - 128 & 255;
-					} else {
-						results[results.length] = (jis >> 8) - 128 & 255;
-						results[results.length] = (jis & 255) - 128 & 255;
-					}
+					if (isJISX0212) results[results.length] = 143;
+					results[results.length] = (jis >> 8) - 128 & 255;
+					results[results.length] = (jis & 255) - 128 & 255;
 				}
 			} else results[results.length] = data[i] & 255;
 		}
@@ -15130,7 +15162,7 @@ var require_encoding_convert$1 = /* @__PURE__ */ __commonJSMin(((exports) => {
 		var index = 0;
 		var len = data && data.length;
 		var i = 0;
-		var b, bytes, utf8, jis;
+		var b, bytes, utf8, jis, isJISX0212;
 		var fallbackOption = options && options.fallback;
 		var esc = [
 			27,
@@ -15177,20 +15209,28 @@ var require_encoding_convert$1 = /* @__PURE__ */ __commonJSMin(((exports) => {
 					];
 					utf8 = (b << 24) + (data[++i] << 16) + (data[++i] << 8) + (data[++i] & 255);
 				}
-				jis = EncodingTable.UTF8_TO_JIS_TABLE[utf8];
-				if (jis != null && EncodingTable.UTF8_TO_JISX0212_TABLE[utf8] != null) jis = null;
+				jis = EncodingTable.UTF8_TO_JISX0212_TABLE[utf8];
+				isJISX0212 = jis != null;
+				if (jis == null) jis = EncodingTable.UTF8_TO_JIS_TABLE[utf8] || EncodingTable.UTF8_TO_JIS_ALIAS_TABLE[utf8];
 				if (jis == null) {
-					jis = EncodingTable.UTF8_TO_JISX0212_TABLE[utf8];
-					if (jis == null) {
-						if (index !== 0) {
-							index = 0;
-							results[results.length] = esc[0];
-							results[results.length] = esc[1];
-							results[results.length] = esc[2];
-						}
-						if (fallbackOption) handleFallback(results, bytes, fallbackOption);
-						else results[results.length] = config.FALLBACK_CHARACTER;
-					} else {
+					if (index !== 0) {
+						index = 0;
+						results[results.length] = esc[0];
+						results[results.length] = esc[1];
+						results[results.length] = esc[2];
+					}
+					if (fallbackOption) handleFallback(results, bytes, fallbackOption);
+					else results[results.length] = config.FALLBACK_CHARACTER;
+				} else if (jis < 255) {
+					if (index !== 2) {
+						index = 2;
+						results[results.length] = esc[6];
+						results[results.length] = esc[7];
+						results[results.length] = esc[8];
+					}
+					results[results.length] = jis & 255;
+				} else {
+					if (isJISX0212) {
 						if (index !== 3) {
 							index = 3;
 							results[results.length] = esc[9];
@@ -15198,29 +15238,14 @@ var require_encoding_convert$1 = /* @__PURE__ */ __commonJSMin(((exports) => {
 							results[results.length] = esc[11];
 							results[results.length] = esc[12];
 						}
-						results[results.length] = jis >> 8 & 255;
-						results[results.length] = jis & 255;
+					} else if (index !== 1) {
+						index = 1;
+						results[results.length] = esc[3];
+						results[results.length] = esc[4];
+						results[results.length] = esc[5];
 					}
-				} else {
-					if (jis > 65536) jis -= 65536;
-					if (jis < 255) {
-						if (index !== 2) {
-							index = 2;
-							results[results.length] = esc[6];
-							results[results.length] = esc[7];
-							results[results.length] = esc[8];
-						}
-						results[results.length] = jis & 255;
-					} else {
-						if (index !== 1) {
-							index = 1;
-							results[results.length] = esc[3];
-							results[results.length] = esc[4];
-							results[results.length] = esc[5];
-						}
-						results[results.length] = jis >> 8 & 255;
-						results[results.length] = jis & 255;
-					}
+					results[results.length] = jis >> 8 & 255;
+					results[results.length] = jis & 255;
 				}
 			}
 		}
@@ -15275,7 +15300,7 @@ var require_encoding_convert$1 = /* @__PURE__ */ __commonJSMin(((exports) => {
 		var i = 0;
 		var len = data && data.length;
 		var n, c, c2, c3, c4, code;
-		var ignoreSurrogatePair = options && options.ignoreSurrogatePair;
+		var asCodePoint = options && options.asCodePoint;
 		while (i < len) {
 			c = data[i++];
 			n = c >> 4;
@@ -15293,7 +15318,7 @@ var require_encoding_convert$1 = /* @__PURE__ */ __commonJSMin(((exports) => {
 				c4 = data[i++];
 				code = (c & 7) << 18 | (c2 & 63) << 12 | (c3 & 63) << 6 | c4 & 63;
 			}
-			if (code <= 65535 || ignoreSurrogatePair) results[results.length] = code;
+			if (code <= 65535 || asCodePoint) results[results.length] = code;
 			else {
 				code -= 65536;
 				results[results.length] = (code >> 10) + 55296;
@@ -15849,7 +15874,7 @@ var require_encoding_convert$1 = /* @__PURE__ */ __commonJSMin(((exports) => {
 		switch (fallbackOption) {
 			case "html-entity":
 			case "html-entity-hex":
-				var unicode = UTF8ToUNICODE(bytes, { ignoreSurrogatePair: true })[0];
+				var unicode = UTF8ToUNICODE(bytes, { asCodePoint: true })[0];
 				if (unicode) {
 					results[results.length] = 38;
 					results[results.length] = 35;
@@ -15865,7 +15890,7 @@ var require_encoding_convert$1 = /* @__PURE__ */ __commonJSMin(((exports) => {
 	}
 }));
 //#endregion
-//#region node_modules/.pnpm/encoding-japanese@2.3.0/node_modules/encoding-japanese/src/kana-case-table.js
+//#region node_modules/.pnpm/encoding-japanese@2.4.0/node_modules/encoding-japanese/src/kana-case-table.js
 var require_kana_case_table$1 = /* @__PURE__ */ __commonJSMin(((exports) => {
 	/**
 	* Katakana table
@@ -16011,23 +16036,27 @@ var require_kana_case_table$1 = /* @__PURE__ */ __commonJSMin(((exports) => {
 	];
 }));
 //#endregion
-//#region node_modules/.pnpm/encoding-japanese@2.3.0/node_modules/encoding-japanese/package.json
+//#region node_modules/.pnpm/encoding-japanese@2.4.0/node_modules/encoding-japanese/package.json
 var require_package$4 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	module.exports = {
 		"name": "encoding-japanese",
-		"version": "2.3.0",
-		"description": "Convert and detect character encoding in JavaScript",
+		"version": "2.4.0",
+		"description": "Convert and detect character encodings in JavaScript",
 		"main": "src/index.js",
+		"types": "index.d.ts",
 		"files": [
 			"encoding.js",
 			"encoding.min.js",
+			"index.d.ts",
 			"src/*"
 		],
 		"scripts": {
 			"build": "npm run compile && npm run minify",
 			"compile": "browserify src/index.js -o encoding.js -s Encoding -p [ bannerify --file src/banner.js ] --no-bundle-external --bare",
 			"minify": "uglifyjs encoding.js -o encoding.min.js --comments -c -m -b ascii_only=true,beautify=false",
-			"test": "eslint . && npm run build && mocha tests/test",
+			"lint": "eslint .",
+			"test": "npm run build && npm run test:types && mocha tests/test",
+			"test:types": "tsc --project tsconfig.types.json",
 			"watch": "watchify src/index.js -o encoding.js -s Encoding -p [ bannerify --file src/banner.js ] --no-bundle-external --bare --poll=300 -v"
 		},
 		"engines": { "node": ">=18.0.0" },
@@ -16040,33 +16069,38 @@ var require_package$4 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 		"bugs": { "url": "https://github.com/polygonplanet/encoding.js/issues" },
 		"homepage": "https://github.com/polygonplanet/encoding.js",
 		"keywords": [
-			"base64",
+			"encoding",
 			"charset",
 			"convert",
 			"detect",
-			"encoding",
-			"euc-jp",
-			"eucjp",
-			"iconv",
-			"iso-2022-jp",
 			"japanese",
+			"iconv",
+			"shift-jis",
+			"cp932",
+			"euc-jp",
 			"jis",
+			"utf-8",
+			"unicode",
+			"utf-16",
+			"base64",
+			"urlencode",
+			"urldecode",
+			"utf8",
 			"shift_jis",
 			"sjis",
-			"unicode",
-			"urldecode",
-			"urlencode",
-			"utf-16",
-			"utf-32",
-			"utf-8"
+			"eucjp"
 		],
-		"dependencies": {},
 		"devDependencies": {
+			"@eslint/js": "^10.0.1",
+			"@stylistic/eslint-plugin": "^5.10.0",
+			"@types/node": "^26.5.0",
 			"bannerify": "^1.0.1",
 			"browserify": "^17.0.1",
-			"eslint": "^8.57.0",
+			"eslint": "^10.9.1",
+			"globals": "^17.12.0",
 			"mocha": "^11.8.0",
 			"package-json-versionify": "^1.0.4",
+			"typescript": "^7.0.2",
 			"uglify-js": "^3.19.3",
 			"watchify": "^4.0.0"
 		},
@@ -16074,7 +16108,7 @@ var require_package$4 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	};
 }));
 //#endregion
-//#region node_modules/.pnpm/encoding-japanese@2.3.0/node_modules/encoding-japanese/src/index.js
+//#region node_modules/.pnpm/encoding-japanese@2.4.0/node_modules/encoding-japanese/src/index.js
 var require_src$1 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	var config = require_config$1();
 	var util = require_util$3();
@@ -16447,7 +16481,7 @@ var require_src$1 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 			var len = data && data.length;
 			var i = 0;
 			var c, code, next;
-			for (i = 0; i < len; i++) {
+			for (; i < len; i++) {
 				c = data[i];
 				if (c > 65376 && c < 65440) {
 					code = KanaCaseTable.ZENKANA_TABLE[c - 65377];
@@ -16522,7 +16556,7 @@ var require_src$1 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	module.exports = Encoding;
 }));
 //#endregion
-//#region node_modules/.pnpm/libmime@5.4.3/node_modules/libmime/lib/charsets.js
+//#region node_modules/.pnpm/libmime@5.4.4/node_modules/libmime/lib/charsets.js
 var require_charsets$1 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	module.exports = {
 		"866": "IBM866",
@@ -16734,7 +16768,7 @@ var require_charsets$1 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	};
 }));
 //#endregion
-//#region node_modules/.pnpm/libmime@5.4.3/node_modules/libmime/lib/charset.js
+//#region node_modules/.pnpm/libmime@5.4.4/node_modules/libmime/lib/charset.js
 var require_charset$1 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const { Buffer: Buffer$17 } = __require("node:buffer");
 	const iconv$3 = __require("iconv-lite");
@@ -17199,7 +17233,7 @@ var require_libqp = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	};
 }));
 //#endregion
-//#region node_modules/.pnpm/libmime@5.4.3/node_modules/libmime/lib/mimetypes.js
+//#region node_modules/.pnpm/libmime@5.4.4/node_modules/libmime/lib/mimetypes.js
 var require_mimetypes$1 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	module.exports = {
 		list: {
@@ -19689,7 +19723,7 @@ var require_mimetypes$1 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	};
 }));
 //#endregion
-//#region node_modules/.pnpm/libmime@5.4.3/node_modules/libmime/lib/libmime.js
+//#region node_modules/.pnpm/libmime@5.4.4/node_modules/libmime/lib/libmime.js
 var require_libmime$1 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const { Buffer: Buffer$14 } = __require("node:buffer");
 	const libcharset = require_charset$1();
@@ -20302,7 +20336,7 @@ var require_libmime$1 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	module.exports.Libmime = Libmime;
 }));
 //#endregion
-//#region node_modules/.pnpm/@zone-eu+mailsplit@5.4.16/node_modules/@zone-eu/mailsplit/lib/headers.js
+//#region node_modules/.pnpm/@zone-eu+mailsplit@5.4.17/node_modules/@zone-eu/mailsplit/lib/headers.js
 var require_headers = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	/** @typedef {import('..').HeaderLine} HeaderLine */
 	/** @typedef {import('..').LibmimeOptions} LibmimeOptions */
@@ -20606,7 +20640,7 @@ var require_headers = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	module.exports = Headers;
 }));
 //#endregion
-//#region node_modules/.pnpm/@zone-eu+mailsplit@5.4.16/node_modules/@zone-eu/mailsplit/lib/mime-node.js
+//#region node_modules/.pnpm/@zone-eu+mailsplit@5.4.17/node_modules/@zone-eu/mailsplit/lib/mime-node.js
 var require_mime_node = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const Headers = require_headers();
 	const libmime = require_libmime$1();
@@ -20830,7 +20864,7 @@ var require_mime_node = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	module.exports = MimeNode;
 }));
 //#endregion
-//#region node_modules/.pnpm/@zone-eu+mailsplit@5.4.16/node_modules/@zone-eu/mailsplit/lib/message-splitter.js
+//#region node_modules/.pnpm/@zone-eu+mailsplit@5.4.17/node_modules/@zone-eu/mailsplit/lib/message-splitter.js
 var require_message_splitter = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const Transform$10 = __require("stream").Transform;
 	const MimeNode = require_mime_node();
@@ -21238,7 +21272,7 @@ var require_message_splitter = /* @__PURE__ */ __commonJSMin(((exports, module) 
 	module.exports = MessageSplitter;
 }));
 //#endregion
-//#region node_modules/.pnpm/@zone-eu+mailsplit@5.4.16/node_modules/@zone-eu/mailsplit/lib/message-joiner.js
+//#region node_modules/.pnpm/@zone-eu+mailsplit@5.4.17/node_modules/@zone-eu/mailsplit/lib/message-joiner.js
 var require_message_joiner = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const Transform$9 = __require("stream").Transform;
 	/** @typedef {import('..').SplitterChunk} SplitterChunk */
@@ -21278,7 +21312,7 @@ var require_message_joiner = /* @__PURE__ */ __commonJSMin(((exports, module) =>
 	module.exports = MessageJoiner;
 }));
 //#endregion
-//#region node_modules/.pnpm/@zone-eu+mailsplit@5.4.16/node_modules/@zone-eu/mailsplit/lib/flowed-decoder.js
+//#region node_modules/.pnpm/@zone-eu+mailsplit@5.4.17/node_modules/@zone-eu/mailsplit/lib/flowed-decoder.js
 var require_flowed_decoder = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const Transform$8 = __require("stream").Transform;
 	/** @typedef {import('..').FlowedDecoderOptions} FlowedDecoderOptions */
@@ -21330,7 +21364,7 @@ var require_flowed_decoder = /* @__PURE__ */ __commonJSMin(((exports, module) =>
 	module.exports = FlowedDecoder;
 }));
 //#endregion
-//#region node_modules/.pnpm/@zone-eu+mailsplit@5.4.16/node_modules/@zone-eu/mailsplit/lib/node-rewriter.js
+//#region node_modules/.pnpm/@zone-eu+mailsplit@5.4.17/node_modules/@zone-eu/mailsplit/lib/node-rewriter.js
 var require_node_rewriter = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const Transform$7 = __require("stream").Transform;
 	const FlowedDecoder = require_flowed_decoder();
@@ -21504,7 +21538,7 @@ var require_node_rewriter = /* @__PURE__ */ __commonJSMin(((exports, module) => 
 	module.exports = NodeRewriter;
 }));
 //#endregion
-//#region node_modules/.pnpm/@zone-eu+mailsplit@5.4.16/node_modules/@zone-eu/mailsplit/lib/node-streamer.js
+//#region node_modules/.pnpm/@zone-eu+mailsplit@5.4.17/node_modules/@zone-eu/mailsplit/lib/node-streamer.js
 var require_node_streamer = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const Transform$6 = __require("stream").Transform;
 	const FlowedDecoder = require_flowed_decoder();
@@ -21633,7 +21667,7 @@ var require_node_streamer = /* @__PURE__ */ __commonJSMin(((exports, module) => 
 	module.exports = NodeStreamer;
 }));
 //#endregion
-//#region node_modules/.pnpm/@zone-eu+mailsplit@5.4.16/node_modules/@zone-eu/mailsplit/lib/chunked-passthrough.js
+//#region node_modules/.pnpm/@zone-eu+mailsplit@5.4.17/node_modules/@zone-eu/mailsplit/lib/chunked-passthrough.js
 var require_chunked_passthrough = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const { Transform: Transform$5 } = __require("stream");
 	/**
@@ -21680,7 +21714,7 @@ var require_chunked_passthrough = /* @__PURE__ */ __commonJSMin(((exports, modul
 	module.exports = ChunkedPassthrough;
 }));
 //#endregion
-//#region node_modules/.pnpm/@zone-eu+mailsplit@5.4.16/node_modules/@zone-eu/mailsplit/index.js
+//#region node_modules/.pnpm/@zone-eu+mailsplit@5.4.17/node_modules/@zone-eu/mailsplit/index.js
 var require_mailsplit = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const MessageSplitter = require_message_splitter();
 	const MessageJoiner = require_message_joiner();
@@ -25256,7 +25290,7 @@ var require_pino = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	module.exports.pino = pino;
 }));
 //#endregion
-//#region node_modules/.pnpm/imapflow@2.0.2/node_modules/imapflow/dist/esm/logger.js
+//#region node_modules/.pnpm/imapflow@2.0.5/node_modules/imapflow/dist/esm/logger.js
 var import_libbase64 = /* @__PURE__ */ __toESM(require_libbase64(), 1);
 var import_libqp = /* @__PURE__ */ __toESM(require_libqp(), 1);
 var import_libmime = /* @__PURE__ */ __toESM(require_libmime$1(), 1);
@@ -25265,11 +25299,11 @@ var import_mailsplit = require_mailsplit();
 const logger = (0, (/* @__PURE__ */ __toESM(require_pino(), 1)).default)();
 logger.level = "trace";
 //#endregion
-//#region node_modules/.pnpm/imapflow@2.0.2/node_modules/imapflow/dist/esm/package-info.js
+//#region node_modules/.pnpm/imapflow@2.0.5/node_modules/imapflow/dist/esm/package-info.js
 const name = "imapflow";
-const version = "2.0.2";
+const version = "2.0.5";
 //#endregion
-//#region node_modules/.pnpm/imapflow@2.0.2/node_modules/imapflow/dist/esm/limited-passthrough.js
+//#region node_modules/.pnpm/imapflow@2.0.5/node_modules/imapflow/dist/esm/limited-passthrough.js
 /**
 * Normalizes a byte budget for the download pipeline. Any finite positive number is honored and
 * floored, because byte counts are integers: with a fractional bound a counter can only ever
@@ -25305,7 +25339,7 @@ var LimitedPassthrough = class extends Transform {
 	}
 };
 //#endregion
-//#region node_modules/.pnpm/imapflow@2.0.2/node_modules/imapflow/dist/esm/handler/limits.js
+//#region node_modules/.pnpm/imapflow@2.0.5/node_modules/imapflow/dist/esm/handler/limits.js
 const MAX_LITERAL_SIZE = 1073741824;
 const MAX_LINE_SIZE = MAX_LITERAL_SIZE;
 const MAX_RESPONSE_SIZE = 2 * MAX_LITERAL_SIZE;
@@ -25337,7 +25371,7 @@ const createLiteralTooLargeError = (literalSize, maxSize, reason) => {
 	return err;
 };
 //#endregion
-//#region node_modules/.pnpm/imapflow@2.0.2/node_modules/imapflow/dist/esm/handler/imap-stream.js
+//#region node_modules/.pnpm/imapflow@2.0.5/node_modules/imapflow/dist/esm/handler/imap-stream.js
 const LINE = 1;
 const LITERAL = 2;
 const LF = 10;
@@ -25659,7 +25693,7 @@ var ImapStream = class extends Transform {
 	}
 };
 //#endregion
-//#region node_modules/.pnpm/imapflow@2.0.2/node_modules/imapflow/dist/esm/handler/imap-formal-syntax.js
+//#region node_modules/.pnpm/imapflow@2.0.5/node_modules/imapflow/dist/esm/handler/imap-formal-syntax.js
 /**
 * Defines the IMAP formal syntax character classes and validation rules as specified
 * in RFC 3501 Section 9 (http://tools.ietf.org/html/rfc3501#section-9).
@@ -25768,7 +25802,7 @@ const imapFormalSyntax = {
 	verify
 };
 //#endregion
-//#region node_modules/.pnpm/imapflow@2.0.2/node_modules/imapflow/dist/esm/handler/token-parser.js
+//#region node_modules/.pnpm/imapflow@2.0.5/node_modules/imapflow/dist/esm/handler/token-parser.js
 const STATE_ATOM = 1;
 const STATE_LITERAL = 2;
 const STATE_NORMAL = 3;
@@ -26415,7 +26449,7 @@ var TokenParser = class {
 	}
 };
 //#endregion
-//#region node_modules/.pnpm/imapflow@2.0.2/node_modules/imapflow/dist/esm/handler/parser-instance.js
+//#region node_modules/.pnpm/imapflow@2.0.5/node_modules/imapflow/dist/esm/handler/parser-instance.js
 /**
 * Parses a single IMAP response line into its structural components: tag, command,
 * and attributes. Handles status responses (OK, NO, BAD, PREAUTH, BYE) with their
@@ -26620,7 +26654,7 @@ var ParserInstance = class {
 	}
 };
 //#endregion
-//#region node_modules/.pnpm/imapflow@2.0.2/node_modules/imapflow/dist/esm/handler/imap-parser.js
+//#region node_modules/.pnpm/imapflow@2.0.5/node_modules/imapflow/dist/esm/handler/imap-parser.js
 /**
 * Parses a raw IMAP command or response buffer into a structured object.
 * Handles edge cases such as null-byte-padded responses from buggy servers and
@@ -26680,7 +26714,7 @@ async function parser(command, options) {
 	return response;
 }
 //#endregion
-//#region node_modules/.pnpm/imapflow@2.0.2/node_modules/imapflow/dist/esm/handler/imap-compiler.js
+//#region node_modules/.pnpm/imapflow@2.0.5/node_modules/imapflow/dist/esm/handler/imap-compiler.js
 const SEQ_RANGE = /^(\d+|\*)(:(\d+|\*))?$/;
 const isValidSequenceSet = (value) => value === "$" || value.split(",").every((part) => SEQ_RANGE.test(part));
 const safeNumber = (value) => {
@@ -28156,7 +28190,7 @@ var require_util$2 = /* @__PURE__ */ __commonJSMin(((exports) => {
 	}
 }));
 //#endregion
-//#region node_modules/.pnpm/ip-address@10.7.0/node_modules/ip-address/dist/address-error.js
+//#region node_modules/.pnpm/ip-address@10.7.2/node_modules/ip-address/dist/address-error.js
 var require_address_error = /* @__PURE__ */ __commonJSMin(((exports) => {
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.AddressError = void 0;
@@ -28170,7 +28204,7 @@ var require_address_error = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.AddressError = AddressError;
 }));
 //#endregion
-//#region node_modules/.pnpm/ip-address@10.7.0/node_modules/ip-address/dist/common.js
+//#region node_modules/.pnpm/ip-address@10.7.2/node_modules/ip-address/dist/common.js
 var require_common$1 = /* @__PURE__ */ __commonJSMin(((exports) => {
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.isInSubnet = isInSubnet;
@@ -28209,8 +28243,14 @@ var require_common$1 = /* @__PURE__ */ __commonJSMin(((exports) => {
 	* {@link isInSubnet} when classifying a single address — notably when the
 	* address came from untrusted input and the result backs a trust-boundary
 	* decision such as an SSRF allow/deny filter.
+	*
+	* An address of one family is never inside a network of the other, so an
+	* `Address4` against an `Address6` (or the reverse) is `false`. To compare
+	* across families, convert first: `Address6.fromAddress4()`, `to4()`, or
+	* `toAddress4Nat64()`.
 	*/
 	function isHostInSubnet(address) {
+		if (this.binaryZeroPad().length !== address.binaryZeroPad().length) return false;
 		return this.mask(address.subnetMask) === address.mask();
 	}
 	/**
@@ -28284,7 +28324,7 @@ var require_common$1 = /* @__PURE__ */ __commonJSMin(((exports) => {
 	}
 }));
 //#endregion
-//#region node_modules/.pnpm/ip-address@10.7.0/node_modules/ip-address/dist/v4/constants.js
+//#region node_modules/.pnpm/ip-address@10.7.2/node_modules/ip-address/dist/v4/constants.js
 var require_constants$1 = /* @__PURE__ */ __commonJSMin(((exports) => {
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.SPECIAL_PURPOSE = exports.RE_SUBNET_STRING = exports.RE_ADDRESS = exports.GROUPS = exports.BITS = void 0;
@@ -28437,7 +28477,7 @@ var require_constants$1 = /* @__PURE__ */ __commonJSMin(((exports) => {
 	];
 }));
 //#endregion
-//#region node_modules/.pnpm/ip-address@10.7.0/node_modules/ip-address/dist/ipv4.js
+//#region node_modules/.pnpm/ip-address@10.7.2/node_modules/ip-address/dist/ipv4.js
 var require_ipv4 = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var __createBinding = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
 		if (k2 === void 0) k2 = k;
@@ -28495,7 +28535,9 @@ var require_ipv4 = /* @__PURE__ */ __commonJSMin(((exports) => {
 			*/
 			this.isCorrect = isCorrect4;
 			/**
-			* Returns true if the given address is in the subnet of the current address
+			* Returns true if the given address is in the subnet of the current address.
+			* An `Address6` is never in the subnet of an `Address4`; convert with
+			* `to4()` or `Address6.fromAddress4()` to compare across families.
 			* @returns {boolean}
 			*/
 			this.isInSubnet = common.isInSubnet;
@@ -28505,6 +28547,8 @@ var require_ipv4 = /* @__PURE__ */ __commonJSMin(((exports) => {
 			* when classifying a single address, so the answer doesn't change with the
 			* CIDR suffix the caller happened to write — notably when the address came
 			* from untrusted input and the result backs a trust-boundary decision.
+			* An `Address6` is never in the subnet of an `Address4`; convert with
+			* `to4()` or `Address6.fromAddress4()` to compare across families.
 			* @returns {boolean}
 			*/
 			this.isHostInSubnet = common.isHostInSubnet;
@@ -28517,6 +28561,8 @@ var require_ipv4 = /* @__PURE__ */ __commonJSMin(((exports) => {
 				if (this.subnetMask < 0 || this.subnetMask > constants.BITS) throw new address_error_1.AddressError("Invalid subnet mask.");
 				address = address.replace(constants.RE_SUBNET_STRING, "");
 			}
+			const longest = constants.GROUPS * 4 - 1;
+			if (address.length > longest) throw new address_error_1.AddressError(`IPv4 addresses are at most ${longest} characters.`);
 			this.addressMinusSuffix = address;
 			this.parsedAddress = this.parse(address);
 		}
@@ -28633,15 +28679,18 @@ var require_ipv4 = /* @__PURE__ */ __commonJSMin(((exports) => {
 			return Address4.fromHex(integer.toString(16).padStart(8, "0"));
 		}
 		/**
-		* Return an address from in-addr.arpa form
+		* Return an address from in-addr.arpa form: the four octets reversed, with
+		* or without the `.in-addr.arpa` suffix and root dot, in any case. Throws
+		* `AddressError` unless the reversed labels form a valid IPv4 address, so
+		* `fromArpa(x.reverseForm())` round-trips {@link reverseForm}.
 		* @param {string} arpaFormAddress - an 'in-addr.arpa' form ipv4 address
 		* @returns {Adress4}
 		* @example
-		* var address = Address4.fromArpa(42.2.0.192.in-addr.arpa.)
+		* var address = Address4.fromArpa('42.2.0.192.in-addr.arpa.')
 		* address.correctForm(); // '192.0.2.42'
 		*/
 		static fromArpa(arpaFormAddress) {
-			const address = arpaFormAddress.replace(/(\.in-addr\.arpa)?\.$/, "").split(".").reverse().join(".");
+			const address = arpaFormAddress.replace(/(\.in-addr\.arpa)?\.?$/i, "").split(".").reverse().join(".");
 			return new Address4(address);
 		}
 		/**
@@ -28979,7 +29028,7 @@ var require_ipv4 = /* @__PURE__ */ __commonJSMin(((exports) => {
 	}));
 }));
 //#endregion
-//#region node_modules/.pnpm/ip-address@10.7.0/node_modules/ip-address/dist/v6/constants.js
+//#region node_modules/.pnpm/ip-address@10.7.2/node_modules/ip-address/dist/v6/constants.js
 var require_constants = /* @__PURE__ */ __commonJSMin(((exports) => {
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.SPECIAL_PURPOSE = exports.RE_URL_WITH_PORT = exports.RE_URL = exports.RE_ZONE_STRING = exports.RE_SUBNET_STRING = exports.RE_BAD_ADDRESS = exports.RE_BAD_CHARACTERS = exports.TYPES = exports.SCOPES = exports.GROUPS = exports.BITS = void 0;
@@ -29209,7 +29258,7 @@ var require_constants = /* @__PURE__ */ __commonJSMin(((exports) => {
 	];
 }));
 //#endregion
-//#region node_modules/.pnpm/ip-address@10.7.0/node_modules/ip-address/dist/v6/helpers.js
+//#region node_modules/.pnpm/ip-address@10.7.2/node_modules/ip-address/dist/v6/helpers.js
 var require_helpers$2 = /* @__PURE__ */ __commonJSMin(((exports) => {
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.escapeHtml = escapeHtml;
@@ -29253,7 +29302,7 @@ var require_helpers$2 = /* @__PURE__ */ __commonJSMin(((exports) => {
 	}
 }));
 //#endregion
-//#region node_modules/.pnpm/ip-address@10.7.0/node_modules/ip-address/dist/v6/regular-expressions.js
+//#region node_modules/.pnpm/ip-address@10.7.2/node_modules/ip-address/dist/v6/regular-expressions.js
 var require_regular_expressions = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var __createBinding = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
 		if (k2 === void 0) k2 = k;
@@ -29331,7 +29380,7 @@ var require_regular_expressions = /* @__PURE__ */ __commonJSMin(((exports) => {
 	}
 }));
 //#endregion
-//#region node_modules/.pnpm/ip-address@10.7.0/node_modules/ip-address/dist/ipv6.js
+//#region node_modules/.pnpm/ip-address@10.7.2/node_modules/ip-address/dist/ipv6.js
 var require_ipv6 = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var __createBinding = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
 		if (k2 === void 0) k2 = k;
@@ -29418,7 +29467,9 @@ var require_ipv6 = /* @__PURE__ */ __commonJSMin(((exports) => {
 			this.v4 = false;
 			this.zone = "";
 			/**
-			* Returns true if the given address is in the subnet of the current address
+			* Returns true if the given address is in the subnet of the current address.
+			* An `Address4` is never in the subnet of an `Address6`; convert with
+			* `Address6.fromAddress4()` or `to4()` to compare across families.
 			* @returns {boolean}
 			*/
 			this.isInSubnet = common.isInSubnet;
@@ -29428,6 +29479,8 @@ var require_ipv6 = /* @__PURE__ */ __commonJSMin(((exports) => {
 			* when classifying a single address, so the answer doesn't change with the
 			* CIDR suffix the caller happened to write — notably when the address came
 			* from untrusted input and the result backs a trust-boundary decision.
+			* An `Address4` is never in the subnet of an `Address6`; convert with
+			* `Address6.fromAddress4()` or `to4()` to compare across families.
 			* @returns {boolean}
 			*/
 			this.isHostInSubnet = common.isHostInSubnet;
@@ -29453,6 +29506,8 @@ var require_ipv6 = /* @__PURE__ */ __commonJSMin(((exports) => {
 				this.zone = zone[0];
 				address = address.replace(constants6.RE_ZONE_STRING, "");
 			}
+			const longest = this.groups * 5 + 5;
+			if (address.length > longest) throw new address_error_1.AddressError(`IPv6 addresses are at most ${longest} characters.`);
 			this.addressMinusSuffix = address;
 			this.parsedAddress = this.parse(this.addressMinusSuffix);
 		}
@@ -29638,7 +29693,7 @@ var require_ipv6 = /* @__PURE__ */ __commonJSMin(((exports) => {
 		* Address6.fromArpa('8.b.d.0.1.0.0.2.ip6.arpa.').networkForm(); // '2001:db8::/32'
 		*/
 		static fromArpa(arpaFormAddress) {
-			const nibbles = arpaFormAddress.replace(/(\.ip6\.arpa)?\.?$/, "");
+			const nibbles = arpaFormAddress.replace(/(\.ip6\.arpa)?\.?$/i, "");
 			if (!/^[0-9a-f](\.[0-9a-f]){0,31}$/i.test(nibbles)) throw new address_error_1.AddressError("Invalid 'ip6.arpa' form.");
 			const reversed = nibbles.split(".").reverse();
 			const subnetMask = reversed.length * 4;
@@ -30513,7 +30568,7 @@ var require_ipv6 = /* @__PURE__ */ __commonJSMin(((exports) => {
 	const NAT64_LOCAL_USE_SUBNET = new Address6("64:ff9b:1::/48");
 }));
 //#endregion
-//#region node_modules/.pnpm/ip-address@10.7.0/node_modules/ip-address/dist/ip-address.js
+//#region node_modules/.pnpm/ip-address@10.7.2/node_modules/ip-address/dist/ip-address.js
 var require_ip_address = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var __createBinding = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
 		if (k2 === void 0) k2 = k;
@@ -31328,7 +31383,7 @@ var require_socksclient = /* @__PURE__ */ __commonJSMin(((exports) => {
 	};
 }));
 //#endregion
-//#region node_modules/.pnpm/imapflow@2.0.2/node_modules/imapflow/dist/esm/charsets.js
+//#region node_modules/.pnpm/imapflow@2.0.5/node_modules/imapflow/dist/esm/charsets.js
 var import_build = (/* @__PURE__ */ __commonJSMin(((exports) => {
 	var __createBinding = exports && exports.__createBinding || (Object.create ? (function(o, m, k, k2) {
 		if (k2 === void 0) k2 = k;
@@ -31621,7 +31676,7 @@ const resolveCharset = (charset) => {
 	return CHARSET_MAP.get(key) ?? null;
 };
 //#endregion
-//#region node_modules/.pnpm/imapflow@2.0.2/node_modules/imapflow/dist/esm/jp-decoder.js
+//#region node_modules/.pnpm/imapflow@2.0.5/node_modules/imapflow/dist/esm/jp-decoder.js
 var import_src = /* @__PURE__ */ __toESM(require_src$1(), 1);
 var JPDecoder = class extends Transform {
 	constructor(charset, maxBytes) {
@@ -31664,7 +31719,7 @@ var JPDecoder = class extends Transform {
 	}
 };
 //#endregion
-//#region node_modules/.pnpm/imapflow@2.0.2/node_modules/imapflow/dist/esm/errors.js
+//#region node_modules/.pnpm/imapflow@2.0.5/node_modules/imapflow/dist/esm/errors.js
 /**
 * Error subclass thrown when IMAP authentication fails.
 */
@@ -31675,7 +31730,7 @@ var AuthenticationFailure = class extends Error {
 	}
 };
 //#endregion
-//#region node_modules/.pnpm/imapflow@2.0.2/node_modules/imapflow/dist/esm/tools.js
+//#region node_modules/.pnpm/imapflow@2.0.5/node_modules/imapflow/dist/esm/tools.js
 const FLAG_COLORS = [
 	"red",
 	"orange",
@@ -32792,7 +32847,7 @@ var ConnectionDeadline = class {
 	}
 };
 //#endregion
-//#region node_modules/.pnpm/imapflow@2.0.2/node_modules/imapflow/dist/esm/proxy-connection.js
+//#region node_modules/.pnpm/imapflow@2.0.5/node_modules/imapflow/dist/esm/proxy-connection.js
 const MAX_RESPONSE_HEADER_BYTES = 65536;
 const DEFAULT_SOCKS_PORT = 1080;
 const unbracketAddress = (host) => typeof host === "string" && host.startsWith("[") && host.endsWith("]") ? host.slice(1, -1) : host;
@@ -33078,7 +33133,7 @@ const proxyConnection = async (logger, connectionUrl, host, port, options) => {
 	}
 };
 //#endregion
-//#region node_modules/.pnpm/imapflow@2.0.2/node_modules/imapflow/dist/esm/commands/id.js
+//#region node_modules/.pnpm/imapflow@2.0.5/node_modules/imapflow/dist/esm/commands/id.js
 /**
 * Sends ID info to the server and updates server info data based on the response.
 *
@@ -33126,7 +33181,7 @@ function formatValue(key, value) {
 	}
 }
 //#endregion
-//#region node_modules/.pnpm/imapflow@2.0.2/node_modules/imapflow/dist/esm/commands/capability.js
+//#region node_modules/.pnpm/imapflow@2.0.5/node_modules/imapflow/dist/esm/commands/capability.js
 /**
 * Refreshes capabilities from server.
 *
@@ -33149,7 +33204,7 @@ async function capability(connection) {
 	}
 }
 //#endregion
-//#region node_modules/.pnpm/imapflow@2.0.2/node_modules/imapflow/dist/esm/commands/namespace.js
+//#region node_modules/.pnpm/imapflow@2.0.5/node_modules/imapflow/dist/esm/commands/namespace.js
 /**
 * Requests NAMESPACE info from the server.
 *
@@ -33252,7 +33307,7 @@ function getNamsepaceInfo(attribute) {
 	});
 }
 //#endregion
-//#region node_modules/.pnpm/imapflow@2.0.2/node_modules/imapflow/dist/esm/commands/login.js
+//#region node_modules/.pnpm/imapflow@2.0.5/node_modules/imapflow/dist/esm/commands/login.js
 /**
 * Authenticates user using the IMAP LOGIN command.
 *
@@ -33284,7 +33339,7 @@ async function login(connection, username, password) {
 	}
 }
 //#endregion
-//#region node_modules/.pnpm/imapflow@2.0.2/node_modules/imapflow/dist/esm/commands/logout.js
+//#region node_modules/.pnpm/imapflow@2.0.5/node_modules/imapflow/dist/esm/commands/logout.js
 /**
 * Logs out the user and closes the connection.
 *
@@ -33316,7 +33371,7 @@ async function logout(connection) {
 	}
 }
 //#endregion
-//#region node_modules/.pnpm/imapflow@2.0.2/node_modules/imapflow/dist/esm/commands/starttls.js
+//#region node_modules/.pnpm/imapflow@2.0.5/node_modules/imapflow/dist/esm/commands/starttls.js
 /**
 * Initiates STARTTLS connection upgrade.
 *
@@ -33340,7 +33395,7 @@ async function starttls(connection) {
 	}
 }
 //#endregion
-//#region node_modules/.pnpm/imapflow@2.0.2/node_modules/imapflow/dist/esm/commands/status-fields.js
+//#region node_modules/.pnpm/imapflow@2.0.5/node_modules/imapflow/dist/esm/commands/status-fields.js
 const uint32 = (value) => parseUintValue(value, 10);
 const STATUS_FIELDS = {
 	MESSAGES: {
@@ -33400,7 +33455,7 @@ const parseStatusList = (list, onField) => {
 	});
 };
 //#endregion
-//#region node_modules/.pnpm/imapflow@2.0.2/node_modules/imapflow/dist/esm/special-use.js
+//#region node_modules/.pnpm/imapflow@2.0.5/node_modules/imapflow/dist/esm/special-use.js
 const GENERIC_TOKENS = new Set([
 	"e",
 	"mail",
@@ -34271,7 +34326,7 @@ const specialUse = (hasSpecialUseExtension, folder) => {
 	return { flag: null };
 };
 //#endregion
-//#region node_modules/.pnpm/imapflow@2.0.2/node_modules/imapflow/dist/esm/commands/list.js
+//#region node_modules/.pnpm/imapflow@2.0.5/node_modules/imapflow/dist/esm/commands/list.js
 /**
 * Lists mailboxes from the server, including subscription status and special-use flags.
 *
@@ -34576,7 +34631,7 @@ async function list(connection, reference, mailbox, options) {
 	}
 }
 //#endregion
-//#region node_modules/.pnpm/imapflow@2.0.2/node_modules/imapflow/dist/esm/commands/enable.js
+//#region node_modules/.pnpm/imapflow@2.0.5/node_modules/imapflow/dist/esm/commands/enable.js
 /**
 * Enables IMAP extensions on the server.
 *
@@ -34614,7 +34669,7 @@ async function enable(connection, extensionList) {
 	}
 }
 //#endregion
-//#region node_modules/.pnpm/imapflow@2.0.2/node_modules/imapflow/dist/esm/commands/select.js
+//#region node_modules/.pnpm/imapflow@2.0.5/node_modules/imapflow/dist/esm/commands/select.js
 const VALUED_RESPONSE_CODES = Object.assign(Object.create(null), {
 	highestmodseq: {
 		key: "highestModseq",
@@ -34773,7 +34828,7 @@ async function select(connection, pathInput, options) {
 	}
 }
 //#endregion
-//#region node_modules/.pnpm/imapflow@2.0.2/node_modules/imapflow/dist/esm/commands/fetch.js
+//#region node_modules/.pnpm/imapflow@2.0.5/node_modules/imapflow/dist/esm/commands/fetch.js
 /**
 * Fetches emails from the server.
 *
@@ -34963,7 +35018,7 @@ async function fetch(connection, range, query, options) {
 	}
 }
 //#endregion
-//#region node_modules/.pnpm/imapflow@2.0.2/node_modules/imapflow/dist/esm/commands/create.js
+//#region node_modules/.pnpm/imapflow@2.0.5/node_modules/imapflow/dist/esm/commands/create.js
 /**
 * Creates a new mailbox and subscribes to it.
 *
@@ -35018,7 +35073,7 @@ async function create(connection, path) {
 	}
 }
 //#endregion
-//#region node_modules/.pnpm/imapflow@2.0.2/node_modules/imapflow/dist/esm/commands/delete.js
+//#region node_modules/.pnpm/imapflow@2.0.5/node_modules/imapflow/dist/esm/commands/delete.js
 /**
 * Deletes an existing mailbox.
 *
@@ -35050,7 +35105,7 @@ async function deleteMailbox(connection, path) {
 	}
 }
 //#endregion
-//#region node_modules/.pnpm/imapflow@2.0.2/node_modules/imapflow/dist/esm/commands/rename.js
+//#region node_modules/.pnpm/imapflow@2.0.5/node_modules/imapflow/dist/esm/commands/rename.js
 /**
 * Renames an existing mailbox.
 *
@@ -35090,7 +35145,7 @@ async function rename(connection, path, newPath) {
 	}
 }
 //#endregion
-//#region node_modules/.pnpm/imapflow@2.0.2/node_modules/imapflow/dist/esm/commands/close.js
+//#region node_modules/.pnpm/imapflow@2.0.5/node_modules/imapflow/dist/esm/commands/close.js
 /**
 * Closes the currently selected mailbox.
 *
@@ -35118,7 +35173,7 @@ async function close(connection) {
 	}
 }
 //#endregion
-//#region node_modules/.pnpm/imapflow@2.0.2/node_modules/imapflow/dist/esm/commands/subscribe.js
+//#region node_modules/.pnpm/imapflow@2.0.5/node_modules/imapflow/dist/esm/commands/subscribe.js
 /**
 * Subscribes to a mailbox.
 *
@@ -35147,7 +35202,7 @@ async function subscribe(connection, path) {
 	}
 }
 //#endregion
-//#region node_modules/.pnpm/imapflow@2.0.2/node_modules/imapflow/dist/esm/commands/unsubscribe.js
+//#region node_modules/.pnpm/imapflow@2.0.5/node_modules/imapflow/dist/esm/commands/unsubscribe.js
 /**
 * Unsubscribes from a mailbox.
 *
@@ -35176,7 +35231,7 @@ async function unsubscribe(connection, path) {
 	}
 }
 //#endregion
-//#region node_modules/.pnpm/imapflow@2.0.2/node_modules/imapflow/dist/esm/commands/store.js
+//#region node_modules/.pnpm/imapflow@2.0.5/node_modules/imapflow/dist/esm/commands/store.js
 /**
 * Updates flags or labels for messages in the selected mailbox.
 *
@@ -35241,7 +35296,7 @@ async function store(connection, range, flags, options) {
 	}
 }
 //#endregion
-//#region node_modules/.pnpm/imapflow@2.0.2/node_modules/imapflow/dist/esm/search-compiler.js
+//#region node_modules/.pnpm/imapflow@2.0.5/node_modules/imapflow/dist/esm/search-compiler.js
 /**
 * Sets a boolean flag in the IMAP search attributes.
 * Automatically handles UN- prefixing for falsy values.
@@ -35588,7 +35643,7 @@ const searchCompiler = (connection, query) => {
 	return attributes;
 };
 //#endregion
-//#region node_modules/.pnpm/imapflow@2.0.2/node_modules/imapflow/dist/esm/commands/esearch-parser.js
+//#region node_modules/.pnpm/imapflow@2.0.5/node_modules/imapflow/dist/esm/commands/esearch-parser.js
 /**
 * Parses the key-value attributes from an ESEARCH untagged response.
 *
@@ -35660,7 +35715,7 @@ function parseEsearchResponse(attrs) {
 	return result;
 }
 //#endregion
-//#region node_modules/.pnpm/imapflow@2.0.2/node_modules/imapflow/dist/esm/commands/search.js
+//#region node_modules/.pnpm/imapflow@2.0.5/node_modules/imapflow/dist/esm/commands/search.js
 /**
 * Strips the leading (TAG "X") correlator list and the optional UID atom from an
 * ESEARCH untagged response, leaving only the result keyword/value pairs.
@@ -35826,7 +35881,7 @@ async function search(connection, query, options) {
 	}
 }
 //#endregion
-//#region node_modules/.pnpm/imapflow@2.0.2/node_modules/imapflow/dist/esm/commands/noop.js
+//#region node_modules/.pnpm/imapflow@2.0.5/node_modules/imapflow/dist/esm/commands/noop.js
 /**
 * Sends a NOOP command to the server.
 *
@@ -35846,7 +35901,7 @@ async function noop(connection) {
 	}
 }
 //#endregion
-//#region node_modules/.pnpm/imapflow@2.0.2/node_modules/imapflow/dist/esm/commands/expunge.js
+//#region node_modules/.pnpm/imapflow@2.0.5/node_modules/imapflow/dist/esm/commands/expunge.js
 /**
 * Deletes specified messages by flagging them as Deleted and expunging.
 *
@@ -35888,7 +35943,7 @@ async function expunge(connection, range, options) {
 	}
 }
 //#endregion
-//#region node_modules/.pnpm/imapflow@2.0.2/node_modules/imapflow/dist/esm/commands/append.js
+//#region node_modules/.pnpm/imapflow@2.0.5/node_modules/imapflow/dist/esm/commands/append.js
 /**
 * Appends a message to a mailbox.
 *
@@ -35994,7 +36049,7 @@ async function append(connection, destination, content, flags, idate) {
 	}
 }
 //#endregion
-//#region node_modules/.pnpm/imapflow@2.0.2/node_modules/imapflow/dist/esm/commands/status.js
+//#region node_modules/.pnpm/imapflow@2.0.5/node_modules/imapflow/dist/esm/commands/status.js
 const MAILBOX_UPDATERS = {
 	messages: (value, connection, path) => {
 		let mailbox = connection.mailbox;
@@ -36073,7 +36128,7 @@ async function status(connection, path, query) {
 	}
 }
 //#endregion
-//#region node_modules/.pnpm/imapflow@2.0.2/node_modules/imapflow/dist/esm/commands/copyuid-parser.js
+//#region node_modules/.pnpm/imapflow@2.0.5/node_modules/imapflow/dist/esm/commands/copyuid-parser.js
 /**
 * Parses COPYUID response code from an IMAP response (RFC 4315).
 * Used by both COPY and MOVE commands to extract the UID mapping
@@ -36093,7 +36148,7 @@ function parseCopyUid(response, map) {
 	if (sourceUids && destinationUids && sourceUids.length === destinationUids.length) map.uidMap = new Map(sourceUids.map((uid, i) => [uid, destinationUids[i]]));
 }
 //#endregion
-//#region node_modules/.pnpm/imapflow@2.0.2/node_modules/imapflow/dist/esm/commands/copy.js
+//#region node_modules/.pnpm/imapflow@2.0.5/node_modules/imapflow/dist/esm/commands/copy.js
 /**
 * Copies messages from the current mailbox to another mailbox.
 *
@@ -36135,7 +36190,7 @@ async function copy(connection, range, destination, options) {
 	}
 }
 //#endregion
-//#region node_modules/.pnpm/imapflow@2.0.2/node_modules/imapflow/dist/esm/commands/move.js
+//#region node_modules/.pnpm/imapflow@2.0.5/node_modules/imapflow/dist/esm/commands/move.js
 /**
 * Moves messages from the current mailbox to another mailbox.
 *
@@ -36184,7 +36239,7 @@ async function move(connection, range, destination, options) {
 	}
 }
 //#endregion
-//#region node_modules/.pnpm/imapflow@2.0.2/node_modules/imapflow/dist/esm/commands/compress.js
+//#region node_modules/.pnpm/imapflow@2.0.5/node_modules/imapflow/dist/esm/commands/compress.js
 /**
 * Requests DEFLATE compression from the server.
 *
@@ -36221,7 +36276,7 @@ async function compress(connection) {
 	return true;
 }
 //#endregion
-//#region node_modules/.pnpm/imapflow@2.0.2/node_modules/imapflow/dist/esm/commands/quota.js
+//#region node_modules/.pnpm/imapflow@2.0.5/node_modules/imapflow/dist/esm/commands/quota.js
 /**
 * Requests quota information for a mailbox.
 *
@@ -36294,7 +36349,7 @@ async function quota(connection, path) {
 	}
 }
 //#endregion
-//#region node_modules/.pnpm/imapflow@2.0.2/node_modules/imapflow/dist/esm/commands/idle.js
+//#region node_modules/.pnpm/imapflow@2.0.5/node_modules/imapflow/dist/esm/commands/idle.js
 const NOOP_INTERVAL = 12e4;
 /**
 * Marks the connection as idling on behalf of one session and returns a release function.
@@ -36559,7 +36614,7 @@ async function idle(connection, maxIdleTime) {
 	return runPollingFallback(connection, maxIdleTime);
 }
 //#endregion
-//#region node_modules/.pnpm/imapflow@2.0.2/node_modules/imapflow/dist/esm/commands/authenticate.js
+//#region node_modules/.pnpm/imapflow@2.0.5/node_modules/imapflow/dist/esm/commands/authenticate.js
 /**
 * Handles authentication errors by enriching the error object with server response details.
 *
@@ -36750,7 +36805,7 @@ async function authenticate$1(connection, username, { accessToken, password, log
 	throw new Error("Unsupported authentication mechanism");
 }
 //#endregion
-//#region node_modules/.pnpm/imapflow@2.0.2/node_modules/imapflow/dist/esm/imap-commands.js
+//#region node_modules/.pnpm/imapflow@2.0.5/node_modules/imapflow/dist/esm/imap-commands.js
 /**
 * IMAP command registry. Maps IMAP command names (uppercase strings) to their
 * corresponding implementation modules from the `commands/` directory.
@@ -36790,7 +36845,7 @@ const imapCommands = /* @__PURE__ */ new Map([
 	["AUTHENTICATE", authenticate$1]
 ]);
 //#endregion
-//#region node_modules/.pnpm/imapflow@2.0.2/node_modules/imapflow/dist/esm/imap-flow.js
+//#region node_modules/.pnpm/imapflow@2.0.5/node_modules/imapflow/dist/esm/imap-flow.js
 /**
 * @module imapflow
 */
@@ -38978,7 +39033,14 @@ var ImapFlow = class extends EventEmitter {
 			let chunk = !part ? response.source : response.bodyParts && response.bodyParts.get(part);
 			if (!chunk) return {};
 			processed += chunk.length;
-			hasMore = chunk.length >= chunkSize;
+			hasMore = chunk.length === chunkSize;
+			if (chunk.length > chunkSize) this.log.warn({
+				msg: "Server returned more than the requested window, treating the part as complete",
+				chunkSize,
+				received: chunk.length,
+				processed,
+				cid: this.id
+			});
 			let result = { chunk };
 			if (query.size) result.response = response;
 			if (query.bodyParts) {
@@ -39080,8 +39142,16 @@ var ImapFlow = class extends EventEmitter {
 			if (isLimited() || fetchAborted || stream.destroyed) return true;
 			return stream.write(chunk);
 		};
+		let maxTotalBytes = normalizeByteLimit(meta.expectedSize ? meta.expectedSize * 2 + chunkSize : 0);
 		let fetchAllParts = async () => {
 			while (hasMore && !isLimited() && !fetchAborted) {
+				if (processed >= maxTotalBytes) {
+					let err = /* @__PURE__ */ new Error("Download exceeded the expected message size");
+					err.code = "DownloadOverflow";
+					err.maxSize = maxTotalBytes;
+					err.cid = this.id;
+					throw err;
+				}
 				let { chunk } = await getNextPart();
 				if (!chunk || fetchAborted) break;
 				if (writeChunk(chunk) === false) {
@@ -39555,7 +39625,7 @@ var ImapFlow = class extends EventEmitter {
 	}
 };
 //#endregion
-//#region node_modules/.pnpm/nodemailer@10.0.9/node_modules/nodemailer/dist/cjs/addressparser/index.js
+//#region node_modules/.pnpm/nodemailer@10.0.10/node_modules/nodemailer/dist/cjs/addressparser/index.js
 var require_addressparser = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	Object.defineProperty(exports, "__esModule", { value: true });
 	exports.default = addressparser;
@@ -40043,7 +40113,7 @@ var require_addressparser = /* @__PURE__ */ __commonJSMin(((exports, module) => 
 	});
 }));
 //#endregion
-//#region node_modules/.pnpm/mailparser@3.9.26/node_modules/mailparser/lib/stream-hash.js
+//#region node_modules/.pnpm/mailparser@3.9.28/node_modules/mailparser/lib/stream-hash.js
 var require_stream_hash = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const crypto$9 = __require("crypto");
 	const Transform$4 = __require("stream").Transform;
@@ -54729,7 +54799,7 @@ var require_tlds$1 = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	];
 }));
 //#endregion
-//#region node_modules/.pnpm/mailparser@3.9.26/node_modules/mailparser/lib/mail-parser.js
+//#region node_modules/.pnpm/mailparser@3.9.28/node_modules/mailparser/lib/mail-parser.js
 var require_mail_parser = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const mailsplit = require_mailsplit();
 	const libmime = require_libmime$1();
@@ -55545,7 +55615,7 @@ var require_mail_parser = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	module.exports = MailParser;
 }));
 //#endregion
-//#region node_modules/.pnpm/mailparser@3.9.26/node_modules/mailparser/lib/simple-parser.js
+//#region node_modules/.pnpm/mailparser@3.9.28/node_modules/mailparser/lib/simple-parser.js
 var require_simple_parser = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const MailParser = require_mail_parser();
 	module.exports = (input, options, callback) => {
@@ -98705,12 +98775,12 @@ var require_lib$4 = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.wait = require_wait();
 }));
 //#endregion
-//#region node_modules/.pnpm/joi@18.2.3/node_modules/joi/package.json
+//#region node_modules/.pnpm/joi@18.2.9/node_modules/joi/package.json
 var require_package = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	module.exports = {
 		"name": "joi",
 		"description": "Object schema validation",
-		"version": "18.2.3",
+		"version": "18.2.9",
 		"repository": {
 			"url": "git://github.com/hapijs/joi.git",
 			"type": "git"
@@ -98750,7 +98820,7 @@ var require_package = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	};
 }));
 //#endregion
-//#region node_modules/.pnpm/joi@18.2.3/node_modules/joi/lib/schemas.js
+//#region node_modules/.pnpm/joi@18.2.9/node_modules/joi/lib/schemas.js
 var require_schemas = /* @__PURE__ */ __commonJSMin(((exports) => {
 	const Joi = require_lib();
 	const internals = {};
@@ -99279,7 +99349,7 @@ var require_lib$3 = /* @__PURE__ */ __commonJSMin(((exports) => {
 	};
 }));
 //#endregion
-//#region node_modules/.pnpm/joi@18.2.3/node_modules/joi/lib/annotate.js
+//#region node_modules/.pnpm/joi@18.2.9/node_modules/joi/lib/annotate.js
 var require_annotate = /* @__PURE__ */ __commonJSMin(((exports) => {
 	const { clone } = require_lib$4();
 	const Common = require_common();
@@ -99378,7 +99448,7 @@ var require_annotate = /* @__PURE__ */ __commonJSMin(((exports) => {
 	};
 }));
 //#endregion
-//#region node_modules/.pnpm/joi@18.2.3/node_modules/joi/lib/errors.js
+//#region node_modules/.pnpm/joi@18.2.9/node_modules/joi/lib/errors.js
 var require_errors$2 = /* @__PURE__ */ __commonJSMin(((exports) => {
 	const Annotate = require_annotate();
 	const Common = require_common();
@@ -99514,9 +99584,9 @@ var require_errors$2 = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.ValidationError.prototype.annotate = Annotate.error;
 }));
 //#endregion
-//#region node_modules/.pnpm/joi@18.2.3/node_modules/joi/lib/ref.js
+//#region node_modules/.pnpm/joi@18.2.9/node_modules/joi/lib/ref.js
 var require_ref = /* @__PURE__ */ __commonJSMin(((exports) => {
-	const { assert, clone, reach } = require_lib$4();
+	const { assert, reach } = require_lib$4();
 	const Common = require_common();
 	let Template;
 	const internals = {
@@ -99754,7 +99824,7 @@ var require_ref = /* @__PURE__ */ __commonJSMin(((exports) => {
 		}
 		clone() {
 			const copy = new exports.Manager();
-			copy.refs = clone(this.refs);
+			copy.refs = this.refs.slice();
 			return copy;
 		}
 		reset() {
@@ -99766,7 +99836,7 @@ var require_ref = /* @__PURE__ */ __commonJSMin(((exports) => {
 	};
 }));
 //#endregion
-//#region node_modules/.pnpm/joi@18.2.3/node_modules/joi/lib/template.js
+//#region node_modules/.pnpm/joi@18.2.9/node_modules/joi/lib/template.js
 var require_template = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const { assert, clone, escapeHtml } = require_lib$4();
 	const Formula = require_lib$3();
@@ -100037,7 +100107,7 @@ var require_template = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	};
 }));
 //#endregion
-//#region node_modules/.pnpm/joi@18.2.3/node_modules/joi/lib/messages.js
+//#region node_modules/.pnpm/joi@18.2.9/node_modules/joi/lib/messages.js
 var require_messages = /* @__PURE__ */ __commonJSMin(((exports) => {
 	const { assert, clone } = require_lib$4();
 	const Template = require_template();
@@ -100055,24 +100125,28 @@ var require_messages = /* @__PURE__ */ __commonJSMin(((exports) => {
 		for (const code of Object.keys(messages)) {
 			const message = messages[code];
 			if (code === "root" || Template.isTemplate(message)) {
+				assert(code !== "__proto__", "Cannot use __proto__ as a message code");
 				target[code] = message;
 				continue;
 			}
 			if (typeof message === "string") {
+				assert(code !== "__proto__", "Cannot use __proto__ as a message code");
 				target[code] = new Template(message);
 				continue;
 			}
 			assert(typeof message === "object" && !Array.isArray(message), "Invalid message for", code);
 			const language = code;
-			target[language] = target[language] || {};
+			const localizedTarget = Object.hasOwn(target, language) ? target[language] : {};
+			target[language] = localizedTarget;
 			for (const key of Object.keys(message)) {
 				const localized = message[key];
+				assert(key !== "__proto__", "Cannot use __proto__ as a message code");
 				if (key === "root" || Template.isTemplate(localized)) {
-					target[language][key] = localized;
+					localizedTarget[key] = localized;
 					continue;
 				}
 				assert(typeof localized === "string", "Invalid message for", key, "in", language);
-				target[language][key] = new Template(localized);
+				localizedTarget[key] = new Template(localized);
 			}
 		}
 		return target;
@@ -100111,31 +100185,35 @@ var require_messages = /* @__PURE__ */ __commonJSMin(((exports) => {
 		for (const code of Object.keys(extended)) {
 			const message = extended[code];
 			if (code === "root" || Template.isTemplate(message)) {
+				assert(code !== "__proto__", "Cannot use __proto__ as a message code");
 				target[code] = message;
 				continue;
 			}
 			if (typeof message === "string") {
+				assert(code !== "__proto__", "Cannot use __proto__ as a message code");
 				target[code] = new Template(message);
 				continue;
 			}
 			assert(typeof message === "object" && !Array.isArray(message), "Invalid message for", code);
 			const language = code;
-			target[language] = target[language] || {};
+			const localizedTarget = Object.hasOwn(target, language) ? target[language] : {};
+			target[language] = localizedTarget;
 			for (const key of Object.keys(message)) {
 				const localized = message[key];
+				assert(key !== "__proto__", "Cannot use __proto__ as a message code");
 				if (key === "root" || Template.isTemplate(localized)) {
-					target[language][key] = localized;
+					localizedTarget[key] = localized;
 					continue;
 				}
 				assert(typeof localized === "string", "Invalid message for", key, "in", language);
-				target[language][key] = new Template(localized);
+				localizedTarget[key] = new Template(localized);
 			}
 		}
 		return target;
 	};
 }));
 //#endregion
-//#region node_modules/.pnpm/joi@18.2.3/node_modules/joi/lib/common.js
+//#region node_modules/.pnpm/joi@18.2.9/node_modules/joi/lib/common.js
 var require_common = /* @__PURE__ */ __commonJSMin(((exports) => {
 	const { assert: Assert, AssertError } = require_lib$4();
 	const Pkg = require_package();
@@ -100269,7 +100347,7 @@ var require_common = /* @__PURE__ */ __commonJSMin(((exports) => {
 	};
 }));
 //#endregion
-//#region node_modules/.pnpm/joi@18.2.3/node_modules/joi/lib/cache.js
+//#region node_modules/.pnpm/joi@18.2.9/node_modules/joi/lib/cache.js
 var require_cache = /* @__PURE__ */ __commonJSMin(((exports) => {
 	const { assert, clone } = require_lib$4();
 	const Common = require_common();
@@ -100358,7 +100436,7 @@ var require_cache = /* @__PURE__ */ __commonJSMin(((exports) => {
 	};
 }));
 //#endregion
-//#region node_modules/.pnpm/joi@18.2.3/node_modules/joi/lib/compile.js
+//#region node_modules/.pnpm/joi@18.2.9/node_modules/joi/lib/compile.js
 var require_compile = /* @__PURE__ */ __commonJSMin(((exports) => {
 	const { assert } = require_lib$4();
 	const Common = require_common();
@@ -100531,7 +100609,7 @@ var require_compile = /* @__PURE__ */ __commonJSMin(((exports) => {
 	};
 }));
 //#endregion
-//#region node_modules/.pnpm/joi@18.2.3/node_modules/joi/lib/extend.js
+//#region node_modules/.pnpm/joi@18.2.9/node_modules/joi/lib/extend.js
 var require_extend = /* @__PURE__ */ __commonJSMin(((exports) => {
 	const { assert, clone } = require_lib$4();
 	const Common = require_common();
@@ -100686,7 +100764,7 @@ var require_extend = /* @__PURE__ */ __commonJSMin(((exports) => {
 	};
 }));
 //#endregion
-//#region node_modules/.pnpm/joi@18.2.3/node_modules/joi/lib/manifest.js
+//#region node_modules/.pnpm/joi@18.2.9/node_modules/joi/lib/manifest.js
 var require_manifest = /* @__PURE__ */ __commonJSMin(((exports) => {
 	const { assert, clone } = require_lib$4();
 	const Common = require_common();
@@ -100928,7 +101006,7 @@ var require_lib$2 = /* @__PURE__ */ __commonJSMin(((exports) => {
 	};
 }));
 //#endregion
-//#region node_modules/.pnpm/joi@18.2.3/node_modules/joi/lib/trace.js
+//#region node_modules/.pnpm/joi@18.2.9/node_modules/joi/lib/trace.js
 var require_trace = /* @__PURE__ */ __commonJSMin(((exports) => {
 	const { deepEqual } = require_lib$4();
 	const Pinpoint = require_lib$2();
@@ -101155,7 +101233,7 @@ var require_trace = /* @__PURE__ */ __commonJSMin(((exports) => {
 	};
 }));
 //#endregion
-//#region node_modules/.pnpm/joi@18.2.3/node_modules/joi/lib/modify.js
+//#region node_modules/.pnpm/joi@18.2.9/node_modules/joi/lib/modify.js
 var require_modify = /* @__PURE__ */ __commonJSMin(((exports) => {
 	const { assert } = require_lib$4();
 	const Common = require_common();
@@ -101169,8 +101247,8 @@ var require_modify = /* @__PURE__ */ __commonJSMin(((exports) => {
 		}
 		clone() {
 			const clone = new internals.Ids();
-			clone._byId = new Map(this._byId);
-			clone._byKey = new Map(this._byKey);
+			if (this._byId.size) clone._byId = new Map(this._byId);
+			if (this._byKey.size) clone._byKey = new Map(this._byKey);
 			clone._schemaChain = this._schemaChain;
 			return clone;
 		}
@@ -101343,7 +101421,7 @@ var require_modify = /* @__PURE__ */ __commonJSMin(((exports) => {
 	};
 }));
 //#endregion
-//#region node_modules/.pnpm/joi@18.2.3/node_modules/joi/lib/state.js
+//#region node_modules/.pnpm/joi@18.2.9/node_modules/joi/lib/state.js
 var require_state = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const { clone, reach } = require_lib$4();
 	const Common = require_common();
@@ -101436,7 +101514,7 @@ var require_state = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	};
 }));
 //#endregion
-//#region node_modules/.pnpm/joi@18.2.3/node_modules/joi/lib/validator.js
+//#region node_modules/.pnpm/joi@18.2.9/node_modules/joi/lib/validator.js
 var require_validator = /* @__PURE__ */ __commonJSMin(((exports) => {
 	const { assert, clone, ignore, reach } = require_lib$4();
 	const Common = require_common();
@@ -101559,14 +101637,14 @@ var require_validator = /* @__PURE__ */ __commonJSMin(((exports) => {
 		}
 		snapshot() {
 			this._snapshots.push({
-				externals: this.externals.slice(),
-				warnings: this.warnings.slice()
+				externals: this.externals.length,
+				warnings: this.warnings.length
 			});
 		}
 		restore() {
 			const snapshot = this._snapshots.pop();
-			this.externals = snapshot.externals;
-			this.warnings = snapshot.warnings;
+			this.externals.length = snapshot.externals;
+			this.warnings.length = snapshot.warnings;
 		}
 		commit() {
 			this._snapshots.pop();
@@ -101610,6 +101688,7 @@ var require_validator = /* @__PURE__ */ __commonJSMin(((exports) => {
 			state.mainstay.tracer.debug(state, "validate", "cached", !!result);
 			if (result) return result;
 		}
+		if (schema._flags.failover !== void 0) state.snapshot();
 		const createError = (code, local, localState) => schema.$_createError(code, value, local, localState || state, prefs);
 		const helpers = {
 			original: value,
@@ -101773,13 +101852,19 @@ var require_validator = /* @__PURE__ */ __commonJSMin(((exports) => {
 	internals.finalize = function(value, errors, helpers) {
 		errors = errors || [];
 		const { schema, state, prefs } = helpers;
-		if (errors.length) {
-			const failover = internals.default("failover", void 0, errors, helpers);
-			if (failover !== void 0) {
-				state.mainstay.tracer.value(state, "failover", value, failover);
-				value = failover;
-				errors = [];
+		if (schema._flags.failover !== void 0) {
+			let applied = false;
+			if (errors.length) {
+				const failover = internals.default("failover", void 0, errors, helpers);
+				if (failover !== void 0) {
+					state.mainstay.tracer.value(state, "failover", value, failover);
+					value = failover;
+					errors = [];
+					applied = true;
+				}
 			}
+			if (applied) state.restore();
+			else state.commit();
 		}
 		if (errors.length && schema._flags.error) {
 			if (typeof schema._flags.error === "function") {
@@ -101873,7 +101958,7 @@ var require_validator = /* @__PURE__ */ __commonJSMin(((exports) => {
 	};
 }));
 //#endregion
-//#region node_modules/.pnpm/joi@18.2.3/node_modules/joi/lib/values.js
+//#region node_modules/.pnpm/joi@18.2.9/node_modules/joi/lib/values.js
 var require_values = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const { assert, deepEqual } = require_lib$4();
 	const Common = require_common();
@@ -101992,7 +102077,7 @@ var require_values = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	};
 }));
 //#endregion
-//#region node_modules/.pnpm/joi@18.2.3/node_modules/joi/lib/base.js
+//#region node_modules/.pnpm/joi@18.2.9/node_modules/joi/lib/base.js
 var require_base = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const { assert, clone, deepEqual, merge } = require_lib$4();
 	const Cache = require_cache();
@@ -102454,8 +102539,9 @@ var require_base = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 			assert(definition, "Unknown rule", rule.method);
 			const obj = this.clone();
 			if (args) {
-				assert(Object.keys(args).length === 1 || Object.keys(args).length === this._definition.rules[rule.name].args.length, "Invalid rule definition for", this.type, rule.name);
-				for (const key of Object.keys(args)) {
+				const argKeys = Object.keys(args);
+				assert(argKeys.length === 1 || argKeys.length === this._definition.rules[rule.name].args.length, "Invalid rule definition for", this.type, rule.name);
+				for (const key of argKeys) {
 					let arg = args[key];
 					if (definition.argsByName) {
 						const resolver = definition.argsByName.get(key);
@@ -102583,7 +102669,7 @@ var require_base = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 			target._valids = this._valids && this._valids.clone();
 			target._invalids = this._invalids && this._invalids.clone();
 			target._rules = this._rules.slice();
-			target._singleRules = clone(this._singleRules, { shallow: true });
+			target._singleRules = new Map(this._singleRules);
 			target._refs = this._refs.clone();
 			target._flags = Object.assign({}, this._flags);
 			target._cache = null;
@@ -102763,7 +102849,7 @@ var require_base = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	module.exports = new internals.Base();
 }));
 //#endregion
-//#region node_modules/.pnpm/joi@18.2.3/node_modules/joi/lib/types/any.js
+//#region node_modules/.pnpm/joi@18.2.9/node_modules/joi/lib/types/any.js
 var require_any = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const { assert } = require_lib$4();
 	const Base = require_base();
@@ -102902,7 +102988,7 @@ var require_any = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	});
 }));
 //#endregion
-//#region node_modules/.pnpm/joi@18.2.3/node_modules/joi/lib/types/alternatives.js
+//#region node_modules/.pnpm/joi@18.2.9/node_modules/joi/lib/types/alternatives.js
 var require_alternatives = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const { assert, merge } = require_lib$4();
 	const Any = require_any();
@@ -103126,7 +103212,7 @@ var require_alternatives = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	};
 }));
 //#endregion
-//#region node_modules/.pnpm/joi@18.2.3/node_modules/joi/lib/types/array.js
+//#region node_modules/.pnpm/joi@18.2.9/node_modules/joi/lib/types/array.js
 var require_array = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const { assert, deepEqual, reach } = require_lib$4();
 	const Any = require_any();
@@ -103718,7 +103804,7 @@ var require_array = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	};
 }));
 //#endregion
-//#region node_modules/.pnpm/joi@18.2.3/node_modules/joi/lib/types/boolean.js
+//#region node_modules/.pnpm/joi@18.2.9/node_modules/joi/lib/types/boolean.js
 var require_boolean = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const { assert } = require_lib$4();
 	const Any = require_any();
@@ -103807,7 +103893,7 @@ var require_boolean = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	});
 }));
 //#endregion
-//#region node_modules/.pnpm/joi@18.2.3/node_modules/joi/lib/types/date.js
+//#region node_modules/.pnpm/joi@18.2.9/node_modules/joi/lib/types/date.js
 var require_date = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const { assert } = require_lib$4();
 	const Any = require_any();
@@ -104126,7 +104212,7 @@ var require_lib$1 = /* @__PURE__ */ __commonJSMin(((exports) => {
 	};
 }));
 //#endregion
-//#region node_modules/.pnpm/joi@18.2.3/node_modules/joi/lib/types/keys.js
+//#region node_modules/.pnpm/joi@18.2.9/node_modules/joi/lib/types/keys.js
 var require_keys = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const { applyToDefaults, assert, clone: Clone } = require_lib$4();
 	const Topo = require_lib$1();
@@ -104492,14 +104578,7 @@ var require_keys = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 			}
 		},
 		rebuild(schema) {
-			if (schema.$_terms.keys) {
-				const topo = new Topo.Sorter();
-				for (const child of schema.$_terms.keys) Common.tryWithPath(() => topo.add(child, {
-					after: child.schema.$_rootReferences(),
-					group: child.key
-				}), child.key);
-				schema.$_terms.keys = new internals.Keys(...topo.nodes);
-			}
+			if (schema.$_terms.keys) schema.$_terms.keys = new internals.Keys(...internals.sortKeys(schema.$_terms.keys));
 		},
 		manifest: { build(obj, desc) {
 			if (desc.keys) obj = obj.keys(desc.keys);
@@ -104527,6 +104606,7 @@ var require_keys = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 			"object.regex": "{{#label}} must be a RegExp object",
 			"object.rename.multiple": "{{#label}} cannot rename {{:#from}} because multiple renames are disabled and another key was already renamed to {{:#to}}",
 			"object.rename.override": "{{#label}} cannot rename {{:#from}} because override is disabled and target {{:#to}} exists",
+			"object.rename.proto": "{{#label}} cannot rename {{:#from}} because target {{:#to}} is a reserved key",
 			"object.schema": "{{#label}} must be a Joi schema of {{#type}} type",
 			"object.unknown": "{{#label}} is not allowed",
 			"object.with": "{{:#mainWithLabel}} missing required peer {{:#peerWithLabel}}",
@@ -104690,6 +104770,19 @@ var require_keys = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 			};
 		}
 	};
+	internals.sortKeys = function(keys, manual = true) {
+		const topo = new Topo.Sorter();
+		for (const child of keys) Common.tryWithPath(() => topo.add(child, {
+			after: child.schema.$_rootReferences(),
+			group: child.key,
+			manual
+		}), child.key);
+		try {
+			return topo.sort();
+		} catch {
+			return internals.sortKeys(keys, false);
+		}
+	};
 	internals.keysToLabels = function(schema, keys) {
 		if (Array.isArray(keys)) return keys.map((key) => schema.$_mapLabels(key));
 		return schema.$_mapLabels(keys);
@@ -104735,6 +104828,15 @@ var require_keys = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 						pattern
 					}, state, prefs));
 					if (prefs.abortEarly) return false;
+				}
+				if (to === "__proto__") {
+					errors.push(schema.$_createError("object.rename.proto", value, {
+						from,
+						to,
+						pattern
+					}, state, prefs));
+					if (prefs.abortEarly) return false;
+					continue;
 				}
 				if (value[from] === void 0) delete value[to];
 				else value[to] = value[from];
@@ -104862,7 +104964,7 @@ var require_keys = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	};
 }));
 //#endregion
-//#region node_modules/.pnpm/joi@18.2.3/node_modules/joi/lib/types/function.js
+//#region node_modules/.pnpm/joi@18.2.9/node_modules/joi/lib/types/function.js
 var require_function = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const { assert } = require_lib$4();
 	module.exports = require_keys().extend({
@@ -104927,7 +105029,7 @@ var require_function = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	});
 }));
 //#endregion
-//#region node_modules/.pnpm/joi@18.2.3/node_modules/joi/lib/types/link.js
+//#region node_modules/.pnpm/joi@18.2.9/node_modules/joi/lib/types/link.js
 var require_link = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const { assert } = require_lib$4();
 	const Any = require_any();
@@ -105064,7 +105166,7 @@ var require_link = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	};
 }));
 //#endregion
-//#region node_modules/.pnpm/joi@18.2.3/node_modules/joi/lib/types/number.js
+//#region node_modules/.pnpm/joi@18.2.9/node_modules/joi/lib/types/number.js
 var require_number = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const { assert } = require_lib$4();
 	const Any = require_any();
@@ -105352,7 +105454,7 @@ var require_number = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	};
 }));
 //#endregion
-//#region node_modules/.pnpm/joi@18.2.3/node_modules/joi/lib/types/object.js
+//#region node_modules/.pnpm/joi@18.2.9/node_modules/joi/lib/types/object.js
 var require_object = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	module.exports = require_keys().extend({
 		type: "object",
@@ -107676,7 +107778,7 @@ var require_commonjs = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.tlds = new Set(tlds_js_1.TLDS.map((tld) => tld.toLowerCase()));
 }));
 //#endregion
-//#region node_modules/.pnpm/joi@18.2.3/node_modules/joi/lib/types/string.js
+//#region node_modules/.pnpm/joi@18.2.9/node_modules/joi/lib/types/string.js
 var require_string = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const { assert, escapeRegex } = require_lib$4();
 	const { isDomainValid, isEmailValid, ipRegex, uriRegex } = require_dist();
@@ -107921,6 +108023,7 @@ var require_string = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 					Common.assertOptions(options, [
 						"allowFullyQualified",
 						"allowUnicode",
+						"allowUnderscore",
 						"ignoreLength",
 						"maxDomainSegments",
 						"minDomainSegments",
@@ -108397,7 +108500,7 @@ var require_string = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	};
 	internals.isoDate = function(value) {
 		if (!Common.isIsoDate(value)) return null;
-		if (/.*T.*[+-]\d\d$/.test(value)) value += "00";
+		if (/T.*[+-]\d\d$/.test(value)) value += ":00";
 		const date = new Date(value);
 		if (isNaN(date.getTime())) return null;
 		return date.toISOString();
@@ -108416,7 +108519,7 @@ var require_string = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	};
 }));
 //#endregion
-//#region node_modules/.pnpm/joi@18.2.3/node_modules/joi/lib/types/symbol.js
+//#region node_modules/.pnpm/joi@18.2.9/node_modules/joi/lib/types/symbol.js
 var require_symbol = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const { assert } = require_lib$4();
 	const Any = require_any();
@@ -108475,7 +108578,7 @@ var require_symbol = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	});
 }));
 //#endregion
-//#region node_modules/.pnpm/joi@18.2.3/node_modules/joi/lib/types/binary.js
+//#region node_modules/.pnpm/joi@18.2.9/node_modules/joi/lib/types/binary.js
 var require_binary = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const { assert } = require_lib$4();
 	const Any = require_any();
@@ -108578,7 +108681,7 @@ var require_binary = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	});
 }));
 //#endregion
-//#region node_modules/.pnpm/joi@18.2.3/node_modules/joi/lib/index.js
+//#region node_modules/.pnpm/joi@18.2.9/node_modules/joi/lib/index.js
 var require_lib = /* @__PURE__ */ __commonJSMin(((exports, module) => {
 	const { assert, clone } = require_lib$4();
 	const Cache = require_cache();
@@ -118449,16 +118552,14 @@ function matchesImapSender(sender, entries) {
 function recipientAddresses(mail) {
 	const to = mail.to ? Array.isArray(mail.to) ? mail.to : [mail.to] : [];
 	const delivered = mail.headers.get("delivered-to");
-	const deliveredValues = typeof delivered === "string" ? [delivered] : Array.isArray(delivered) ? delivered.filter((entry) => typeof entry === "string") : [];
+	const deliveredValues = typeof delivered === "string" ? [delivered] : filterStringEntries(delivered);
 	return [...to.flatMap((address) => address.value.map((entry) => entry.address ?? "")), ...deliveredValues];
 }
 function constantTokenMatch(address, expected) {
 	const local = address.slice(0, address.lastIndexOf("@"));
 	const plus = local.lastIndexOf("+");
 	if (plus < 0) return false;
-	const actualBytes = Buffer.from(local.slice(plus + 1));
-	const expectedBytes = Buffer.from(expected);
-	return actualBytes.byteLength === expectedBytes.byteLength && timingSafeEqual(actualBytes, expectedBytes);
+	return safeEqualSecret(local.slice(plus + 1), expected);
 }
 function matchingSenderToken(mail, sender, account) {
 	return account.addressTokens.some(({ token, senders }) => matchesImapSender(sender, senders) && recipientAddresses(mail).some((address) => constantTokenMatch(address, token)));
@@ -118585,6 +118686,7 @@ async function evaluateImapSender(params) {
 const MAX_SOURCE_BYTES = 1048576;
 const MAX_ATTEMPTS = 3;
 const MAX_RECONNECT_DELAY_MS = 6e4;
+const FETCH_BATCH_SIZE = 20;
 function senderDomain(sender) {
 	return sender?.split("@").at(-1)?.toLowerCase() ?? "unknown";
 }
@@ -118595,45 +118697,42 @@ function messageDate(message) {
 var ImapAccountWatcher = class {
 	constructor(options) {
 		this.options = options;
-		this.stopping = false;
 		this.failures = 0;
 		this.authFailures = 0;
 		this.reconnectPending = false;
 		this.sweepPending = false;
+		this.scheduler = options.context.scheduler.scope();
 	}
 	start() {
 		if (this.options.account.allowedSenders.length === 0) {
 			this.options.context.logger.warn(`imap: account=${this.options.accountId} disabled; configure allowedSenders before watching`);
 			return;
 		}
-		this.startConnection();
+		this.scheduler.schedule({
+			id: "connect",
+			delayMs: 0,
+			run: () => this.startConnection()
+		});
 	}
 	async stop() {
-		this.stopping = true;
-		if (this.pollTimer) {
-			clearInterval(this.pollTimer);
-			this.pollTimer = void 0;
-		}
-		if (this.reconnectTimer) {
-			clearTimeout(this.reconnectTimer);
-			this.reconnectTimer = void 0;
-		}
+		this.scheduler.beginClose();
 		const client = this.client;
 		this.client = void 0;
 		client?.close();
-		await Promise.allSettled([this.activeConnection, this.activeSweep]);
+		await this.scheduler.stop();
 	}
 	startConnection() {
-		if (this.stopping || this.activeConnection) return;
+		if (this.scheduler.signal.aborted || this.activeConnection) return;
 		const pending = this.connect().catch((error) => this.handleConnectionFailure(error));
 		this.activeConnection = pending.finally(() => {
 			this.activeConnection = void 0;
-			if (this.reconnectPending && !this.stopping) this.scheduleReconnect();
+			if (this.reconnectPending && !this.scheduler.signal.aborted) this.scheduleReconnect();
 		});
+		return this.activeConnection;
 	}
 	async connect() {
 		await this.activeSweep;
-		if (this.stopping) return;
+		if (this.scheduler.signal.aborted) return;
 		const { account } = this.options;
 		const client = new ImapFlow({
 			host: account.host,
@@ -118652,22 +118751,22 @@ var ImapAccountWatcher = class {
 		});
 		this.client = client;
 		client.on("error", (error) => {
-			if (!this.stopping && this.client === client) this.options.context.logger.warn(`imap: account=${this.options.accountId} connection error=${formatErrorMessage(error)}`);
+			if (!this.scheduler.signal.aborted && this.client === client) this.options.context.logger.warn(`imap: account=${this.options.accountId} connection error=${formatErrorMessage(error)}`);
 		});
 		client.once("close", () => {
-			if (!this.stopping && this.client === client) {
+			if (!this.scheduler.signal.aborted && this.client === client) {
 				this.client = void 0;
 				this.scheduleReconnect();
 			}
 		});
 		await client.connect();
-		if (this.stopping || this.client !== client) {
+		if (this.scheduler.signal.aborted || this.client !== client) {
 			client.close();
 			return;
 		}
 		const mailbox = await client.mailboxOpen(account.mailbox, { readOnly: true });
 		const initialized = await initializeImapCursor(this.options.state, this.options.accountId, mailbox.uidValidity.toString(), mailbox.uidNext);
-		if (this.stopping || this.client !== client) return;
+		if (this.scheduler.signal.aborted || this.client !== client) return;
 		if (initialized.kind !== "resume") this.options.context.logger.info(`imap: account=${this.options.accountId} cursor=${initialized.kind} uidValidity=${initialized.cursor.uidValidity} uid=${initialized.cursor.lastSeenUid}`);
 		const supportsIdle = client.capabilities.has("IDLE");
 		const push = account.watch.mode !== "interval" && supportsIdle;
@@ -118679,12 +118778,16 @@ var ImapAccountWatcher = class {
 		if (push) client.on("exists", () => {
 			this.requestSweep();
 		});
-		this.pollTimer = setInterval(() => this.requestSweep(), account.watch.pollSeconds * 1e3);
-		this.pollTimer.unref();
+		this.pollJob = this.scheduler.schedule({
+			id: "poll",
+			delayMs: account.watch.pollSeconds * 1e3,
+			everyMs: account.watch.pollSeconds * 1e3,
+			run: () => this.requestSweep()
+		});
 		if (initialized.kind === "resume") this.requestSweep();
 	}
 	handleConnectionFailure(error) {
-		if (this.stopping) return;
+		if (this.scheduler.signal.aborted) return;
 		if (typeof error === "object" && error !== null && "authenticationFailed" in error && error.authenticationFailed === true && ++this.authFailures >= MAX_ATTEMPTS) {
 			const message = `imap: account=${this.options.accountId} needs reauthentication after ${MAX_ATTEMPTS} authentication failures; update its password and reload configuration`;
 			this.options.context.logger.error(message);
@@ -118700,11 +118803,9 @@ var ImapAccountWatcher = class {
 		this.scheduleReconnect();
 	}
 	scheduleReconnect() {
-		if (this.stopping || this.reconnectTimer || this.authFailures >= MAX_ATTEMPTS) return;
-		if (this.pollTimer) {
-			clearInterval(this.pollTimer);
-			this.pollTimer = void 0;
-		}
+		if (this.scheduler.signal.aborted || this.reconnectJob || this.authFailures >= MAX_ATTEMPTS) return;
+		this.pollJob?.cancel();
+		this.pollJob = void 0;
 		if (this.activeConnection) {
 			this.reconnectPending = true;
 			return;
@@ -118713,44 +118814,67 @@ var ImapAccountWatcher = class {
 		const base = this.options.reconnectBaseMs ?? 1e3;
 		const delay = Math.min(base * 2 ** this.failures++, MAX_RECONNECT_DELAY_MS);
 		const jitter = Math.floor(Math.random() * Math.max(1, delay / 4));
-		this.reconnectTimer = setTimeout(() => {
-			this.reconnectTimer = void 0;
-			this.startConnection();
-		}, delay + jitter);
-		this.reconnectTimer.unref();
+		this.reconnectJob = this.scheduler.schedule({
+			id: "reconnect",
+			delayMs: delay + jitter,
+			run: () => {
+				this.reconnectJob = void 0;
+				return this.startConnection();
+			}
+		});
 	}
 	requestSweep() {
 		const client = this.client;
-		if (this.stopping || !client) return;
+		if (this.scheduler.signal.aborted || !client) return;
 		if (this.activeSweep) {
 			this.sweepPending = true;
 			return;
 		}
-		this.activeSweep = this.sweep(client).catch((error) => {
-			if (!this.stopping) this.options.context.logger.warn(`imap: account=${this.options.accountId} sweep failed=${formatErrorMessage(error)}`);
-		}).finally(() => {
-			this.activeSweep = void 0;
-			if (this.sweepPending && !this.stopping) {
-				this.sweepPending = false;
-				this.requestSweep();
+		this.scheduler.schedule({
+			id: "sweep",
+			delayMs: 0,
+			mode: "earliest",
+			run: () => {
+				this.activeSweep = this.sweep(client).catch((error) => {
+					if (!this.scheduler.signal.aborted) this.options.context.logger.warn(`imap: account=${this.options.accountId} sweep failed=${formatErrorMessage(error)}`);
+				}).finally(() => {
+					this.activeSweep = void 0;
+					if (this.sweepPending && !this.scheduler.signal.aborted) {
+						this.sweepPending = false;
+						this.requestSweep();
+					}
+				});
+				return this.activeSweep;
 			}
 		});
 	}
 	async sweep(client) {
 		const cursor = await this.options.state.cursors.lookup(this.options.accountId);
-		if (!cursor || this.stopping || this.client !== client) return;
-		const messages = [];
-		for await (const message of client.fetch(`${cursor.lastSeenUid + 1}:*`, {
-			uid: true,
-			internalDate: true,
-			size: true,
-			source: { maxLength: MAX_SOURCE_BYTES }
-		}, { uid: true })) if (message.uid > cursor.lastSeenUid) messages.push(message);
-		for (const message of messages.toSorted((left, right) => left.uid - right.uid)) {
-			if (this.stopping || this.client !== client || !await this.processMessage(message, cursor.uidValidity)) break;
-			await advanceImapCursor(this.options.state, this.options.accountId, cursor.uidValidity, message.uid);
+		if (!cursor || this.scheduler.signal.aborted || this.client !== client) return;
+		const uids = [];
+		for await (const message of client.fetch(`${cursor.lastSeenUid + 1}:*`, { uid: true }, { uid: true })) if (message.uid > cursor.lastSeenUid) uids.push(message.uid);
+		uids.sort((left, right) => left - right);
+		let processed = 0;
+		for (let offset = 0; offset < uids.length; offset += FETCH_BATCH_SIZE) {
+			if (this.scheduler.signal.aborted || this.client !== client) break;
+			const batchUids = uids.slice(offset, offset + FETCH_BATCH_SIZE);
+			const messages = await client.fetchAll(batchUids, {
+				uid: true,
+				internalDate: true,
+				size: true,
+				source: { maxLength: MAX_SOURCE_BYTES }
+			}, { uid: true });
+			messages.sort((left, right) => left.uid - right.uid);
+			for (const message of messages) {
+				if (this.scheduler.signal.aborted || this.client !== client || !await this.processMessage(message, cursor.uidValidity)) {
+					offset = uids.length;
+					break;
+				}
+				await advanceImapCursor(this.options.state, this.options.accountId, cursor.uidValidity, message.uid);
+				processed++;
+			}
 		}
-		this.options.context.logger.debug?.(`imap: account=${this.options.accountId} lastSweep=${(/* @__PURE__ */ new Date()).toISOString()} messages=${messages.length}`);
+		this.options.context.logger.debug?.(`imap: account=${this.options.accountId} lastSweep=${(/* @__PURE__ */ new Date()).toISOString()} messages=${processed}/${uids.length}`);
 	}
 	async processMessage(message, uidValidity) {
 		const { accountId, account, state } = this.options;
@@ -118851,41 +118975,34 @@ var imap_default = definePluginEntry({
 	configSchema: imapConfigSchema,
 	register(api) {
 		if (api.registrationMode !== "full") return;
-		let generation = 0;
 		let watchers = [];
 		api.registerService({
 			id: "imap-watch",
-			start(context) {
+			apiVersion: 2,
+			async start(context) {
 				const previous = watchers;
-				const activeGeneration = ++generation;
 				watchers = [];
-				const start = async () => {
-					await Promise.all(previous.map((watcher) => watcher.stop()));
-					if (activeGeneration !== generation) return;
-					const config = imapConfigSchema.parse(api.pluginConfig, (accountId) => {
-						context.logger.warn(`imap: account=${accountId} unavailable; resolve its IMAP password and reload configuration`);
-					});
-					const accounts = Object.entries(config.accounts);
-					if (!accounts.length) {
-						context.logger.warn("imap: no accounts configured; add plugins.entries.imap.config.accounts");
-						return;
-					}
-					const state = createImapState(api.runtime);
-					watchers = accounts.map(([accountId, account]) => new ImapAccountWatcher({
-						accountId,
-						account,
-						runtime: api.runtime,
-						state,
-						context
-					}));
-					for (const watcher of watchers) watcher.start();
-				};
-				start().catch((error) => {
-					if (activeGeneration === generation) context.serviceHealth?.reportFailure(error);
+				await Promise.all(previous.map((watcher) => watcher.stop()));
+				if (context.scheduler.signal.aborted) return;
+				const config = imapConfigSchema.parse(api.pluginConfig, (accountId) => {
+					context.logger.warn(`imap: account=${accountId} unavailable; resolve its IMAP password and reload configuration`);
 				});
+				const accounts = Object.entries(config.accounts);
+				if (!accounts.length) {
+					context.logger.warn("imap: no accounts configured; add plugins.entries.imap.config.accounts");
+					return;
+				}
+				const state = createImapState(api.runtime);
+				watchers = accounts.map(([accountId, account]) => new ImapAccountWatcher({
+					accountId,
+					account,
+					runtime: api.runtime,
+					state,
+					context
+				}));
+				for (const watcher of watchers) watcher.start();
 			},
 			async stop() {
-				generation++;
 				const active = watchers;
 				watchers = [];
 				await Promise.all(active.map((watcher) => watcher.stop()));

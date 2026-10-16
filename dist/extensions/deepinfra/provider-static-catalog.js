@@ -1,10 +1,10 @@
-import { t as modelCatalog } from "./.setup/openclaw.plugin-BRaVociw.mjs";
+import { t as openclaw_plugin_default } from "./.setup/openclaw.plugin-D7BLeoIa.mjs";
 import { DEEPINFRA_BASE_URL } from "./media-models.js";
 import { buildManifestModelProviderConfig } from "openclaw/plugin-sdk/provider-model-metadata";
 //#region extensions/deepinfra/provider-static-catalog.ts
 const DEEPINFRA_MANIFEST_PROVIDER = buildManifestModelProviderConfig({
 	providerId: "deepinfra",
-	catalog: modelCatalog.providers.deepinfra
+	catalog: openclaw_plugin_default.modelCatalog.providers.deepinfra
 });
 const DEEPINFRA_DEFAULT_MODEL_REF = `deepinfra/deepseek-ai/DeepSeek-V4-Flash`;
 const DEEPINFRA_MODEL_CATALOG = DEEPINFRA_MANIFEST_PROVIDER.models;

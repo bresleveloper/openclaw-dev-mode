@@ -1,9 +1,8 @@
 import { Static, Type } from "typebox";
 import { z } from "zod";
-import "json5";
-import "@openclaw/fs-safe/config";
+import { DatabaseSync } from "node:sqlite";
 import "@openclaw/fs-safe/advanced";
-import "@openclaw/fs-safe/secret";
+import "json5";
 import "kysely";
 import "execa";
 //#endregion
@@ -63,254 +62,9 @@ type ModelRoutingPercentiles = {
   p99?: number;
 };
 //#endregion
-//#region src/shared/silent-reply-policy.d.ts
-type SilentReplyPolicy = "allow" | "disallow";
-type SilentReplyConversationType = "direct" | "group" | "internal";
-type SilentReplyPolicyShape = Partial<Record<Exclude<SilentReplyConversationType, "direct">, SilentReplyPolicy>>;
-//#endregion
-//#region src/transcripts/config.d.ts
-/**
- * Configuration normalization for transcript capture/import.
- *
- * Raw config can contain optional auto-start provider locators; resolution
- * returns bounded defaults and drops malformed entries before runtime startup.
- */
-/** Raw auto-start transcript source entry from config. */
-type TranscriptsAutoStartConfig = {
-  providerId: string;
-  whenOccupied?: boolean;
-  sessionId?: string;
-  title?: string;
-  accountId?: string;
-  guildId?: string;
-  channelId?: string;
-  meetingUrl?: string;
-};
-/** Raw transcripts config block. */
-type TranscriptsConfig = {
-  enabled?: boolean;
-  autoStart?: TranscriptsAutoStartConfig[];
-};
-//#endregion
-//#region src/config/zod-schema.root-support.d.ts
-declare const AccessGroupsSchema: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodDiscriminatedUnion<[z.ZodObject<{
-  type: z.ZodLiteral<"discord.channelAudience">;
-  guildId: z.ZodString;
-  channelId: z.ZodString;
-  membership: z.ZodOptional<z.ZodLiteral<"canViewChannel">>;
-}, z.core.$strict>, z.ZodObject<{
-  type: z.ZodLiteral<"message.senders">;
-  members: z.ZodRecord<z.ZodString, z.ZodArray<z.ZodString>>;
-}, z.core.$strict>], "type">>>;
-declare const TalkSchema: z.ZodObject<{
-  agentId: z.ZodOptional<z.ZodString>;
-  provider: z.ZodOptional<z.ZodString>;
-  providers: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodObject<{
-    apiKey: z.ZodOptional<z.ZodUnion<readonly [z.ZodString, z.ZodDiscriminatedUnion<[z.ZodObject<{
-      source: z.ZodLiteral<"env">;
-      provider: z.ZodString;
-      id: z.ZodString;
-    }, z.core.$strict>, z.ZodObject<{
-      source: z.ZodLiteral<"file">;
-      provider: z.ZodString;
-      id: z.ZodString;
-    }, z.core.$strict>, z.ZodObject<{
-      source: z.ZodLiteral<"exec">;
-      provider: z.ZodString;
-      id: z.ZodString;
-    }, z.core.$strict>, z.ZodObject<{
-      source: z.ZodLiteral<"store">;
-      provider: z.ZodString;
-      id: z.ZodString;
-    }, z.core.$strict>], "source">]>>;
-  }, z.core.$catchall<z.ZodUnknown>>>>;
-  realtime: z.ZodOptional<z.ZodObject<{
-    provider: z.ZodOptional<z.ZodString>;
-    providers: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodObject<{
-      apiKey: z.ZodOptional<z.ZodUnion<readonly [z.ZodString, z.ZodDiscriminatedUnion<[z.ZodObject<{
-        source: z.ZodLiteral<"env">;
-        provider: z.ZodString;
-        id: z.ZodString;
-      }, z.core.$strict>, z.ZodObject<{
-        source: z.ZodLiteral<"file">;
-        provider: z.ZodString;
-        id: z.ZodString;
-      }, z.core.$strict>, z.ZodObject<{
-        source: z.ZodLiteral<"exec">;
-        provider: z.ZodString;
-        id: z.ZodString;
-      }, z.core.$strict>, z.ZodObject<{
-        source: z.ZodLiteral<"store">;
-        provider: z.ZodString;
-        id: z.ZodString;
-      }, z.core.$strict>], "source">]>>;
-    }, z.core.$catchall<z.ZodUnknown>>>>;
-    model: z.ZodOptional<z.ZodString>;
-    speakerVoice: z.ZodOptional<z.ZodString>;
-    speakerVoiceId: z.ZodOptional<z.ZodString>;
-    instructions: z.ZodOptional<z.ZodString>;
-    mode: z.ZodOptional<z.ZodEnum<{
-      realtime: "realtime";
-      "stt-tts": "stt-tts";
-      transcription: "transcription";
-    }>>;
-    transport: z.ZodOptional<z.ZodEnum<{
-      "gateway-relay": "gateway-relay";
-      "managed-room": "managed-room";
-      "provider-websocket": "provider-websocket";
-      webrtc: "webrtc";
-    }>>;
-    vadThreshold: z.ZodOptional<z.ZodNumber>;
-    silenceDurationMs: z.ZodOptional<z.ZodNumber>;
-    prefixPaddingMs: z.ZodOptional<z.ZodNumber>;
-    reasoningEffort: z.ZodOptional<z.ZodString>;
-    brain: z.ZodOptional<z.ZodEnum<{
-      "agent-consult": "agent-consult";
-      "direct-tools": "direct-tools";
-      none: "none";
-    }>>;
-    consultRouting: z.ZodOptional<z.ZodEnum<{
-      "force-agent-consult": "force-agent-consult";
-      "provider-direct": "provider-direct";
-    }>>;
-  }, z.core.$strict>>;
-  consultThinkingLevel: z.ZodOptional<z.ZodEnum<{
-    adaptive: "adaptive";
-    high: "high";
-    low: "low";
-    max: "max";
-    medium: "medium";
-    minimal: "minimal";
-    off: "off";
-    ultra: "ultra";
-    xhigh: "xhigh";
-  }>>;
-  consultFastMode: z.ZodOptional<z.ZodBoolean>;
-  speechLocale: z.ZodOptional<z.ZodString>;
-  interruptOnSpeech: z.ZodOptional<z.ZodBoolean>;
-  silenceTimeoutMs: z.ZodOptional<z.ZodNumber>;
-}, z.core.$strict>;
-declare const McpConfigSchema: z.ZodOptional<z.ZodObject<{
-  sessionIdleTtlMs: z.ZodOptional<z.ZodNumber>;
-  servers: z.ZodOptional<z.ZodPreprocess<z.ZodRecord<z.ZodType<string, unknown, z.core.$ZodTypeInternals<string, unknown>>, z.ZodObject<{
-    enabled: z.ZodOptional<z.ZodBoolean>;
-    command: z.ZodOptional<z.ZodString>;
-    args: z.ZodOptional<z.ZodArray<z.ZodString>>;
-    env: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnion<readonly [z.ZodString, z.ZodNumber, z.ZodBoolean]>>>;
-    cwd: z.ZodOptional<z.ZodString>;
-    url: z.ZodOptional<z.ZodString>;
-    transport: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"stdio">, z.ZodLiteral<"sse">, z.ZodLiteral<"streamable-http">]>>;
-    headers: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnion<readonly [z.ZodString, z.ZodNumber, z.ZodBoolean]>>>;
-    connectionTimeoutMs: z.ZodOptional<z.ZodNumber>;
-    requestTimeoutMs: z.ZodOptional<z.ZodNumber>;
-    supportsParallelToolCalls: z.ZodOptional<z.ZodBoolean>;
-    auth: z.ZodOptional<z.ZodLiteral<"oauth">>;
-    oauth: z.ZodOptional<z.ZodObject<{
-      identity: z.ZodOptional<z.ZodEnum<{
-        "per-requester": "per-requester";
-        shared: "shared";
-      }>>;
-      authProfileId: z.ZodOptional<z.ZodString>;
-      scope: z.ZodOptional<z.ZodString>;
-      redirectUrl: z.ZodOptional<z.ZodString>;
-      clientMetadataUrl: z.ZodOptional<z.ZodString>;
-    }, z.core.$strict>>;
-    sslVerify: z.ZodOptional<z.ZodBoolean>;
-    clientCert: z.ZodOptional<z.ZodString>;
-    clientKey: z.ZodOptional<z.ZodString>;
-    toolFilter: z.ZodOptional<z.ZodObject<{
-      include: z.ZodOptional<z.ZodArray<z.ZodString>>;
-      exclude: z.ZodOptional<z.ZodArray<z.ZodString>>;
-    }, z.core.$strict>>;
-    codex: z.ZodOptional<z.ZodObject<{
-      agents: z.ZodOptional<z.ZodArray<z.ZodString>>;
-      defaultToolsApprovalMode: z.ZodOptional<z.ZodEnum<{
-        approve: "approve";
-        auto: "auto";
-        prompt: "prompt";
-      }>>;
-    }, z.core.$strict>>;
-  }, z.core.$catchall<z.ZodUnknown>>>, unknown>>;
-  apps: z.ZodOptional<z.ZodObject<{
-    enabled: z.ZodOptional<z.ZodBoolean>;
-    sandboxOrigin: z.ZodOptional<z.ZodString>;
-    sandboxPort: z.ZodOptional<z.ZodNumber>;
-  }, z.core.$strict>>;
-}, z.core.$strict>>;
-declare const NodeHostSchema: z.ZodOptional<z.ZodObject<{
-  autoUpdate: z.ZodOptional<z.ZodObject<{
-    enabled: z.ZodOptional<z.ZodBoolean>;
-  }, z.core.$strict>>;
-  agentRuns: z.ZodOptional<z.ZodObject<{
-    claude: z.ZodOptional<z.ZodObject<{
-      enabled: z.ZodOptional<z.ZodBoolean>;
-    }, z.core.$strict>>;
-  }, z.core.$strict>>;
-  workerRuns: z.ZodOptional<z.ZodObject<{
-    enabled: z.ZodOptional<z.ZodBoolean>;
-    capacity: z.ZodOptional<z.ZodNumber>;
-    isolation: z.ZodOptional<z.ZodEnum<{
-      container: "container";
-      none: "none";
-    }>>;
-    containerImage: z.ZodOptional<z.ZodString>;
-  }, z.core.$strict>>;
-  browserProxy: z.ZodOptional<z.ZodObject<{
-    enabled: z.ZodOptional<z.ZodBoolean>;
-    allowProfiles: z.ZodOptional<z.ZodArray<z.ZodString>>;
-  }, z.core.$strict>>;
-  mcp: z.ZodOptional<z.ZodObject<{
-    servers: z.ZodOptional<z.ZodPreprocess<z.ZodRecord<z.ZodType<string, unknown, z.core.$ZodTypeInternals<string, unknown>>, z.ZodObject<{
-      enabled: z.ZodOptional<z.ZodBoolean>;
-      command: z.ZodOptional<z.ZodString>;
-      args: z.ZodOptional<z.ZodArray<z.ZodString>>;
-      env: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnion<readonly [z.ZodString, z.ZodNumber, z.ZodBoolean]>>>;
-      cwd: z.ZodOptional<z.ZodString>;
-      url: z.ZodOptional<z.ZodString>;
-      transport: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"stdio">, z.ZodLiteral<"sse">, z.ZodLiteral<"streamable-http">]>>;
-      headers: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnion<readonly [z.ZodString, z.ZodNumber, z.ZodBoolean]>>>;
-      connectionTimeoutMs: z.ZodOptional<z.ZodNumber>;
-      requestTimeoutMs: z.ZodOptional<z.ZodNumber>;
-      supportsParallelToolCalls: z.ZodOptional<z.ZodBoolean>;
-      auth: z.ZodOptional<z.ZodLiteral<"oauth">>;
-      oauth: z.ZodOptional<z.ZodObject<{
-        identity: z.ZodOptional<z.ZodEnum<{
-          "per-requester": "per-requester";
-          shared: "shared";
-        }>>;
-        authProfileId: z.ZodOptional<z.ZodString>;
-        scope: z.ZodOptional<z.ZodString>;
-        redirectUrl: z.ZodOptional<z.ZodString>;
-        clientMetadataUrl: z.ZodOptional<z.ZodString>;
-      }, z.core.$strict>>;
-      sslVerify: z.ZodOptional<z.ZodBoolean>;
-      clientCert: z.ZodOptional<z.ZodString>;
-      clientKey: z.ZodOptional<z.ZodString>;
-      toolFilter: z.ZodOptional<z.ZodObject<{
-        include: z.ZodOptional<z.ZodArray<z.ZodString>>;
-        exclude: z.ZodOptional<z.ZodArray<z.ZodString>>;
-      }, z.core.$strict>>;
-      codex: z.ZodOptional<z.ZodObject<{
-        agents: z.ZodOptional<z.ZodArray<z.ZodString>>;
-        defaultToolsApprovalMode: z.ZodOptional<z.ZodEnum<{
-          approve: "approve";
-          auto: "auto";
-          prompt: "prompt";
-        }>>;
-      }, z.core.$strict>>;
-    }, z.core.$catchall<z.ZodUnknown>>>, unknown>>;
-  }, z.core.$strict>>;
-  skills: z.ZodOptional<z.ZodObject<{
-    enabled: z.ZodOptional<z.ZodBoolean>;
-  }, z.core.$strict>>;
-}, z.core.$strict>>;
-//#endregion
-//#region src/config/types.access-groups.d.ts
-type AccessGroupsConfig = NonNullable<z.input<typeof AccessGroupsSchema>>;
-//#endregion
-//#region packages/acp-core/src/runtime/types.d.ts
-/** Runtime update tags emitted by ACP adapters; unknown backend tags are passed through. */
-type AcpSessionUpdateTag = "agent_message_chunk" | "agent_thought_chunk" | "tool_call" | "tool_call_update" | "usage_update" | "available_commands_update" | "current_mode_update" | "config_option_update" | "session_info_update" | "plan" | (string & {});
+//#region packages/gateway-protocol/src/schema-contract.d.ts
+/** Keep handwritten optional-property contracts when deriving JSON shapes from schemas. */
+type SchemaContract<T> = T extends ((...args: never[]) => unknown) ? T : T extends readonly unknown[] ? { [K in keyof T]: SchemaContract<T[K]>; } : T extends object ? { [K in keyof T]: SchemaContract<string extends K ? T[K] : number extends K ? T[K] : symbol extends K ? T[K] : Pick<T, K> extends Required<Pick<T, K>> ? T[K] : Exclude<T[K], undefined>>; } : T;
 //#endregion
 //#region src/config/zod-schema.channel-bot-loop.d.ts
 declare const ChannelBotLoopProtectionSchema: z.ZodObject<{
@@ -321,16 +75,14 @@ declare const ChannelBotLoopProtectionSchema: z.ZodObject<{
 }, z.core.$strict>;
 //#endregion
 //#region src/config/zod-schema.channel-messaging-common.d.ts
-declare const ChannelStreamingPreviewSchema: z.ZodObject<{
-  chunk: z.ZodOptional<z.ZodObject<{
-    minChars: z.ZodOptional<z.ZodNumber>;
-    maxChars: z.ZodOptional<z.ZodNumber>;
-    breakPreference: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"paragraph">, z.ZodLiteral<"newline">, z.ZodLiteral<"sentence">]>>;
-  }, z.core.$strict>>;
-  toolProgress: z.ZodOptional<z.ZodBoolean>;
-  commandText: z.ZodOptional<z.ZodEnum<{
-    raw: "raw";
-    status: "status";
+declare const ChannelThreadBindingsSchema: z.ZodObject<{
+  enabled: z.ZodOptional<z.ZodBoolean>;
+  idleHours: z.ZodOptional<z.ZodNumber>;
+  maxAgeHours: z.ZodOptional<z.ZodNumber>;
+  spawnSessions: z.ZodOptional<z.ZodBoolean>;
+  defaultSpawnContext: z.ZodOptional<z.ZodEnum<{
+    fork: "fork";
+    isolated: "isolated";
   }>>;
 }, z.core.$strict>;
 declare const ChannelStreamingProgressSchema: z.ZodObject<{
@@ -641,6 +393,7 @@ declare const ModelsConfigSchema: z.ZodOptional<z.ZodObject<{
       "bedrock-converse-stream": "bedrock-converse-stream";
       "github-copilot": "github-copilot";
       "google-generative-ai": "google-generative-ai";
+      "google-interactions": "google-interactions";
       "google-vertex": "google-vertex";
       ollama: "ollama";
       "openai-chatgpt-responses": "openai-chatgpt-responses";
@@ -977,6 +730,7 @@ declare const ModelsConfigSchema: z.ZodOptional<z.ZodObject<{
         "bedrock-converse-stream": "bedrock-converse-stream";
         "github-copilot": "github-copilot";
         "google-generative-ai": "google-generative-ai";
+        "google-interactions": "google-interactions";
         "google-vertex": "google-vertex";
         ollama: "ollama";
         "openai-chatgpt-responses": "openai-chatgpt-responses";
@@ -1122,7 +876,6 @@ declare const ModelsConfigSchema: z.ZodOptional<z.ZodObject<{
   }, z.core.$strict>>;
 }, z.core.$strict>>;
 declare const ReplyToModeSchema: z.ZodUnion<readonly [z.ZodLiteral<"off">, z.ZodLiteral<"first">, z.ZodLiteral<"all">, z.ZodLiteral<"batched">]>;
-declare const TypingModeSchema: z.ZodUnion<readonly [z.ZodLiteral<"never">, z.ZodLiteral<"instant">, z.ZodLiteral<"thinking">, z.ZodLiteral<"message">]>;
 declare const GroupPolicySchema: z.ZodEnum<{
   allowlist: "allowlist";
   disabled: "disabled";
@@ -1139,11 +892,6 @@ declare const ContextVisibilityModeSchema: z.ZodEnum<{
   allowlist: "allowlist";
   allowlist_quote: "allowlist_quote";
 }>;
-declare const BlockStreamingCoalesceSchema: z.ZodObject<{
-  minChars: z.ZodOptional<z.ZodNumber>;
-  maxChars: z.ZodOptional<z.ZodNumber>;
-  idleMs: z.ZodOptional<z.ZodNumber>;
-}, z.core.$strict>;
 /** Delivery-only nested streaming config for channels without preview modes. */
 declare const ChannelDeliveryStreamingConfigSchema: z.ZodObject<{
   chunkMode: z.ZodOptional<z.ZodEnum<{
@@ -1158,11 +906,6 @@ declare const ChannelDeliveryStreamingConfigSchema: z.ZodObject<{
       idleMs: z.ZodOptional<z.ZodNumber>;
     }, z.core.$strict>>;
   }, z.core.$strict>>;
-}, z.core.$strict>;
-declare const BlockStreamingChunkSchema: z.ZodObject<{
-  minChars: z.ZodOptional<z.ZodNumber>;
-  maxChars: z.ZodOptional<z.ZodNumber>;
-  breakPreference: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"paragraph">, z.ZodLiteral<"newline">, z.ZodLiteral<"sentence">]>>;
 }, z.core.$strict>;
 declare const TtsConfigSchema: z.ZodOptional<z.ZodObject<{
   auto: z.ZodOptional<z.ZodEnum<{
@@ -1236,11 +979,6 @@ declare const TtsConfigSchema: z.ZodOptional<z.ZodObject<{
   maxTextLength: z.ZodOptional<z.ZodNumber>;
   timeoutMs: z.ZodOptional<z.ZodNumber>;
 }, z.core.$strict>>;
-declare const HumanDelaySchema: z.ZodObject<{
-  mode: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"off">, z.ZodLiteral<"natural">, z.ZodLiteral<"custom">]>>;
-  minMs: z.ZodOptional<z.ZodNumber>;
-  maxMs: z.ZodOptional<z.ZodNumber>;
-}, z.core.$strict>;
 //#endregion
 //#region src/config/zod-schema.logging.d.ts
 declare const DiagnosticsConfigSchema: z.ZodOptional<z.ZodObject<{
@@ -1374,8 +1112,8 @@ declare const SessionSchema: z.ZodOptional<z.ZodObject<{
 }, z.core.$strict>>;
 //#endregion
 //#region src/config/types.base.d.ts
-/** Typing indicator timing policy shared by channel configs. */
-type TypingMode = z.input<typeof TypingModeSchema>;
+/** Session-key ownership model for inbound messages. */
+type SessionScope = "per-sender" | "global";
 /** DM session-key granularity across peers, channels, and accounts. */
 type DmScope = "main" | "per-peer" | "per-channel-peer" | "per-account-channel-peer";
 /** Which source messages outbound replies should thread or quote against. */
@@ -1386,10 +1124,7 @@ type GroupPolicy = z.input<typeof GroupPolicySchema>;
 type DmPolicy = z.input<typeof DmPolicySchema>;
 /** How much non-allowlisted context is visible to an agent. */
 type ContextVisibilityMode = z.input<typeof ContextVisibilityModeSchema>;
-type BlockStreamingCoalesceConfig = z.input<typeof BlockStreamingCoalesceSchema>;
-type BlockStreamingChunkConfig = z.input<typeof BlockStreamingChunkSchema>;
 type ChannelStreamingProgressConfig = z.input<typeof ChannelStreamingProgressSchema>;
-type ChannelStreamingPreviewConfig = z.input<typeof ChannelStreamingPreviewSchema>;
 type SchemaChannelStreamingConfig = z.input<typeof ChannelPreviewStreamingConfigSchema>;
 type ChannelStreamingConfig<TProgress extends ChannelStreamingProgressConfig = ChannelStreamingProgressConfig> = Omit<SchemaChannelStreamingConfig, "progress"> & {
   /** Prefer a channel's native streaming transport over its portable draft path. */
@@ -1398,21 +1133,11 @@ type ChannelStreamingConfig<TProgress extends ChannelStreamingProgressConfig = C
 };
 type ChannelDeliveryStreamingConfig = z.input<typeof ChannelDeliveryStreamingConfigSchema>;
 /** Streaming subset used by channels that render visible preview/progress replies. */
-type ChannelPreviewStreamingConfig = Pick<ChannelStreamingConfig, "mode" | "chunkMode" | "preview" | "progress" | "block">;
-type HumanDelayConfig = z.input<typeof HumanDelaySchema>;
+type ChannelPreviewStreamingConfig = SchemaChannelStreamingConfig;
 type SessionSchemaInput = NonNullable<z.input<typeof SessionSchema>>;
-type SessionThreadBindingsConfig = NonNullable<SessionSchemaInput["threadBindings"]>;
+type SessionThreadBindingsConfig = z.input<typeof ChannelThreadBindingsSchema>;
 type SessionConfig = SessionSchemaInput;
-type SessionMaintenanceConfig = NonNullable<SessionSchemaInput["maintenance"]>;
-type SessionMaintenanceMode = NonNullable<SessionMaintenanceConfig["mode"]>;
 type AgentElevatedAllowFromConfig = Partial<Record<string, Array<string | number>>>;
-type IdentityConfig = {
-  name?: string;
-  theme?: string;
-  emoji?: string;
-  /** Avatar image: workspace-relative path, http(s) URL, or data URI. */
-  avatar?: string;
-};
 type LoggingConfig = NonNullable<z.input<typeof LoggingConfigSchema>>;
 type DiagnosticsConfig = NonNullable<z.input<typeof DiagnosticsConfigSchema>>;
 type AuditConfig = NonNullable<LoggingConfig["audit"]>;
@@ -1430,6 +1155,26 @@ declare const ChannelHeartbeatVisibilitySchema: z.ZodOptional<z.ZodObject<{
 //#endregion
 //#region src/config/types.channel-health.d.ts
 type ChannelHeartbeatVisibilityConfig = NonNullable<z.input<typeof ChannelHeartbeatVisibilitySchema>>;
+//#endregion
+//#region src/channels/plugins/config-schema.d.ts
+/** Canonical per-group/room channel policy shape. */
+declare const ChannelGroupEntrySchema: z.ZodObject<{
+  requireMention: z.ZodOptional<z.ZodBoolean>;
+  tools: z.ZodOptional<z.ZodObject<{
+    allow: z.ZodOptional<z.ZodArray<z.ZodString>>;
+    alsoAllow: z.ZodOptional<z.ZodArray<z.ZodString>>;
+    deny: z.ZodOptional<z.ZodArray<z.ZodString>>;
+  }, z.core.$strict>>;
+  toolsBySender: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodOptional<z.ZodObject<{
+    allow: z.ZodOptional<z.ZodArray<z.ZodString>>;
+    alsoAllow: z.ZodOptional<z.ZodArray<z.ZodString>>;
+    deny: z.ZodOptional<z.ZodArray<z.ZodString>>;
+  }, z.core.$strict>>>>;
+  skills: z.ZodOptional<z.ZodArray<z.ZodString>>;
+  enabled: z.ZodOptional<z.ZodBoolean>;
+  allowFrom: z.ZodOptional<z.ZodArray<z.ZodUnion<readonly [z.ZodString, z.ZodNumber]>>>;
+  systemPrompt: z.ZodOptional<z.ZodString>;
+}, z.core.$strict>;
 //#endregion
 //#region src/config/zod-schema.approvals.d.ts
 /** Native exec approval mode accepted by config. */
@@ -1458,12 +1203,37 @@ declare const ApprovalsSchema: z.ZodOptional<z.ZodObject<{
       accountId: z.ZodOptional<z.ZodString>;
       threadId: z.ZodOptional<z.ZodUnion<readonly [z.ZodString, z.ZodNumber]>>;
     }, z.core.$strict>>>;
+    slack: z.ZodOptional<z.ZodObject<{
+      approvers: z.ZodOptional<z.ZodArray<z.ZodString>>;
+      plugins: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodObject<{
+        approvers: z.ZodOptional<z.ZodArray<z.ZodString>>;
+        tools: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodObject<{
+          approvers: z.ZodArray<z.ZodString>;
+        }, z.core.$strict>>>;
+      }, z.core.$strict>>>;
+    }, z.core.$strict>>;
   }, z.core.$strict>>;
 }, z.core.$strict>>;
 //#endregion
 //#region src/config/types.approvals.d.ts
 type NativeExecApprovalEnableMode = z.input<typeof NativeExecApprovalEnableModeSchema>;
 type ApprovalsConfig = NonNullable<z.input<typeof ApprovalsSchema>>;
+//#endregion
+//#region src/config/zod-schema.session.d.ts
+declare const CommandsSchema: z.ZodDefault<z.ZodOptional<z.ZodObject<{
+  native: z.ZodDefault<z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodLiteral<"auto">]>>>;
+  nativeSkills: z.ZodDefault<z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodLiteral<"auto">]>>>;
+  text: z.ZodOptional<z.ZodBoolean>;
+  bash: z.ZodOptional<z.ZodBoolean>;
+  bashForegroundMs: z.ZodOptional<z.ZodNumber>;
+  config: z.ZodOptional<z.ZodBoolean>;
+  mcp: z.ZodOptional<z.ZodBoolean>;
+  plugins: z.ZodOptional<z.ZodBoolean>;
+  debug: z.ZodOptional<z.ZodBoolean>;
+  restart: z.ZodDefault<z.ZodOptional<z.ZodBoolean>>;
+  ownerAllowFrom: z.ZodOptional<z.ZodArray<z.ZodUnion<readonly [z.ZodString, z.ZodNumber]>>>;
+  allowFrom: z.ZodOptional<z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodArray<z.ZodUnion<readonly [z.ZodString, z.ZodNumber]>>>>>;
+}, z.core.$strict>>>;
 //#endregion
 //#region src/config/types.messages.d.ts
 type DefinedSchemaInput<T extends z.ZodType> = NonNullable<z.input<T>>;
@@ -1492,104 +1262,13 @@ type MessagesConfig = Omit<MessagesSchemaInput, "groupChat" | "visibleReplies"> 
   visibleReplies?: "automatic" | "message_tool";
   groupChat?: GroupChatConfig;
 };
-type NativeCommandsSetting = boolean | "auto";
-type CommandAllowFrom = Record<string, Array<string | number>>;
-type CommandsConfig = {
+type CommandsConfig = DefinedSchemaInput<typeof CommandsSchema> & {
   /** @deprecated Doctor-only legacy input. */
   ownerDisplay?: "raw" | "hash";
   /** @deprecated Doctor-only legacy input. */
   ownerDisplaySecret?: string;
-  native?: NativeCommandsSetting;
-  nativeSkills?: NativeCommandsSetting;
-  text?: boolean;
-  bash?: boolean;
-  bashForegroundMs?: number;
-  config?: boolean;
-  mcp?: boolean;
-  plugins?: boolean;
-  debug?: boolean;
-  restart?: boolean;
-  ownerAllowFrom?: Array<string | number>;
-  allowFrom?: CommandAllowFrom;
 };
 type ProviderCommandsConfig = DefinedSchemaInput<typeof ProviderCommandsSchema>;
-//#endregion
-//#region src/config/types.channel-messaging-common.d.ts
-type SchemaCommonChannelMessagingConfig = z.input<typeof CommonChannelAccountSchema>;
-type CommonChannelMessagingConfig<TCapabilities = string[], TAllowFromEntry = string | number, TDefaultTo = string, TStreaming = ChannelDeliveryStreamingConfig> = Omit<SchemaCommonChannelMessagingConfig, "capabilities" | "allowFrom" | "defaultTo" | "groupAllowFrom" | "dms" | "streaming"> & {
-  capabilities?: TCapabilities;
-  allowFrom?: TAllowFromEntry[];
-  defaultTo?: TDefaultTo;
-  groupAllowFrom?: TAllowFromEntry[];
-  dms?: Record<string, DmConfig>;
-  streaming?: TStreaming;
-  /** @deprecated Doctor-only legacy input. */
-  heartbeat?: ChannelHeartbeatVisibilityConfig;
-};
-type ChannelExecApprovalTarget = "dm" | "channel" | "both";
-type ChannelExecApprovalConfig<TApprover = string | number> = {
-  enabled?: NativeExecApprovalEnableMode;
-  approvers?: TApprover[];
-  agentFilter?: string[];
-  sessionFilter?: string[];
-  target?: ChannelExecApprovalTarget;
-};
-type ChannelBotInteractionConfig<TAllowBots = boolean | "mentions"> = {
-  allowBots?: TAllowBots;
-  botLoopProtection?: ChannelBotLoopProtectionConfig;
-  dangerouslyAllowNameMatching?: boolean;
-};
-type ChannelReadReceiptConfig = {
-  sendReadReceipts?: boolean;
-};
-type ChannelReactionConfig<TNotification = never, TLevel = never, TAckReaction = never, TAllowlist extends boolean = false> = {
-  reactionNotifications?: TNotification;
-  reactionLevel?: TLevel;
-  ackReaction?: TAckReaction;
-} & (TAllowlist extends true ? {
-  reactionAllowlist?: Array<string | number>;
-} : Record<never, never>);
-//#endregion
-//#region src/config/types.discord-presence.d.ts
-type DiscordPresenceEventsConfig = {
-  /** Enable online-presence system events for this guild. Default: true when configured. */
-  enabled?: boolean;
-  /** Discord channel ID that receives the routed agent wake. */
-  channelId: string;
-  /** Optional immutable Discord user ID allowlist. Omit to include all human members. */
-  users?: string[];
-  /**
-   * Suppress presence-derived online events for this many seconds after a new Gateway
-   * session while guild presence state is rebuilt. 0 disables. Default: 300.
-   */
-  reconnectSuppressSeconds?: number;
-  /** Maximum queued online events for this guild per burst window. Default: 8. */
-  burstLimit?: number;
-  /** Sliding burst-detection window in seconds. Default: 60. */
-  burstWindowSeconds?: number;
-};
-//#endregion
-//#region src/secrets/ref-contract.d.ts
-/** Supported secret reference backends in config. */
-type SecretRefSource = "env" | "file" | "exec" | "store";
-/**
- * Stable identifier for a secret in a configured source.
- * Examples:
- * - env source: provider "default", id "OPENAI_API_KEY"
- * - file source: provider "mounted-json", id "/providers/openai/apiKey"
- * - exec source: provider "vault", id "openai/api-key"
- * - store source: provider "default", id "OPENAI_API_KEY"
- */
-type SecretRef = {
-  source: SecretRefSource;
-  provider: string;
-  id: string;
-};
-/** Secret-bearing config input: either a literal string or a structured SecretRef. */
-type SecretInput = string | SecretRef;
-//#endregion
-//#region src/config/types.secrets.d.ts
-type SecretsConfig = NonNullable<z.input<typeof SecretsConfigSchema>>;
 //#endregion
 //#region src/infra/exec-safe-bin-policy-profiles.d.ts
 type SafeBinProfileFixture = {
@@ -1600,71 +1279,13 @@ type SafeBinProfileFixture = {
 };
 //#endregion
 //#region src/config/types.provider-request.d.ts
-/** Authentication override applied to provider requests after model/provider defaults resolve. */
-type ConfiguredProviderRequestAuth = {
-  mode: "provider-default";
-} | {
-  mode: "authorization-bearer";
-  token: SecretInput;
-} | {
-  mode: "header";
-  headerName: string;
-  value: SecretInput;
-  prefix?: string;
-};
-/** TLS material and verification knobs for provider or proxy connections. */
-type ConfiguredProviderRequestTls = {
-  ca?: SecretInput;
-  cert?: SecretInput;
-  key?: SecretInput;
-  passphrase?: SecretInput;
-  serverName?: string;
-  insecureSkipVerify?: boolean;
-};
-/** Proxy selection for provider requests, including optional TLS settings for proxy transport. */
-type ConfiguredProviderRequestProxy = {
-  mode: "env-proxy";
-  tls?: ConfiguredProviderRequestTls;
-} | {
-  mode: "explicit-proxy";
-  url: string;
-  tls?: ConfiguredProviderRequestTls;
-};
-/** Shared provider request overrides used by model providers and media/tool providers. */
-type ConfiguredProviderRequest = {
-  headers?: Record<string, SecretInput>;
-  auth?: ConfiguredProviderRequestAuth;
-  proxy?: ConfiguredProviderRequestProxy;
-  tls?: ConfiguredProviderRequestTls;
-};
+type ModelProvidersInput = NonNullable<NonNullable<z.input<typeof ModelsConfigSchema>>["providers"]>;
 /** Model-provider request overrides plus the private-network opt-in used by model transports. */
-type ConfiguredModelProviderRequest = ConfiguredProviderRequest & {
-  allowPrivateNetwork?: boolean;
-};
+type ConfiguredModelProviderRequest = NonNullable<ModelProvidersInput[string]["request"]>;
+/** Shared provider request overrides used by model providers and media/tool providers. */
+type ConfiguredProviderRequest = Omit<ConfiguredModelProviderRequest, "allowPrivateNetwork">;
 //#endregion
 //#region src/config/zod-schema.agent-runtime.d.ts
-declare const HeartbeatSchema: z.ZodOptional<z.ZodObject<{
-  every: z.ZodOptional<z.ZodString>;
-  activeHours: z.ZodOptional<z.ZodObject<{
-    start: z.ZodOptional<z.ZodString>;
-    end: z.ZodOptional<z.ZodString>;
-    timezone: z.ZodOptional<z.ZodString>;
-  }, z.core.$strict>>;
-  model: z.ZodOptional<z.ZodString>;
-  session: z.ZodOptional<z.ZodString>;
-  target: z.ZodOptional<z.ZodString>;
-  directPolicy: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"allow">, z.ZodLiteral<"block">]>>;
-  to: z.ZodOptional<z.ZodString>;
-  accountId: z.ZodOptional<z.ZodString>;
-  prompt: z.ZodOptional<z.ZodString>;
-  timeoutSeconds: z.ZodOptional<z.ZodNumber>;
-  lightContext: z.ZodOptional<z.ZodBoolean>;
-  isolatedSession: z.ZodOptional<z.ZodBoolean>;
-}, z.core.$strict>>;
-declare const AgentContextLimitsSchema: z.ZodOptional<z.ZodObject<{
-  memoryGetMaxChars: z.ZodOptional<z.ZodNumber>;
-  postCompactionMaxChars: z.ZodOptional<z.ZodNumber>;
-}, z.core.$strict>>;
 declare const ToolPolicySchema: z.ZodOptional<z.ZodObject<{
   allow: z.ZodOptional<z.ZodArray<z.ZodString>>;
   alsoAllow: z.ZodOptional<z.ZodArray<z.ZodString>>;
@@ -1839,7 +1460,7 @@ declare const AgentEntrySchema: z.ZodObject<{
     on: "on";
     stream: "stream";
   }>>;
-  fastModeDefault: z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodLiteral<"auto">]>>;
+  fastModeDefault: z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodLiteral<"auto">, z.ZodLiteral<"ultrafast">]>>;
   contextInjection: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"always">, z.ZodLiteral<"continuation-skip">, z.ZodLiteral<"never">]>>;
   bootstrapMaxChars: z.ZodOptional<z.ZodNumber>;
   bootstrapTotalMaxChars: z.ZodOptional<z.ZodNumber>;
@@ -2184,10 +1805,10 @@ declare const AgentEntrySchema: z.ZodObject<{
     }, z.core.$strict>>;
   }, z.core.$strict>>;
   tools: z.ZodOptional<z.ZodObject<{
-    profile: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"minimal">, z.ZodLiteral<"coding">, z.ZodLiteral<"messaging">, z.ZodLiteral<"full">]>>;
     allow: z.ZodOptional<z.ZodArray<z.ZodString>>;
     alsoAllow: z.ZodOptional<z.ZodArray<z.ZodString>>;
     deny: z.ZodOptional<z.ZodArray<z.ZodString>>;
+    profile: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"minimal">, z.ZodLiteral<"coding">, z.ZodLiteral<"messaging">, z.ZodLiteral<"full">]>>;
     byProvider: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodObject<{
       allow: z.ZodOptional<z.ZodArray<z.ZodString>>;
       alsoAllow: z.ZodOptional<z.ZodArray<z.ZodString>>;
@@ -2299,6 +1920,7 @@ declare const AgentEntrySchema: z.ZodObject<{
         name: z.ZodOptional<z.ZodString>;
         email: z.ZodOptional<z.ZodString>;
       }, z.core.$strict>>;
+      allowInSandbox: z.ZodOptional<z.ZodBoolean>;
     }, z.core.$strict>>;
     fs: z.ZodOptional<z.ZodObject<{
       workspaceOnly: z.ZodOptional<z.ZodBoolean>;
@@ -2333,10 +1955,10 @@ declare const AgentEntrySchema: z.ZodObject<{
   }, z.core.$strict>>;
 }, z.core.$strict>;
 declare const ToolsSchema: z.ZodOptional<z.ZodObject<{
-  profile: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"minimal">, z.ZodLiteral<"coding">, z.ZodLiteral<"messaging">, z.ZodLiteral<"full">]>>;
   allow: z.ZodOptional<z.ZodArray<z.ZodString>>;
   alsoAllow: z.ZodOptional<z.ZodArray<z.ZodString>>;
   deny: z.ZodOptional<z.ZodArray<z.ZodString>>;
+  profile: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"minimal">, z.ZodLiteral<"coding">, z.ZodLiteral<"messaging">, z.ZodLiteral<"full">]>>;
   byProvider: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodObject<{
     allow: z.ZodOptional<z.ZodArray<z.ZodString>>;
     alsoAllow: z.ZodOptional<z.ZodArray<z.ZodString>>;
@@ -3691,11 +3313,9 @@ declare const ToolsSchema: z.ZodOptional<z.ZodObject<{
   toolSearch: z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodObject<{
     enabled: z.ZodOptional<z.ZodBoolean>;
     mode: z.ZodOptional<z.ZodEnum<{
-      code: "code";
       directory: "directory";
       tools: "tools";
     }>>;
-    codeTimeoutMs: z.ZodOptional<z.ZodNumber>;
     searchDefaultLimit: z.ZodOptional<z.ZodNumber>;
     maxSearchLimit: z.ZodOptional<z.ZodNumber>;
   }, z.core.$strict>]>>;
@@ -3965,7 +3585,7 @@ type GroupToolPolicyConfig = ToolAllowDenyPolicyConfig;
 /**
  * Per-sender overrides.
  *
- * Prefer explicit key prefixes:
+ * Use explicit key prefixes:
  * - channel:<channelId>:<senderId>
  * - id:<senderId>
  * - e164:<phone>
@@ -3973,7 +3593,7 @@ type GroupToolPolicyConfig = ToolAllowDenyPolicyConfig;
  * - name:<display-name>
  * - * (wildcard)
  *
- * Legacy unprefixed keys are supported for backward compatibility and are matched as senderId only.
+ * Doctor migrates retired unprefixed config keys to id: entries before runtime use.
  */
 type GroupToolPolicyBySenderConfig = Record<string, GroupToolPolicyConfig>;
 type ExecToolConfig = Omit<NonNullable<SchemaToolsConfig["exec"]>, "safeBinProfiles"> & {
@@ -3997,6 +3617,86 @@ type ToolsConfig = Omit<SchemaToolsConfig, "toolsBySender" | "media" | "web" | "
   web?: NonNullable<ParsedToolsConfig["web"]>;
 };
 //#endregion
+//#region src/config/types.channel-messaging-common.d.ts
+type SchemaCommonChannelMessagingConfig = z.input<typeof CommonChannelAccountSchema>;
+type CommonChannelGroupConfig = SchemaContract<Omit<z.input<typeof ChannelGroupEntrySchema>, "tools" | "toolsBySender">> & {
+  tools?: GroupToolPolicyConfig;
+  toolsBySender?: GroupToolPolicyBySenderConfig;
+};
+type CommonChannelMessagingConfig<TCapabilities = string[], TAllowFromEntry = string | number, TDefaultTo = string, TStreaming = ChannelDeliveryStreamingConfig> = Omit<SchemaCommonChannelMessagingConfig, "capabilities" | "allowFrom" | "defaultTo" | "groupAllowFrom" | "dms" | "streaming"> & {
+  capabilities?: TCapabilities;
+  allowFrom?: TAllowFromEntry[];
+  defaultTo?: TDefaultTo;
+  groupAllowFrom?: TAllowFromEntry[];
+  dms?: Record<string, DmConfig>;
+  streaming?: TStreaming;
+  /** @deprecated Doctor-only legacy input. */
+  heartbeat?: ChannelHeartbeatVisibilityConfig;
+};
+type ChannelExecApprovalConfig<TApprover = string | number> = {
+  enabled?: NativeExecApprovalEnableMode;
+  approvers?: TApprover[];
+  agentFilter?: string[];
+  sessionFilter?: string[];
+  target?: "dm" | "channel" | "both";
+};
+type ChannelBotInteractionConfig<TAllowBots = boolean | "mentions"> = {
+  allowBots?: TAllowBots;
+  botLoopProtection?: ChannelBotLoopProtectionConfig;
+  dangerouslyAllowNameMatching?: boolean;
+};
+type ChannelReadReceiptConfig = {
+  sendReadReceipts?: boolean;
+};
+type ChannelReactionConfig<TNotification = never, TLevel = never, TAckReaction = never, TAllowlist extends boolean = false> = {
+  reactionNotifications?: TNotification;
+  reactionLevel?: TLevel;
+  ackReaction?: TAckReaction;
+} & (TAllowlist extends true ? {
+  reactionAllowlist?: Array<string | number>;
+} : Record<never, never>);
+//#endregion
+//#region src/config/types.discord-presence.d.ts
+type DiscordPresenceEventsConfig = {
+  /** Enable online-presence system events for this guild. Default: true when configured. */
+  enabled?: boolean;
+  /** Discord channel ID that receives the routed agent wake. */
+  channelId: string;
+  /** Optional immutable Discord user ID allowlist. Omit to include all human members. */
+  users?: string[];
+  /**
+   * Suppress presence-derived online events for this many seconds after a new Gateway
+   * session while guild presence state is rebuilt. 0 disables. Default: 300.
+   */
+  reconnectSuppressSeconds?: number;
+  /** Maximum queued online events for this guild per burst window. Default: 8. */
+  burstLimit?: number;
+  /** Sliding burst-detection window in seconds. Default: 60. */
+  burstWindowSeconds?: number;
+};
+//#endregion
+//#region src/secrets/ref-contract.d.ts
+/** Supported secret reference backends in config. */
+type SecretRefSource = "env" | "file" | "exec" | "store";
+/**
+ * Stable identifier for a secret in a configured source.
+ * Examples:
+ * - env source: provider "default", id "OPENAI_API_KEY"
+ * - file source: provider "mounted-json", id "/providers/openai/apiKey"
+ * - exec source: provider "vault", id "openai/api-key"
+ * - store source: provider "default", id "OPENAI_API_KEY"
+ */
+type SecretRef = {
+  source: SecretRefSource;
+  provider: string;
+  id: string;
+};
+/** Secret-bearing config input: either a literal string or a structured SecretRef. */
+type SecretInput = string | SecretRef;
+//#endregion
+//#region src/config/types.secrets.d.ts
+type SecretsConfig = NonNullable<z.input<typeof SecretsConfigSchema>>;
+//#endregion
 //#region src/config/types.tts.d.ts
 type TtsConfigInput = NonNullable<z.input<typeof TtsConfigSchema>>;
 type TtsProviderConfigInput = NonNullable<TtsConfigInput["providers"]>[string];
@@ -4013,9 +3713,7 @@ type TtsConfig = Omit<TtsConfigInput, "personas" | "providers"> & {
 };
 //#endregion
 //#region src/config/types.discord.d.ts
-type DiscordChannelStreamingConfig = Omit<ChannelPreviewStreamingConfig, "progress"> & {
-  progress?: ChannelStreamingProgressConfig;
-};
+type DiscordChannelStreamingConfig = ChannelPreviewStreamingConfig;
 type DiscordPluralKitConfig = {
   enabled?: boolean;
   token?: string;
@@ -4029,27 +3727,19 @@ type DiscordDmConfig = {
   /** Optional allowlist for group DM channels (ids or slugs). */
   groupChannels?: string[];
 };
-type DiscordGuildChannelConfig = {
-  requireMention?: boolean;
+type DiscordGuildChannelConfig = Omit<CommonChannelGroupConfig, "allowFrom"> & {
+  /** Override mention gating in threads created by this bot; omitted preserves autoThread behavior. */
+  requireMentionInBotThreads?: boolean;
   /**
    * If true, drop messages addressed to another identity by mention or bot reply, but not this
    * bot (not @everyone/@here).
    * Default: false.
    */
   ignoreOtherMentions?: boolean;
-  /** Optional tool policy overrides for this channel. */
-  tools?: GroupToolPolicyConfig;
-  toolsBySender?: GroupToolPolicyBySenderConfig;
-  /** If specified, only load these skills for this channel. Omit = all skills; empty = no skills. */
-  skills?: string[];
-  /** If false, disable the bot for this channel. */
-  enabled?: boolean;
   /** Optional allowlist for channel senders (ids or names). */
   users?: string[];
   /** Optional allowlist for channel senders by role ID. */
   roles?: string[];
-  /** Optional system prompt snippet for this channel. */
-  systemPrompt?: string;
   /** If false, omit thread starter context for this channel (default: true). */
   includeThreadStarter?: boolean;
   /** If true, automatically create a thread for each new message in this channel. */
@@ -4060,18 +3750,16 @@ type DiscordGuildChannelConfig = {
   autoThreadName?: "message" | "generated";
 };
 type DiscordReactionNotificationMode = "off" | "own" | "all" | "allowlist";
-type DiscordGuildEntry = {
+type DiscordGuildEntry = Pick<CommonChannelGroupConfig, "requireMention" | "tools" | "toolsBySender"> & {
   slug?: string;
-  requireMention?: boolean;
+  /** Default for bot-created threads unless the channel overrides it. */
+  requireMentionInBotThreads?: boolean;
   /**
    * If true, drop messages addressed to another identity by mention or bot reply, but not this
    * bot (not @everyone/@here).
    * Default: false.
    */
   ignoreOtherMentions?: boolean;
-  /** Optional tool policy overrides for this guild (used when channel override is missing). */
-  tools?: GroupToolPolicyConfig;
-  toolsBySender?: GroupToolPolicyBySenderConfig;
   /** Reaction notification mode (off|own|all|allowlist). Default: own. */
   reactionNotifications?: DiscordReactionNotificationMode;
   /** Optional allowlist for guild senders (ids or names). */
@@ -4212,18 +3900,7 @@ type DiscordAgentComponentsConfig = {
   /** Time in milliseconds before sent Discord component callbacks expire. Default: 1800000. */
   ttlMs?: number;
 };
-type DiscordThreadBindingsConfig = {
-  /** Enable Discord thread binding features. Overrides session.threadBindings.enabled. */
-  enabled?: boolean;
-  /** Inactivity window in hours. Set 0 to disable. Default: 24. */
-  idleHours?: number;
-  /** Hard max age in hours. Set 0 to disable. Default: 0. */
-  maxAgeHours?: number;
-  /** Allow session spawns to create and bind Discord threads. Default: true. */
-  spawnSessions?: boolean;
-  /** Default context mode for native subagents. Default: fork. */
-  defaultSpawnContext?: "isolated" | "fork";
-};
+type DiscordThreadBindingsConfig = SessionThreadBindingsConfig;
 type DiscordSlashCommandConfig = {
   /** Reply ephemerally (default: true). */
   ephemeral?: boolean;
@@ -4239,9 +3916,6 @@ type DiscordAutoPresenceConfig = {
   intervalMs?: number;
   /** Minimum spacing between actual gateway presence updates (ms). Default: 15000. */
   minUpdateIntervalMs?: number;
-  /** Optional custom status text while runtime is healthy; supports plain text. */
-  /** Optional custom status text while runtime/quota state is degraded or unknown. */
-  /** Optional custom status text while runtime detects quota/token exhaustion. */
   /** @deprecated Doctor-only legacy input. */
   exhaustedText?: string;
 };
@@ -4286,7 +3960,6 @@ type DiscordAccountConfig = Omit<CommonChannelMessagingConfig<string[], string, 
   execApprovals?: DiscordExecApprovalConfig;
   /** Agent-controlled interactive components (buttons, select menus). */
   agentComponents?: DiscordAgentComponentsConfig;
-  /** Discord UI customization (components, modals, etc.). */
   /** Slash command configuration. */
   slashCommand?: DiscordSlashCommandConfig;
   /** Thread binding lifecycle settings. */
@@ -4342,7 +4015,6 @@ declare const GoogleChatConfigSchema: z.ZodObject<{
     open: "open";
   }>>>;
   name: z.ZodOptional<z.ZodString>;
-  capabilities: z.ZodOptional<z.ZodArray<z.ZodString>>;
   markdown: z.ZodOptional<z.ZodObject<{
     tables: z.ZodOptional<z.ZodEnum<{
       block: "block";
@@ -4353,9 +4025,6 @@ declare const GoogleChatConfigSchema: z.ZodObject<{
   }, z.core.$strict>>;
   configWrites: z.ZodOptional<z.ZodBoolean>;
   enabled: z.ZodOptional<z.ZodBoolean>;
-  allowFrom: z.ZodOptional<z.ZodArray<z.ZodUnion<readonly [z.ZodString, z.ZodNumber]>>>;
-  defaultTo: z.ZodOptional<z.ZodString>;
-  groupAllowFrom: z.ZodOptional<z.ZodArray<z.ZodUnion<readonly [z.ZodString, z.ZodNumber]>>>;
   contextVisibility: z.ZodOptional<z.ZodEnum<{
     all: "all";
     allowlist: "allowlist";
@@ -4367,6 +4036,19 @@ declare const GoogleChatConfigSchema: z.ZodObject<{
     historyLimit: z.ZodOptional<z.ZodNumber>;
   }, z.core.$strict>>>>;
   textChunkLimit: z.ZodOptional<z.ZodNumber>;
+  heartbeatVisibility: z.ZodOptional<z.ZodObject<{
+    showOk: z.ZodOptional<z.ZodBoolean>;
+    showAlerts: z.ZodOptional<z.ZodBoolean>;
+    useIndicator: z.ZodOptional<z.ZodBoolean>;
+  }, z.core.$strict>>;
+  healthMonitor: z.ZodOptional<z.ZodObject<{
+    enabled: z.ZodOptional<z.ZodBoolean>;
+  }, z.core.$strict>>;
+  responsePrefix: z.ZodOptional<z.ZodString>;
+  capabilities: z.ZodOptional<z.ZodArray<z.ZodString>>;
+  allowFrom: z.ZodOptional<z.ZodArray<z.ZodUnion<readonly [z.ZodString, z.ZodNumber]>>>;
+  defaultTo: z.ZodOptional<z.ZodString>;
+  groupAllowFrom: z.ZodOptional<z.ZodArray<z.ZodUnion<readonly [z.ZodString, z.ZodNumber]>>>;
   streaming: z.ZodOptional<z.ZodObject<{
     chunkMode: z.ZodOptional<z.ZodEnum<{
       length: "length";
@@ -4381,15 +4063,6 @@ declare const GoogleChatConfigSchema: z.ZodObject<{
       }, z.core.$strict>>;
     }, z.core.$strict>>;
   }, z.core.$strict>>;
-  heartbeatVisibility: z.ZodOptional<z.ZodObject<{
-    showOk: z.ZodOptional<z.ZodBoolean>;
-    showAlerts: z.ZodOptional<z.ZodBoolean>;
-    useIndicator: z.ZodOptional<z.ZodBoolean>;
-  }, z.core.$strict>>;
-  healthMonitor: z.ZodOptional<z.ZodObject<{
-    enabled: z.ZodOptional<z.ZodBoolean>;
-  }, z.core.$strict>>;
-  responsePrefix: z.ZodOptional<z.ZodString>;
   mediaMaxMb: z.ZodOptional<z.ZodNumber>;
   replyToMode: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"off">, z.ZodLiteral<"first">, z.ZodLiteral<"all">, z.ZodLiteral<"batched">]>>;
   allowBots: z.ZodOptional<z.ZodBoolean>;
@@ -4450,7 +4123,6 @@ declare const GoogleChatConfigSchema: z.ZodObject<{
   }>>;
   accounts: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodOptional<z.ZodObject<{
     name: z.ZodOptional<z.ZodString>;
-    capabilities: z.ZodOptional<z.ZodArray<z.ZodString>>;
     markdown: z.ZodOptional<z.ZodObject<{
       tables: z.ZodOptional<z.ZodEnum<{
         block: "block";
@@ -4467,9 +4139,6 @@ declare const GoogleChatConfigSchema: z.ZodObject<{
       open: "open";
       pairing: "pairing";
     }>>;
-    allowFrom: z.ZodOptional<z.ZodArray<z.ZodUnion<readonly [z.ZodString, z.ZodNumber]>>>;
-    defaultTo: z.ZodOptional<z.ZodString>;
-    groupAllowFrom: z.ZodOptional<z.ZodArray<z.ZodUnion<readonly [z.ZodString, z.ZodNumber]>>>;
     groupPolicy: z.ZodOptional<z.ZodEnum<{
       allowlist: "allowlist";
       disabled: "disabled";
@@ -4486,6 +4155,19 @@ declare const GoogleChatConfigSchema: z.ZodObject<{
       historyLimit: z.ZodOptional<z.ZodNumber>;
     }, z.core.$strict>>>>;
     textChunkLimit: z.ZodOptional<z.ZodNumber>;
+    heartbeatVisibility: z.ZodOptional<z.ZodObject<{
+      showOk: z.ZodOptional<z.ZodBoolean>;
+      showAlerts: z.ZodOptional<z.ZodBoolean>;
+      useIndicator: z.ZodOptional<z.ZodBoolean>;
+    }, z.core.$strict>>;
+    healthMonitor: z.ZodOptional<z.ZodObject<{
+      enabled: z.ZodOptional<z.ZodBoolean>;
+    }, z.core.$strict>>;
+    responsePrefix: z.ZodOptional<z.ZodString>;
+    capabilities: z.ZodOptional<z.ZodArray<z.ZodString>>;
+    allowFrom: z.ZodOptional<z.ZodArray<z.ZodUnion<readonly [z.ZodString, z.ZodNumber]>>>;
+    defaultTo: z.ZodOptional<z.ZodString>;
+    groupAllowFrom: z.ZodOptional<z.ZodArray<z.ZodUnion<readonly [z.ZodString, z.ZodNumber]>>>;
     streaming: z.ZodOptional<z.ZodObject<{
       chunkMode: z.ZodOptional<z.ZodEnum<{
         length: "length";
@@ -4500,15 +4182,6 @@ declare const GoogleChatConfigSchema: z.ZodObject<{
         }, z.core.$strict>>;
       }, z.core.$strict>>;
     }, z.core.$strict>>;
-    heartbeatVisibility: z.ZodOptional<z.ZodObject<{
-      showOk: z.ZodOptional<z.ZodBoolean>;
-      showAlerts: z.ZodOptional<z.ZodBoolean>;
-      useIndicator: z.ZodOptional<z.ZodBoolean>;
-    }, z.core.$strict>>;
-    healthMonitor: z.ZodOptional<z.ZodObject<{
-      enabled: z.ZodOptional<z.ZodBoolean>;
-    }, z.core.$strict>>;
-    responsePrefix: z.ZodOptional<z.ZodString>;
     mediaMaxMb: z.ZodOptional<z.ZodNumber>;
     replyToMode: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"off">, z.ZodLiteral<"first">, z.ZodLiteral<"all">, z.ZodLiteral<"batched">]>>;
     allowBots: z.ZodOptional<z.ZodBoolean>;
@@ -4626,27 +4299,9 @@ type IMessageAccountConfig = Omit<CommonChannelMessagingConfig, "mentionPatterns
   remoteAttachmentRoots?: string[];
   /** Timeout for probe/RPC operations in milliseconds (default: 10000). */
   probeTimeoutMs?: number;
-  /**
-   * Merge consecutive same-sender DM rows from `chat.db` into a single agent
-   * turn, so Apple's split-send (`<command> <URL>` arriving as two separate
-   * rows several seconds apart) lands as one merged message. DM-only — group chats
-   * keep instant per-message dispatch. Widens the default inbound debounce
-   * window to 7000 ms when enabled without an explicit
-   * `messages.inbound.byChannel.imessage` or global
-   * `messages.inbound.debounceMs`. Default: `false`.
-   */
-  groups?: Record<string, {
-    requireMention?: boolean;
-    tools?: GroupToolPolicyConfig;
-    toolsBySender?: GroupToolPolicyBySenderConfig;
-    /**
-     * Per-group system prompt. Injected into the agent's system prompt on
-     * every turn that handles a message in that group. Matches the shape
-     * already supported by Discord, Telegram, IRC, Slack, GoogleChat, and
-     * other group-capable channels. The wildcard `groups["*"]` entry is
-     * also honored.
-     */
-    systemPrompt?: string;
+  groups?: Record<string, Omit<CommonChannelGroupConfig, "skills" | "enabled" | "allowFrom"> & {
+    /** Override mention gating in native reply threads whose root this account sent. */
+    requireMentionInBotThreads?: boolean;
   }>;
   /**
    * Catchup: replay inbound messages that arrived in `chat.db` while the
@@ -4737,15 +4392,7 @@ type IrcAccountConfig = Omit<CommonChannelMessagingConfig, "mentionPatterns"> & 
   channels?: string[];
   /** Outbound text chunk size (chars). Default: 350. */
   textChunkLimit?: number;
-  groups?: Record<string, {
-    requireMention?: boolean;
-    tools?: GroupToolPolicyConfig;
-    toolsBySender?: GroupToolPolicyBySenderConfig;
-    allowFrom?: Array<string | number>;
-    skills?: string[];
-    enabled?: boolean;
-    systemPrompt?: string;
-  }>;
+  groups?: Record<string, CommonChannelGroupConfig>;
 };
 type IrcConfig = {
   /** Optional per-account IRC configuration (multi-account). */
@@ -4756,7 +4403,7 @@ type IrcConfig = {
 //#endregion
 //#region src/config/types.msteams.d.ts
 type MSTeamsWebhookConfig = {
-  /** Port for the webhook server. Default: 3978. */
+  /** @deprecated Type-only until the next SDK major; Doctor migrates this to legacyWebhook.port. */
   port?: number;
   /** Path for the messages endpoint. Default: /api/messages. */
   path?: string;
@@ -4792,24 +4439,14 @@ type MSTeamsSsoConfig = {
 /** Reply style for MS Teams messages. */
 type MSTeamsReplyStyle = "thread" | "top-level";
 /** Channel-level config for MS Teams. */
-type MSTeamsChannelConfig = {
-  /** Require @mention to respond. Default: true. */
-  requireMention?: boolean;
-  /** Optional tool policy overrides for this channel. */
-  tools?: GroupToolPolicyConfig;
-  toolsBySender?: GroupToolPolicyBySenderConfig;
+type MSTeamsChannelConfig = Pick<CommonChannelGroupConfig, "requireMention" | "tools" | "toolsBySender"> & {
+  /** Override mention gating in channel threads rooted at this bot's message. */
+  requireMentionInBotThreads?: boolean;
   /** Reply style: "thread" replies to the message, "top-level" posts a new message. */
   replyStyle?: MSTeamsReplyStyle;
 };
 /** Team-level config for MS Teams. */
-type MSTeamsTeamConfig = {
-  /** Default requireMention for channels in this team. */
-  requireMention?: boolean;
-  /** Default tool policy for channels in this team. */
-  tools?: GroupToolPolicyConfig;
-  toolsBySender?: GroupToolPolicyBySenderConfig;
-  /** Default reply style for channels in this team. */
-  replyStyle?: MSTeamsReplyStyle;
+type MSTeamsTeamConfig = MSTeamsChannelConfig & {
   /** Per-channel overrides. Key is conversation ID (e.g., "19:...@thread.tacv2"). */
   channels?: Record<string, MSTeamsChannelConfig>;
 };
@@ -4841,8 +4478,13 @@ type MSTeamsConfig = Omit<CommonChannelMessagingConfig<string[], string, string,
   useManagedIdentity?: boolean;
   /** User-assigned managed-identity client ID. When omitted with `useManagedIdentity: true`, system-assigned identity is used. */
   managedIdentityClientId?: string;
-  /** Webhook server configuration. */
+  /** Gateway webhook route configuration. */
   webhook?: MSTeamsWebhookConfig;
+  /** Explicit compatibility listener; omitted or false opens no separate port. */
+  legacyWebhook?: false | {
+    port: number;
+    host?: string;
+  };
   /** Send native Teams typing indicator before replies. Default: true for groups/channels; DMs use informative stream status. */
   typingIndicator?: boolean;
   /**
@@ -4863,6 +4505,8 @@ type MSTeamsConfig = Omit<CommonChannelMessagingConfig<string[], string, string,
   graphMediaFallback?: boolean;
   /** Default: require @mention to respond in channels/groups. */
   requireMention?: boolean;
+  /** Override mention gating in channel threads rooted at this bot's message. */
+  requireMentionInBotThreads?: boolean;
   /** Default reply style: "thread" replies to the message, "top-level" posts a new message. */
   replyStyle?: MSTeamsReplyStyle;
   /** Per-team config. Key is team ID (from the /team/ URL path segment). */
@@ -4922,12 +4566,9 @@ type SignalTransportConfig = {
   /** Base URL for bbernhard/signal-cli-rest-api. */
   url: string;
 };
-type SignalGroupConfig = {
-  requireMention?: boolean;
+type SignalGroupConfig = Pick<CommonChannelGroupConfig, "requireMention" | "tools" | "toolsBySender"> & {
   /** Emit internal message hooks for mention-skipped group messages. */
   ingest?: boolean;
-  tools?: GroupToolPolicyConfig;
-  toolsBySender?: GroupToolPolicyBySenderConfig;
 };
 type SignalAccountConfig = Omit<CommonChannelMessagingConfig, "mentionPatterns"> & ChannelReadReceiptConfig & ChannelReactionConfig<SignalReactionNotificationMode, SignalReactionLevel, never, true> & {
   /** Optional explicit E.164 account for signal-cli. */
@@ -4966,11 +4607,9 @@ type SlackDmConfig = {
   /** Optional allowlist for group DM channels (ids or slugs). */
   groupChannels?: Array<string | number>;
 };
-type SlackChannelConfig = {
-  /** If false, disable the bot in this channel. */
-  enabled?: boolean;
-  /** Require mentioning the bot to trigger replies. */
-  requireMention?: boolean;
+type SlackChannelConfig = Omit<CommonChannelGroupConfig, "allowFrom"> & {
+  /** Override mention gating in threads started by this bot; omitted preserves implicit mention policy. */
+  requireMentionInBotThreads?: boolean;
   /**
    * Ignore room messages that mention another user or user group but not this bot.
    * Requires a resolved bot user ID. Default: false.
@@ -4978,19 +4617,12 @@ type SlackChannelConfig = {
   ignoreOtherMentions?: boolean;
   /** Override Slack reply/thread behavior for this channel. */
   replyToMode?: ReplyToMode;
-  /** Optional tool policy overrides for this channel. */
-  tools?: GroupToolPolicyConfig;
-  toolsBySender?: GroupToolPolicyBySenderConfig;
-  /** Allow bot-authored messages to trigger replies (default: false). Set to "mentions" to only allow bot messages that @mention this bot. */
+  /** Allow bot-authored messages to trigger replies (default: true). Set to "mentions" to only allow bot messages that @mention this bot. */
   allowBots?: boolean | "mentions";
   /** Sliding-window bot-pair loop guard for accepted bot-authored Slack messages. */
   botLoopProtection?: ChannelBotLoopProtectionConfig;
   /** Allowlist of users that can invoke the bot in this channel. */
   users?: Array<string | number>;
-  /** Optional skill filter for this channel. */
-  skills?: string[];
-  /** Optional system prompt for this channel. */
-  systemPrompt?: string;
   /** Slack presence polling and agent wake mode for this channel. */
   presenceEvents?: SlackPresenceEventsConfig;
 };
@@ -5062,7 +4694,6 @@ type SlackAccountConfig = Omit<CommonChannelMessagingConfig<SlackCapabilitiesCon
   postAs?: "bot" | "user";
   /** Slack connection mode (socket|http|relay). Default: socket. */
   mode?: "socket" | "http" | "relay";
-  /** Slack SDK Socket Mode transport options. Ignored in HTTP mode. */
   /** Relay-delivered Slack event source. Used when mode is "relay". */
   relay?: SlackRelayConfig;
   /** Slack signing secret (required for HTTP mode). */
@@ -5080,6 +4711,8 @@ type SlackAccountConfig = Omit<CommonChannelMessagingConfig<SlackCapabilitiesCon
   userTokenReadOnly?: boolean;
   /** Default mention requirement for channel messages (default: true). */
   requireMention?: boolean;
+  /** Override mention gating in threads started by this bot; omitted preserves implicit mention policy. */
+  requireMentionInBotThreads?: boolean;
   /** Implicit mention policy for replies, quotes, and participated threads. */
   implicitMentions?: ChannelImplicitMentionsConfig;
   /** Pass through Slack chat.postMessage link unfurl control. Default: false. */
@@ -5142,9 +4775,7 @@ type TelegramNetworkConfig = {
   dangerouslyAllowPrivateNetwork?: boolean;
 };
 type TelegramInlineButtonsScope = "off" | "dm" | "group" | "all" | "allowlist";
-type TelegramPreviewStreamingConfig = Omit<ChannelPreviewStreamingConfig, "preview"> & {
-  preview?: ChannelStreamingPreviewConfig;
-};
+type TelegramPreviewStreamingConfig = ChannelPreviewStreamingConfig;
 type TelegramExecApprovalConfig = ChannelExecApprovalConfig;
 type TelegramCapabilitiesConfig = string[] | {
   inlineButtons?: TelegramInlineButtonsScope;
@@ -5186,9 +4817,14 @@ type TelegramAccountConfig = CommonChannelMessagingConfig<TelegramCapabilitiesCo
   webhookUrl?: string;
   webhookSecret?: string;
   webhookPath?: string;
-  /** Local webhook listener bind host (default: 127.0.0.1). */
+  /** Explicit webhook forwarding endpoint; omitted or false uses only the Gateway port. */
+  legacyWebhook?: false | {
+    port: number;
+    host?: string;
+  };
+  /** @deprecated Legacy input only; Doctor migrates this to legacyWebhook.host. */
   webhookHost?: string;
-  /** Local webhook listener bind port (default: 8787). */
+  /** @deprecated Legacy input only; Doctor migrates this to legacyWebhook.port. */
   webhookPort?: number;
   /** Path to the self-signed certificate (PEM) to upload to Telegram during webhook registration. */
   webhookCertPath?: string;
@@ -5196,36 +4832,12 @@ type TelegramAccountConfig = CommonChannelMessagingConfig<TelegramCapabilitiesCo
   actions?: TelegramActionConfig;
   /** Telegram thread/conversation binding overrides. */
   threadBindings?: TelegramThreadBindingsConfig;
-  /**
-   * Controls which user reactions trigger notifications:
-   * - "off" (default): ignore all reactions
-   * - "own": notify when users react to bot messages
-   * - "all": notify agent of all reactions
-   */
-  /**
-   * Controls agent's reaction capability:
-   * - "off": agent cannot react
-   * - "ack" (default): bot sends acknowledgment reactions (👀 while processing)
-   * - "minimal": agent can react sparingly (guideline: 1 per 5-10 exchanges)
-   * - "extensive": agent can react liberally when appropriate
-   */
   /** Controls whether link previews are shown in outbound messages. Default: true. */
   linkPreview?: boolean;
   /** Send Telegram bot error replies silently (no notification sound). Default: false. */
   silentErrorReplies?: boolean;
   /** Controls outbound error reporting: always, once per cooldown window, or silent. */
   errorPolicy?: "always" | "once" | "silent";
-  /**
-   * Per-channel outbound response prefix override.
-   *
-   * Account values take precedence over the channel-level value.
-   * Use `""` to explicitly disable a global prefix for this channel.
-   * Use `"auto"` to derive `[{identity.name}]` from the routed agent.
-   */
-  /**
-   * Per-channel ack reaction override.
-   * Telegram expects unicode emoji (e.g., "👀") rather than shortcodes.
-   */
   /** Custom Telegram Bot API root URL (e.g. "https://my-proxy.example.com" or a local Bot API server), not a /bot<TOKEN> endpoint. */
   apiRoot?: string;
   /** Trusted local filesystem roots for self-hosted Telegram Bot API absolute file_path values. */
@@ -5233,20 +4845,13 @@ type TelegramAccountConfig = CommonChannelMessagingConfig<TelegramCapabilitiesCo
   /** Auto-rename DM forum topics on first message using LLM. Default: true. */
   autoTopicLabel?: AutoTopicLabelConfig;
 };
-type TelegramTopicConfig = {
-  requireMention?: boolean;
+type TelegramTopicConfig = Omit<CommonChannelGroupConfig, "tools" | "toolsBySender"> & {
+  /** Override mention gating in forum topics created by this bot; omitted preserves existing policy. */
+  requireMentionInBotThreads?: boolean;
   /** Emit internal message hooks for mention-skipped topic messages. */
   ingest?: boolean;
   /** Per-topic override for group message policy (open|disabled|allowlist). */
   groupPolicy?: GroupPolicy;
-  /** If specified, only load these skills for this topic. Omit = all skills; empty = no skills. */
-  skills?: string[];
-  /** If false, disable the bot for this topic. */
-  enabled?: boolean;
-  /** Optional allowlist for topic senders (numeric Telegram user IDs). */
-  allowFrom?: Array<string | number>;
-  /** Optional system prompt snippet for this topic. */
-  systemPrompt?: string;
   /** If true, skip automatic voice-note transcription for mention detection in this topic. */
   disableAudioPreflight?: boolean;
   /** Route this topic to a specific agent (overrides group-level and binding routing). */
@@ -5254,29 +4859,9 @@ type TelegramTopicConfig = {
   /** Controls outbound error reporting for this topic. */
   errorPolicy?: "always" | "once" | "silent";
 };
-type TelegramGroupConfig = {
-  requireMention?: boolean;
-  /** Emit internal message hooks for mention-skipped group messages. */
-  ingest?: boolean;
-  /** Per-group override for group message policy (open|disabled|allowlist). */
-  groupPolicy?: GroupPolicy;
-  /** Optional tool policy overrides for this group. */
-  tools?: GroupToolPolicyConfig;
-  toolsBySender?: GroupToolPolicyBySenderConfig;
-  /** If specified, only load these skills for this group (when no topic). Omit = all skills; empty = no skills. */
-  skills?: string[];
+type TelegramGroupConfig = Omit<TelegramTopicConfig, "agentId"> & Pick<CommonChannelGroupConfig, "tools" | "toolsBySender"> & {
   /** Per-topic configuration (key is message_thread_id as string, or "*" for topic defaults). */
   topics?: Record<string, TelegramTopicConfig>;
-  /** If false, disable the bot for this group (and its topics). */
-  enabled?: boolean;
-  /** Optional allowlist for group senders (numeric Telegram user IDs). */
-  allowFrom?: Array<string | number>;
-  /** Optional system prompt snippet for this group. */
-  systemPrompt?: string;
-  /** If true, skip automatic voice-note transcription for mention detection in this group. */
-  disableAudioPreflight?: boolean;
-  /** Controls outbound error reporting for this group. */
-  errorPolicy?: "always" | "once" | "silent";
 };
 /** Config for LLM-based auto-topic labeling. */
 type AutoTopicLabelConfig = boolean | {
@@ -5284,24 +4869,13 @@ type AutoTopicLabelConfig = boolean | {
   /** Custom prompt for LLM-based topic naming. */
   prompt?: string;
 };
-type TelegramDirectConfig = {
+type TelegramDirectConfig = Omit<CommonChannelGroupConfig, "requireMention"> & {
   /** Per-DM override for DM message policy (open|disabled|allowlist). */
   dmPolicy?: DmPolicy;
-  /** Optional tool policy overrides for this DM. */
-  tools?: GroupToolPolicyConfig;
-  toolsBySender?: GroupToolPolicyBySenderConfig;
-  /** If specified, only load these skills for this DM (when no topic). Omit = all skills; empty = no skills. */
-  skills?: string[];
   /** Per-topic configuration for DM topics (key is message_thread_id as string, or "*" for topic defaults). */
-  topics?: Record<string, TelegramTopicConfig>;
-  /** If false, disable the bot for this DM (and its topics). */
-  enabled?: boolean;
+  topics?: Record<string, Omit<TelegramTopicConfig, "requireMentionInBotThreads">>;
   /** If true, require messages to be from a topic when topics are enabled. */
   requireTopic?: boolean;
-  /** Optional allowlist for DM senders (numeric Telegram user IDs). */
-  allowFrom?: Array<string | number>;
-  /** Optional system prompt snippet for this DM. */
-  systemPrompt?: string;
   /** Controls outbound error reporting for this DM. */
   errorPolicy?: "always" | "once" | "silent";
   /** Auto-rename DM forum topics on first message using LLM. Default: true. */
@@ -5327,7 +4901,6 @@ declare const WhatsAppConfigSchema: z.ZodObject<{
     disabled: "disabled";
     open: "open";
   }>>>;
-  capabilities: z.ZodOptional<z.ZodArray<z.ZodString>>;
   markdown: z.ZodOptional<z.ZodObject<{
     tables: z.ZodOptional<z.ZodEnum<{
       block: "block";
@@ -5338,14 +4911,6 @@ declare const WhatsAppConfigSchema: z.ZodObject<{
   }, z.core.$strict>>;
   configWrites: z.ZodOptional<z.ZodBoolean>;
   enabled: z.ZodOptional<z.ZodBoolean>;
-  allowFrom: z.ZodOptional<z.ZodArray<z.ZodString>>;
-  defaultTo: z.ZodOptional<z.ZodString>;
-  groupAllowFrom: z.ZodOptional<z.ZodArray<z.ZodString>>;
-  mentionPatterns: z.ZodOptional<z.ZodObject<{
-    mode: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"allow">, z.ZodLiteral<"deny">]>>;
-    allowIn: z.ZodOptional<z.ZodArray<z.ZodString>>;
-    denyIn: z.ZodOptional<z.ZodArray<z.ZodString>>;
-  }, z.core.$strict>>;
   contextVisibility: z.ZodOptional<z.ZodEnum<{
     all: "all";
     allowlist: "allowlist";
@@ -5357,6 +4922,24 @@ declare const WhatsAppConfigSchema: z.ZodObject<{
     historyLimit: z.ZodOptional<z.ZodNumber>;
   }, z.core.$strict>>>>;
   textChunkLimit: z.ZodOptional<z.ZodNumber>;
+  heartbeatVisibility: z.ZodOptional<z.ZodObject<{
+    showOk: z.ZodOptional<z.ZodBoolean>;
+    showAlerts: z.ZodOptional<z.ZodBoolean>;
+    useIndicator: z.ZodOptional<z.ZodBoolean>;
+  }, z.core.$strict>>;
+  healthMonitor: z.ZodOptional<z.ZodObject<{
+    enabled: z.ZodOptional<z.ZodBoolean>;
+  }, z.core.$strict>>;
+  responsePrefix: z.ZodOptional<z.ZodString>;
+  capabilities: z.ZodOptional<z.ZodArray<z.ZodString>>;
+  allowFrom: z.ZodOptional<z.ZodArray<z.ZodString>>;
+  defaultTo: z.ZodOptional<z.ZodString>;
+  groupAllowFrom: z.ZodOptional<z.ZodArray<z.ZodString>>;
+  mentionPatterns: z.ZodOptional<z.ZodObject<{
+    mode: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"allow">, z.ZodLiteral<"deny">]>>;
+    allowIn: z.ZodOptional<z.ZodArray<z.ZodString>>;
+    denyIn: z.ZodOptional<z.ZodArray<z.ZodString>>;
+  }, z.core.$strict>>;
   streaming: z.ZodOptional<z.ZodObject<{
     chunkMode: z.ZodOptional<z.ZodEnum<{
       length: "length";
@@ -5371,15 +4954,6 @@ declare const WhatsAppConfigSchema: z.ZodObject<{
       }, z.core.$strict>>;
     }, z.core.$strict>>;
   }, z.core.$strict>>;
-  heartbeatVisibility: z.ZodOptional<z.ZodObject<{
-    showOk: z.ZodOptional<z.ZodBoolean>;
-    showAlerts: z.ZodOptional<z.ZodBoolean>;
-    useIndicator: z.ZodOptional<z.ZodBoolean>;
-  }, z.core.$strict>>;
-  healthMonitor: z.ZodOptional<z.ZodObject<{
-    enabled: z.ZodOptional<z.ZodBoolean>;
-  }, z.core.$strict>>;
-  responsePrefix: z.ZodOptional<z.ZodString>;
   replyToMode: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"off">, z.ZodLiteral<"first">, z.ZodLiteral<"all">, z.ZodLiteral<"batched">]>>;
   sendReadReceipts: z.ZodOptional<z.ZodBoolean>;
   selfChatMode: z.ZodOptional<z.ZodBoolean>;
@@ -5405,7 +4979,6 @@ declare const WhatsAppConfigSchema: z.ZodObject<{
     messageReceived: z.ZodOptional<z.ZodBoolean>;
   }, z.core.$strict>>;
   accounts: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodOptional<z.ZodObject<{
-    capabilities: z.ZodOptional<z.ZodArray<z.ZodString>>;
     markdown: z.ZodOptional<z.ZodObject<{
       tables: z.ZodOptional<z.ZodEnum<{
         block: "block";
@@ -5422,19 +4995,11 @@ declare const WhatsAppConfigSchema: z.ZodObject<{
       open: "open";
       pairing: "pairing";
     }>>;
-    allowFrom: z.ZodOptional<z.ZodArray<z.ZodString>>;
-    defaultTo: z.ZodOptional<z.ZodString>;
-    groupAllowFrom: z.ZodOptional<z.ZodArray<z.ZodString>>;
     groupPolicy: z.ZodOptional<z.ZodEnum<{
       allowlist: "allowlist";
       disabled: "disabled";
       open: "open";
     }>>;
-    mentionPatterns: z.ZodOptional<z.ZodObject<{
-      mode: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"allow">, z.ZodLiteral<"deny">]>>;
-      allowIn: z.ZodOptional<z.ZodArray<z.ZodString>>;
-      denyIn: z.ZodOptional<z.ZodArray<z.ZodString>>;
-    }, z.core.$strict>>;
     contextVisibility: z.ZodOptional<z.ZodEnum<{
       all: "all";
       allowlist: "allowlist";
@@ -5446,6 +5011,24 @@ declare const WhatsAppConfigSchema: z.ZodObject<{
       historyLimit: z.ZodOptional<z.ZodNumber>;
     }, z.core.$strict>>>>;
     textChunkLimit: z.ZodOptional<z.ZodNumber>;
+    heartbeatVisibility: z.ZodOptional<z.ZodObject<{
+      showOk: z.ZodOptional<z.ZodBoolean>;
+      showAlerts: z.ZodOptional<z.ZodBoolean>;
+      useIndicator: z.ZodOptional<z.ZodBoolean>;
+    }, z.core.$strict>>;
+    healthMonitor: z.ZodOptional<z.ZodObject<{
+      enabled: z.ZodOptional<z.ZodBoolean>;
+    }, z.core.$strict>>;
+    responsePrefix: z.ZodOptional<z.ZodString>;
+    capabilities: z.ZodOptional<z.ZodArray<z.ZodString>>;
+    allowFrom: z.ZodOptional<z.ZodArray<z.ZodString>>;
+    defaultTo: z.ZodOptional<z.ZodString>;
+    groupAllowFrom: z.ZodOptional<z.ZodArray<z.ZodString>>;
+    mentionPatterns: z.ZodOptional<z.ZodObject<{
+      mode: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"allow">, z.ZodLiteral<"deny">]>>;
+      allowIn: z.ZodOptional<z.ZodArray<z.ZodString>>;
+      denyIn: z.ZodOptional<z.ZodArray<z.ZodString>>;
+    }, z.core.$strict>>;
     streaming: z.ZodOptional<z.ZodObject<{
       chunkMode: z.ZodOptional<z.ZodEnum<{
         length: "length";
@@ -5460,15 +5043,6 @@ declare const WhatsAppConfigSchema: z.ZodObject<{
         }, z.core.$strict>>;
       }, z.core.$strict>>;
     }, z.core.$strict>>;
-    heartbeatVisibility: z.ZodOptional<z.ZodObject<{
-      showOk: z.ZodOptional<z.ZodBoolean>;
-      showAlerts: z.ZodOptional<z.ZodBoolean>;
-      useIndicator: z.ZodOptional<z.ZodBoolean>;
-    }, z.core.$strict>>;
-    healthMonitor: z.ZodOptional<z.ZodObject<{
-      enabled: z.ZodOptional<z.ZodBoolean>;
-    }, z.core.$strict>>;
-    responsePrefix: z.ZodOptional<z.ZodString>;
     replyToMode: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"off">, z.ZodLiteral<"first">, z.ZodLiteral<"all">, z.ZodLiteral<"batched">]>>;
     sendReadReceipts: z.ZodOptional<z.ZodBoolean>;
     selfChatMode: z.ZodOptional<z.ZodBoolean>;
@@ -5595,6 +5169,7 @@ declare const OpenClawSchemaShape: {
     migrations: z.ZodOptional<z.ZodObject<{
       modelPolicyAllowlist: z.ZodOptional<z.ZodLiteral<true>>;
       utilityModelSeparation: z.ZodOptional<z.ZodLiteral<true>>;
+      webhookListeners: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<true>, z.ZodRecord<z.ZodString, z.ZodArray<z.ZodArray<z.ZodString>>>]>>;
     }, z.core.$strict>>;
   }, z.core.$strict>>;
   env: z.ZodOptional<z.ZodObject<{
@@ -5684,6 +5259,10 @@ declare const OpenClawSchemaShape: {
       blockedHostnames: z.ZodOptional<z.ZodArray<z.ZodString>>;
     }, z.core.$strict>>;
     profiles: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodObject<{
+      engine: z.ZodOptional<z.ZodEnum<{
+        chromium: "chromium";
+        lightpanda: "lightpanda";
+      }>>;
       cdpPort: z.ZodOptional<z.ZodNumber>;
       cdpUrl: z.ZodOptional<z.ZodString>;
       userDataDir: z.ZodOptional<z.ZodString>;
@@ -5823,6 +5402,7 @@ declare const OpenClawSchemaShape: {
         "bedrock-converse-stream": "bedrock-converse-stream";
         "github-copilot": "github-copilot";
         "google-generative-ai": "google-generative-ai";
+        "google-interactions": "google-interactions";
         "google-vertex": "google-vertex";
         ollama: "ollama";
         "openai-chatgpt-responses": "openai-chatgpt-responses";
@@ -6159,6 +5739,7 @@ declare const OpenClawSchemaShape: {
           "bedrock-converse-stream": "bedrock-converse-stream";
           "github-copilot": "github-copilot";
           "google-generative-ai": "google-generative-ai";
+          "google-interactions": "google-interactions";
           "google-vertex": "google-vertex";
           ollama: "ollama";
           "openai-chatgpt-responses": "openai-chatgpt-responses";
@@ -6437,7 +6018,6 @@ declare const OpenClawSchemaShape: {
       skills: z.ZodOptional<z.ZodArray<z.ZodString>>;
       silentReply: z.ZodOptional<z.ZodObject<{
         group: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"allow">, z.ZodLiteral<"disallow">]>>;
-        internal: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"allow">, z.ZodLiteral<"disallow">]>>;
       }, z.core.$strict>>;
       repoRoot: z.ZodOptional<z.ZodString>;
       skipBootstrap: z.ZodOptional<z.ZodBoolean>;
@@ -6451,6 +6031,7 @@ declare const OpenClawSchemaShape: {
       bootstrapMaxChars: z.ZodOptional<z.ZodNumber>;
       bootstrapTotalMaxChars: z.ZodOptional<z.ZodNumber>;
       experimental: z.ZodOptional<z.ZodObject<{
+        decisionAssistance: z.ZodOptional<z.ZodBoolean>;
         localModelLean: z.ZodOptional<z.ZodBoolean>;
       }, z.core.$strict>>;
       userTimezone: z.ZodOptional<z.ZodString>;
@@ -6536,7 +6117,7 @@ declare const OpenClawSchemaShape: {
         ultra: "ultra";
         xhigh: "xhigh";
       }>>;
-      fastModeDefault: z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodLiteral<"auto">]>>;
+      fastModeDefault: z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodLiteral<"auto">, z.ZodLiteral<"ultrafast">]>>;
       verboseDefault: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"off">, z.ZodLiteral<"on">, z.ZodLiteral<"full">]>>;
       toolProgressDetail: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"explain">, z.ZodLiteral<"raw">]>>;
       reasoningDefault: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"off">, z.ZodLiteral<"on">, z.ZodLiteral<"stream">]>>;
@@ -6790,7 +6371,7 @@ declare const OpenClawSchemaShape: {
         on: "on";
         stream: "stream";
       }>>;
-      fastModeDefault: z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodLiteral<"auto">]>>;
+      fastModeDefault: z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodLiteral<"auto">, z.ZodLiteral<"ultrafast">]>>;
       contextInjection: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"always">, z.ZodLiteral<"continuation-skip">, z.ZodLiteral<"never">]>>;
       bootstrapMaxChars: z.ZodOptional<z.ZodNumber>;
       bootstrapTotalMaxChars: z.ZodOptional<z.ZodNumber>;
@@ -7135,10 +6716,10 @@ declare const OpenClawSchemaShape: {
         }, z.core.$strict>>;
       }, z.core.$strict>>;
       tools: z.ZodOptional<z.ZodObject<{
-        profile: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"minimal">, z.ZodLiteral<"coding">, z.ZodLiteral<"messaging">, z.ZodLiteral<"full">]>>;
         allow: z.ZodOptional<z.ZodArray<z.ZodString>>;
         alsoAllow: z.ZodOptional<z.ZodArray<z.ZodString>>;
         deny: z.ZodOptional<z.ZodArray<z.ZodString>>;
+        profile: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"minimal">, z.ZodLiteral<"coding">, z.ZodLiteral<"messaging">, z.ZodLiteral<"full">]>>;
         byProvider: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodObject<{
           allow: z.ZodOptional<z.ZodArray<z.ZodString>>;
           alsoAllow: z.ZodOptional<z.ZodArray<z.ZodString>>;
@@ -7250,6 +6831,7 @@ declare const OpenClawSchemaShape: {
             name: z.ZodOptional<z.ZodString>;
             email: z.ZodOptional<z.ZodString>;
           }, z.core.$strict>>;
+          allowInSandbox: z.ZodOptional<z.ZodBoolean>;
         }, z.core.$strict>>;
         fs: z.ZodOptional<z.ZodObject<{
           workspaceOnly: z.ZodOptional<z.ZodBoolean>;
@@ -7288,10 +6870,10 @@ declare const OpenClawSchemaShape: {
   worktreeRoot: z.ZodOptional<z.ZodString>;
   worktreeAcceleration: z.ZodOptional<z.ZodBoolean>;
   tools: z.ZodOptional<z.ZodObject<{
-    profile: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"minimal">, z.ZodLiteral<"coding">, z.ZodLiteral<"messaging">, z.ZodLiteral<"full">]>>;
     allow: z.ZodOptional<z.ZodArray<z.ZodString>>;
     alsoAllow: z.ZodOptional<z.ZodArray<z.ZodString>>;
     deny: z.ZodOptional<z.ZodArray<z.ZodString>>;
+    profile: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"minimal">, z.ZodLiteral<"coding">, z.ZodLiteral<"messaging">, z.ZodLiteral<"full">]>>;
     byProvider: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodObject<{
       allow: z.ZodOptional<z.ZodArray<z.ZodString>>;
       alsoAllow: z.ZodOptional<z.ZodArray<z.ZodString>>;
@@ -8646,11 +8228,9 @@ declare const OpenClawSchemaShape: {
     toolSearch: z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodObject<{
       enabled: z.ZodOptional<z.ZodBoolean>;
       mode: z.ZodOptional<z.ZodEnum<{
-        code: "code";
         directory: "directory";
         tools: "tools";
       }>>;
-      codeTimeoutMs: z.ZodOptional<z.ZodNumber>;
       searchDefaultLimit: z.ZodOptional<z.ZodNumber>;
       maxSearchLimit: z.ZodOptional<z.ZodNumber>;
     }, z.core.$strict>]>>;
@@ -9064,6 +8644,15 @@ declare const OpenClawSchemaShape: {
         accountId: z.ZodOptional<z.ZodString>;
         threadId: z.ZodOptional<z.ZodUnion<readonly [z.ZodString, z.ZodNumber]>>;
       }, z.core.$strict>>>;
+      slack: z.ZodOptional<z.ZodObject<{
+        approvers: z.ZodOptional<z.ZodArray<z.ZodString>>;
+        plugins: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodObject<{
+          approvers: z.ZodOptional<z.ZodArray<z.ZodString>>;
+          tools: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodObject<{
+            approvers: z.ZodArray<z.ZodString>;
+          }, z.core.$strict>>>;
+        }, z.core.$strict>>>;
+      }, z.core.$strict>>;
     }, z.core.$strict>>;
   }, z.core.$strict>>;
   session: z.ZodOptional<z.ZodObject<{
@@ -9398,6 +8987,17 @@ declare const OpenClawSchemaShape: {
         port: z.ZodNumber;
       }, z.core.$strict>>;
     }, z.core.$strict>>;
+    github: z.ZodOptional<z.ZodObject<{
+      host: z.ZodOptional<z.ZodString>;
+      apiBaseUrl: z.ZodOptional<z.ZodString>;
+    }, z.core.$strict>>;
+    projects: z.ZodOptional<z.ZodObject<{
+      defaultRepository: z.ZodOptional<z.ZodObject<{
+        url: z.ZodString;
+        ref: z.ZodOptional<z.ZodString>;
+      }, z.core.$strict>>;
+      nativeGitHubSearch: z.ZodOptional<z.ZodBoolean>;
+    }, z.core.$strict>>;
     controlUi: z.ZodOptional<z.ZodObject<{
       dangerouslyDisableDeviceAuth: z.ZodOptional<z.ZodBoolean>;
       enabled: z.ZodOptional<z.ZodBoolean>;
@@ -9421,7 +9021,12 @@ declare const OpenClawSchemaShape: {
         }>;
       }, z.core.$strict>>;
       communityInvite: z.ZodOptional<z.ZodBoolean>;
+      newSessionModelDefaults: z.ZodOptional<z.ZodEnum<{
+        configured: "configured";
+        "last-used": "last-used";
+      }>>;
       github: z.ZodOptional<z.ZodObject<{
+        host: z.ZodOptional<z.ZodString>;
         token: z.ZodOptional<z.ZodUnion<readonly [z.ZodString, z.ZodDiscriminatedUnion<[z.ZodObject<{
           source: z.ZodLiteral<"env">;
           provider: z.ZodString;
@@ -9446,6 +9051,9 @@ declare const OpenClawSchemaShape: {
       automaticallyFetchFavicons: z.ZodOptional<z.ZodBoolean>;
       allowedOrigins: z.ZodOptional<z.ZodArray<z.ZodString>>;
       dangerouslyAllowHostHeaderOriginFallback: z.ZodOptional<z.ZodBoolean>;
+    }, z.core.$strict>>;
+    uploads: z.ZodOptional<z.ZodObject<{
+      enabled: z.ZodOptional<z.ZodBoolean>;
     }, z.core.$strict>>;
     cliAgents: z.ZodOptional<z.ZodObject<{
       enabled: z.ZodOptional<z.ZodBoolean>;
@@ -9528,6 +9136,9 @@ declare const OpenClawSchemaShape: {
     }, z.core.$strict>>;
     roles: z.ZodOptional<z.ZodObject<{
       default: z.ZodString;
+      assignments: z.ZodOptional<z.ZodObject<{
+        byGithubLogin: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
+      }, z.core.$strict>>;
       definitions: z.ZodRecord<z.ZodString, z.ZodObject<{
         sessions: z.ZodObject<{
           others: z.ZodEnum<{
@@ -9542,6 +9153,11 @@ declare const OpenClawSchemaShape: {
           required: "required";
         }>>;
         agents: z.ZodUnion<readonly [z.ZodLiteral<"*">, z.ZodPipe<z.ZodArray<z.ZodString>, z.ZodTransform<string[], string[]>>]>;
+        modelPolicy: z.ZodOptional<z.ZodObject<{
+          sourceAgent: z.ZodOptional<z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>>;
+          allow: z.ZodOptional<z.ZodArray<z.ZodString>>;
+          deny: z.ZodOptional<z.ZodArray<z.ZodString>>;
+        }, z.core.$strict>>;
         scopes: z.ZodPipe<z.ZodArray<z.ZodEnum<{
           "operator.admin": "operator.admin";
           "operator.approvals": "operator.approvals";
@@ -9729,6 +9345,31 @@ declare const OpenClawSchemaShape: {
       suspendAfter: z.ZodOptional<z.ZodString>;
       readyWorkers: z.ZodOptional<z.ZodNumber>;
       settings: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnknown>>;
+    }, z.core.$strict>>>;
+  }, z.core.$strict>>;
+  storage: z.ZodOptional<z.ZodObject<{
+    locations: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodObject<{
+      provider: z.ZodString;
+      settings: z.ZodRecord<z.ZodString, z.ZodUnknown>;
+      encryption: z.ZodUnion<readonly [z.ZodLiteral<"none">, z.ZodObject<{
+        passphrase: z.ZodUnion<readonly [z.ZodString, z.ZodDiscriminatedUnion<[z.ZodObject<{
+          source: z.ZodLiteral<"env">;
+          provider: z.ZodString;
+          id: z.ZodString;
+        }, z.core.$strict>, z.ZodObject<{
+          source: z.ZodLiteral<"file">;
+          provider: z.ZodString;
+          id: z.ZodString;
+        }, z.core.$strict>, z.ZodObject<{
+          source: z.ZodLiteral<"exec">;
+          provider: z.ZodString;
+          id: z.ZodString;
+        }, z.core.$strict>, z.ZodObject<{
+          source: z.ZodLiteral<"store">;
+          provider: z.ZodString;
+          id: z.ZodString;
+        }, z.core.$strict>], "source">]>;
+      }, z.core.$strict>]>;
     }, z.core.$strict>>>;
   }, z.core.$strict>>;
   desktop: z.ZodOptional<z.ZodObject<{
@@ -9942,7 +9583,6 @@ declare const OpenClawSchemaShape: {
   surfaces: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodObject<{
     silentReply: z.ZodOptional<z.ZodObject<{
       group: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"allow">, z.ZodLiteral<"disallow">]>>;
-      internal: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"allow">, z.ZodLiteral<"disallow">]>>;
     }, z.core.$strict>>;
   }, z.core.$strict>>>;
   proxy: z.ZodOptional<z.ZodObject<{
@@ -9959,6 +9599,255 @@ declare const OpenClawSchemaShape: {
   }, z.core.$strict>>;
 };
 //#endregion
+//#region src/transcripts/config.d.ts
+/** Raw transcripts config block. */
+type TranscriptsConfig = SchemaContract<NonNullable<z.input<typeof OpenClawSchemaShape.transcripts>>>;
+//#endregion
+//#region src/config/zod-schema.root-support.d.ts
+declare const SecuritySchema: z.ZodOptional<z.ZodObject<{
+  audit: z.ZodOptional<z.ZodObject<{
+    suppressions: z.ZodOptional<z.ZodArray<z.ZodObject<{
+      checkId: z.ZodString;
+      titleIncludes: z.ZodOptional<z.ZodString>;
+      detailIncludes: z.ZodOptional<z.ZodString>;
+      reason: z.ZodOptional<z.ZodString>;
+    }, z.core.$strict>>>;
+  }, z.core.$strict>>;
+  installPolicy: z.ZodOptional<z.ZodObject<{
+    enabled: z.ZodOptional<z.ZodBoolean>;
+    targets: z.ZodOptional<z.ZodArray<z.ZodUnion<readonly [z.ZodLiteral<"skill">, z.ZodLiteral<"plugin">]>>>;
+    exec: z.ZodOptional<z.ZodObject<{
+      source: z.ZodLiteral<"exec">;
+      command: z.ZodString;
+      args: z.ZodOptional<z.ZodArray<z.ZodString>>;
+      timeoutMs: z.ZodOptional<z.ZodNumber>;
+      noOutputTimeoutMs: z.ZodOptional<z.ZodNumber>;
+      maxOutputBytes: z.ZodOptional<z.ZodNumber>;
+      env: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
+      passEnv: z.ZodOptional<z.ZodArray<z.ZodString>>;
+      trustedDirs: z.ZodOptional<z.ZodArray<z.ZodString>>;
+    }, z.core.$strict>>;
+  }, z.core.$strict>>;
+}, z.core.$strict>>;
+declare const AccessGroupsSchema: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodDiscriminatedUnion<[z.ZodObject<{
+  type: z.ZodLiteral<"discord.channelAudience">;
+  guildId: z.ZodString;
+  channelId: z.ZodString;
+  membership: z.ZodOptional<z.ZodLiteral<"canViewChannel">>;
+}, z.core.$strict>, z.ZodObject<{
+  type: z.ZodLiteral<"message.senders">;
+  members: z.ZodRecord<z.ZodString, z.ZodArray<z.ZodString>>;
+}, z.core.$strict>], "type">>>;
+declare const TalkSchema: z.ZodObject<{
+  agentId: z.ZodOptional<z.ZodString>;
+  provider: z.ZodOptional<z.ZodString>;
+  providers: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodObject<{
+    apiKey: z.ZodOptional<z.ZodUnion<readonly [z.ZodString, z.ZodDiscriminatedUnion<[z.ZodObject<{
+      source: z.ZodLiteral<"env">;
+      provider: z.ZodString;
+      id: z.ZodString;
+    }, z.core.$strict>, z.ZodObject<{
+      source: z.ZodLiteral<"file">;
+      provider: z.ZodString;
+      id: z.ZodString;
+    }, z.core.$strict>, z.ZodObject<{
+      source: z.ZodLiteral<"exec">;
+      provider: z.ZodString;
+      id: z.ZodString;
+    }, z.core.$strict>, z.ZodObject<{
+      source: z.ZodLiteral<"store">;
+      provider: z.ZodString;
+      id: z.ZodString;
+    }, z.core.$strict>], "source">]>>;
+  }, z.core.$catchall<z.ZodUnknown>>>>;
+  realtime: z.ZodOptional<z.ZodObject<{
+    provider: z.ZodOptional<z.ZodString>;
+    providers: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodObject<{
+      apiKey: z.ZodOptional<z.ZodUnion<readonly [z.ZodString, z.ZodDiscriminatedUnion<[z.ZodObject<{
+        source: z.ZodLiteral<"env">;
+        provider: z.ZodString;
+        id: z.ZodString;
+      }, z.core.$strict>, z.ZodObject<{
+        source: z.ZodLiteral<"file">;
+        provider: z.ZodString;
+        id: z.ZodString;
+      }, z.core.$strict>, z.ZodObject<{
+        source: z.ZodLiteral<"exec">;
+        provider: z.ZodString;
+        id: z.ZodString;
+      }, z.core.$strict>, z.ZodObject<{
+        source: z.ZodLiteral<"store">;
+        provider: z.ZodString;
+        id: z.ZodString;
+      }, z.core.$strict>], "source">]>>;
+    }, z.core.$catchall<z.ZodUnknown>>>>;
+    model: z.ZodOptional<z.ZodString>;
+    speakerVoice: z.ZodOptional<z.ZodString>;
+    speakerVoiceId: z.ZodOptional<z.ZodString>;
+    instructions: z.ZodOptional<z.ZodString>;
+    mode: z.ZodOptional<z.ZodEnum<{
+      realtime: "realtime";
+      "stt-tts": "stt-tts";
+      transcription: "transcription";
+    }>>;
+    transport: z.ZodOptional<z.ZodEnum<{
+      "gateway-relay": "gateway-relay";
+      "managed-room": "managed-room";
+      "provider-websocket": "provider-websocket";
+      webrtc: "webrtc";
+    }>>;
+    vadThreshold: z.ZodOptional<z.ZodNumber>;
+    silenceDurationMs: z.ZodOptional<z.ZodNumber>;
+    prefixPaddingMs: z.ZodOptional<z.ZodNumber>;
+    reasoningEffort: z.ZodOptional<z.ZodString>;
+    brain: z.ZodOptional<z.ZodEnum<{
+      "agent-consult": "agent-consult";
+      "direct-tools": "direct-tools";
+      none: "none";
+    }>>;
+    consultRouting: z.ZodOptional<z.ZodEnum<{
+      "force-agent-consult": "force-agent-consult";
+      "provider-direct": "provider-direct";
+    }>>;
+  }, z.core.$strict>>;
+  consultThinkingLevel: z.ZodOptional<z.ZodEnum<{
+    adaptive: "adaptive";
+    high: "high";
+    low: "low";
+    max: "max";
+    medium: "medium";
+    minimal: "minimal";
+    off: "off";
+    ultra: "ultra";
+    xhigh: "xhigh";
+  }>>;
+  consultFastMode: z.ZodOptional<z.ZodBoolean>;
+  speechLocale: z.ZodOptional<z.ZodString>;
+  interruptOnSpeech: z.ZodOptional<z.ZodBoolean>;
+  silenceTimeoutMs: z.ZodOptional<z.ZodNumber>;
+}, z.core.$strict>;
+declare const McpConfigSchema: z.ZodOptional<z.ZodObject<{
+  sessionIdleTtlMs: z.ZodOptional<z.ZodNumber>;
+  servers: z.ZodOptional<z.ZodPreprocess<z.ZodRecord<z.ZodType<string, unknown, z.core.$ZodTypeInternals<string, unknown>>, z.ZodObject<{
+    enabled: z.ZodOptional<z.ZodBoolean>;
+    command: z.ZodOptional<z.ZodString>;
+    args: z.ZodOptional<z.ZodArray<z.ZodString>>;
+    env: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnion<readonly [z.ZodString, z.ZodNumber, z.ZodBoolean]>>>;
+    cwd: z.ZodOptional<z.ZodString>;
+    url: z.ZodOptional<z.ZodString>;
+    transport: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"stdio">, z.ZodLiteral<"sse">, z.ZodLiteral<"streamable-http">]>>;
+    headers: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnion<readonly [z.ZodString, z.ZodNumber, z.ZodBoolean]>>>;
+    connectionTimeoutMs: z.ZodOptional<z.ZodNumber>;
+    requestTimeoutMs: z.ZodOptional<z.ZodNumber>;
+    supportsParallelToolCalls: z.ZodOptional<z.ZodBoolean>;
+    auth: z.ZodOptional<z.ZodLiteral<"oauth">>;
+    oauth: z.ZodOptional<z.ZodObject<{
+      identity: z.ZodOptional<z.ZodEnum<{
+        "per-requester": "per-requester";
+        shared: "shared";
+      }>>;
+      authProfileId: z.ZodOptional<z.ZodString>;
+      scope: z.ZodOptional<z.ZodString>;
+      redirectUrl: z.ZodOptional<z.ZodString>;
+      clientMetadataUrl: z.ZodOptional<z.ZodString>;
+    }, z.core.$strict>>;
+    sslVerify: z.ZodOptional<z.ZodBoolean>;
+    clientCert: z.ZodOptional<z.ZodString>;
+    clientKey: z.ZodOptional<z.ZodString>;
+    toolFilter: z.ZodOptional<z.ZodObject<{
+      include: z.ZodOptional<z.ZodArray<z.ZodString>>;
+      exclude: z.ZodOptional<z.ZodArray<z.ZodString>>;
+    }, z.core.$strict>>;
+    codex: z.ZodOptional<z.ZodObject<{
+      agents: z.ZodOptional<z.ZodArray<z.ZodString>>;
+      defaultToolsApprovalMode: z.ZodOptional<z.ZodEnum<{
+        approve: "approve";
+        auto: "auto";
+        prompt: "prompt";
+      }>>;
+    }, z.core.$strict>>;
+  }, z.core.$catchall<z.ZodUnknown>>>, unknown>>;
+  apps: z.ZodOptional<z.ZodObject<{
+    enabled: z.ZodOptional<z.ZodBoolean>;
+    sandboxOrigin: z.ZodOptional<z.ZodString>;
+    sandboxPort: z.ZodOptional<z.ZodNumber>;
+  }, z.core.$strict>>;
+}, z.core.$strict>>;
+declare const NodeHostSchema: z.ZodOptional<z.ZodObject<{
+  autoUpdate: z.ZodOptional<z.ZodObject<{
+    enabled: z.ZodOptional<z.ZodBoolean>;
+  }, z.core.$strict>>;
+  agentRuns: z.ZodOptional<z.ZodObject<{
+    claude: z.ZodOptional<z.ZodObject<{
+      enabled: z.ZodOptional<z.ZodBoolean>;
+    }, z.core.$strict>>;
+  }, z.core.$strict>>;
+  workerRuns: z.ZodOptional<z.ZodObject<{
+    enabled: z.ZodOptional<z.ZodBoolean>;
+    capacity: z.ZodOptional<z.ZodNumber>;
+    isolation: z.ZodOptional<z.ZodEnum<{
+      container: "container";
+      none: "none";
+    }>>;
+    containerImage: z.ZodOptional<z.ZodString>;
+  }, z.core.$strict>>;
+  browserProxy: z.ZodOptional<z.ZodObject<{
+    enabled: z.ZodOptional<z.ZodBoolean>;
+    allowProfiles: z.ZodOptional<z.ZodArray<z.ZodString>>;
+  }, z.core.$strict>>;
+  mcp: z.ZodOptional<z.ZodObject<{
+    servers: z.ZodOptional<z.ZodPreprocess<z.ZodRecord<z.ZodType<string, unknown, z.core.$ZodTypeInternals<string, unknown>>, z.ZodObject<{
+      enabled: z.ZodOptional<z.ZodBoolean>;
+      command: z.ZodOptional<z.ZodString>;
+      args: z.ZodOptional<z.ZodArray<z.ZodString>>;
+      env: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnion<readonly [z.ZodString, z.ZodNumber, z.ZodBoolean]>>>;
+      cwd: z.ZodOptional<z.ZodString>;
+      url: z.ZodOptional<z.ZodString>;
+      transport: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"stdio">, z.ZodLiteral<"sse">, z.ZodLiteral<"streamable-http">]>>;
+      headers: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnion<readonly [z.ZodString, z.ZodNumber, z.ZodBoolean]>>>;
+      connectionTimeoutMs: z.ZodOptional<z.ZodNumber>;
+      requestTimeoutMs: z.ZodOptional<z.ZodNumber>;
+      supportsParallelToolCalls: z.ZodOptional<z.ZodBoolean>;
+      auth: z.ZodOptional<z.ZodLiteral<"oauth">>;
+      oauth: z.ZodOptional<z.ZodObject<{
+        identity: z.ZodOptional<z.ZodEnum<{
+          "per-requester": "per-requester";
+          shared: "shared";
+        }>>;
+        authProfileId: z.ZodOptional<z.ZodString>;
+        scope: z.ZodOptional<z.ZodString>;
+        redirectUrl: z.ZodOptional<z.ZodString>;
+        clientMetadataUrl: z.ZodOptional<z.ZodString>;
+      }, z.core.$strict>>;
+      sslVerify: z.ZodOptional<z.ZodBoolean>;
+      clientCert: z.ZodOptional<z.ZodString>;
+      clientKey: z.ZodOptional<z.ZodString>;
+      toolFilter: z.ZodOptional<z.ZodObject<{
+        include: z.ZodOptional<z.ZodArray<z.ZodString>>;
+        exclude: z.ZodOptional<z.ZodArray<z.ZodString>>;
+      }, z.core.$strict>>;
+      codex: z.ZodOptional<z.ZodObject<{
+        agents: z.ZodOptional<z.ZodArray<z.ZodString>>;
+        defaultToolsApprovalMode: z.ZodOptional<z.ZodEnum<{
+          approve: "approve";
+          auto: "auto";
+          prompt: "prompt";
+        }>>;
+      }, z.core.$strict>>;
+    }, z.core.$catchall<z.ZodUnknown>>>, unknown>>;
+  }, z.core.$strict>>;
+  skills: z.ZodOptional<z.ZodObject<{
+    enabled: z.ZodOptional<z.ZodBoolean>;
+  }, z.core.$strict>>;
+}, z.core.$strict>>;
+//#endregion
+//#region src/config/types.access-groups.d.ts
+type AccessGroupsConfig = NonNullable<z.input<typeof AccessGroupsSchema>>;
+//#endregion
+//#region packages/acp-core/src/runtime/types.d.ts
+/** Runtime update tags emitted by ACP adapters; unknown backend tags are passed through. */
+type AcpSessionUpdateTag = "agent_message_chunk" | "agent_thought_chunk" | "tool_call" | "tool_call_update" | "usage_update" | "available_commands_update" | "current_mode_update" | "config_option_update" | "session_info_update" | "plan" | (string & {});
+//#endregion
 //#region src/config/types.acp.d.ts
 type SchemaAcpConfig = NonNullable<z.input<typeof OpenClawSchemaShape.acp>>;
 type AcpStreamConfig = Omit<NonNullable<SchemaAcpConfig["stream"]>, "tagVisibility"> & {
@@ -9972,97 +9861,6 @@ type AcpConfig = Omit<SchemaAcpConfig, "stream"> & {
 declare const AgentRuntimePolicySchema: z.ZodOptional<z.ZodObject<{
   id: z.ZodOptional<z.ZodString>;
 }, z.core.$strict>>;
-declare const AgentEntryBaseSchema: z.ZodObject<{
-  id: z.ZodString;
-  name: z.ZodOptional<z.ZodString>;
-  description: z.ZodOptional<z.ZodString>;
-  workspace: z.ZodOptional<z.ZodString>;
-  cwd: z.ZodOptional<z.ZodString>;
-  agentDir: z.ZodOptional<z.ZodString>;
-  model: z.ZodOptional<z.ZodUnion<readonly [z.ZodString, z.ZodObject<{
-    primary: z.ZodOptional<z.ZodString>;
-    fallbacks: z.ZodOptional<z.ZodArray<z.ZodString>>;
-  }, z.core.$strict>]>>;
-  utilityModel: z.ZodOptional<z.ZodString>;
-  decisionModel: z.ZodOptional<z.ZodString>;
-  models: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodObject<{
-    alias: z.ZodOptional<z.ZodString>;
-    params: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnknown>>;
-    agentRuntime: z.ZodOptional<z.ZodObject<{
-      id: z.ZodOptional<z.ZodString>;
-    }, z.core.$strict>>;
-    pickerRuntimes: z.ZodOptional<z.ZodArray<z.ZodString>>;
-    codeMode: z.ZodOptional<z.ZodBoolean>;
-    streaming: z.ZodOptional<z.ZodBoolean>;
-  }, z.core.$strict>>>;
-  modelPolicy: z.ZodOptional<z.ZodObject<{
-    allow: z.ZodOptional<z.ZodArray<z.ZodString>>;
-  }, z.core.$strict>>;
-  thinkingDefault: z.ZodOptional<z.ZodEnum<{
-    adaptive: "adaptive";
-    high: "high";
-    low: "low";
-    max: "max";
-    medium: "medium";
-    minimal: "minimal";
-    off: "off";
-    ultra: "ultra";
-    xhigh: "xhigh";
-  }>>;
-  verboseDefault: z.ZodOptional<z.ZodEnum<{
-    full: "full";
-    off: "off";
-    on: "on";
-  }>>;
-  toolProgressDetail: z.ZodOptional<z.ZodEnum<{
-    explain: "explain";
-    raw: "raw";
-  }>>;
-  reasoningDefault: z.ZodOptional<z.ZodEnum<{
-    off: "off";
-    on: "on";
-    stream: "stream";
-  }>>;
-  fastModeDefault: z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodLiteral<"auto">]>>;
-  contextInjection: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"always">, z.ZodLiteral<"continuation-skip">, z.ZodLiteral<"never">]>>;
-  bootstrapMaxChars: z.ZodOptional<z.ZodNumber>;
-  bootstrapTotalMaxChars: z.ZodOptional<z.ZodNumber>;
-  experimental: z.ZodOptional<z.ZodObject<{
-    localModelLean: z.ZodOptional<z.ZodBoolean>;
-  }, z.core.$strict>>;
-  skills: z.ZodOptional<z.ZodArray<z.ZodString>>;
-  subagents: z.ZodOptional<z.ZodObject<{
-    delegationMode: z.ZodOptional<z.ZodEnum<{
-      prefer: "prefer";
-      suggest: "suggest";
-    }>>;
-    allowAgents: z.ZodOptional<z.ZodArray<z.ZodString>>;
-    model: z.ZodOptional<z.ZodUnion<readonly [z.ZodString, z.ZodObject<{
-      primary: z.ZodOptional<z.ZodString>;
-      fallbacks: z.ZodOptional<z.ZodArray<z.ZodString>>;
-    }, z.core.$strict>]>>;
-    thinking: z.ZodOptional<z.ZodString>;
-    requireAgentId: z.ZodOptional<z.ZodBoolean>;
-  }, z.core.$strict>>;
-  embeddedAgent: z.ZodOptional<z.ZodObject<{
-    executionContract: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"default">, z.ZodLiteral<"strict-agentic">]>>;
-  }, z.core.$strict>>;
-  params: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnknown>>;
-  runtime: z.ZodOptional<z.ZodUnion<readonly [z.ZodObject<{
-    type: z.ZodLiteral<"embedded">;
-  }, z.core.$strict>, z.ZodObject<{
-    type: z.ZodLiteral<"acp">;
-    acp: z.ZodOptional<z.ZodObject<{
-      agent: z.ZodOptional<z.ZodString>;
-      backend: z.ZodOptional<z.ZodString>;
-      mode: z.ZodOptional<z.ZodEnum<{
-        oneshot: "oneshot";
-        persistent: "persistent";
-      }>>;
-      cwd: z.ZodOptional<z.ZodString>;
-    }, z.core.$strict>>;
-  }, z.core.$strict>]>>;
-}, z.core.$strict>;
 //#endregion
 //#region src/config/zod-schema.agent-model.d.ts
 declare const AgentToolModelSchema: z.ZodUnion<readonly [z.ZodString, z.ZodObject<{
@@ -10079,8 +9877,8 @@ type AgentRuntimePolicyConfig = NonNullable<z.input<typeof AgentRuntimePolicySch
 /** Per-agent sandbox policy shared by embedded agents and sandbox backends. */
 type AgentSandboxConfig = NonNullable<z.output<typeof AgentSandboxSchema>>;
 //#endregion
-//#region src/config/zod-schema.agent-defaults-base.d.ts
-declare const AgentDefaultsBaseSchema: z.ZodObject<{
+//#region src/config/zod-schema.agent-defaults.d.ts
+declare const AgentDefaultsSchema: z.ZodOptional<z.ZodObject<{
   params: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnknown>>;
   model: z.ZodOptional<z.ZodUnion<readonly [z.ZodString, z.ZodObject<{
     primary: z.ZodOptional<z.ZodString>;
@@ -10145,7 +9943,6 @@ declare const AgentDefaultsBaseSchema: z.ZodObject<{
   skills: z.ZodOptional<z.ZodArray<z.ZodString>>;
   silentReply: z.ZodOptional<z.ZodObject<{
     group: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"allow">, z.ZodLiteral<"disallow">]>>;
-    internal: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"allow">, z.ZodLiteral<"disallow">]>>;
   }, z.core.$strict>>;
   repoRoot: z.ZodOptional<z.ZodString>;
   skipBootstrap: z.ZodOptional<z.ZodBoolean>;
@@ -10159,6 +9956,7 @@ declare const AgentDefaultsBaseSchema: z.ZodObject<{
   bootstrapMaxChars: z.ZodOptional<z.ZodNumber>;
   bootstrapTotalMaxChars: z.ZodOptional<z.ZodNumber>;
   experimental: z.ZodOptional<z.ZodObject<{
+    decisionAssistance: z.ZodOptional<z.ZodBoolean>;
     localModelLean: z.ZodOptional<z.ZodBoolean>;
   }, z.core.$strict>>;
   userTimezone: z.ZodOptional<z.ZodString>;
@@ -10244,7 +10042,7 @@ declare const AgentDefaultsBaseSchema: z.ZodObject<{
     ultra: "ultra";
     xhigh: "xhigh";
   }>>;
-  fastModeDefault: z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodLiteral<"auto">]>>;
+  fastModeDefault: z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodLiteral<"auto">, z.ZodLiteral<"ultrafast">]>>;
   verboseDefault: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"off">, z.ZodLiteral<"on">, z.ZodLiteral<"full">]>>;
   toolProgressDetail: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"explain">, z.ZodLiteral<"raw">]>>;
   reasoningDefault: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"off">, z.ZodLiteral<"on">, z.ZodLiteral<"stream">]>>;
@@ -10290,13 +10088,168 @@ declare const AgentDefaultsBaseSchema: z.ZodObject<{
     announceTimeoutMs: z.ZodOptional<z.ZodNumber>;
     requireAgentId: z.ZodOptional<z.ZodBoolean>;
   }, z.core.$strict>>;
-}, z.core.$strict>;
+  contextLimits: z.ZodOptional<z.ZodObject<{
+    memoryGetMaxChars: z.ZodOptional<z.ZodNumber>;
+    postCompactionMaxChars: z.ZodOptional<z.ZodNumber>;
+  }, z.core.$strict>>;
+  blockStreamingChunk: z.ZodOptional<z.ZodObject<{
+    minChars: z.ZodOptional<z.ZodNumber>;
+    maxChars: z.ZodOptional<z.ZodNumber>;
+    breakPreference: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"paragraph">, z.ZodLiteral<"newline">, z.ZodLiteral<"sentence">]>>;
+  }, z.core.$strict>>;
+  blockStreamingCoalesce: z.ZodOptional<z.ZodObject<{
+    minChars: z.ZodOptional<z.ZodNumber>;
+    maxChars: z.ZodOptional<z.ZodNumber>;
+    idleMs: z.ZodOptional<z.ZodNumber>;
+  }, z.core.$strict>>;
+  humanDelay: z.ZodOptional<z.ZodObject<{
+    mode: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"off">, z.ZodLiteral<"natural">, z.ZodLiteral<"custom">]>>;
+    minMs: z.ZodOptional<z.ZodNumber>;
+    maxMs: z.ZodOptional<z.ZodNumber>;
+  }, z.core.$strict>>;
+  typingMode: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"never">, z.ZodLiteral<"instant">, z.ZodLiteral<"thinking">, z.ZodLiteral<"message">]>>;
+  heartbeat: z.ZodOptional<z.ZodObject<{
+    every: z.ZodOptional<z.ZodString>;
+    activeHours: z.ZodOptional<z.ZodObject<{
+      start: z.ZodOptional<z.ZodString>;
+      end: z.ZodOptional<z.ZodString>;
+      timezone: z.ZodOptional<z.ZodString>;
+    }, z.core.$strict>>;
+    model: z.ZodOptional<z.ZodString>;
+    session: z.ZodOptional<z.ZodString>;
+    target: z.ZodOptional<z.ZodString>;
+    directPolicy: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"allow">, z.ZodLiteral<"block">]>>;
+    to: z.ZodOptional<z.ZodString>;
+    accountId: z.ZodOptional<z.ZodString>;
+    prompt: z.ZodOptional<z.ZodString>;
+    timeoutSeconds: z.ZodOptional<z.ZodNumber>;
+    lightContext: z.ZodOptional<z.ZodBoolean>;
+    isolatedSession: z.ZodOptional<z.ZodBoolean>;
+    agentId: z.ZodOptional<z.ZodString>;
+  }, z.core.$strict>>;
+  sandbox: z.ZodOptional<z.ZodObject<{
+    mode: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"off">, z.ZodLiteral<"non-main">, z.ZodLiteral<"all">]>>;
+    backend: z.ZodOptional<z.ZodString>;
+    workspaceAccess: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"none">, z.ZodLiteral<"ro">, z.ZodLiteral<"rw">]>>;
+    sessionToolsVisibility: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"spawned">, z.ZodLiteral<"all">]>>;
+    scope: z.ZodOptional<z.ZodUnion<readonly [z.ZodLiteral<"session">, z.ZodLiteral<"agent">, z.ZodLiteral<"shared">]>>;
+    workspaceRoot: z.ZodOptional<z.ZodString>;
+    docker: z.ZodOptional<z.ZodObject<{
+      image: z.ZodOptional<z.ZodString>;
+      containerPrefix: z.ZodOptional<z.ZodString>;
+      workdir: z.ZodOptional<z.ZodString>;
+      readOnlyRoot: z.ZodOptional<z.ZodBoolean>;
+      tmpfs: z.ZodOptional<z.ZodArray<z.ZodString>>;
+      network: z.ZodOptional<z.ZodString>;
+      user: z.ZodOptional<z.ZodString>;
+      capDrop: z.ZodOptional<z.ZodArray<z.ZodString>>;
+      env: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
+      setupCommand: z.ZodOptional<z.ZodPipe<z.ZodPipe<z.ZodUnion<readonly [z.ZodString, z.ZodArray<z.ZodString>]>, z.ZodTransform<string, string | string[]>>, z.ZodString>>;
+      pidsLimit: z.ZodOptional<z.ZodNumber>;
+      memory: z.ZodOptional<z.ZodUnion<readonly [z.ZodString, z.ZodNumber]>>;
+      memorySwap: z.ZodOptional<z.ZodUnion<readonly [z.ZodString, z.ZodNumber]>>;
+      cpus: z.ZodOptional<z.ZodNumber>;
+      gpus: z.ZodOptional<z.ZodString>;
+      ulimits: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnion<readonly [z.ZodString, z.ZodNumber, z.ZodObject<{
+        soft: z.ZodOptional<z.ZodNumber>;
+        hard: z.ZodOptional<z.ZodNumber>;
+      }, z.core.$strict>]>>>;
+      seccompProfile: z.ZodOptional<z.ZodString>;
+      apparmorProfile: z.ZodOptional<z.ZodString>;
+      dns: z.ZodOptional<z.ZodArray<z.ZodString>>;
+      extraHosts: z.ZodOptional<z.ZodArray<z.ZodString>>;
+      binds: z.ZodOptional<z.ZodArray<z.ZodString>>;
+      dangerouslyAllowReservedContainerTargets: z.ZodOptional<z.ZodBoolean>;
+      dangerouslyAllowExternalBindSources: z.ZodOptional<z.ZodBoolean>;
+      dangerouslyAllowContainerNamespaceJoin: z.ZodOptional<z.ZodBoolean>;
+    }, z.core.$strict>>;
+    ssh: z.ZodOptional<z.ZodObject<{
+      target: z.ZodOptional<z.ZodString>;
+      command: z.ZodOptional<z.ZodString>;
+      workspaceRoot: z.ZodOptional<z.ZodString>;
+      strictHostKeyChecking: z.ZodOptional<z.ZodBoolean>;
+      updateHostKeys: z.ZodOptional<z.ZodBoolean>;
+      identityFile: z.ZodOptional<z.ZodString>;
+      certificateFile: z.ZodOptional<z.ZodString>;
+      knownHostsFile: z.ZodOptional<z.ZodString>;
+      identityData: z.ZodOptional<z.ZodUnion<readonly [z.ZodString, z.ZodDiscriminatedUnion<[z.ZodObject<{
+        source: z.ZodLiteral<"env">;
+        provider: z.ZodString;
+        id: z.ZodString;
+      }, z.core.$strict>, z.ZodObject<{
+        source: z.ZodLiteral<"file">;
+        provider: z.ZodString;
+        id: z.ZodString;
+      }, z.core.$strict>, z.ZodObject<{
+        source: z.ZodLiteral<"exec">;
+        provider: z.ZodString;
+        id: z.ZodString;
+      }, z.core.$strict>, z.ZodObject<{
+        source: z.ZodLiteral<"store">;
+        provider: z.ZodString;
+        id: z.ZodString;
+      }, z.core.$strict>], "source">]>>;
+      certificateData: z.ZodOptional<z.ZodUnion<readonly [z.ZodString, z.ZodDiscriminatedUnion<[z.ZodObject<{
+        source: z.ZodLiteral<"env">;
+        provider: z.ZodString;
+        id: z.ZodString;
+      }, z.core.$strict>, z.ZodObject<{
+        source: z.ZodLiteral<"file">;
+        provider: z.ZodString;
+        id: z.ZodString;
+      }, z.core.$strict>, z.ZodObject<{
+        source: z.ZodLiteral<"exec">;
+        provider: z.ZodString;
+        id: z.ZodString;
+      }, z.core.$strict>, z.ZodObject<{
+        source: z.ZodLiteral<"store">;
+        provider: z.ZodString;
+        id: z.ZodString;
+      }, z.core.$strict>], "source">]>>;
+      knownHostsData: z.ZodOptional<z.ZodUnion<readonly [z.ZodString, z.ZodDiscriminatedUnion<[z.ZodObject<{
+        source: z.ZodLiteral<"env">;
+        provider: z.ZodString;
+        id: z.ZodString;
+      }, z.core.$strict>, z.ZodObject<{
+        source: z.ZodLiteral<"file">;
+        provider: z.ZodString;
+        id: z.ZodString;
+      }, z.core.$strict>, z.ZodObject<{
+        source: z.ZodLiteral<"exec">;
+        provider: z.ZodString;
+        id: z.ZodString;
+      }, z.core.$strict>, z.ZodObject<{
+        source: z.ZodLiteral<"store">;
+        provider: z.ZodString;
+        id: z.ZodString;
+      }, z.core.$strict>], "source">]>>;
+    }, z.core.$strict>>;
+    browser: z.ZodOptional<z.ZodObject<{
+      enabled: z.ZodOptional<z.ZodBoolean>;
+      image: z.ZodOptional<z.ZodString>;
+      containerPrefix: z.ZodOptional<z.ZodString>;
+      network: z.ZodOptional<z.ZodString>;
+      cdpPort: z.ZodOptional<z.ZodNumber>;
+      cdpSourceRange: z.ZodOptional<z.ZodString>;
+      vncPort: z.ZodOptional<z.ZodNumber>;
+      noVncPort: z.ZodOptional<z.ZodNumber>;
+      headless: z.ZodOptional<z.ZodBoolean>;
+      noVncEnabled: z.ZodOptional<z.ZodBoolean>;
+      allowHostControl: z.ZodOptional<z.ZodBoolean>;
+      autoStart: z.ZodOptional<z.ZodBoolean>;
+      autoStartTimeoutMs: z.ZodOptional<z.ZodNumber>;
+      binds: z.ZodOptional<z.ZodArray<z.ZodString>>;
+    }, z.core.$strict>>;
+    prune: z.ZodOptional<z.ZodObject<{
+      idleHours: z.ZodOptional<z.ZodNumber>;
+      maxAgeDays: z.ZodOptional<z.ZodNumber>;
+    }, z.core.$strict>>;
+  }, z.core.$strict>>;
+}, z.core.$strict>>;
 //#endregion
 //#region src/config/types.agent-defaults.d.ts
-type SchemaAgentDefaultsConfig = z.input<typeof AgentDefaultsBaseSchema>;
-type AgentModelEntryConfig = NonNullable<SchemaAgentDefaultsConfig["models"]>[string];
-type AgentContextLimitsConfig = NonNullable<z.input<typeof AgentContextLimitsSchema>>;
-type AgentDefaultsConfig = SchemaAgentDefaultsConfig & {
+type SchemaAgentDefaultsConfig = NonNullable<z.input<typeof AgentDefaultsSchema>>;
+type AgentDefaultsConfig = Omit<SchemaAgentDefaultsConfig, "sandbox"> & {
   /** @deprecated Doctor-only legacy input. */
   imageGenerationModel?: AgentToolModelConfig;
   /** @deprecated Doctor-only legacy input. */
@@ -10322,29 +10275,7 @@ type AgentDefaultsConfig = SchemaAgentDefaultsConfig & {
    * Normal schema parsing rejects this key; use per-model agentRuntime instead.
    */
   agentRuntime?: AgentRuntimePolicyConfig;
-  contextLimits?: AgentContextLimitsConfig;
-  blockStreamingChunk?: BlockStreamingChunkConfig;
-  blockStreamingCoalesce?: BlockStreamingCoalesceConfig;
-  humanDelay?: HumanDelayConfig;
-  typingMode?: TypingMode;
-  heartbeat?: NonNullable<z.input<typeof HeartbeatSchema>> & {
-    agentId?: string;
-  };
   sandbox?: AgentSandboxConfig;
-};
-//#endregion
-//#region src/config/types.skills.d.ts
-type SkillsSchemaInput = NonNullable<z.input<typeof OpenClawSchemaShape.skills>>;
-/** Per-skill runtime override keyed by skill name or source-specific skill key. */
-type SkillConfig = Omit<NonNullable<SkillsSchemaInput["entries"]>[string], "apiKey"> & {
-  /** Optional secret made available to the skill runtime through skill env handling. */
-  apiKey?: SecretInput;
-};
-/** Limits that bound skill discovery and model-facing prompt expansion. */
-type SkillsLimitsConfig = NonNullable<SkillsSchemaInput["limits"]>;
-/** Top-level skills config block in openclaw config. */
-type SkillsConfig = Omit<SkillsSchemaInput, "entries"> & {
-  entries?: Record<string, SkillConfig>;
 };
 //#endregion
 //#region src/config/zod-schema.agents.d.ts
@@ -10410,29 +10341,13 @@ type AgentAcpBinding = Extract<SchemaAgentBinding, {
   type: "acp";
 }>;
 type AgentBinding = AgentRouteBinding | AgentAcpBinding;
-type AgentConfig = z.input<typeof AgentEntryBaseSchema> & {
-  /** @deprecated Raw legacy list compatibility only; canonical agents.entries rejects this key. */
-  default?: boolean;
-  /**
-   * @deprecated Legacy raw config accepted only by doctor/migration repair.
-   * Normal schema parsing rejects this key; use per-model agentRuntime instead.
-   */
-  agentRuntime?: AgentModelEntryConfig["agentRuntime"];
-  /** @deprecated Legacy per-agent compaction config is kept for raw doctor migration/repair. */
-  compaction?: AgentDefaultsConfig["compaction"];
+type AgentConfig = Omit<z.input<typeof AgentEntrySchema>, "memory" | "tts" | "sandbox" | "tools"> & {
   memory?: {
     search?: MemorySearchConfig;
   };
-  humanDelay?: HumanDelayConfig;
-  typingMode?: AgentDefaultsConfig["typingMode"];
   tts?: TtsConfig & {
     prefsPath?: string;
   };
-  skillsLimits?: Pick<SkillsLimitsConfig, "maxSkillsPromptChars">;
-  contextLimits?: AgentContextLimitsConfig;
-  heartbeat?: Omit<NonNullable<AgentDefaultsConfig["heartbeat"]>, "agentId">;
-  identity?: IdentityConfig;
-  groupChat?: Omit<GroupChatConfig, "visibleReplies">;
   /** Optional per-agent sandbox overrides. */
   sandbox?: AgentSandboxConfig;
   tools?: AgentToolsConfig;
@@ -10442,33 +10357,10 @@ type AgentsConfig = {
   ownership?: "explicit";
   defaults?: AgentDefaultsConfig;
   entries?: Record<string, AgentEntryConfig>;
-  /** Internal non-serialized projection materialized by validation for ID-based runtime code. */
-  list?: AgentConfig[];
 };
 //#endregion
 //#region src/config/types.auth.d.ts
-type AuthProfileConfig = {
-  /** Provider id this auth profile can satisfy. */
-  provider: string;
-  /**
-   * Auth route selected by this profile id.
-   * - api_key: static provider API key
-   * - oauth: refreshable OAuth credentials (access+refresh+expires)
-   * - token: static bearer-style token (optionally expiring; no refresh)
-   * - aws-sdk: AWS SDK default credential chain (no secret in auth-profiles.json)
-   */
-  mode: "api_key" | "aws-sdk" | "oauth" | "token";
-  /** Optional account email shown in profile selection/status surfaces. */
-  email?: string;
-  /** Optional human-readable label shown in profile selection/status surfaces. */
-  displayName?: string;
-};
-type AuthConfig = {
-  /** Named auth profiles keyed by profile id. */
-  profiles?: Record<string, AuthProfileConfig>;
-  /** Preferred profile order per provider id. */
-  order?: Record<string, string[]>;
-};
+type AuthConfig = NonNullable<z.input<typeof OpenClawSchemaShape.auth>>;
 //#endregion
 //#region src/config/types.ssrf.d.ts
 type SsrFPolicyConfig = z.input<typeof SsrFPolicyConfigSchema>;
@@ -10507,6 +10399,10 @@ declare const CloudWorkersConfigSchema: z.ZodOptional<z.ZodObject<{
     settings: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnknown>>;
   }, z.core.$strict>>>;
 }, z.core.$strict>>;
+declare const { labels: CLOUD_WORKER_FIELD_LABELS, help: CLOUD_WORKER_FIELD_HELP }: {
+  labels: Record<string, string>;
+  help: Record<string, string>;
+};
 //#endregion
 //#region src/config/types.cloud-workers.d.ts
 type CloudWorkersConfig = NonNullable<z.input<typeof CloudWorkersConfigSchema>>;
@@ -10529,6 +10425,10 @@ declare const DesktopConfigSchema: z.ZodOptional<z.ZodObject<{
     passwordFile: z.ZodOptional<z.ZodString>;
   }, z.core.$strict>>;
 }, z.core.$strict>>;
+declare const { labels: DESKTOP_FIELD_LABELS, help: DESKTOP_FIELD_HELP }: {
+  labels: Record<string, string>;
+  help: Record<string, string>;
+};
 //#endregion
 //#region src/config/types.desktop.d.ts
 type DesktopConfig = NonNullable<z.input<typeof DesktopConfigSchema>>;
@@ -10545,6 +10445,17 @@ declare const GatewayConfigSchema: z.ZodOptional<z.ZodObject<{
       domain: z.ZodString;
       port: z.ZodNumber;
     }, z.core.$strict>>;
+  }, z.core.$strict>>;
+  github: z.ZodOptional<z.ZodObject<{
+    host: z.ZodOptional<z.ZodString>;
+    apiBaseUrl: z.ZodOptional<z.ZodString>;
+  }, z.core.$strict>>;
+  projects: z.ZodOptional<z.ZodObject<{
+    defaultRepository: z.ZodOptional<z.ZodObject<{
+      url: z.ZodString;
+      ref: z.ZodOptional<z.ZodString>;
+    }, z.core.$strict>>;
+    nativeGitHubSearch: z.ZodOptional<z.ZodBoolean>;
   }, z.core.$strict>>;
   controlUi: z.ZodOptional<z.ZodObject<{
     dangerouslyDisableDeviceAuth: z.ZodOptional<z.ZodBoolean>;
@@ -10569,7 +10480,12 @@ declare const GatewayConfigSchema: z.ZodOptional<z.ZodObject<{
       }>;
     }, z.core.$strict>>;
     communityInvite: z.ZodOptional<z.ZodBoolean>;
+    newSessionModelDefaults: z.ZodOptional<z.ZodEnum<{
+      configured: "configured";
+      "last-used": "last-used";
+    }>>;
     github: z.ZodOptional<z.ZodObject<{
+      host: z.ZodOptional<z.ZodString>;
       token: z.ZodOptional<z.ZodUnion<readonly [z.ZodString, z.ZodDiscriminatedUnion<[z.ZodObject<{
         source: z.ZodLiteral<"env">;
         provider: z.ZodString;
@@ -10594,6 +10510,9 @@ declare const GatewayConfigSchema: z.ZodOptional<z.ZodObject<{
     automaticallyFetchFavicons: z.ZodOptional<z.ZodBoolean>;
     allowedOrigins: z.ZodOptional<z.ZodArray<z.ZodString>>;
     dangerouslyAllowHostHeaderOriginFallback: z.ZodOptional<z.ZodBoolean>;
+  }, z.core.$strict>>;
+  uploads: z.ZodOptional<z.ZodObject<{
+    enabled: z.ZodOptional<z.ZodBoolean>;
   }, z.core.$strict>>;
   cliAgents: z.ZodOptional<z.ZodObject<{
     enabled: z.ZodOptional<z.ZodBoolean>;
@@ -10676,6 +10595,9 @@ declare const GatewayConfigSchema: z.ZodOptional<z.ZodObject<{
   }, z.core.$strict>>;
   roles: z.ZodOptional<z.ZodObject<{
     default: z.ZodString;
+    assignments: z.ZodOptional<z.ZodObject<{
+      byGithubLogin: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
+    }, z.core.$strict>>;
     definitions: z.ZodRecord<z.ZodString, z.ZodObject<{
       sessions: z.ZodObject<{
         others: z.ZodEnum<{
@@ -10690,6 +10612,11 @@ declare const GatewayConfigSchema: z.ZodOptional<z.ZodObject<{
         required: "required";
       }>>;
       agents: z.ZodUnion<readonly [z.ZodLiteral<"*">, z.ZodPipe<z.ZodArray<z.ZodString>, z.ZodTransform<string[], string[]>>]>;
+      modelPolicy: z.ZodOptional<z.ZodObject<{
+        sourceAgent: z.ZodOptional<z.ZodPipe<z.ZodString, z.ZodTransform<string, string>>>;
+        allow: z.ZodOptional<z.ZodArray<z.ZodString>>;
+        deny: z.ZodOptional<z.ZodArray<z.ZodString>>;
+      }, z.core.$strict>>;
       scopes: z.ZodPipe<z.ZodArray<z.ZodEnum<{
         "operator.admin": "operator.admin";
         "operator.approvals": "operator.approvals";
@@ -10866,27 +10793,7 @@ declare const GatewayConfigSchema: z.ZodOptional<z.ZodObject<{
 //#region src/config/types.gateway.d.ts
 type GatewayConfigInput = NonNullable<z.input<typeof GatewayConfigSchema>>;
 type TalkConfigInput = z.input<typeof TalkSchema>;
-type WideAreaDiscoveryConfig = {
-  /** Optional unicast DNS-SD domain (e.g. "openclaw.internal"). */
-  domain?: string;
-};
-/** mDNS/Bonjour metadata exposure level for local gateway discovery. */
-type MdnsDiscoveryMode = "off" | "minimal" | "full";
-type MdnsDiscoveryConfig = {
-  /**
-   * mDNS/Bonjour discovery broadcast mode (default: minimal).
-   * - off: disable mDNS entirely
-   * - minimal: omit cliPath/sshPort from TXT records
-   * - full: include cliPath/sshPort in TXT records
-   */
-  mode?: MdnsDiscoveryMode;
-};
-type DiscoveryConfig = {
-  /** Wide-area DNS-SD discovery settings. */
-  wideArea?: WideAreaDiscoveryConfig;
-  /** Local mDNS/Bonjour discovery settings. */
-  mdns?: MdnsDiscoveryConfig;
-};
+type DiscoveryConfig = NonNullable<z.input<typeof OpenClawSchemaShape.discovery>>;
 type TalkConfig = TalkConfigInput;
 type GatewayControlUiConfig = Omit<NonNullable<GatewayConfigInput["controlUi"]>, "github" | "dangerouslyDisableDeviceAuth"> & {
   /** @deprecated Doctor-only legacy input. */
@@ -10897,6 +10804,7 @@ type GatewayControlUiConfig = Omit<NonNullable<GatewayConfigInput["controlUi"]>,
    */
   dangerouslyDisableDeviceAuth?: boolean;
   github?: {
+    host?: string;
     token?: SecretInput;
   };
 };
@@ -10926,7 +10834,7 @@ type GatewayNodesConfig = NonNullable<GatewayConfigInput["nodes"]> & {
 };
 /** Optional named operator-role policies for Gateway deployments shared by a team. */
 type GatewayOperatorRolesConfig = Omit<NonNullable<GatewayConfigInput["roles"]>, "default"> & {
-  /** Required validated default for profiles without a valid assigned role. */
+  /** Required default for profiles without a valid explicit or GitHub login assignment. */
   default?: string;
 };
 type GatewayConfig = Omit<GatewayConfigInput, "controlUi" | "nodes" | "roles" | "reload" | "auth" | "tailscale"> & {
@@ -11112,7 +11020,7 @@ interface AssistantMessageDiagnostic {
 //#endregion
 //#region packages/llm-core/src/types.d.ts
 /** Provider API families with first-class request/stream adapters in OpenClaw. */
-type KnownApi = "openai-completions" | "mistral-conversations" | "openai-responses" | "azure-openai-responses" | "openai-chatgpt-responses" | "anthropic-messages" | "bedrock-converse-stream" | "google-generative-ai" | "google-vertex";
+type KnownApi = "openai-completions" | "mistral-conversations" | "openai-responses" | "azure-openai-responses" | "openai-chatgpt-responses" | "anthropic-messages" | "bedrock-converse-stream" | "google-generative-ai" | "google-interactions" | "google-vertex";
 /** Provider API id; custom providers can use ids outside the built-in set. */
 type Api = KnownApi | (string & {});
 /** Provider id used for routing, diagnostics, and config lookups. */
@@ -11208,12 +11116,25 @@ interface UserMessage {
   role: "user";
   content: string | (TextContent | ImageContent)[];
   timestamp: number;
+  /** Trusted runtime-context metadata; ordinary user messages omit it. */
+  runtimeContext?: {
+    /** Prefix-bound providers retain these messages across turns. */
+    retained?: boolean;
+  };
   /**
-   * Marks a user message carrying runtime context. Provider replay policy decides
-   * whether the carrier is transient or retained append-only; only retained
-   * carriers are stable prompt-cache anchors.
+   * @deprecated Shipped through v2026.9.7. Use `runtimeContext`; remove after
+   * the minimum supported plugin API no longer includes that release.
    */
   runtimeContextCarrier?: boolean;
+  /**
+   * @deprecated Shipped through v2026.9.7. Use `runtimeContext.retained`;
+   * remove with `runtimeContextCarrier`.
+   */
+  runtimeContextCarrierRetained?: boolean;
+  /** Operator-authored text projected to system authority on capable routes. */
+  operatorMessage?: {
+    turnScoped: boolean;
+  };
 }
 /** Assistant turn, including provider identity and final stop state. */
 type AssistantDeliveryTtsFacts = {
@@ -11424,11 +11345,61 @@ type PluginsConfig = PluginsSchemaInput & {
   installs?: Record<string, PluginInstallRecord>;
 };
 //#endregion
+//#region src/config/types.skills.d.ts
+type SkillsSchemaInput = NonNullable<z.input<typeof OpenClawSchemaShape.skills>>;
+/** Per-skill runtime override keyed by skill name or source-specific skill key. */
+type SkillConfig = Omit<NonNullable<SkillsSchemaInput["entries"]>[string], "apiKey"> & {
+  /** Optional secret made available to the skill runtime through skill env handling. */
+  apiKey?: SecretInput;
+};
+/** Top-level skills config block in openclaw config. */
+type SkillsConfig = Omit<SkillsSchemaInput, "entries"> & {
+  entries?: Record<string, SkillConfig>;
+};
+//#endregion
+//#region src/config/zod-schema.storage.d.ts
+declare const StorageConfigSchema: z.ZodOptional<z.ZodObject<{
+  locations: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodObject<{
+    provider: z.ZodString;
+    settings: z.ZodRecord<z.ZodString, z.ZodUnknown>;
+    encryption: z.ZodUnion<readonly [z.ZodLiteral<"none">, z.ZodObject<{
+      passphrase: z.ZodUnion<readonly [z.ZodString, z.ZodDiscriminatedUnion<[z.ZodObject<{
+        source: z.ZodLiteral<"env">;
+        provider: z.ZodString;
+        id: z.ZodString;
+      }, z.core.$strict>, z.ZodObject<{
+        source: z.ZodLiteral<"file">;
+        provider: z.ZodString;
+        id: z.ZodString;
+      }, z.core.$strict>, z.ZodObject<{
+        source: z.ZodLiteral<"exec">;
+        provider: z.ZodString;
+        id: z.ZodString;
+      }, z.core.$strict>, z.ZodObject<{
+        source: z.ZodLiteral<"store">;
+        provider: z.ZodString;
+        id: z.ZodString;
+      }, z.core.$strict>], "source">]>;
+    }, z.core.$strict>]>;
+  }, z.core.$strict>>>;
+}, z.core.$strict>>;
+declare const { labels: STORAGE_FIELD_LABELS, help: STORAGE_FIELD_HELP }: {
+  labels: Record<string, string>;
+  help: Record<string, string>;
+};
+//#endregion
+//#region src/config/types.storage.d.ts
+type StorageConfig = NonNullable<z.input<typeof StorageConfigSchema>>;
+//#endregion
 //#region src/config/zod-schema.telemetry.d.ts
 declare const TelemetryConfigSchema: z.ZodOptional<z.ZodObject<{
   enabled: z.ZodOptional<z.ZodBoolean>;
   consentedAt: z.ZodOptional<z.ZodString>;
 }, z.core.$strict>>;
+declare const { labels: TELEMETRY_FIELD_LABELS, help: TELEMETRY_FIELD_HELP }: {
+  labels: Record<string, string>;
+  help: Record<string, string>;
+};
 //#endregion
 //#region src/config/types.telemetry.d.ts
 type TelemetryConfig = NonNullable<z.input<typeof TelemetryConfigSchema>>;
@@ -11450,67 +11421,15 @@ type ProxyConfig = z.infer<typeof ProxyConfigSchema>;
 //#endregion
 //#region src/config/types.openclaw.d.ts
 /** One persisted suppression for a known security audit finding. */
-type SecurityAuditSuppression = {
-  /** Exact security audit check id to suppress. */
-  checkId: string;
-  /** Optional case-insensitive substring required in the finding title. */
-  titleIncludes?: string;
-  /** Optional case-insensitive substring required in the finding detail. */
-  detailIncludes?: string;
-  /** Operator rationale for accepting this standing finding. */
-  reason?: string;
-};
-type SecurityConfig = {
-  /** Security audit policy and accepted standing findings. */
-  audit?: {
-    /** Accepted security audit findings to omit from active summary/findings. */
-    suppressions?: SecurityAuditSuppression[];
-  };
-  installPolicy?: {
-    /**
-     * Enable operator-owned install policy. When true without an exec command,
-     * install/update attempts fail closed for supported targets.
-     */
-    enabled?: boolean;
-    /** Supported install targets. Omit to cover every supported target. */
-    targets?: Array<"skill" | "plugin">;
-    /**
-     * Trusted local policy command. Transport intentionally mirrors exec
-     * SecretRef provider fields: absolute command, no shell, bounded output,
-     * explicit env allowlist, and secure path checks.
-     */
-    exec?: {
-      source: "exec";
-      command: string;
-      args?: string[];
-      timeoutMs?: number;
-      noOutputTimeoutMs?: number;
-      maxOutputBytes?: number;
-      env?: Record<string, string>;
-      passEnv?: string[];
-      trustedDirs?: string[];
-    };
-  };
-};
-type SurfaceConfigEntry = {
-  /** Surface-specific silent reply policy for channels or UI integrations. */
-  silentReply?: SilentReplyPolicyShape;
-};
+type SecurityConfig = NonNullable<z.input<typeof SecuritySchema>>;
+type SurfaceConfigEntry = NonNullable<z.input<typeof OpenClawSchemaShape.surfaces>>[string];
 /** Top-level OpenClaw config as read from user/project config files. */
 type OpenClawConfig = {
   /** @deprecated Doctor-only legacy input. */
   audit?: AuditConfig;
   /** JSON schema URL used by editors and generated config files. */
   $schema?: string;
-  meta?: {
-    /** Last OpenClaw version that wrote this config. */
-    lastTouchedVersion?: string;
-    /** One-time doctor migrations already applied to this config. */
-    migrations?: {
-      modelPolicyAllowlist?: true;
-      utilityModelSeparation?: true;
-    };
-  };
+  meta?: NonNullable<z.input<typeof OpenClawSchemaShape.meta>>;
   /** Authentication provider/profile configuration. */
   auth?: AuthConfig;
   /** Named access groups used by channel/provider policy allowlists. */
@@ -11532,70 +11451,19 @@ type OpenClawConfig = {
       timeoutMs?: number;
     } | undefined;
   };
-  wizard?: {
-    /** Guided-onboarding discovery consent: "full" scans silently, "guarded" asks first. */
-    accessMode?: "full" | "guarded";
-    /** Offer installed-application plugin and skill recommendations during onboarding. */
-    appRecommendations?: boolean;
-    lastRunAt?: string;
-    lastRunVersion?: string;
-    lastRunCommit?: string;
-    lastRunCommand?: string;
-    lastRunMode?: "local" | "remote";
-    securityAcknowledgedAt?: string;
-  };
+  wizard?: NonNullable<z.input<typeof OpenClawSchemaShape.wizard>>;
   /** Diagnostics, tracing, and stability debugging settings. */
   diagnostics?: DiagnosticsConfig;
   /** Log sink, level, rotation, and redaction settings. */
   logging?: LoggingConfig;
   /** Security audit suppressions and security policy settings. */
   security?: SecurityConfig;
-  update?: {
-    /** Update channel for git + npm installs ("stable", "extended-stable", "beta", or "dev"). */
-    channel?: "stable" | "extended-stable" | "beta" | "dev";
-    /** Check for updates on gateway start; disabling also prevents anonymous update pings. */
-    checkOnStart?: boolean;
-    /** Core auto-update policy for package installs. */
-    auto?: {
-      /** Enable background auto-update checks and apply logic. Default: false. */
-      enabled?: boolean;
-    };
-  };
+  update?: NonNullable<z.input<typeof OpenClawSchemaShape.update>>;
   /** Explicit operator consent for anonymous feature statistics in the daily update check. */
   telemetry?: TelemetryConfig;
   /** Browser automation and browser plugin integration settings. */
   browser?: BrowserConfig;
-  ui?: {
-    /** Accent color for OpenClaw UI chrome (hex). */
-    seamColor?: string;
-    /**
-     * Operator display preferences. Canonical config home so agents can
-     * change them through the approval gate and clients stay in sync; the
-     * Control UI mirrors them into browser storage for instant boot.
-     */
-    prefs?: {
-      /** Control UI theme. */
-      theme?: "claw" | "knot" | "dash" | "absolutely" | "tide" | "beacon" | "phosphor" | "crt" | "manuscript" | "rose" | "miami" | "custom";
-      /** Light/dark preference. */
-      themeMode?: "light" | "dark" | "system";
-      /** Control UI accent: #RRGGBB, or "theme" to bypass inherited accent colors. */
-      accent?: string;
-      /** BCP 47 UI locale, e.g. "en" or "pt-BR". */
-      locale?: string;
-      /** Show model thinking output in chat. */
-      chatShowThinking?: boolean;
-      /** Show tool call cards in chat. */
-      chatShowToolCalls?: boolean;
-      /** Keep model commentary in Control UI transcripts after a run. */
-      chatPersistCommentary?: boolean;
-      /** Chat send shortcut: Enter sends, or modifier+Enter sends. */
-      chatSendShortcut?: "enter" | "modifier-enter";
-      /** Follow-up handling while a run is active; unset uses the server queue mode. */
-      chatFollowUpMode?: "steer" | "queue";
-      /** Ordered page and pinned-session entries shown in the Control UI sidebar. */
-      sidebarEntries?: string[];
-    };
-  };
+  ui?: NonNullable<z.input<typeof OpenClawSchemaShape.ui>>;
   /** Secret providers, defaults, and ref-resolution settings. */
   secrets?: SecretsConfig;
   /** Skill loading and bundled skill configuration. */
@@ -11620,10 +11488,7 @@ type OpenClawConfig = {
   bindings?: AgentBinding[];
   /** Broadcast command and delivery settings. */
   broadcast?: BroadcastConfig;
-  attachments?: {
-    /** Optional retention window for persisted inbound media cleanup. */
-    ttlHours?: number;
-  };
+  attachments?: NonNullable<z.input<typeof OpenClawSchemaShape.attachments>>;
   /** Message formatting, delivery, and action settings. */
   messages?: MessagesConfig;
   /** Shared text-to-speech defaults. Agent and channel overrides layer over this config. */
@@ -11650,6 +11515,8 @@ type OpenClawConfig = {
   gateway?: GatewayConfig;
   /** Opt-in cloud-worker provider profiles. */
   cloudWorkers?: CloudWorkersConfig;
+  /** Named storage destinations and their encryption settings. */
+  storage?: StorageConfig;
   /** Experimental desktop sources owned by the gateway host. */
   desktop?: DesktopConfig;
   /** Memory indexing/search configuration. */
@@ -11674,6 +11541,39 @@ type RuntimeEnv = {
    * stream (e.g. stderr) when structured output on stdout must stay clean.
    */
   exit: (code: number, opts?: RuntimeExitOptions) => void;
+};
+//#endregion
+//#region src/logging/levels.d.ts
+declare const ALLOWED_LOG_LEVELS: readonly ["silent", "fatal", "error", "warn", "info", "debug", "trace"];
+type LogLevel = (typeof ALLOWED_LOG_LEVELS)[number];
+//#endregion
+//#region src/logging/subsystem.d.ts
+type SubsystemLogger = {
+  subsystem: string;
+  isEnabled: (level: LogLevel, target?: "any" | "console" | "file") => boolean;
+  trace: (message: string, meta?: Record<string, unknown>) => void;
+  debug: (message: string, meta?: Record<string, unknown>) => void;
+  info: (message: string, meta?: Record<string, unknown>) => void;
+  warn: (message: string, meta?: Record<string, unknown>) => void;
+  error: (message: string, meta?: Record<string, unknown>) => void;
+  fatal: (message: string, meta?: Record<string, unknown>) => void;
+  raw: (message: string) => void;
+  child: (name: string) => SubsystemLogger;
+};
+//#endregion
+//#region src/infra/sqlite-transaction.d.ts
+type SqliteTransactionOptions = {
+  /** Already-started BEGIN budget, carried between workers in the same process. */
+  beginDeadlineNs?: bigint;
+  busyTimeoutMs?: number;
+  databaseLabel?: string;
+  /** Prepared identifiers and counts only; never transcript or session payloads. */
+  diagnosticContext?: Readonly<Record<string, string | number | boolean | null | undefined>>;
+  logger?: Pick<SubsystemLogger, "warn">;
+  operationLabel?: string;
+  slowTransactionHoldMs?: number;
+  /** Enclose the physical commit in an owner's synchronous authority guard. */
+  withCommit?: (commit: () => void) => void;
 };
 //#endregion
 //#region src/infra/sqlite-reader-lifecycle.d.ts
@@ -11708,6 +11608,7 @@ type SqliteReaderDiagnostics = {
 };
 //#endregion
 //#region src/infra/sqlite-wal-checkpoint.d.ts
+type SqliteWalCheckpointMode = "PASSIVE" | "FULL" | "RESTART" | "TRUNCATE";
 type SqliteWalHealth = {
   state: "complete" | "blocked" | "error";
   observedAtMs: number;
@@ -11721,6 +11622,127 @@ type SqliteWalHealth = {
   error?: string;
   activeReaders?: SqliteReaderDiagnostic[];
   readerDiagnostics?: Array<Omit<SqliteReaderDiagnostics, "activeReaders">>;
+};
+type SqliteWalCheckpointSnapshot = {
+  health: SqliteWalHealth;
+  observedAtNs: bigint;
+  lastCompletedAtNs?: bigint;
+};
+//#endregion
+//#region src/infra/sqlite-wal-reclamation.d.ts
+type SqliteWalReclamationOptions = {
+  maxPages?: number;
+  checkpointMode?: SqliteWalCheckpointMode;
+  beforeMutation?: () => void;
+  onCommit?: () => void;
+  afterCommit?: () => void;
+};
+type SqliteWalReclamationResult = {
+  checkpointCompleted: boolean;
+  checkpoint?: SqliteWalCheckpointSnapshot;
+  freePagesBefore: number | null;
+  remainingFreePages: number | null;
+  checkpointCalls: number;
+  checkpointIncomplete: number;
+  checkpointMs: number;
+  checkpointMaxMs: number;
+  queryMs: number;
+  vacuumMs: number;
+  vacuumPasses: number;
+  vacuumPagesRequested: number;
+};
+//#endregion
+//#region src/infra/sqlite-wal-write-admission.d.ts
+type SqliteWalPeriodicRequest = {
+  maxPages: number;
+  checkpointMode: SqliteWalCheckpointMode;
+  checkpoint?: SqliteWalCheckpointSnapshot;
+};
+type SqliteWalPeriodicResult = {
+  reclaimedPages: number;
+  checkpoint?: SqliteWalCheckpointSnapshot;
+};
+//#endregion
+//#region src/infra/sqlite-wal.d.ts
+type SqliteWalMaintenance = {
+  /** Last maintenance observation; reading it never checkpoints or probes storage. */
+  readonly health?: SqliteWalHealth;
+  checkpoint: () => boolean;
+  maintainPeriodic?: (request: SqliteWalPeriodicRequest, admit?: (stage: "transaction" | "commit") => void) => SqliteWalPeriodicResult;
+  reclaimFreePages: (options?: SqliteWalReclamationOptions) => SqliteWalReclamationResult;
+  /** Inspect this retained WAL connection, independently of checkpoint completion elsewhere. */
+  inspectIdle?: () => "healthy" | "retire";
+  /** Retire timer admission and join accepted maintenance before closing its database. */
+  stop: () => Promise<void>;
+  /** Final checkpoint; synchronous exit cleanup cancels work without joining it. */
+  close: (options?: {
+    checkpointMode?: SqliteWalCheckpointMode;
+  }) => boolean;
+};
+//#endregion
+//#region src/infra/sqlite-worker-identity.d.ts
+type DatabaseFileIdentity = Readonly<{
+  key: string;
+  birthtime?: string;
+}>;
+type DatabasePathIdentity = DatabaseFileIdentity & Readonly<{
+  canonicalPath: string;
+}>;
+//#endregion
+//#region src/state/openclaw-state-db-contract.d.ts
+/** Open shared SQLite database handle plus WAL maintenance lifecycle. */
+type OpenClawStateDatabase = {
+  db: DatabaseSync;
+  path: string;
+  walMaintenance: SqliteWalMaintenance;
+};
+/** Options for resolving or overriding the shared state database path. */
+type OpenClawStateDatabaseOptions = {
+  env?: NodeJS.ProcessEnv;
+  path?: string;
+  database?: OpenClawStateDatabase;
+  readOnly?: boolean;
+  /** Additional known agent stores can only make first-use classification more conservative. */
+  initializationAgentPaths?: readonly string[];
+};
+//#endregion
+//#region src/state/openclaw-state-db-async-lifecycle.d.ts
+type OpenClawStateDatabaseReadAdmission = {
+  readonly databasePath: string;
+  /** Stable across first creation and aliases; coordinates work but grants no authority. */
+  readonly coordinationKey: string;
+  readonly identity: DatabasePathIdentity;
+  assertCurrent: () => void;
+};
+//#endregion
+//#region src/state/openclaw-state-db-cache.d.ts
+declare const { touch: touchStateDatabase, retain: retainOpenClawStateDatabaseForIdle }: {
+  touch: (database: OpenClawStateDatabase) => void;
+  retain(this: void, database: OpenClawStateDatabase): () => void;
+};
+declare const { register: registerStateDatabaseWalAdmission, readHealth: readOpenClawStateWalHealth, ownRetirement: ownStateDatabaseRetirement, stop: stopOpenClawStateDatabaseMaintenance }: {
+  ownRetirement(this: void, database: OpenClawStateDatabase, close: () => Promise<void>): () => void;
+  stop(this: void, pathname?: string, identity?: DatabasePathIdentity): Promise<void>;
+  register(this: void, database: OpenClawStateDatabase, identity: DatabasePathIdentity, admission: OpenClawStateDatabaseReadAdmission, env: NodeJS.ProcessEnv): void;
+  readHealth(this: void): SqliteWalHealth | undefined;
+};
+/** Retain one exact canonical native owner; only the final reference retires its handle. */
+declare const { retain: retainOpenClawStateDatabase, borrowForRead: borrowOpenClawStateDatabaseForAsyncRead, retainForIndependentRead: retainOpenClawStateDatabaseForIndependentRead }: {
+  retain: (database: OpenClawStateDatabase) => {
+    release(): void;
+    releaseAsync(): Promise<void>;
+  };
+  retainForIndependentRead(this: void, pathname: string, ownership?: "cached-read"): {
+    assertCurrent: () => void;
+    observe(): void;
+    release: () => void;
+  } | undefined;
+  borrowForRead(this: void, pathname: string, ownership?: "cached-read"): {
+    assertCurrent: () => void;
+    observe(): void;
+    release: () => void;
+    database: OpenClawStateDatabase;
+  } | undefined;
 };
 //#endregion
 //#region src/config/io.runtime.d.ts
@@ -11772,10 +11794,6 @@ declare const SkillLibrarySelectionSchema: Type.TObject<{
 }>;
 type SkillLibrarySelection = Static<typeof SkillLibrarySelectionSchema>;
 //#endregion
-//#region src/security/external-content-source.d.ts
-/** Hook session sources that carry untrusted external content into agent prompts. */
-type HookExternalContentSource = "email" | "gmail" | "webhook";
-//#endregion
 //#region packages/gateway-protocol/src/schema/session-participant.d.ts
 declare const SessionParticipantSchema: Type.TObject<{
   identity: Type.TUnion<[Type.TObject<{
@@ -11807,13 +11825,403 @@ declare const SessionParticipantSchema: Type.TObject<{
 }>;
 type SessionParticipant = Static<typeof SessionParticipantSchema>;
 //#endregion
+//#region packages/gateway-protocol/src/schema/sessions-row.d.ts
+/** Channel-owned destination for returning to the conversation that launched a session. */
+declare const SessionConversationLinkSchema: Type.TObject<{
+  url: Type.TString;
+  label: Type.TString;
+}>;
+declare const SessionRunStatusSchema: Type.TUnion<[Type.TLiteral<"queued">, Type.TLiteral<"running">, Type.TLiteral<"done">, Type.TLiteral<"failed">, Type.TLiteral<"interrupted">, Type.TLiteral<"killed">, Type.TLiteral<"timeout">]>;
+declare const SessionEntryArchiveReasonSchema: Type.TUnion<[Type.TLiteral<"manual">, Type.TLiteral<"active-session-cap">, Type.TLiteral<"age-retention">, Type.TLiteral<"stale-dashboard">, Type.TLiteral<"restart-recovery">]>;
+/** Projected actor that caused a session node to be created. */
+declare const SessionCreatedActorSchema: Type.TObject<{
+  type: Type.TUnion<[Type.TLiteral<"human">, Type.TLiteral<"agent">, Type.TLiteral<"system">]>;
+  id: Type.TOptional<Type.TString>;
+  label: Type.TOptional<Type.TString>;
+  /** Durable profile avatar route; absent for actors without a stored profile avatar. */
+  avatarUrl: Type.TOptional<Type.TString>;
+  /** Display identity is separate from the actor fields used by ownership policy. */
+  identity: Type.TOptional<Type.TUnion<[Type.TObject<{
+    type: Type.TLiteral<"profile">;
+    id: Type.TString;
+  }>, Type.TObject<{
+    type: Type.TLiteral<"agent">;
+    id: Type.TString;
+  }>, Type.TObject<{
+    type: Type.TLiteral<"remote">;
+    pluginId: Type.TString;
+    domain: Type.TString;
+    idKind: Type.TString;
+    id: Type.TString;
+  }>, Type.TObject<{
+    type: Type.TLiteral<"observation">;
+    pluginId: Type.TUnion<[Type.TString, Type.TNull]>;
+    accountId: Type.TUnion<[Type.TString, Type.TNull]>;
+    senderKind: Type.TUnion<[Type.TLiteral<"human">, Type.TLiteral<"bot">, Type.TLiteral<"unknown">]>;
+    id: Type.TString;
+  }>, Type.TObject<{
+    type: Type.TLiteral<"legacy">;
+    actorType: Type.TString;
+    source: Type.TUnion<[Type.TString, Type.TNull]>;
+    id: Type.TString;
+  }>]>>;
+}>;
+/** Stable Gateway session row fields; mutation envelopes may add null tombstones. */
+declare const SessionRowSchema: Type.TObject<{
+  key: Type.TString;
+  /** Detail fields omitted in compact lists must not clear a client's full-row cache. */
+  rowMode: Type.TOptional<Type.TLiteral<"compact">>;
+  sessionId: Type.TOptional<Type.TString>;
+  incognito: Type.TOptional<Type.TLiteral<true>>;
+  kind: Type.TUnion<[Type.TLiteral<"direct">, Type.TLiteral<"group">, Type.TLiteral<"global">, Type.TLiteral<"unknown">]>;
+  label: Type.TOptional<Type.TString>;
+  autoLabel: Type.TOptional<Type.TString>;
+  icon: Type.TOptional<Type.TString>;
+  /** Named sidebar tint from SESSION_COLOR_IDS; clients map names to theme hues. */
+  color: Type.TOptional<Type.TString>;
+  channelAvatarUrl: Type.TOptional<Type.TString>;
+  conversationLink: Type.TOptional<Type.TObject<{
+    url: Type.TString;
+    label: Type.TString;
+  }>>;
+  boardFace: Type.TOptional<Type.TUnion<[Type.TLiteral<"chat">, Type.TLiteral<"dashboard">]>>;
+  /** Shared dashboard default; absent means split. */
+  boardPresentation: Type.TOptional<Type.TUnion<[Type.TLiteral<"split">, Type.TLiteral<"expanded">]>>;
+  displayName: Type.TOptional<Type.TString>;
+  derivedTitle: Type.TOptional<Type.TString>;
+  lastMessagePreview: Type.TOptional<Type.TString>;
+  channel: Type.TOptional<Type.TString>;
+  /** Stable non-sensitive facts derived from the canonical session route. */
+  classification: Type.TOptional<Type.TString>;
+  agentId: Type.TOptional<Type.TString>;
+  accountId: Type.TOptional<Type.TString>;
+  peerKind: Type.TOptional<Type.TString>;
+  isMain: Type.TOptional<Type.TBoolean>;
+  isBackground: Type.TOptional<Type.TBoolean>;
+  chatType: Type.TOptional<Type.TUnion<[Type.TLiteral<"direct">, Type.TLiteral<"group">, Type.TLiteral<"channel">]>>;
+  activitySummary: Type.TOptional<Type.TObject<{
+    canEnsure: Type.TOptional<Type.TBoolean>;
+    text: Type.TOptional<Type.TString>;
+    updatedAt: Type.TOptional<Type.TInteger>;
+    state: Type.TUnion<[Type.TLiteral<"current">, Type.TLiteral<"stale">, Type.TLiteral<"updating">, Type.TLiteral<"unavailable">]>;
+  }>>;
+  updatedAt: Type.TOptional<Type.TUnion<[Type.TNumber, Type.TNull]>>;
+  /** Gateway sampling time, retained when a read reuses a cached projection. */
+  snapshotAt: Type.TOptional<Type.TNumber>;
+  /** Connection-scoped presentation identity on full event ancestor rows. */
+  ancestorRevision: Type.TOptional<Type.TString>;
+  /** Personal list preference for the authenticated viewer; not session visibility. */
+  hiddenFromInvolvingMe: Type.TOptional<Type.TBoolean>;
+  archived: Type.TOptional<Type.TBoolean>;
+  archivedAt: Type.TOptional<Type.TNumber>;
+  archivedBy: Type.TOptional<Type.TObject<{
+    type: Type.TUnion<[Type.TLiteral<"human">, Type.TLiteral<"agent">, Type.TLiteral<"system">]>;
+    id: Type.TOptional<Type.TString>;
+    label: Type.TOptional<Type.TString>;
+    /** Durable profile avatar route; absent for actors without a stored profile avatar. */
+    avatarUrl: Type.TOptional<Type.TString>;
+    /** Display identity is separate from the actor fields used by ownership policy. */
+    identity: Type.TOptional<Type.TUnion<[Type.TObject<{
+      type: Type.TLiteral<"profile">;
+      id: Type.TString;
+    }>, Type.TObject<{
+      type: Type.TLiteral<"agent">;
+      id: Type.TString;
+    }>, Type.TObject<{
+      type: Type.TLiteral<"remote">;
+      pluginId: Type.TString;
+      domain: Type.TString;
+      idKind: Type.TString;
+      id: Type.TString;
+    }>, Type.TObject<{
+      type: Type.TLiteral<"observation">;
+      pluginId: Type.TUnion<[Type.TString, Type.TNull]>;
+      accountId: Type.TUnion<[Type.TString, Type.TNull]>;
+      senderKind: Type.TUnion<[Type.TLiteral<"human">, Type.TLiteral<"bot">, Type.TLiteral<"unknown">]>;
+      id: Type.TString;
+    }>, Type.TObject<{
+      type: Type.TLiteral<"legacy">;
+      actorType: Type.TString;
+      source: Type.TUnion<[Type.TString, Type.TNull]>;
+      id: Type.TString;
+    }>]>>;
+  }>>;
+  archiveReason: Type.TOptional<Type.TUnion<[Type.TLiteral<"manual">, Type.TLiteral<"active-session-cap">, Type.TLiteral<"age-retention">, Type.TLiteral<"stale-dashboard">, Type.TLiteral<"restart-recovery">]>>;
+  pinned: Type.TOptional<Type.TBoolean>;
+  pinnedAt: Type.TOptional<Type.TNumber>;
+  snoozedUntil: Type.TOptional<Type.TNumber>;
+  snoozedAt: Type.TOptional<Type.TNumber>;
+  unread: Type.TOptional<Type.TBoolean>;
+  lastReadAt: Type.TOptional<Type.TNumber>;
+  markedUnreadAt: Type.TOptional<Type.TNumber>;
+  lastActivityAt: Type.TOptional<Type.TNumber>;
+  lastInteractionAt: Type.TOptional<Type.TNumber>;
+  status: Type.TOptional<Type.TUnion<[Type.TLiteral<"queued">, Type.TLiteral<"running">, Type.TLiteral<"done">, Type.TLiteral<"failed">, Type.TLiteral<"interrupted">, Type.TLiteral<"killed">, Type.TLiteral<"timeout">]>>;
+  lastRunError: Type.TOptional<Type.TString>;
+  providerReview: Type.TOptional<Type.TObject<{
+    id: Type.TString;
+    runId: Type.TString;
+    explanation: Type.TOptional<Type.TString>;
+    continuationMessage: Type.TOptional<Type.TString>;
+    canContinue: Type.TBoolean;
+  }>>;
+  /** Exact run that produced the latest terminal lifecycle projection. */
+  lastRunId: Type.TOptional<Type.TString>;
+  restartRecoveryStatus: Type.TOptional<Type.TLiteral<"tombstoned">>;
+  activeLeafEntryId: Type.TOptional<Type.TUnion<[Type.TString, Type.TNull]>>;
+  spawnedBy: Type.TOptional<Type.TString>;
+  parentSessionKey: Type.TOptional<Type.TString>;
+  parentSessionId: Type.TOptional<Type.TString>;
+  controlOwnerSessionKey: Type.TOptional<Type.TString>;
+  childSessions: Type.TOptional<Type.TArray<Type.TString>>;
+  forkedFromParent: Type.TOptional<Type.TBoolean>;
+  spawnDepth: Type.TOptional<Type.TNumber>;
+  subagentRole: Type.TOptional<Type.TUnion<[Type.TLiteral<"orchestrator">, Type.TLiteral<"leaf">]>>;
+  subagentControlScope: Type.TOptional<Type.TUnion<[Type.TLiteral<"children">, Type.TLiteral<"none">]>>;
+  swarmGroupId: Type.TOptional<Type.TString>;
+  /** Requester-owned execution counts; never child content or parent synthesis status. */
+  swarm: Type.TOptional<Type.TObject<{
+    groups: Type.TArray<Type.TObject<{
+      groupId: Type.TString;
+      createdAt: Type.TNumber;
+      children: Type.TOptional<Type.TArray<Type.TObject<{
+        sessionKey: Type.TString;
+        status: Type.TUnion<[Type.TLiteral<"queued">, Type.TLiteral<"running">, Type.TLiteral<"done">, Type.TLiteral<"failed">]>;
+      }>>>;
+      queued: Type.TInteger;
+      running: Type.TInteger;
+      done: Type.TInteger;
+      failed: Type.TInteger;
+    }>>;
+    otherActiveGroups: Type.TInteger;
+  }>>;
+  worktree: Type.TOptional<Type.TObject<{
+    id: Type.TString;
+    branch: Type.TString;
+    repoRoot: Type.TString;
+  }>>;
+  repositoryWorkspaceId: Type.TOptional<Type.TString>;
+  repository: Type.TOptional<Type.TObject<{
+    url: Type.TString;
+    ref: Type.TOptional<Type.TString>;
+    branch: Type.TString;
+  }>>;
+  execNode: Type.TOptional<Type.TString>;
+  execCwd: Type.TOptional<Type.TString>;
+  spawnedWorkspaceDir: Type.TOptional<Type.TString>;
+  spawnedCwd: Type.TOptional<Type.TString>;
+  /** Persisted project registry association, distinct from a cloud repository workspace. */
+  projectId: Type.TOptional<Type.TString>;
+  /** Persisted task cwd or spawned workspace; no filesystem resolution is implied. */
+  workspaceDir: Type.TOptional<Type.TString>;
+  permissionMode: Type.TOptional<Type.TUnion<[Type.TLiteral<"read-only">, Type.TLiteral<"guarded">, Type.TLiteral<"workspace">, Type.TLiteral<"full">]>>;
+  /** Authorized per-chat containment opt-out; omission follows configured sandbox policy. */
+  sandboxMode: Type.TOptional<Type.TLiteral<"off">>;
+  /** Administrator consent to the exact external runtime's own permissions for this incarnation. */
+  nativeRuntimeConsent: Type.TOptional<Type.TString>;
+  permissionModePending: Type.TOptional<Type.TBoolean>;
+  sessionRoot: Type.TOptional<Type.TString>;
+  createdVia: Type.TOptional<Type.TUnion<[Type.TLiteral<"operator">, Type.TLiteral<"spawn">, Type.TLiteral<"channel">, Type.TLiteral<"cron">, Type.TLiteral<"talk">, Type.TLiteral<"run">, Type.TLiteral<"plugin">, Type.TLiteral<"internal">]>>;
+  createdActor: Type.TOptional<Type.TObject<{
+    type: Type.TUnion<[Type.TLiteral<"human">, Type.TLiteral<"agent">, Type.TLiteral<"system">]>;
+    id: Type.TOptional<Type.TString>;
+    label: Type.TOptional<Type.TString>;
+    /** Durable profile avatar route; absent for actors without a stored profile avatar. */
+    avatarUrl: Type.TOptional<Type.TString>;
+    /** Display identity is separate from the actor fields used by ownership policy. */
+    identity: Type.TOptional<Type.TUnion<[Type.TObject<{
+      type: Type.TLiteral<"profile">;
+      id: Type.TString;
+    }>, Type.TObject<{
+      type: Type.TLiteral<"agent">;
+      id: Type.TString;
+    }>, Type.TObject<{
+      type: Type.TLiteral<"remote">;
+      pluginId: Type.TString;
+      domain: Type.TString;
+      idKind: Type.TString;
+      id: Type.TString;
+    }>, Type.TObject<{
+      type: Type.TLiteral<"observation">;
+      pluginId: Type.TUnion<[Type.TString, Type.TNull]>;
+      accountId: Type.TUnion<[Type.TString, Type.TNull]>;
+      senderKind: Type.TUnion<[Type.TLiteral<"human">, Type.TLiteral<"bot">, Type.TLiteral<"unknown">]>;
+      id: Type.TString;
+    }>, Type.TObject<{
+      type: Type.TLiteral<"legacy">;
+      actorType: Type.TString;
+      source: Type.TUnion<[Type.TString, Type.TNull]>;
+      id: Type.TString;
+    }>]>>;
+  }>>;
+  owner: Type.TOptional<Type.TObject<{
+    actor: Type.TObject<{
+      type: Type.TUnion<[Type.TLiteral<"human">, Type.TLiteral<"agent">, Type.TLiteral<"system">]>;
+      id: Type.TOptional<Type.TString>;
+      label: Type.TOptional<Type.TString>;
+      /** Durable profile avatar route; absent for actors without a stored profile avatar. */
+      avatarUrl: Type.TOptional<Type.TString>;
+      /** Display identity is separate from the actor fields used by ownership policy. */
+      identity: Type.TOptional<Type.TUnion<[Type.TObject<{
+        type: Type.TLiteral<"profile">;
+        id: Type.TString;
+      }>, Type.TObject<{
+        type: Type.TLiteral<"agent">;
+        id: Type.TString;
+      }>, Type.TObject<{
+        type: Type.TLiteral<"remote">;
+        pluginId: Type.TString;
+        domain: Type.TString;
+        idKind: Type.TString;
+        id: Type.TString;
+      }>, Type.TObject<{
+        type: Type.TLiteral<"observation">;
+        pluginId: Type.TUnion<[Type.TString, Type.TNull]>;
+        accountId: Type.TUnion<[Type.TString, Type.TNull]>;
+        senderKind: Type.TUnion<[Type.TLiteral<"human">, Type.TLiteral<"bot">, Type.TLiteral<"unknown">]>;
+        id: Type.TString;
+      }>, Type.TObject<{
+        type: Type.TLiteral<"legacy">;
+        actorType: Type.TString;
+        source: Type.TUnion<[Type.TString, Type.TNull]>;
+        id: Type.TString;
+      }>]>>;
+    }>;
+    assignedBy: Type.TOptional<Type.TObject<{
+      type: Type.TUnion<[Type.TLiteral<"human">, Type.TLiteral<"agent">, Type.TLiteral<"system">]>;
+      id: Type.TOptional<Type.TString>;
+      label: Type.TOptional<Type.TString>;
+      /** Durable profile avatar route; absent for actors without a stored profile avatar. */
+      avatarUrl: Type.TOptional<Type.TString>;
+      /** Display identity is separate from the actor fields used by ownership policy. */
+      identity: Type.TOptional<Type.TUnion<[Type.TObject<{
+        type: Type.TLiteral<"profile">;
+        id: Type.TString;
+      }>, Type.TObject<{
+        type: Type.TLiteral<"agent">;
+        id: Type.TString;
+      }>, Type.TObject<{
+        type: Type.TLiteral<"remote">;
+        pluginId: Type.TString;
+        domain: Type.TString;
+        idKind: Type.TString;
+        id: Type.TString;
+      }>, Type.TObject<{
+        type: Type.TLiteral<"observation">;
+        pluginId: Type.TUnion<[Type.TString, Type.TNull]>;
+        accountId: Type.TUnion<[Type.TString, Type.TNull]>;
+        senderKind: Type.TUnion<[Type.TLiteral<"human">, Type.TLiteral<"bot">, Type.TLiteral<"unknown">]>;
+        id: Type.TString;
+      }>, Type.TObject<{
+        type: Type.TLiteral<"legacy">;
+        actorType: Type.TString;
+        source: Type.TUnion<[Type.TString, Type.TNull]>;
+        id: Type.TString;
+      }>]>>;
+    }>>;
+    assignedAt: Type.TOptional<Type.TNumber>;
+  }>>;
+  participants: Type.TOptional<Type.TArray<Type.TObject<{
+    identity: Type.TUnion<[Type.TObject<{
+      type: Type.TLiteral<"profile">;
+      id: Type.TString;
+    }>, Type.TObject<{
+      type: Type.TLiteral<"agent">;
+      id: Type.TString;
+    }>, Type.TObject<{
+      type: Type.TLiteral<"remote">;
+      pluginId: Type.TString;
+      domain: Type.TString;
+      idKind: Type.TString;
+      id: Type.TString;
+    }>, Type.TObject<{
+      type: Type.TLiteral<"observation">;
+      pluginId: Type.TUnion<[Type.TString, Type.TNull]>;
+      accountId: Type.TUnion<[Type.TString, Type.TNull]>;
+      senderKind: Type.TUnion<[Type.TLiteral<"human">, Type.TLiteral<"bot">, Type.TLiteral<"unknown">]>;
+      id: Type.TString;
+    }>, Type.TObject<{
+      type: Type.TLiteral<"legacy">;
+      actorType: Type.TString;
+      source: Type.TUnion<[Type.TString, Type.TNull]>;
+      id: Type.TString;
+    }>]>;
+    label: Type.TOptional<Type.TString>;
+    avatarUrl: Type.TOptional<Type.TString>;
+  }>>>;
+  expandedParticipants: Type.TOptional<Type.TArray<Type.TObject<{
+    identity: Type.TUnion<[Type.TObject<{
+      type: Type.TLiteral<"profile">;
+      id: Type.TString;
+    }>, Type.TObject<{
+      type: Type.TLiteral<"agent">;
+      id: Type.TString;
+    }>, Type.TObject<{
+      type: Type.TLiteral<"remote">;
+      pluginId: Type.TString;
+      domain: Type.TString;
+      idKind: Type.TString;
+      id: Type.TString;
+    }>, Type.TObject<{
+      type: Type.TLiteral<"observation">;
+      pluginId: Type.TUnion<[Type.TString, Type.TNull]>;
+      accountId: Type.TUnion<[Type.TString, Type.TNull]>;
+      senderKind: Type.TUnion<[Type.TLiteral<"human">, Type.TLiteral<"bot">, Type.TLiteral<"unknown">]>;
+      id: Type.TString;
+    }>, Type.TObject<{
+      type: Type.TLiteral<"legacy">;
+      actorType: Type.TString;
+      source: Type.TUnion<[Type.TString, Type.TNull]>;
+      id: Type.TString;
+    }>]>;
+    label: Type.TOptional<Type.TString>;
+    avatarUrl: Type.TOptional<Type.TString>;
+  }>>>;
+  participantCount: Type.TOptional<Type.TInteger>;
+  visibility: Type.TOptional<Type.TUnion<[Type.TLiteral<"shared">, Type.TLiteral<"read-only">, Type.TLiteral<"suggest">, Type.TLiteral<"draft">]>>;
+  sharingRole: Type.TOptional<Type.TUnion<[Type.TLiteral<"admin">, Type.TLiteral<"owner">, Type.TLiteral<"member">, Type.TLiteral<"viewer">]>>;
+  /** Recipient-local send admission; null explicitly clears a previous restriction. */
+  sendDisabledReason: Type.TOptional<Type.TUnion<[Type.TString, Type.TNull]>>;
+  createdAt: Type.TOptional<Type.TNumber>;
+  forkSource: Type.TOptional<Type.TObject<{
+    sessionKey: Type.TString;
+    sessionId: Type.TString;
+    entryId: Type.TOptional<Type.TString>;
+  }>>;
+  previousSessionId: Type.TOptional<Type.TString>;
+  inputTokens: Type.TOptional<Type.TNumber>;
+  outputTokens: Type.TOptional<Type.TNumber>;
+  totalTokens: Type.TOptional<Type.TNumber>;
+  totalTokensFresh: Type.TOptional<Type.TBoolean>;
+  contextTokens: Type.TOptional<Type.TNumber>;
+  estimatedCostUsd: Type.TOptional<Type.TNumber>;
+  model: Type.TOptional<Type.TString>;
+  modelProvider: Type.TOptional<Type.TString>;
+  /** Runtime model serving this session while it differs from the selected model. */
+  activeModel: Type.TOptional<Type.TString>;
+  activeModelProvider: Type.TOptional<Type.TString>;
+  /** Effective override provenance; null means configured default, omission means not projected. */
+  modelOverrideSource: Type.TOptional<Type.TUnion<[Type.TLiteral<"user">, Type.TLiteral<"auto">, Type.TLiteral<"inherited">, Type.TNull]>>;
+  toolOverrides: Type.TOptional<Type.TObject<{
+    mcpServers: Type.TOptional<Type.TRecord<"^.*$", Type.TBoolean>>;
+    mcpToolsDeny: Type.TOptional<Type.TRecord<"^.*$", Type.TArray<Type.TString>>>;
+    skills: Type.TOptional<Type.TRecord<"^.*$", Type.TBoolean>>;
+    webSearch: Type.TOptional<Type.TBoolean>;
+  }>>;
+}>;
+type SessionCreatedActor$1 = Static<typeof SessionCreatedActorSchema>;
+type SessionConversationLink = Static<typeof SessionConversationLinkSchema>;
+type SessionRunStatus = Static<typeof SessionRunStatusSchema>;
+type SessionRow = Static<typeof SessionRowSchema>;
+type SessionEntryArchiveReason = Static<typeof SessionEntryArchiveReasonSchema>;
+//#endregion
+//#region src/security/external-content-source.d.ts
+/** Hook session sources that carry untrusted external content into agent prompts. */
+type HookExternalContentSource = "email" | "gmail" | "webhook";
+//#endregion
 //#region src/config/sessions/session-entry-provenance.d.ts
-/** Kept aligned with SessionStateActorType (src/sessions/session-state-event-kinds.ts); not imported to avoid layering config/sessions onto src/sessions. */
-type SessionActor = {
-  type: "human" | "agent" | "system";
-  id?: string;
-  label?: string;
-};
+/** Persisted identity excludes display-only actor projections. */
+type SessionActor = SchemaContract<Pick<SessionCreatedActor$1, "type" | "id" | "label">>;
 /** Only trusted creation owners may stamp a Gateway profile namespace. */
 type SessionCreatedActor = SessionActor & ({
   type: "human";
@@ -11826,8 +12234,12 @@ type SessionOwnerAssignment = {
   assignedBy?: SessionActor;
   assignedAt?: number;
 };
-type SessionCreatedVia = "operator" | "spawn" | "channel" | "cron" | "talk" | "run" | "plugin" | "internal";
+type SessionCreatedVia = NonNullable<SessionRow["createdVia"]>;
 type SessionEntryProvenance = {
+  /** First channel-supplied launch destination, inherited by explicitly created children. */
+  conversationLink?: SessionConversationLink;
+  /** Human contributor candidates captured once by trusted delegation; not participant activity. */
+  inheritedGitContributorProfileIds?: string[];
   /** Plugin id that owns this session through a trusted runtime creation seam. */
   pluginOwnerId?: string;
   /** External hook source that has contributed content to this transcript. */
@@ -11885,11 +12297,107 @@ declare const SessionsGoalMutationResultSchema: Type.TObject<{
 }>;
 type SessionsGoalMutationResult = Static<typeof SessionsGoalMutationResultSchema>;
 //#endregion
+//#region packages/gateway-protocol/src/schema/sessions.d.ts
+/** Live session status judgment broadcast to subscribed operator clients. */
+declare const SessionObserverDigestSchema: Type.TObject<{
+  sessionKey: Type.TString;
+  agentId: Type.TOptional<Type.TString>;
+  sessionId: Type.TOptional<Type.TString>;
+  lifecycleRevision: Type.TOptional<Type.TString>;
+  runId: Type.TOptional<Type.TString>;
+  revision: Type.TInteger;
+  updatedAt: Type.TInteger;
+  headline: Type.TString;
+  assessment: Type.TOptional<Type.TString>;
+  health: Type.TUnion<[Type.TLiteral<"on-track">, Type.TLiteral<"grinding">, Type.TLiteral<"stuck">, Type.TLiteral<"waiting-on-user">, Type.TLiteral<"wrapping-up">, Type.TLiteral<"done">, Type.TLiteral<"failed">]>;
+  planProgress: Type.TOptional<Type.TObject<{
+    completed: Type.TInteger;
+    total: Type.TInteger;
+  }>>;
+}>;
+type SessionObserverDigest = Static<typeof SessionObserverDigestSchema>;
+//#endregion
 //#region src/config/sessions/goals-operations.types.d.ts
 type SessionGoalOperationResult = Omit<SessionsGoalMutationResult, "replayed">;
 type SessionTranscriptTurnMutationResult = {
   result: SessionGoalOperationResult;
   replayed: boolean;
+};
+//#endregion
+//#region src/plugin-sdk/channel-route.d.ts
+/** Coarse chat shape used when a channel can distinguish direct, group, and broadcast targets. */
+type ChannelRouteChatType = "direct" | "group" | "channel";
+/** Provider-specific thread kind carried with normalized channel routes. */
+type ChannelRouteThreadKind = "topic" | "thread" | "reply";
+/** Describes which runtime surface supplied a channel route thread id. */
+type ChannelRouteThreadSource = "explicit" | "target" | "session" | "turn";
+/** Normalized channel route used for comparison, binding, and dedupe helpers. */
+type ChannelRouteRef = {
+  /** Lowercase channel id such as `slack`, `telegram`, or `discord`. */
+  channel?: string;
+  /** Normalized account/profile id when a channel supports multiple accounts. */
+  accountId?: string;
+  target?: {
+    /** Canonical destination id used for route equality and delivery. */
+    to: string;
+    /** Original destination text when provider target grammar differs from the canonical id. */
+    rawTo?: string;
+    /** Coarse destination shape used by channels with different direct/group/broadcast rules. */
+    chatType?: ChannelRouteChatType;
+  };
+  thread?: {
+    /** Provider thread/topic/root id; strings are preserved when providers use opaque ids. */
+    id: string | number;
+    /** Provider-specific thread family for channels that distinguish topics, replies, and threads. */
+    kind?: ChannelRouteThreadKind;
+    /** Runtime source that supplied the thread id, used when callers need route provenance. */
+    source?: ChannelRouteThreadSource;
+  };
+};
+/** Loose route input accepted at SDK boundaries before normalization. */
+type ChannelRouteRefInput = {
+  /** Raw channel id; normalized to lowercase. */
+  channel?: unknown;
+  /** Raw account/profile id; normalized with account-id rules when string. */
+  accountId?: unknown;
+  /** Raw destination id before trimming and route-key normalization. */
+  to?: unknown;
+  /** Provider-specific target text retained when different from `to`. */
+  rawTo?: unknown;
+  /** Coarse destination shape supplied by channels that distinguish target kinds. */
+  chatType?: ChannelRouteChatType;
+  /** Raw provider thread/topic/root id before route-key normalization. */
+  threadId?: unknown;
+  /** Provider-specific thread family carried with the normalized thread id. */
+  threadKind?: ChannelRouteThreadKind;
+  /** Runtime surface that supplied the thread id. */
+  threadSource?: ChannelRouteThreadSource;
+};
+/** Raw outbound target input shape used by helpers that do not need thread metadata source. */
+type ChannelRouteTargetInput = Pick<ChannelRouteRefInput, "channel" | "accountId" | "to" | "rawTo" | "chatType" | "threadId">;
+//#endregion
+//#region src/utils/delivery-context.types.d.ts
+/** Deferred outbound delivery intent attached to a session or task. */
+type DeliveryIntentRef = {
+  /** Stable queue/work item id. */
+  id: string;
+  /** Intent family; currently scoped to outbound queue delivery. */
+  kind: "outbound_queue";
+  /** Whether queueing is mandatory or best-effort for this delivery. */
+  queuePolicy?: "required" | "best_effort";
+};
+/** Canonical channel delivery target shared by sessions, cron, tasks, and plugins. */
+type DeliveryContext = Pick<ChannelRouteTargetInput, "accountId" | "channel" | "threadId" | "to"> & {
+  /** Channel/plugin id that owns the delivery target. */
+  channel?: string;
+  /** Channel-local destination id, preserved with channel-specific casing. */
+  to?: string;
+  /** Optional channel account/workspace id. */
+  accountId?: string;
+  /** Optional thread/topic id nested under `to`. */
+  threadId?: string | number;
+  /** Optional queued-delivery intent associated with this context. */
+  deliveryIntent?: DeliveryIntentRef;
 };
 //#endregion
 //#region src/channels/inbound-event/kind.d.ts
@@ -12107,26 +12615,22 @@ type InputProvenance = {
 };
 //#endregion
 //#region src/auto-reply/command-turn-context.d.ts
-type BaseCommandTurnContext = {
+type CommandTurnContext = {
   commandName?: string;
   body?: string;
-};
-type NativeCommandTurnContext = BaseCommandTurnContext & {
+} & ({
   kind: "native";
   source: "native";
   authorized: boolean;
-};
-type TextSlashCommandTurnContext = BaseCommandTurnContext & {
+} | {
   kind: "text-slash";
   source: "text";
   authorized: boolean;
-};
-type NormalCommandTurnContext = BaseCommandTurnContext & {
+} | {
   kind: "normal";
   source: "message";
   authorized: false;
-};
-type CommandTurnContext = NativeCommandTurnContext | TextSlashCommandTurnContext | NormalCommandTurnContext;
+});
 //#endregion
 //#region src/auto-reply/commands-args.types.d.ts
 /** Primitive values accepted by parsed auto-reply command args. */
@@ -12179,82 +12683,6 @@ type AgentPlanStep = {
 //#region src/auto-reply/source-reply-delivery-mode.types.d.ts
 /** Per-turn authority for automatic replies versus explicit message-tool sends. */
 type SourceReplyDeliveryMode = "automatic" | "message_tool_only";
-//#endregion
-//#region src/plugin-sdk/channel-route.d.ts
-/** Coarse chat shape used when a channel can distinguish direct, group, and broadcast targets. */
-type ChannelRouteChatType = "direct" | "group" | "channel";
-/** Provider-specific thread kind carried with normalized channel routes. */
-type ChannelRouteThreadKind = "topic" | "thread" | "reply";
-/** Describes which runtime surface supplied a channel route thread id. */
-type ChannelRouteThreadSource = "explicit" | "target" | "session" | "turn";
-/** Normalized channel route used for comparison, binding, and dedupe helpers. */
-type ChannelRouteRef = {
-  /** Lowercase channel id such as `slack`, `telegram`, or `discord`. */
-  channel?: string;
-  /** Normalized account/profile id when a channel supports multiple accounts. */
-  accountId?: string;
-  target?: {
-    /** Canonical destination id used for route equality and delivery. */
-    to: string;
-    /** Original destination text when provider target grammar differs from the canonical id. */
-    rawTo?: string;
-    /** Coarse destination shape used by channels with different direct/group/broadcast rules. */
-    chatType?: ChannelRouteChatType;
-  };
-  thread?: {
-    /** Provider thread/topic/root id; strings are preserved when providers use opaque ids. */
-    id: string | number;
-    /** Provider-specific thread family for channels that distinguish topics, replies, and threads. */
-    kind?: ChannelRouteThreadKind;
-    /** Runtime source that supplied the thread id, used when callers need route provenance. */
-    source?: ChannelRouteThreadSource;
-  };
-};
-/** Loose route input accepted at SDK boundaries before normalization. */
-type ChannelRouteRefInput = {
-  /** Raw channel id; normalized to lowercase. */
-  channel?: unknown;
-  /** Raw account/profile id; normalized with account-id rules when string. */
-  accountId?: unknown;
-  /** Raw destination id before trimming and route-key normalization. */
-  to?: unknown;
-  /** Provider-specific target text retained when different from `to`. */
-  rawTo?: unknown;
-  /** Coarse destination shape supplied by channels that distinguish target kinds. */
-  chatType?: ChannelRouteChatType;
-  /** Raw provider thread/topic/root id before route-key normalization. */
-  threadId?: unknown;
-  /** Provider-specific thread family carried with the normalized thread id. */
-  threadKind?: ChannelRouteThreadKind;
-  /** Runtime surface that supplied the thread id. */
-  threadSource?: ChannelRouteThreadSource;
-};
-/** Raw outbound target input shape used by helpers that do not need thread metadata source. */
-type ChannelRouteTargetInput = Pick<ChannelRouteRefInput, "channel" | "accountId" | "to" | "rawTo" | "chatType" | "threadId">;
-//#endregion
-//#region src/utils/delivery-context.types.d.ts
-/** Deferred outbound delivery intent attached to a session or task. */
-type DeliveryIntentRef = {
-  /** Stable queue/work item id. */
-  id: string;
-  /** Intent family; currently scoped to outbound queue delivery. */
-  kind: "outbound_queue";
-  /** Whether queueing is mandatory or best-effort for this delivery. */
-  queuePolicy?: "required" | "best_effort";
-};
-/** Canonical channel delivery target shared by sessions, cron, tasks, and plugins. */
-type DeliveryContext = Pick<ChannelRouteTargetInput, "accountId" | "channel" | "threadId" | "to"> & {
-  /** Channel/plugin id that owns the delivery target. */
-  channel?: string;
-  /** Channel-local destination id, preserved with channel-specific casing. */
-  to?: string;
-  /** Optional channel account/workspace id. */
-  accountId?: string;
-  /** Optional thread/topic id nested under `to`. */
-  threadId?: string | number;
-  /** Optional queued-delivery intent associated with this context. */
-  deliveryIntent?: DeliveryIntentRef;
-};
 //#endregion
 //#region src/config/sessions/restart-recovery-types.d.ts
 /** Exact task and requester generation captured by the admitted host completion turn. */
@@ -12384,50 +12812,32 @@ type QuestionPresentationAction = {
 };
 /** Core-owned model-picker action; channels serialize it only inside private envelopes. */
 type ModelPickerAction = ({
-  type: "model-picker";
-  version: 1;
-  snapshotToken: string;
   intent: "show-providers";
   cursor?: string;
 } | {
-  type: "model-picker";
-  version: 1;
-  snapshotToken: string;
   intent: "show-models";
   providerToken: string;
   cursor?: string;
 } | {
-  type: "model-picker";
-  version: 1;
-  snapshotToken: string;
   intent: "show-recents";
   cursor?: string;
 } | {
-  type: "model-picker";
-  version: 1;
-  snapshotToken: string;
   intent: "choose-model";
   providerToken: string;
   modelToken: string;
 } | {
-  type: "model-picker";
-  version: 1;
-  snapshotToken: string;
   intent: "choose-runtime";
   providerToken: string;
   modelToken: string;
   runtimeToken: string;
 } | {
-  type: "model-picker";
-  version: 1;
-  snapshotToken: string;
   intent: "reset";
 } | {
+  intent: "cancel";
+}) & {
   type: "model-picker";
   version: 1;
   snapshotToken: string;
-  intent: "cancel";
-}) & {
   /** Legacy command/callback payload fields are deliberately unavailable on picker actions. */
   readonly command?: never;
   readonly value?: never;
@@ -12704,6 +13114,19 @@ type ReplyPayload = {
   /** Channel-specific payload data (per-channel envelope). */
   channelData?: Record<string, unknown>;
 };
+//#endregion
+//#region src/audit/execution-identity-admission.d.ts
+declare const ExecutionIdentityAdmissionTokenSchema: Type.TObject<{
+  tokenVersion: Type.TLiteral<1>;
+  contextId: Type.TString;
+  executionId: Type.TString;
+  runId: Type.TString;
+  createdAt: Type.TInteger;
+}>;
+type ExecutionIdentityAdmissionToken = Static<typeof ExecutionIdentityAdmissionTokenSchema>;
+//#endregion
+//#region packages/normalization-core/src/string-coerce.d.ts
+type FastMode = boolean | "auto" | "ultrafast";
 //#endregion
 //#region src/auto-reply/templating.d.ts
 /** Valid message channels for routing. */
@@ -12993,7 +13416,7 @@ type MsgContext = Partial<CanonicalInboundText> & {
   /** System-attached provenance for the current inbound message. */
   InputProvenance?: InputProvenance;
   /** Internal wake cause, independent of transport, transcript provenance, and execution authority. */
-  InternalTurnSource?: "heartbeat" | "cron" | "exec" | "progress-card-refresh";
+  InternalTurnSource?: "heartbeat" | "cron" | "exec" | "event" | "progress-card-refresh";
   /** Explicit owner allowlist overrides (trusted, configuration-derived). */
   OwnerAllowFrom?: Array<string | number>;
   SenderName?: string;
@@ -13076,6 +13499,8 @@ type MsgContext = Partial<CanonicalInboundText> & {
   NativeChannelId?: string;
   /** Channel-owned local conversation image reference; never rendered into prompt text. */
   ConversationAvatar?: string;
+  /** Display-only launch destination; not delivery routing or prompt content. */
+  ConversationLink?: SessionConversationLink;
   /** Channel-owned metadata exposed to plugin hook context, not prompt text. */
   ChannelContext?: PluginHookChannelContext;
   /** Provider-native chat/conversation id used by channel plugins that expose `chat_id`. */
@@ -13132,7 +13557,7 @@ type MsgContext = Partial<CanonicalInboundText> & {
 type RuntimeMediaContextKey = "MediaPath" | "MediaUrl" | "MediaType" | "MediaDir" | "MediaPaths" | "MediaUrls" | "MediaTypes" | "MediaWorkspaceDir" | "MediaTranscribedIndexes" | "MediaStaged";
 /** Internal inbound context; legacy media fields exist only on the shipped SDK adapter. */
 type RuntimeMsgContext = Omit<MsgContext, RuntimeMediaContextKey>;
-type NonTemplateContextKey = "ConversationAvatar";
+type NonTemplateContextKey = "ConversationAvatar" | "ConversationLink";
 type TemplateContext = Omit<RuntimeMsgContext, NonTemplateContextKey> & {
   BodyStripped?: string;
   SessionId?: string;
@@ -13157,6 +13582,92 @@ type TemplateContext = Omit<RuntimeMsgContext, NonTemplateContextKey> & {
   MediaDir?: string;
 };
 declare function applyTemplate$1(str: string | undefined, ctx: TemplateContext): string;
+//#endregion
+//#region src/state/openclaw-agent-db-contract.d.ts
+/** Open per-agent SQLite database handle plus lifecycle maintenance. */
+type OpenClawAgentDatabase = {
+  agentId: string;
+  db: DatabaseSync;
+  path: string;
+  walMaintenance: SqliteWalMaintenance;
+};
+/** Options for resolving and opening one agent database. */
+type OpenClawAgentDatabaseOptions = OpenClawStateDatabaseOptions & {
+  agentId: string;
+};
+/** Internal Doctor custody; never part of the plugin-facing database options. */
+type OpenClawAgentDatabaseRepairAdmission = {
+  /** Bind repair admission to the physical database inspected and backed up by its owner. */
+  expectedIdentity?: DatabaseFileIdentity;
+  /** Live caller authority for native open and schema/registry admission mutations. */
+  assertCurrent?: () => void;
+};
+type OpenClawAgentDatabaseRegistrationCommit = Readonly<{
+  agentId: string;
+  agentPath: string;
+  stateDatabasePath: string;
+  stateDatabaseIdentity: string;
+}>;
+type OpenClawAgentDatabaseRegistrationObserver = {
+  starting?: () => void;
+  committed?: (receipt: OpenClawAgentDatabaseRegistrationCommit) => void;
+};
+//#endregion
+//#region src/state/openclaw-agent-db-validation-cache.d.ts
+type OpenClawAgentDatabaseValidation = {
+  agentId: string;
+  identity: string;
+  /** Shared with admitted workers so owner invalidation revokes borrowed proof. */
+  valid: SharedArrayBuffer;
+  /** First full canonical proof; subsequent changes remain visible through the pending table. */
+  canonicalReady: SharedArrayBuffer;
+};
+//#endregion
+//#region src/state/openclaw-quarantine-store.d.ts
+type OpenClawAgentIntegrityVerification = {
+  path: string;
+  dev: string;
+  ino: string;
+  app_version: string;
+  verified_at: number;
+  clean_close: number;
+};
+//#endregion
+//#region src/state/openclaw-agent-db-lease.d.ts
+type OpenClawAgentIntegrityVerificationReceiver = (record: OpenClawAgentIntegrityVerification | undefined, canReuseRuntimeIntegrity: boolean, invalidated: boolean) => void;
+type OpenClawAgentDatabaseWorkerLeaseReceipt = {
+  leaseId: string;
+  agentId: string;
+  path: string;
+  ownerPid: number;
+  ownerStartTime: number | null;
+  sharedStatePath: string;
+  sharedStateIdentity: string;
+};
+/** Preparation grants no access; claim repeats admission on the captured shared owner. */
+declare function prepareOpenClawAgentDatabaseWorkerLease(params: {
+  agentId: string;
+  path: string;
+  env?: NodeJS.ProcessEnv;
+}, sharedDatabase: OpenClawStateDatabase, leaseId: string): {
+  receipt: OpenClawAgentDatabaseWorkerLeaseReceipt;
+  validation?: OpenClawAgentDatabaseValidation;
+  claim(onVerification?: OpenClawAgentIntegrityVerificationReceiver): string;
+};
+//#endregion
+//#region src/state/openclaw-agent-db-admission.d.ts
+/** Denial still invokes run under admission, with a throwing authority check, to permit cleanup. */
+type OpenClawAgentDatabaseWriteAdmission = <T>(run: (assertCurrent: () => void, validation?: OpenClawAgentDatabaseValidation) => T | Promise<T>) => Promise<T>;
+//#endregion
+//#region src/state/openclaw-agent-db.d.ts
+declare const { openOpenClawAgentDatabase, runOpenClawAgentWriteTransaction, withOpenClawAgentDatabaseAsync, withOpenClawAgentDatabaseAdmission }: {
+  openOpenClawAgentDatabase: (options: OpenClawAgentDatabaseOptions, preparedLease?: ReturnType<typeof prepareOpenClawAgentDatabaseWorkerLease>, registrationObserver?: OpenClawAgentDatabaseRegistrationObserver) => OpenClawAgentDatabase;
+  runOpenClawAgentWriteTransaction: <T>(operation: (database: OpenClawAgentDatabase) => T, options: OpenClawAgentDatabaseOptions, transactionOptions?: Pick<SqliteTransactionOptions, "busyTimeoutMs" | "operationLabel" | "slowTransactionHoldMs" | "diagnosticContext"> & {
+    repairAdmission?: OpenClawAgentDatabaseRepairAdmission;
+  }) => T;
+  withOpenClawAgentDatabaseAsync: <T>(inputOptions: OpenClawAgentDatabaseOptions, operation: (database: OpenClawAgentDatabase) => T | Promise<T>, assertCurrent?: () => void, signal?: AbortSignal) => Promise<T>;
+  withOpenClawAgentDatabaseAdmission: <T>(inputOptions: OpenClawAgentDatabaseOptions, withAdmission: OpenClawAgentDatabaseWriteAdmission, operation: (database: OpenClawAgentDatabase) => T | Promise<T>) => Promise<T>;
+};
 //#endregion
 //#region src/config/sessions/session-transcript-turn-lifecycle.types.d.ts
 /** Authoritative lifecycle snapshot required for an atomic transcript admission. */
@@ -13210,30 +13721,6 @@ type SessionTranscriptTurnLifecyclePatch = {
   startedAt?: number;
   status?: PersistedSessionRunStatus;
   updatedAt?: number;
-};
-//#endregion
-//#region src/config/sessions/store-maintenance.d.ts
-type SessionMaintenanceWarning = {
-  activeSessionKey: string;
-  activeUpdatedAt?: number;
-  totalEntries: number;
-  pruneAfterMs: number;
-  maxEntries: number;
-  wouldPrune: boolean;
-  wouldCap: boolean;
-  capOutcome?: "archive" | "remove" | null;
-  pruneOutcome?: "archive" | "remove" | null;
-};
-type ResolvedSessionMaintenanceConfig = {
-  mode: SessionMaintenanceMode;
-  pruneAfterMs: number;
-  archiveDashboardAfterMs: number | null;
-  maxEntries: number;
-  modelRunPruneAfterMs: number;
-  preserveRecentMs?: number | null;
-  resetArchiveRetentionMs: number | null;
-  maxDiskBytes: number | null;
-  highWaterBytes: number | null;
 };
 //#endregion
 //#region src/config/sessions/transcript-entry-anchor.d.ts
@@ -13324,9 +13811,6 @@ type SessionAcpMeta = {
   lastError?: string;
 };
 //#endregion
-//#region packages/normalization-core/src/string-coerce.d.ts
-type FastMode = boolean | "auto";
-//#endregion
 //#region packages/gateway-protocol/src/session-agent-status.d.ts
 declare const SESSION_AGENT_ATTENTION_ICON_IDS: readonly ["hand", "key", "alert", "flag", "lock", "hourglass"];
 type SessionAgentAttentionIconId = (typeof SESSION_AGENT_ATTENTION_ICON_IDS)[number];
@@ -13335,344 +13819,6 @@ type SessionAgentStatus = {
   expiresAt: number;
   attention?: SessionAgentAttentionIconId;
 };
-//#endregion
-//#region packages/gateway-protocol/src/schema/sessions-row.d.ts
-declare const SessionRunStatusSchema: Type.TUnion<[Type.TLiteral<"queued">, Type.TLiteral<"running">, Type.TLiteral<"done">, Type.TLiteral<"failed">, Type.TLiteral<"killed">, Type.TLiteral<"timeout">]>;
-declare const SessionEntryArchiveReasonSchema: Type.TUnion<[Type.TLiteral<"manual">, Type.TLiteral<"active-session-cap">, Type.TLiteral<"age-retention">, Type.TLiteral<"stale-dashboard">, Type.TLiteral<"restart-recovery">]>;
-/** Stable Gateway session row fields; mutation envelopes may add null tombstones. */
-declare const SessionRowSchema: Type.TObject<{
-  key: Type.TString;
-  sessionId: Type.TOptional<Type.TString>;
-  incognito: Type.TOptional<Type.TLiteral<true>>;
-  kind: Type.TUnion<[Type.TLiteral<"direct">, Type.TLiteral<"group">, Type.TLiteral<"global">, Type.TLiteral<"unknown">]>;
-  label: Type.TOptional<Type.TString>;
-  autoLabel: Type.TOptional<Type.TString>;
-  icon: Type.TOptional<Type.TString>;
-  /** Named sidebar tint from SESSION_COLOR_IDS; clients map names to theme hues. */
-  color: Type.TOptional<Type.TString>;
-  channelAvatarUrl: Type.TOptional<Type.TString>;
-  boardFace: Type.TOptional<Type.TUnion<[Type.TLiteral<"chat">, Type.TLiteral<"dashboard">]>>;
-  /** Shared dashboard default; absent means split. */
-  boardPresentation: Type.TOptional<Type.TUnion<[Type.TLiteral<"split">, Type.TLiteral<"expanded">]>>;
-  displayName: Type.TOptional<Type.TString>;
-  derivedTitle: Type.TOptional<Type.TString>;
-  lastMessagePreview: Type.TOptional<Type.TString>;
-  channel: Type.TOptional<Type.TString>;
-  /** Stable non-sensitive facts derived from the canonical session route. */
-  classification: Type.TOptional<Type.TString>;
-  agentId: Type.TOptional<Type.TString>;
-  accountId: Type.TOptional<Type.TString>;
-  peerKind: Type.TOptional<Type.TString>;
-  isMain: Type.TOptional<Type.TBoolean>;
-  isBackground: Type.TOptional<Type.TBoolean>;
-  chatType: Type.TOptional<Type.TUnion<[Type.TLiteral<"direct">, Type.TLiteral<"group">, Type.TLiteral<"channel">]>>;
-  activitySummary: Type.TOptional<Type.TObject<{
-    canEnsure: Type.TOptional<Type.TBoolean>;
-    text: Type.TOptional<Type.TString>;
-    updatedAt: Type.TOptional<Type.TInteger>;
-    state: Type.TUnion<[Type.TLiteral<"current">, Type.TLiteral<"stale">, Type.TLiteral<"updating">, Type.TLiteral<"unavailable">]>;
-  }>>;
-  updatedAt: Type.TOptional<Type.TUnion<[Type.TNumber, Type.TNull]>>;
-  /** Gateway sampling time, retained when a read reuses a cached projection. */
-  snapshotAt: Type.TOptional<Type.TNumber>;
-  /** Personal list preference for the authenticated viewer; not session visibility. */
-  hiddenFromInvolvingMe: Type.TOptional<Type.TBoolean>;
-  archived: Type.TOptional<Type.TBoolean>;
-  archivedAt: Type.TOptional<Type.TNumber>;
-  archivedBy: Type.TOptional<Type.TObject<{
-    type: Type.TUnion<[Type.TLiteral<"human">, Type.TLiteral<"agent">, Type.TLiteral<"system">]>;
-    id: Type.TOptional<Type.TString>;
-    label: Type.TOptional<Type.TString>;
-    /** Durable profile avatar route; absent for actors without a stored profile avatar. */
-    avatarUrl: Type.TOptional<Type.TString>;
-    /** Display identity is separate from the actor fields used by ownership policy. */
-    identity: Type.TOptional<Type.TUnion<[Type.TObject<{
-      type: Type.TLiteral<"profile">;
-      id: Type.TString;
-    }>, Type.TObject<{
-      type: Type.TLiteral<"agent">;
-      id: Type.TString;
-    }>, Type.TObject<{
-      type: Type.TLiteral<"remote">;
-      pluginId: Type.TString;
-      domain: Type.TString;
-      idKind: Type.TString;
-      id: Type.TString;
-    }>, Type.TObject<{
-      type: Type.TLiteral<"observation">;
-      pluginId: Type.TUnion<[Type.TString, Type.TNull]>;
-      accountId: Type.TUnion<[Type.TString, Type.TNull]>;
-      senderKind: Type.TUnion<[Type.TLiteral<"human">, Type.TLiteral<"bot">, Type.TLiteral<"unknown">]>;
-      id: Type.TString;
-    }>, Type.TObject<{
-      type: Type.TLiteral<"legacy">;
-      actorType: Type.TString;
-      source: Type.TUnion<[Type.TString, Type.TNull]>;
-      id: Type.TString;
-    }>]>>;
-  }>>;
-  archiveReason: Type.TOptional<Type.TUnion<[Type.TLiteral<"manual">, Type.TLiteral<"active-session-cap">, Type.TLiteral<"age-retention">, Type.TLiteral<"stale-dashboard">, Type.TLiteral<"restart-recovery">]>>;
-  pinned: Type.TOptional<Type.TBoolean>;
-  pinnedAt: Type.TOptional<Type.TNumber>;
-  unread: Type.TOptional<Type.TBoolean>;
-  lastReadAt: Type.TOptional<Type.TNumber>;
-  markedUnreadAt: Type.TOptional<Type.TNumber>;
-  lastActivityAt: Type.TOptional<Type.TNumber>;
-  lastInteractionAt: Type.TOptional<Type.TNumber>;
-  status: Type.TOptional<Type.TUnion<[Type.TLiteral<"queued">, Type.TLiteral<"running">, Type.TLiteral<"done">, Type.TLiteral<"failed">, Type.TLiteral<"killed">, Type.TLiteral<"timeout">]>>;
-  lastRunError: Type.TOptional<Type.TString>;
-  providerReview: Type.TOptional<Type.TObject<{
-    id: Type.TString;
-    runId: Type.TString;
-    explanation: Type.TOptional<Type.TString>;
-    continuationMessage: Type.TOptional<Type.TString>;
-    canContinue: Type.TBoolean;
-  }>>;
-  /** Exact run that produced the latest terminal lifecycle projection. */
-  lastRunId: Type.TOptional<Type.TString>;
-  restartRecoveryStatus: Type.TOptional<Type.TLiteral<"tombstoned">>;
-  activeLeafEntryId: Type.TOptional<Type.TUnion<[Type.TString, Type.TNull]>>;
-  spawnedBy: Type.TOptional<Type.TString>;
-  parentSessionKey: Type.TOptional<Type.TString>;
-  parentSessionId: Type.TOptional<Type.TString>;
-  controlOwnerSessionKey: Type.TOptional<Type.TString>;
-  childSessions: Type.TOptional<Type.TArray<Type.TString>>;
-  forkedFromParent: Type.TOptional<Type.TBoolean>;
-  spawnDepth: Type.TOptional<Type.TNumber>;
-  subagentRole: Type.TOptional<Type.TUnion<[Type.TLiteral<"orchestrator">, Type.TLiteral<"leaf">]>>;
-  subagentControlScope: Type.TOptional<Type.TUnion<[Type.TLiteral<"children">, Type.TLiteral<"none">]>>;
-  swarmGroupId: Type.TOptional<Type.TString>;
-  /** Requester-owned execution counts; never child content or parent synthesis status. */
-  swarm: Type.TOptional<Type.TObject<{
-    groups: Type.TArray<Type.TObject<{
-      groupId: Type.TString;
-      createdAt: Type.TNumber;
-      children: Type.TOptional<Type.TArray<Type.TObject<{
-        sessionKey: Type.TString;
-        status: Type.TUnion<[Type.TLiteral<"queued">, Type.TLiteral<"running">, Type.TLiteral<"done">, Type.TLiteral<"failed">]>;
-      }>>>;
-      queued: Type.TInteger;
-      running: Type.TInteger;
-      done: Type.TInteger;
-      failed: Type.TInteger;
-    }>>;
-    otherActiveGroups: Type.TInteger;
-  }>>;
-  worktree: Type.TOptional<Type.TObject<{
-    id: Type.TString;
-    branch: Type.TString;
-    repoRoot: Type.TString;
-  }>>;
-  repositoryWorkspaceId: Type.TOptional<Type.TString>;
-  repository: Type.TOptional<Type.TObject<{
-    url: Type.TString;
-    ref: Type.TOptional<Type.TString>;
-    branch: Type.TString;
-  }>>;
-  execNode: Type.TOptional<Type.TString>;
-  execCwd: Type.TOptional<Type.TString>;
-  spawnedWorkspaceDir: Type.TOptional<Type.TString>;
-  spawnedCwd: Type.TOptional<Type.TString>;
-  /** Persisted project registry association, distinct from a cloud repository workspace. */
-  projectId: Type.TOptional<Type.TString>;
-  /** Persisted task cwd or spawned workspace; no filesystem resolution is implied. */
-  workspaceDir: Type.TOptional<Type.TString>;
-  permissionMode: Type.TOptional<Type.TUnion<[Type.TLiteral<"read-only">, Type.TLiteral<"guarded">, Type.TLiteral<"workspace">, Type.TLiteral<"full">]>>;
-  /** Authorized per-chat containment opt-out; omission follows configured sandbox policy. */
-  sandboxMode: Type.TOptional<Type.TLiteral<"off">>;
-  /** Administrator consent to the exact external runtime's own permissions for this incarnation. */
-  nativeRuntimeConsent: Type.TOptional<Type.TString>;
-  permissionModePending: Type.TOptional<Type.TBoolean>;
-  sessionRoot: Type.TOptional<Type.TString>;
-  createdVia: Type.TOptional<Type.TUnion<[Type.TLiteral<"operator">, Type.TLiteral<"spawn">, Type.TLiteral<"channel">, Type.TLiteral<"cron">, Type.TLiteral<"talk">, Type.TLiteral<"run">, Type.TLiteral<"plugin">, Type.TLiteral<"internal">]>>;
-  createdActor: Type.TOptional<Type.TObject<{
-    type: Type.TUnion<[Type.TLiteral<"human">, Type.TLiteral<"agent">, Type.TLiteral<"system">]>;
-    id: Type.TOptional<Type.TString>;
-    label: Type.TOptional<Type.TString>;
-    /** Durable profile avatar route; absent for actors without a stored profile avatar. */
-    avatarUrl: Type.TOptional<Type.TString>;
-    /** Display identity is separate from the actor fields used by ownership policy. */
-    identity: Type.TOptional<Type.TUnion<[Type.TObject<{
-      type: Type.TLiteral<"profile">;
-      id: Type.TString;
-    }>, Type.TObject<{
-      type: Type.TLiteral<"agent">;
-      id: Type.TString;
-    }>, Type.TObject<{
-      type: Type.TLiteral<"remote">;
-      pluginId: Type.TString;
-      domain: Type.TString;
-      idKind: Type.TString;
-      id: Type.TString;
-    }>, Type.TObject<{
-      type: Type.TLiteral<"observation">;
-      pluginId: Type.TUnion<[Type.TString, Type.TNull]>;
-      accountId: Type.TUnion<[Type.TString, Type.TNull]>;
-      senderKind: Type.TUnion<[Type.TLiteral<"human">, Type.TLiteral<"bot">, Type.TLiteral<"unknown">]>;
-      id: Type.TString;
-    }>, Type.TObject<{
-      type: Type.TLiteral<"legacy">;
-      actorType: Type.TString;
-      source: Type.TUnion<[Type.TString, Type.TNull]>;
-      id: Type.TString;
-    }>]>>;
-  }>>;
-  owner: Type.TOptional<Type.TObject<{
-    actor: Type.TObject<{
-      type: Type.TUnion<[Type.TLiteral<"human">, Type.TLiteral<"agent">, Type.TLiteral<"system">]>;
-      id: Type.TOptional<Type.TString>;
-      label: Type.TOptional<Type.TString>;
-      /** Durable profile avatar route; absent for actors without a stored profile avatar. */
-      avatarUrl: Type.TOptional<Type.TString>;
-      /** Display identity is separate from the actor fields used by ownership policy. */
-      identity: Type.TOptional<Type.TUnion<[Type.TObject<{
-        type: Type.TLiteral<"profile">;
-        id: Type.TString;
-      }>, Type.TObject<{
-        type: Type.TLiteral<"agent">;
-        id: Type.TString;
-      }>, Type.TObject<{
-        type: Type.TLiteral<"remote">;
-        pluginId: Type.TString;
-        domain: Type.TString;
-        idKind: Type.TString;
-        id: Type.TString;
-      }>, Type.TObject<{
-        type: Type.TLiteral<"observation">;
-        pluginId: Type.TUnion<[Type.TString, Type.TNull]>;
-        accountId: Type.TUnion<[Type.TString, Type.TNull]>;
-        senderKind: Type.TUnion<[Type.TLiteral<"human">, Type.TLiteral<"bot">, Type.TLiteral<"unknown">]>;
-        id: Type.TString;
-      }>, Type.TObject<{
-        type: Type.TLiteral<"legacy">;
-        actorType: Type.TString;
-        source: Type.TUnion<[Type.TString, Type.TNull]>;
-        id: Type.TString;
-      }>]>>;
-    }>;
-    assignedBy: Type.TOptional<Type.TObject<{
-      type: Type.TUnion<[Type.TLiteral<"human">, Type.TLiteral<"agent">, Type.TLiteral<"system">]>;
-      id: Type.TOptional<Type.TString>;
-      label: Type.TOptional<Type.TString>;
-      /** Durable profile avatar route; absent for actors without a stored profile avatar. */
-      avatarUrl: Type.TOptional<Type.TString>;
-      /** Display identity is separate from the actor fields used by ownership policy. */
-      identity: Type.TOptional<Type.TUnion<[Type.TObject<{
-        type: Type.TLiteral<"profile">;
-        id: Type.TString;
-      }>, Type.TObject<{
-        type: Type.TLiteral<"agent">;
-        id: Type.TString;
-      }>, Type.TObject<{
-        type: Type.TLiteral<"remote">;
-        pluginId: Type.TString;
-        domain: Type.TString;
-        idKind: Type.TString;
-        id: Type.TString;
-      }>, Type.TObject<{
-        type: Type.TLiteral<"observation">;
-        pluginId: Type.TUnion<[Type.TString, Type.TNull]>;
-        accountId: Type.TUnion<[Type.TString, Type.TNull]>;
-        senderKind: Type.TUnion<[Type.TLiteral<"human">, Type.TLiteral<"bot">, Type.TLiteral<"unknown">]>;
-        id: Type.TString;
-      }>, Type.TObject<{
-        type: Type.TLiteral<"legacy">;
-        actorType: Type.TString;
-        source: Type.TUnion<[Type.TString, Type.TNull]>;
-        id: Type.TString;
-      }>]>>;
-    }>>;
-    assignedAt: Type.TOptional<Type.TNumber>;
-  }>>;
-  participants: Type.TOptional<Type.TArray<Type.TObject<{
-    identity: Type.TUnion<[Type.TObject<{
-      type: Type.TLiteral<"profile">;
-      id: Type.TString;
-    }>, Type.TObject<{
-      type: Type.TLiteral<"agent">;
-      id: Type.TString;
-    }>, Type.TObject<{
-      type: Type.TLiteral<"remote">;
-      pluginId: Type.TString;
-      domain: Type.TString;
-      idKind: Type.TString;
-      id: Type.TString;
-    }>, Type.TObject<{
-      type: Type.TLiteral<"observation">;
-      pluginId: Type.TUnion<[Type.TString, Type.TNull]>;
-      accountId: Type.TUnion<[Type.TString, Type.TNull]>;
-      senderKind: Type.TUnion<[Type.TLiteral<"human">, Type.TLiteral<"bot">, Type.TLiteral<"unknown">]>;
-      id: Type.TString;
-    }>, Type.TObject<{
-      type: Type.TLiteral<"legacy">;
-      actorType: Type.TString;
-      source: Type.TUnion<[Type.TString, Type.TNull]>;
-      id: Type.TString;
-    }>]>;
-    label: Type.TOptional<Type.TString>;
-    avatarUrl: Type.TOptional<Type.TString>;
-  }>>>;
-  expandedParticipants: Type.TOptional<Type.TArray<Type.TObject<{
-    identity: Type.TUnion<[Type.TObject<{
-      type: Type.TLiteral<"profile">;
-      id: Type.TString;
-    }>, Type.TObject<{
-      type: Type.TLiteral<"agent">;
-      id: Type.TString;
-    }>, Type.TObject<{
-      type: Type.TLiteral<"remote">;
-      pluginId: Type.TString;
-      domain: Type.TString;
-      idKind: Type.TString;
-      id: Type.TString;
-    }>, Type.TObject<{
-      type: Type.TLiteral<"observation">;
-      pluginId: Type.TUnion<[Type.TString, Type.TNull]>;
-      accountId: Type.TUnion<[Type.TString, Type.TNull]>;
-      senderKind: Type.TUnion<[Type.TLiteral<"human">, Type.TLiteral<"bot">, Type.TLiteral<"unknown">]>;
-      id: Type.TString;
-    }>, Type.TObject<{
-      type: Type.TLiteral<"legacy">;
-      actorType: Type.TString;
-      source: Type.TUnion<[Type.TString, Type.TNull]>;
-      id: Type.TString;
-    }>]>;
-    label: Type.TOptional<Type.TString>;
-    avatarUrl: Type.TOptional<Type.TString>;
-  }>>>;
-  participantCount: Type.TOptional<Type.TInteger>;
-  visibility: Type.TOptional<Type.TUnion<[Type.TLiteral<"shared">, Type.TLiteral<"read-only">, Type.TLiteral<"suggest">, Type.TLiteral<"draft">]>>;
-  sharingRole: Type.TOptional<Type.TUnion<[Type.TLiteral<"admin">, Type.TLiteral<"owner">, Type.TLiteral<"member">, Type.TLiteral<"viewer">]>>;
-  createdAt: Type.TOptional<Type.TNumber>;
-  forkSource: Type.TOptional<Type.TObject<{
-    sessionKey: Type.TString;
-    sessionId: Type.TString;
-    entryId: Type.TOptional<Type.TString>;
-  }>>;
-  previousSessionId: Type.TOptional<Type.TString>;
-  inputTokens: Type.TOptional<Type.TNumber>;
-  outputTokens: Type.TOptional<Type.TNumber>;
-  totalTokens: Type.TOptional<Type.TNumber>;
-  totalTokensFresh: Type.TOptional<Type.TBoolean>;
-  contextTokens: Type.TOptional<Type.TNumber>;
-  estimatedCostUsd: Type.TOptional<Type.TNumber>;
-  model: Type.TOptional<Type.TString>;
-  modelProvider: Type.TOptional<Type.TString>;
-  /** Runtime model serving this session while it differs from the selected model. */
-  activeModel: Type.TOptional<Type.TString>;
-  activeModelProvider: Type.TOptional<Type.TString>;
-  /** Effective override provenance; null means configured default, omission means not projected. */
-  modelOverrideSource: Type.TOptional<Type.TUnion<[Type.TLiteral<"user">, Type.TLiteral<"auto">, Type.TLiteral<"inherited">, Type.TNull]>>;
-  toolOverrides: Type.TOptional<Type.TObject<{
-    mcpServers: Type.TOptional<Type.TRecord<"^.*$", Type.TBoolean>>;
-    mcpToolsDeny: Type.TOptional<Type.TRecord<"^.*$", Type.TArray<Type.TString>>>;
-    skills: Type.TOptional<Type.TRecord<"^.*$", Type.TBoolean>>;
-    webSearch: Type.TOptional<Type.TBoolean>;
-  }>>;
-}>;
-type SessionRunStatus = Static<typeof SessionRunStatusSchema>;
-type SessionRow = Static<typeof SessionRowSchema>;
-type SessionEntryArchiveReason = Static<typeof SessionEntryArchiveReasonSchema>;
 //#endregion
 //#region packages/gateway-protocol/src/schema/human-mentions.d.ts
 /** Explicit selections bound to UTF-16 offsets in the submitted message text. */
@@ -13686,26 +13832,6 @@ type HumanMention = Static<typeof HumanMentionSchema>;
 //#region packages/gateway-protocol/src/schema/logs-chat.d.ts
 declare const QUEUE_MODES: readonly ["steer", "followup", "collect", "interrupt"];
 type QueueMode = (typeof QUEUE_MODES)[number];
-//#endregion
-//#region packages/gateway-protocol/src/schema/sessions.d.ts
-/** Live session status judgment broadcast to subscribed operator clients. */
-declare const SessionObserverDigestSchema: Type.TObject<{
-  sessionKey: Type.TString;
-  agentId: Type.TOptional<Type.TString>;
-  sessionId: Type.TOptional<Type.TString>;
-  lifecycleRevision: Type.TOptional<Type.TString>;
-  runId: Type.TOptional<Type.TString>;
-  revision: Type.TInteger;
-  updatedAt: Type.TInteger;
-  headline: Type.TString;
-  assessment: Type.TOptional<Type.TString>;
-  health: Type.TUnion<[Type.TLiteral<"on-track">, Type.TLiteral<"grinding">, Type.TLiteral<"stuck">, Type.TLiteral<"waiting-on-user">, Type.TLiteral<"wrapping-up">, Type.TLiteral<"done">, Type.TLiteral<"failed">]>;
-  planProgress: Type.TOptional<Type.TObject<{
-    completed: Type.TInteger;
-    total: Type.TInteger;
-  }>>;
-}>;
-type SessionObserverDigest = Static<typeof SessionObserverDigestSchema>;
 //#endregion
 //#region src/channels/chat-type.d.ts
 /**
@@ -13879,6 +14005,11 @@ interface Skill {
   contentHash?: string;
   filePath: string;
   baseDir: string;
+  /** Discovery provenance for collision diagnostics, never read authority. */
+  discoveryRoot?: {
+    path: string;
+    worktree: boolean;
+  };
   /** Assigned by Gateway discovery, never accepted from the workspace provider. */
   fileHost?: "gateway" | "workspace";
   /** @deprecated Ignored; retained for API compatibility until the next Plugin SDK major. */
@@ -13920,6 +14051,8 @@ type SessionSkillSnapshot = {
    * src/skills/runtime/embedded-run-entries.ts rebuilds it from disk.
    */
   resolvedSkills?: Skill[];
+  /** Runtime-only model-discoverable catalog before prompt budgeting; never persisted. */
+  discoverySkills?: Skill[];
   version?: number;
 };
 //#endregion
@@ -14021,9 +14154,8 @@ type PendingSessionWorktree = {
 };
 //#endregion
 //#region src/config/sessions/types.d.ts
-type SessionScope = "per-sender" | "global";
 type SessionChatType = ChatType;
-type PersistedSessionRunStatus = SessionRunStatus | "interrupted";
+type PersistedSessionRunStatus = SessionRunStatus;
 declare const SESSION_TOTAL_TOKENS_VERSION: 1;
 type SessionOrigin = {
   label?: string;
@@ -14243,6 +14375,10 @@ type SessionEntryCore = SessionRestartRecoveryState & SessionEntryProvenance & P
   archiveReason?: SessionEntryArchiveReason;
   /** Timestamp (ms) when the session was pinned for quick access. */
   pinnedAt?: number;
+  /** Epoch ms wake time; suppresses the active session in sidebar lists until then. */
+  snoozedUntil?: number;
+  /** Server-stamped epoch ms when the current snooze was set. */
+  snoozedAt?: number;
   /** Timestamp (ms) when an operator client last marked the session read. */
   lastReadAt?: number;
   /** Agent-declared sidebar presence; projection drops it after expiresAt. */
@@ -14257,6 +14393,10 @@ type SessionEntryCore = SessionRestartRecoveryState & SessionEntryProvenance & P
   lastActivityAt?: number;
   /** Parent session key that spawned this session (used for sandbox session-tool scoping). */
   spawnedBy?: string;
+  /** Host-captured owner status of the spawning invocation; never inferred from child launch authority. */
+  spawnedBySenderIsOwner?: boolean;
+  /** Parent session id captured with the spawn authority receipt; navigation uses parentSessionId. */
+  spawnedBySessionId?: string;
   /** Immutable session key authorized to receive this child's completion handoff. */
   completionOwnerSessionKey?: string;
   /** Workspace inherited by spawned sessions and reused on later turns for the same child session. */
@@ -14284,6 +14424,8 @@ type SessionEntryCore = SessionRestartRecoveryState & SessionEntryProvenance & P
   parentSessionKey?: string;
   /** Exact parent incarnation captured when this child was created. */
   parentSessionId?: string;
+  /** Exact parent lifecycle captured for native spawn authority, including same-id resets. */
+  parentSessionLifecycleRevision?: string;
   /** How this session node came to exist; written once and retained across sessionId rotations. */
   createdVia?: SessionCreatedVia;
   /** Actor that caused node creation, with an optional profile, session, or sender id; written once. */
@@ -14624,32 +14766,16 @@ type AgentRunTerminalOutcome = AgentRunTerminalFacts & {
   endedAt?: number;
 };
 //#endregion
-//#region src/audit/execution-identity-admission.d.ts
-declare const ExecutionIdentityAdmissionTokenSchema: Type.TObject<{
-  tokenVersion: Type.TLiteral<1>;
-  contextId: Type.TString;
-  executionId: Type.TString;
-  runId: Type.TString;
-  createdAt: Type.TInteger;
-}>;
-type ExecutionIdentityAdmissionToken = Static<typeof ExecutionIdentityAdmissionTokenSchema>;
-//#endregion
 //#region src/infra/outbound/reply-payload-parts.d.ts
 /** Derived sendability facts for text/media outbound payload delivery. */
 type SendableOutboundReplyParts = {
-  /** Raw text selected for delivery before trimming. */
   text: string;
-  /** Text after trimming whitespace for sendability checks. */
   trimmedText: string;
   /** Normalized non-empty media URLs. */
   mediaUrls: string[];
-  /** Number of normalized media URLs. */
   mediaCount: number;
-  /** Whether trimmed text is sendable. */
   hasText: boolean;
-  /** Whether at least one media URL is sendable. */
   hasMedia: boolean;
-  /** Whether the payload has any sendable text or media. */
   hasContent: boolean;
 };
 /** Prepared payload entry that keeps source indexing plus reusable projections. */
@@ -14663,7 +14789,6 @@ type OutboundPayloadPlan = {
 };
 //#endregion
 //#region src/sessions/user-turn-transcript.types.d.ts
-type UserTurnSessionEntry = SessionEntry;
 type PersistedUserTurnMessage = Extract<AgentMessage, {
   role: "user";
 }> & {
@@ -14682,13 +14807,13 @@ type UserTurnBeforeMessageWrite = (params: {
   agentId?: string;
   sessionKey?: string;
 }) => AgentMessage | null;
-type UserTurnTranscriptPersistenceTarget = {
+type UserTurnTranscriptTarget = {
   sessionId: string;
   expectedSessionId?: string;
   initialSessionEntry?: SessionEntry;
   sessionKey: string;
-  sessionEntry: UserTurnSessionEntry | undefined;
-  sessionStore?: Record<string, UserTurnSessionEntry>;
+  sessionEntry: SessionEntry | undefined;
+  sessionStore?: Record<string, SessionEntry>;
   storePath?: string;
   agentId: string;
   threadId?: string | number;
@@ -14696,19 +14821,23 @@ type UserTurnTranscriptPersistenceTarget = {
   config?: unknown;
   beforeMessageWrite?: UserTurnBeforeMessageWrite;
 };
-type UserTurnTranscriptTarget = UserTurnTranscriptPersistenceTarget;
 type UserTurnTranscriptAdmissionReceipt = TranscriptTurnAdmission;
 type UserTurnTranscriptPersistResult = {
   sessionTurnMutationResult?: SessionTranscriptTurnMutationResult;
   /** True only when this call inserted the transcript message. */
   appended?: boolean;
   sessionFile: string;
-  sessionEntry: UserTurnSessionEntry | undefined;
+  sessionEntry: SessionEntry | undefined;
   messageId: string;
   message: PersistedUserTurnMessage;
   admission: UserTurnTranscriptAdmissionReceipt;
 };
 type UserTurnTranscriptTargetResolver = UserTurnTranscriptTarget | (() => UserTurnTranscriptTarget | undefined | Promise<UserTurnTranscriptTarget | undefined>);
+type UserTurnPersistenceOptions = {
+  target?: UserTurnTranscriptTargetResolver;
+  updateMode?: UserTurnTranscriptUpdateMode;
+  cwd?: string;
+};
 type UserTurnTranscriptRecorder = {
   readonly message: PersistedUserTurnMessage | undefined;
   resolveMessage: () => Promise<PersistedUserTurnMessage | undefined>;
@@ -14722,18 +14851,30 @@ type UserTurnTranscriptRecorder = {
     assertCompletionCurrent?: () => void;
   }) => Promise<boolean>;
   getProcessingCompletion?: () => AgentRunTerminalOutcome | undefined;
+  /** Released synchronous SDK contract; internal recorders use completeProcessingAsync. */
   completeProcessing?: (outcome: AgentRunTerminalOutcome) => AgentRunTerminalOutcome | undefined;
+  completeProcessingAsync?: (outcome: AgentRunTerminalOutcome) => Promise<AgentRunTerminalOutcome | undefined>;
   getPendingInputMessage?: () => PersistedUserTurnMessage | undefined;
   isPendingInputConsumed?: () => boolean;
   withPendingInput?: <T>(run: () => T) => T;
   finishPendingInput?: (disposition: "cancelled" | "interrupted") => void;
+  /** Join accepted completion and disposition writes before releasing the turn's admission. */
+  waitForPendingInputSettlement?: () => Promise<void>;
   /** Replaces generated current-turn text before runtime persistence/provider submission. */
   replaceTextBeforePersistence?: (text: string) => void;
   /** Confirms exact-run steering provenance after transcript commitment is proven. */
   confirmSteerTargetRunIdForPersistence?: (targetRunId: string) => Promise<void>;
   getPersistedMessage?: () => PersistedUserTurnMessage | undefined;
+  /**
+   * Freeze model-facing text on the canonical user record before its first provider dispatch.
+   * `requestLocal` applies the same redaction but leaves the stored record unchanged.
+   */
+  captureModelPromptProjection?: (text: string, assertCurrent: () => void, options?: {
+    requestLocal?: boolean;
+  }) => Promise<PersistedUserTurnMessage>;
   getAdmissionReceipt: () => UserTurnTranscriptAdmissionReceipt | undefined;
-  setAdmissionHandler?: (handler: (admission: UserTurnTranscriptAdmissionReceipt) => void) => void;
+  /** Persistence and `waitForRuntimePersistence` settle the handler's write and reject on its failure. */
+  setAdmissionHandler?: (handler: (admission: UserTurnTranscriptAdmissionReceipt) => void | Promise<void>) => void;
   markSentToProvider?: () => void;
   markRuntimePersistencePending: (pending: Promise<void>) => void;
   markRuntimePersisted: (message?: PersistedUserTurnMessage, anchor?: TranscriptEntryAnchor | UserTurnTranscriptAdmissionReceipt, persistence?: {
@@ -14744,26 +14885,15 @@ type UserTurnTranscriptRecorder = {
   isBlocked: () => boolean;
   hasRuntimePersistencePending: () => boolean;
   waitForRuntimePersistence: () => Promise<void>;
-  persistApproved: (params?: {
-    target?: UserTurnTranscriptTargetResolver;
-    updateMode?: UserTurnTranscriptUpdateMode;
-    cwd?: string;
+  persistApproved: (params?: UserTurnPersistenceOptions & {
     expectedSessionId?: string;
     expectedSessionState?: SessionTranscriptTurnExpectedState;
     sessionLifecyclePatch?: SessionTranscriptTurnLifecyclePatch;
     /** Allow a later explicit persistence attempt when this attempt appends nothing. */
     retryIfUnpersisted?: boolean;
   }) => Promise<UserTurnTranscriptPersistResult | undefined>;
-  persistBlocked: (message: PersistedUserTurnMessage, params?: {
-    target?: UserTurnTranscriptTargetResolver;
-    updateMode?: UserTurnTranscriptUpdateMode;
-    cwd?: string;
-  }) => Promise<UserTurnTranscriptPersistResult | undefined>;
-  persistFallback: (params?: {
-    target?: UserTurnTranscriptTargetResolver;
-    updateMode?: UserTurnTranscriptUpdateMode;
-    cwd?: string;
-  }) => Promise<UserTurnTranscriptPersistResult | undefined>;
+  persistBlocked: (message: PersistedUserTurnMessage, params?: UserTurnPersistenceOptions) => Promise<UserTurnTranscriptPersistResult | undefined>;
+  persistFallback: (params?: UserTurnPersistenceOptions) => Promise<UserTurnTranscriptPersistResult | undefined>;
 };
 //#endregion
 //#region src/auto-reply/reply/typing.d.ts
@@ -14780,6 +14910,12 @@ type TypingController = {
 };
 //#endregion
 //#region src/auto-reply/get-reply-options.types.d.ts
+/** An accepted visible work session and its canonical Control UI link. */
+type VisibleWorkSession = {
+  sessionKey: string;
+  url: string;
+  label?: string;
+};
 /** A successful runtime append, independent of optional active-path projection anchors. */
 type ReplyDispatchAssistantTranscript = Pick<TranscriptEntryAnchor, "agentId" | "sessionId" | "sessionKey" | "storePath"> & {
   messageId: string;
@@ -14906,6 +15042,8 @@ type GetReplyOptions = {
   onAgentRunStart?: (runId: string, executionIdentityToken?: ExecutionIdentityAdmissionToken, options?: ReplyDispatchRun) => unknown;
   /** Reports the terminal agent-run classification to the shared dispatch owner. */
   onAgentRunTerminalOutcome?: (outcome: "completed" | "failed") => void;
+  /** Reports visible work sessions this agent run spawned, in acceptance order. */
+  onVisibleWorkSessions?: (sessions: readonly VisibleWorkSession[]) => void;
   /**
    * Canonical adoption lifecycle (adopted / deferred / abandoned / settled + pre-adoption abort).
    */
@@ -14923,6 +15061,8 @@ type GetReplyOptions = {
   /** If false, send only the initial typing signal without periodic keepalive refreshes. */
   typingKeepalive?: boolean;
   isHeartbeat?: boolean;
+  /** Wording only; heartbeat visibility/suppression semantics stay on isHeartbeat. */
+  useHeartbeatFailureCopy?: boolean;
   /** Policy-level typing control for run classes (user/system/internal/heartbeat). */
   typingPolicy?: TypingPolicy;
   /** Force-disable typing indicators for this run (system/internal/cross-channel routes). */
@@ -15148,14 +15288,19 @@ type GetReplyOptions = {
 //#region src/auto-reply/reply/get-reply.d.ts
 declare function getReplyFromConfig$2(ctx: RuntimeMsgContext, options?: GetReplyOptions, configOverride?: OpenClawConfig): Promise<ReplyPayload | ReplyPayload[] | undefined>;
 //#endregion
-//#region src/cli/outbound-send-mapping.d.ts
-type CliOutboundSendSource = {
+//#region src/infra/outbound/send-deps.d.ts
+/**
+ * Dynamic bag of per-channel send functions, keyed by channel ID.
+ * Each outbound adapter resolves its own function from this record and
+ * falls back to a direct import when the key is absent.
+ */
+type OutboundSendDeps = {
   [channelId: string]: unknown;
 };
 //#endregion
 //#region src/cli/deps.types.d.ts
 /** CLI dependency bag currently used by outbound send command plumbing. */
-type CliDeps = CliOutboundSendSource;
+type CliDeps = OutboundSendDeps;
 //#endregion
 //#region src/cli/deps.d.ts
 declare function createDefaultDeps$1(): CliDeps;
@@ -15305,60 +15450,6 @@ declare function describePortOwner$1(port: number): Promise<string | undefined>;
 declare function ensurePortAvailable$1(port: number, host?: string, signal?: AbortSignal): Promise<void>;
 declare function handlePortError$1(err: unknown, port: number, context: string, runtime?: RuntimeEnv): Promise<never>;
 //#endregion
-//#region src/config/sessions/disk-budget.types.d.ts
-type SessionDiskBudgetSweepResult = {
-  totalBytesBefore: number;
-  totalBytesAfter: number;
-  removedFiles: number;
-  removedEntries: number;
-  freedBytes: number;
-  maxBytes: number;
-  highWaterBytes: number;
-  overBudget: boolean;
-  deferredReason?: "checkpoint-incomplete";
-  checkpoint?: SqliteWalHealth;
-  walBytesBefore?: number;
-  walBytesAfter?: number;
-};
-//#endregion
-//#region src/config/sessions/store-maintenance-operations.d.ts
-type SessionMaintenanceApplyReport = {
-  mode: ResolvedSessionMaintenanceConfig["mode"];
-  beforeCount: number;
-  afterCount: number;
-  archived: number;
-  capArchived: number;
-  modelRunPruned: number;
-  pruned: number;
-  capped: number;
-  diskBudget: SessionDiskBudgetSweepResult | null;
-};
-//#endregion
-//#region src/infra/state-migrations.legacy-session-store.d.ts
-type LegacySessionStoreLoadOptions = {
-  skipCache?: boolean;
-  maintenanceConfig?: ResolvedSessionMaintenanceConfig;
-  runMaintenance?: boolean;
-  clone?: boolean;
-  hydrateSkillPromptRefs?: boolean;
-};
-type LegacySessionStoreSaveOptions = {
-  skipMaintenance?: boolean;
-  takeCacheOwnership?: boolean;
-  activeSessionKey?: string;
-  onWarn?: (warning: SessionMaintenanceWarning) => void | Promise<void>;
-  onMaintenanceApplied?: (report: SessionMaintenanceApplyReport) => void | Promise<void>;
-  maintenanceOverride?: Partial<ResolvedSessionMaintenanceConfig>;
-  maintenanceConfig?: ResolvedSessionMaintenanceConfig;
-  singleEntryPersistence?: {
-    sessionKey: string;
-    entry: SessionEntry;
-  };
-  requireWriteSuccess?: boolean;
-};
-declare function loadLegacySessionStore(storePath: string, options?: LegacySessionStoreLoadOptions): Record<string, SessionEntry>;
-declare function saveLegacySessionStore(storePath: string, store: Record<string, SessionEntry>, options?: LegacySessionStoreSaveOptions): Promise<void>;
-//#endregion
 //#region src/plugins/runtime/runtime-web-channel-plugin.d.ts
 /** Package-root embedding API; runtime instances and cold callers share the public-surface loader. */
 declare function monitorWebChannel$2(...args: unknown[]): Promise<unknown>;
@@ -15367,7 +15458,7 @@ declare function monitorWebChannel$2(...args: unknown[]): Promise<unknown>;
 /** Normalizes phone-like input into the loose E.164 shape used by channel helpers. */
 declare function normalizeE164$1(number: string): string;
 declare namespace library_d_exports {
-  export { PortInUseError$1 as PortInUseError, applyTemplate$1 as applyTemplate, createDefaultDeps$1 as createDefaultDeps, deriveSessionKey$1 as deriveSessionKey, describePortOwner$1 as describePortOwner, ensureBinary$1 as ensureBinary, ensurePortAvailable$1 as ensurePortAvailable, getReplyFromConfig$1 as getReplyFromConfig, handlePortError$1 as handlePortError, loadConfig$1 as loadConfig, loadLegacySessionStore as loadSessionStore, monitorWebChannel$1 as monitorWebChannel, normalizeE164$1 as normalizeE164, promptYesNo$1 as promptYesNo, resolveSessionKey$1 as resolveSessionKey, resolveSessionStorePathCore as resolveStorePath, runCommandWithTimeout$1 as runCommandWithTimeout, runExec$1 as runExec, saveSessionStore$1 as saveSessionStore, waitForever$1 as waitForever };
+  export { PortInUseError$1 as PortInUseError, applyTemplate$1 as applyTemplate, createDefaultDeps$1 as createDefaultDeps, deriveSessionKey$1 as deriveSessionKey, describePortOwner$1 as describePortOwner, ensureBinary$1 as ensureBinary, ensurePortAvailable$1 as ensurePortAvailable, getReplyFromConfig$1 as getReplyFromConfig, handlePortError$1 as handlePortError, loadConfig$1 as loadConfig, monitorWebChannel$1 as monitorWebChannel, normalizeE164$1 as normalizeE164, promptYesNo$1 as promptYesNo, resolveSessionKey$1 as resolveSessionKey, resolveSessionStorePathCore as resolveStorePath, runCommandWithTimeout$1 as runCommandWithTimeout, runExec$1 as runExec, waitForever$1 as waitForever };
 }
 type GetReplyFromConfig = typeof getReplyFromConfig$2;
 type PromptYesNo = typeof promptYesNo$2;
@@ -15381,12 +15472,6 @@ declare const ensureBinary$1: EnsureBinary;
 declare const runExec$1: RunExec;
 declare const runCommandWithTimeout$1: RunCommandWithTimeout;
 declare const monitorWebChannel$1: MonitorWebChannel;
-/**
- * @deprecated Legacy sessions.json compatibility for package-root consumers.
- * Use SQLite-backed session APIs. Remove after 2026-10-12, once the v2026.7.x
- * upgrade window no longer requires the legacy doctor importer.
- */
-declare function saveSessionStore$1(storePath: string, store: Parameters<typeof saveLegacySessionStore>[1], options?: LegacySessionStoreSaveOptions): Promise<void>;
 //#endregion
 //#region src/index.d.ts
 type LegacyCliDeps = {
@@ -15404,8 +15489,6 @@ export declare let ensurePortAvailable: LibraryExports["ensurePortAvailable"];
 export declare let getReplyFromConfig: LibraryExports["getReplyFromConfig"];
 export declare let handlePortError: LibraryExports["handlePortError"];
 export declare let loadConfig: LibraryExports["loadConfig"];
-/** @deprecated Use SQLite-backed session APIs. Scheduled for removal after 2026-10-12. */
-export declare let loadSessionStore: LibraryExports["loadSessionStore"];
 export declare let monitorWebChannel: LibraryExports["monitorWebChannel"];
 export declare let normalizeE164: LibraryExports["normalizeE164"];
 export declare let PortInUseError: LibraryExports["PortInUseError"];
@@ -15414,8 +15497,6 @@ export declare let resolveSessionKey: LibraryExports["resolveSessionKey"];
 export declare let resolveStorePath: LibraryExports["resolveStorePath"];
 export declare let runCommandWithTimeout: LibraryExports["runCommandWithTimeout"];
 export declare let runExec: LibraryExports["runExec"];
-/** @deprecated Use SQLite-backed session APIs. Scheduled for removal after 2026-10-12. */
-export declare let saveSessionStore: LibraryExports["saveSessionStore"];
 export declare let waitForever: LibraryExports["waitForever"];
 export declare function runLegacyCliEntry(argv?: string[], deps?: LegacyCliDeps, options?: {
   retainConsoleRoutingUntilProcessExit?: boolean;

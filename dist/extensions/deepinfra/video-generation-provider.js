@@ -1,5 +1,5 @@
-import { DEEPINFRA_BASE_URL, DEEPINFRA_VIDEO_ASPECT_RATIOS, DEEPINFRA_VIDEO_DURATIONS, DEEPINFRA_VIDEO_FALLBACK_MODELS, normalizeDeepInfraBaseUrl, normalizeDeepInfraModelRef } from "./media-models.js";
-import { resolveDeepInfraVideoModelCapabilities } from "./surface-model-catalogs.js";
+import { DEEPINFRA_BASE_URL, DEEPINFRA_VIDEO_FALLBACK_MODELS, normalizeDeepInfraBaseUrl, normalizeDeepInfraModelRef } from "./media-models.js";
+import { buildDeepInfraVideoModelCapabilities, resolveDeepInfraVideoModelCapabilities } from "./surface-model-catalogs.js";
 import { asSafeIntegerInRange, normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { isProviderApiKeyConfigured } from "openclaw/plugin-sdk/provider-auth";
 import { resolveGeneratedMediaMaxBytes } from "openclaw/plugin-sdk/media-generation-runtime";
@@ -39,12 +39,6 @@ function resolveDurationSeconds(value) {
 	if (typeof value !== "number" || !Number.isFinite(value)) return;
 	return value <= 6.5 ? 5 : 8;
 }
-function resolveSeed(value) {
-	return asSafeIntegerInRange(value, {
-		min: 0,
-		max: 4294967295
-	});
-}
 function buildDeepInfraVideoBody(req, model) {
 	const options = req.providerOptions ?? {};
 	const body = {
@@ -55,7 +49,10 @@ function buildDeepInfraVideoBody(req, model) {
 	if (aspectRatio) body.aspect_ratio = aspectRatio;
 	const duration = resolveDurationSeconds(req.durationSeconds);
 	if (duration) body.seconds = duration;
-	const seed = resolveSeed(options.seed);
+	const seed = asSafeIntegerInRange(options.seed, {
+		min: 0,
+		max: 4294967295
+	});
 	if (seed != null) body.seed = seed;
 	const negativePrompt = normalizeOptionalString(options.negative_prompt) ?? normalizeOptionalString(options.negativePrompt);
 	if (negativePrompt) body.negative_prompt = negativePrompt;
@@ -90,6 +87,7 @@ function resolveDeepInfraVideoBaseUrl(req) {
 function buildDeepInfraVideoGenerationProvider(options) {
 	const ids = options?.videoGenModels && options.videoGenModels.length > 0 ? options.videoGenModels.map((model) => model.id) : [...DEEPINFRA_VIDEO_FALLBACK_MODELS];
 	const defaultModel = ids[0] ?? DEEPINFRA_VIDEO_FALLBACK_MODELS[0];
+	const { providerOptions, ...capabilities } = buildDeepInfraVideoModelCapabilities();
 	return {
 		id: "deepinfra",
 		label: "DeepInfra",
@@ -101,21 +99,11 @@ function buildDeepInfraVideoGenerationProvider(options) {
 			...ctx
 		}),
 		capabilities: {
+			...capabilities,
 			generate: {
-				maxVideos: 1,
-				maxDurationSeconds: 8,
-				supportedDurationSeconds: [...DEEPINFRA_VIDEO_DURATIONS],
-				supportsAspectRatio: true,
-				aspectRatios: [...DEEPINFRA_VIDEO_ASPECT_RATIOS],
-				providerOptions: {
-					seed: "number",
-					negative_prompt: "string",
-					negativePrompt: "string",
-					style: "string"
-				}
-			},
-			imageToVideo: { enabled: false },
-			videoToVideo: { enabled: false }
+				...capabilities.generate,
+				providerOptions
+			}
 		},
 		async generateVideo(req) {
 			if ((req.inputImages?.length ?? 0) > 0) throw new Error("DeepInfra video generation currently supports text-to-video only.");

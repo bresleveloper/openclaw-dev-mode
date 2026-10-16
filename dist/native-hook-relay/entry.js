@@ -1,11 +1,13 @@
 #!/usr/bin/env node
-import { o as toErrorObject } from "./errors-Cy4ii9Fo.mjs";
-import { l as isPidDefinitelyDead, t as ADMIN_SCOPE } from "./operator-scopes-Ct3EiSIA.mjs";
-import { n as resolveRuntimeProcessEntrypointUrl } from "./worker-cpu-BlFNjOLd.mjs";
-import { c as SqliteSchemaVersionError, o as resolveOpenClawStateSqlitePath } from "./openclaw-state-db.paths-D1f0LUdT.mjs";
-import { D as parseStrictPositiveInteger } from "./utils-C25eiuh1.mjs";
-import { t as WorkerTaskPool } from "./worker-task-pool-BOMF8kbd.mjs";
-import { o as resolveSafeTimeoutDelayMs } from "./timeouts-DVvIntvk.mjs";
+import { t as disableExitUnsafeCompilers } from "./node-exit-safe-compilers-B7V3uapp.mjs";
+import { s as toErrorObject } from "./error-coercion-DKQY4wyF.mjs";
+import { u as parseStrictPositiveInteger } from "./number-coercion-CmpLVzZ6.mjs";
+import { R as isSqliteLockError, t as SqliteSchemaVersionError } from "./sqlite-user-version-C7PVO8Wf.mjs";
+import { i as isPidDefinitelyDead } from "./pid-alive-Cnn-Mjdg.mjs";
+import { p as sleep } from "./utils-BfTq4rUg.mjs";
+import { s as resolveOpenClawStateSqlitePath } from "./openclaw-state-db.paths-D1QtF7Ci.mjs";
+import { t as ADMIN_SCOPE } from "./operator-scopes-C844xNSs.mjs";
+import { o as resolveSafeTimeoutDelayMs } from "./timeouts-B9zvH0xD.mjs";
 import process$1 from "node:process";
 import { request } from "node:http";
 import path from "node:path";
@@ -43,15 +45,21 @@ function restoreNativeErrorResponse(value) {
 /** Read one native relay locator without loading the shared-state writer lifecycle. */
 async function readNativeHookRelayClientBridgeRecord(params) {
 	const pathname = path.resolve(params.stateDbPath ?? resolveOpenClawStateSqlitePath());
+	const input = {
+		relayId: params.relayId,
+		stateDbPath: pathname
+	};
+	if (!process.versions.bun) {
+		const { readNativeHookRelayClientRecord } = await import("./native-hook-relay-client-read-DK-BUAQf.mjs");
+		return readNativeHookRelayClientRecord(input, 0);
+	}
+	const [{ WorkerTaskPool }, { resolveRuntimeProcessEntrypointUrl }] = await Promise.all([import("./worker-task-pool-DfrJ8Ldw.mjs"), import("./runtime-process-url-CeWXfw6H.mjs")]);
 	const pool = new WorkerTaskPool({
 		workerUrl: resolveRuntimeProcessEntrypointUrl("nativeHookRelayClient"),
 		maxWorkers: 1
 	});
 	try {
-		const result = await pool.run({
-			relayId: params.relayId,
-			stateDbPath: pathname
-		}, { inputBytes: 2 * (params.relayId.length + pathname.length) });
+		const result = await pool.run(input, { inputBytes: 2 * (params.relayId.length + pathname.length) });
 		if (!result.ok) throw result.newerSchema ? new SqliteSchemaVersionError(result.error.message) : restoreNativeErrorResponse(result.error);
 		return result.record;
 	} finally {
@@ -63,6 +71,13 @@ async function readNativeHookRelayClientBridgeRecord(params) {
 const DEFAULT_RELAY_TIMEOUT_MS = 5e3;
 //#endregion
 //#region src/agents/harness/native-hook-relay-response-codec.ts
+function renderJsonResponse(payload) {
+	return {
+		stdout: `${JSON.stringify(payload)}\n`,
+		stderr: "",
+		exitCode: 0
+	};
+}
 /** Render the native Codex hook responses shared by server and cold client paths. */
 const codexNativeHookRelayResponseCodec = {
 	renderNoopResponse() {
@@ -74,34 +89,39 @@ const codexNativeHookRelayResponseCodec = {
 	},
 	renderPreToolUseBlockResponse(reason, failureDisposition) {
 		return {
-			stdout: `${JSON.stringify({ hookSpecificOutput: {
+			...renderJsonResponse({ hookSpecificOutput: {
 				hookEventName: "PreToolUse",
 				permissionDecision: "deny",
 				permissionDecisionReason: reason
-			} })}\n`,
-			stderr: "",
-			exitCode: 0,
+			} }),
 			...failureDisposition ? { failureDisposition } : {}
 		};
 	},
 	renderPermissionDecisionResponse(decision, message) {
-		return {
-			stdout: `${JSON.stringify({ hookSpecificOutput: {
-				hookEventName: "PermissionRequest",
-				decision: decision === "allow" ? { behavior: "allow" } : {
-					behavior: "deny",
-					message: message?.trim() || "Denied by OpenClaw"
-				}
-			} })}\n`,
-			stderr: "",
-			exitCode: 0
-		};
-	}
+		return renderJsonResponse({ hookSpecificOutput: {
+			hookEventName: "PermissionRequest",
+			decision: decision === "allow" ? { behavior: "allow" } : {
+				behavior: "deny",
+				message: message?.trim() || "Denied by OpenClaw"
+			}
+		} });
+	},
+	renderBeforeAgentFinalizeReviseResponse: (reason) => renderJsonResponse({
+		decision: "block",
+		reason
+	}),
+	renderBeforeAgentFinalizeStopResponse: (reason) => renderJsonResponse({
+		continue: false,
+		...reason?.trim() ? { stopReason: reason.trim() } : {}
+	})
 };
 //#endregion
 //#region src/agents/harness/native-hook-relay-utils.ts
 function normalizePositiveInteger(value, fallback) {
-	return typeof value === "number" && Number.isFinite(value) && value > 0 ? Math.floor(value) : fallback;
+	return normalizeOptionalPositiveInteger(value) ?? fallback;
+}
+function normalizeOptionalPositiveInteger(value) {
+	return typeof value === "number" && Number.isFinite(value) && value > 0 ? Math.floor(value) : void 0;
 }
 function readNativeHookRelayProvider(value) {
 	if (value === "codex") return value;
@@ -157,7 +177,7 @@ async function invokeNativeHookRelayBridge(params) {
 			error,
 			elapsedMs
 		})) break;
-		await delay(Math.min(NATIVE_HOOK_BRIDGE_RETRY_INTERVAL_MS, timeoutMs - elapsedMs));
+		await sleep(Math.min(NATIVE_HOOK_BRIDGE_RETRY_INTERVAL_MS, timeoutMs - elapsedMs));
 	}
 	throw lastError instanceof Error ? lastError : new Error(String(lastError));
 }
@@ -226,7 +246,7 @@ function postNativeHookRelayBridgeRecord(params) {
 }
 function isRetryableNativeHookRelayBridgeError(error) {
 	const code = error.code;
-	return code === "ENOENT" || code === "ECONNREFUSED" || code === "EAGAIN" || error instanceof Error && error.message === "native hook relay bridge not found";
+	return code === "ENOENT" || code === "ECONNREFUSED" || code === "EAGAIN" || isSqliteLockError(error) || error instanceof Error && error.message === "native hook relay bridge not found";
 }
 function isRetryableNativeHookRelayBridgeLookupError(params) {
 	return isRetryableNativeHookRelayBridgeError(params.error) || params.elapsedMs < 250 && isNativeHookRelayBridgeStaleRegistrationError(params.error);
@@ -247,11 +267,6 @@ function renderNativeHookRelayUnavailableResponse(params) {
 	if (event === "permission_request") return codexNativeHookRelayResponseCodec.renderPermissionDecisionResponse("deny", message);
 	return codexNativeHookRelayResponseCodec.renderNoopResponse();
 }
-function delay(ms) {
-	return new Promise((resolve) => {
-		setTimeout(resolve, Math.max(0, ms));
-	});
-}
 //#endregion
 //#region src/utils/timer-delay.ts
 /** Wrapper around setTimeout that clamps unsafe or invalid delays before arming the timer. */
@@ -260,24 +275,21 @@ function setSafeTimeout(callback, delayMs, opts) {
 }
 //#endregion
 //#region src/cli/parse-timeout.ts
-function invalidTimeout(value) {
+function invalidTimeout(flagName, value) {
 	const suffix = value ? ` Received: "${value}".` : "";
-	return /* @__PURE__ */ new Error(`Invalid --timeout. Use a positive millisecond value, e.g. --timeout 30000.${suffix}`);
+	return /* @__PURE__ */ new Error(`Invalid ${flagName}. Use a positive millisecond value, e.g. ${flagName} 30000.${suffix}`);
 }
 /** Parse a positive timeout or return the supplied fallback for missing values. */
 function parseTimeoutMsWithFallback(raw, fallbackMs, options = {}) {
+	const flagName = options.flagName ?? "--timeout";
 	if (raw === void 0 || raw === null) return fallbackMs;
 	const value = typeof raw === "string" ? raw.trim() : typeof raw === "number" || typeof raw === "bigint" ? String(raw) : null;
-	if (value === null) {
-		if (options.invalidType === "error") throw invalidTimeout();
-		return fallbackMs;
-	}
 	if (!value) {
-		if (options.invalidType === "error") throw invalidTimeout();
+		if (options.invalidType === "error") throw invalidTimeout(flagName);
 		return fallbackMs;
 	}
 	const parsed = parseStrictPositiveInteger(value);
-	if (parsed === void 0) throw invalidTimeout(value);
+	if (parsed === void 0) throw invalidTimeout(flagName, value);
 	return parsed;
 }
 //#endregion
@@ -331,32 +343,40 @@ async function runNativeHookRelayCli(opts, deps = {}) {
 	const event = readRequiredOption(opts.event, "event");
 	let timeoutMs;
 	try {
-		timeoutMs = parseTimeoutMsWithFallback(opts.timeout, 5e3);
+		timeoutMs = parseTimeoutMsWithFallback(opts.timeout, 5e3, { invalidType: "error" });
 	} catch (error) {
 		writeText(stderr, formatRelayCliError("invalid native hook timeout", error));
 		return 1;
 	}
 	const deadline = createNativeHookRelayDeadline(timeoutMs);
+	const writeResponse = (response) => {
+		writeText(stdout, response.stdout);
+		writeText(stderr, response.stderr);
+		return response.exitCode;
+	};
+	const unavailable = (message = "Native hook relay unavailable") => writeResponse(renderNativeHookRelayUnavailableResponse({
+		provider,
+		event,
+		preToolUseUnavailable: opts.preToolUseUnavailable,
+		message
+	}));
+	const timedOut = (error) => {
+		writeText(stderr, formatRelayCliError("native hook relay timed out", error));
+		return unavailable("Native hook relay timed out");
+	};
 	try {
 		let rawPayload;
 		try {
 			const rawInput = await readStreamText(stdin, MAX_NATIVE_HOOK_STDIN_BYTES, deadline);
 			rawPayload = rawInput.trim() ? JSON.parse(rawInput) : null;
 		} catch (error) {
-			if (isNativeHookRelayDeadlineError(error)) return writeNativeHookRelayDeadlineResponse({
-				stdout,
-				stderr,
-				opts,
-				provider,
-				event,
-				error
-			});
+			if (isNativeHookRelayDeadlineError(error)) return timedOut(error);
 			writeText(stderr, formatRelayCliError("failed to read native hook input", error));
 			return 1;
 		}
 		try {
 			const remainingMs = remainingNativeHookRelayDeadlineMs(deadline);
-			const response = await withNativeHookRelayDeadline(deadline, invokeBridge({
+			return writeResponse(await withNativeHookRelayDeadline(deadline, invokeBridge({
 				provider,
 				relayId,
 				stateDbPath: opts.stateDb?.trim() || void 0,
@@ -365,32 +385,16 @@ async function runNativeHookRelayCli(opts, deps = {}) {
 				rawPayload,
 				registrationTimeoutMs: Math.min(100, remainingMs),
 				timeoutMs: remainingMs
-			}));
-			writeText(stdout, response.stdout);
-			writeText(stderr, response.stderr);
-			return response.exitCode;
+			})));
 		} catch (error) {
-			if (isNativeHookRelayDeadlineError(error)) return writeNativeHookRelayDeadlineResponse({
-				stdout,
-				stderr,
-				opts,
-				provider,
-				event,
-				error
-			});
+			if (isNativeHookRelayDeadlineError(error)) return timedOut(error);
 			if (isNativeHookRelayBridgeStaleRegistrationError(error)) {
 				writeText(stderr, formatRelayCliError("native hook relay unavailable", error));
-				return writeNativeHookRelayUnavailableResponse({
-					stdout,
-					stderr,
-					opts,
-					provider,
-					event
-				});
+				return unavailable();
 			}
 		}
 		try {
-			const response = await withNativeHookRelayDeadline(deadline, callGatewayFn({
+			return writeResponse(await withNativeHookRelayDeadline(deadline, callGatewayFn({
 				method: "nativeHook.invoke",
 				params: {
 					provider,
@@ -402,34 +406,18 @@ async function runNativeHookRelayCli(opts, deps = {}) {
 				timeoutMs: remainingNativeHookRelayDeadlineMs(deadline),
 				signal: deadline.signal,
 				scopes: [ADMIN_SCOPE]
-			}));
-			writeText(stdout, response.stdout);
-			writeText(stderr, response.stderr);
-			return response.exitCode;
+			})));
 		} catch (error) {
-			if (isNativeHookRelayDeadlineError(error)) return writeNativeHookRelayDeadlineResponse({
-				stdout,
-				stderr,
-				opts,
-				provider,
-				event,
-				error
-			});
+			if (isNativeHookRelayDeadlineError(error)) return timedOut(error);
 			writeText(stderr, formatRelayCliError("native hook relay unavailable", error));
-			return writeNativeHookRelayUnavailableResponse({
-				stdout,
-				stderr,
-				opts,
-				provider,
-				event
-			});
+			return unavailable();
 		}
 	} finally {
 		deadline.dispose();
 	}
 }
 async function callGatewayLazy(opts) {
-	const { callGateway } = await import("./call-6b-lz7UM.mjs");
+	const { callGateway } = await import("./call-CdrhF-Le.mjs");
 	return await callGateway(opts);
 }
 function readRequiredOption(value, name) {
@@ -440,22 +428,22 @@ async function readStreamText(stream, maxBytes, deadline) {
 	const chunks = [];
 	let total = 0;
 	const abortRead = () => {
-		destroyReadableStream(stream, createNativeHookRelayDeadlineError(deadline));
+		destroyReadableStream(stream, new NativeHookRelayDeadlineError(deadline.timeoutMs));
 	};
 	deadline.signal.addEventListener("abort", abortRead, { once: true });
 	try {
-		throwIfNativeHookRelayDeadlineExpired(deadline);
+		remainingNativeHookRelayDeadlineMs(deadline);
 		for await (const chunk of stream) {
-			throwIfNativeHookRelayDeadlineExpired(deadline);
+			remainingNativeHookRelayDeadlineMs(deadline);
 			const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
 			total += buffer.byteLength;
 			if (total > maxBytes) throw new Error(`native hook input exceeds ${maxBytes} bytes`);
 			chunks.push(buffer);
 		}
-		throwIfNativeHookRelayDeadlineExpired(deadline);
+		remainingNativeHookRelayDeadlineMs(deadline);
 		return Buffer.concat(chunks, total).toString("utf8");
 	} catch (error) {
-		if (isNativeHookRelayDeadlineError(error) || deadline.signal.aborted) throw createNativeHookRelayDeadlineError(deadline);
+		if (isNativeHookRelayDeadlineError(error) || deadline.signal.aborted) throw new NativeHookRelayDeadlineError(deadline.timeoutMs);
 		throw error;
 	} finally {
 		deadline.signal.removeEventListener("abort", abortRead);
@@ -478,19 +466,13 @@ function createNativeHookRelayDeadline(timeoutMs) {
 		dispose: () => clearTimeout(timer)
 	};
 }
-function createNativeHookRelayDeadlineError(deadline) {
-	return new NativeHookRelayDeadlineError(deadline.timeoutMs);
-}
 function isNativeHookRelayDeadlineError(error) {
 	return error instanceof Error && error.name === "NativeHookRelayDeadlineError";
 }
 function remainingNativeHookRelayDeadlineMs(deadline) {
 	const remainingMs = deadline.expiresAtMs - performance.now();
-	if (remainingMs <= 0 || deadline.signal.aborted) throw createNativeHookRelayDeadlineError(deadline);
+	if (remainingMs <= 0 || deadline.signal.aborted) throw new NativeHookRelayDeadlineError(deadline.timeoutMs);
 	return Math.max(1, remainingMs);
-}
-function throwIfNativeHookRelayDeadlineExpired(deadline) {
-	remainingNativeHookRelayDeadlineMs(deadline);
 }
 function destroyReadableStream(stream, error) {
 	const destroy = stream.destroy;
@@ -508,7 +490,7 @@ async function withNativeHookRelayDeadline(deadline, promise) {
 			if (settled) return;
 			settled = true;
 			cleanup();
-			reject(createNativeHookRelayDeadlineError(deadline));
+			reject(new NativeHookRelayDeadlineError(deadline.timeoutMs));
 		};
 		deadline.signal.addEventListener("abort", abort, { once: true });
 		promise.then((value) => {
@@ -529,30 +511,9 @@ async function withNativeHookRelayDeadline(deadline, promise) {
 		if (deadline.signal.aborted || deadline.expiresAtMs <= performance.now()) abort();
 	});
 }
-function writeNativeHookRelayUnavailableResponse(params) {
-	const response = renderNativeHookRelayUnavailableResponse({
-		provider: params.provider,
-		event: params.event,
-		preToolUseUnavailable: params.opts.preToolUseUnavailable,
-		message: params.message ?? "Native hook relay unavailable"
-	});
-	writeText(params.stdout, response.stdout);
-	writeText(params.stderr, response.stderr);
-	return response.exitCode;
-}
-function writeNativeHookRelayDeadlineResponse(params) {
-	writeText(params.stderr, formatRelayCliError("native hook relay timed out", params.error));
-	return writeNativeHookRelayUnavailableResponse({
-		stdout: params.stdout,
-		stderr: params.stderr,
-		opts: params.opts,
-		provider: params.provider,
-		event: params.event,
-		message: "Native hook relay timed out"
-	});
-}
 //#endregion
 //#region src/cli/native-hook-relay-entry.ts
+disableExitUnsafeCompilers();
 process$1.title = "openclaw-hooks";
 let exitCode = 1;
 try {

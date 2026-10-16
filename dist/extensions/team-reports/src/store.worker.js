@@ -1,9 +1,10 @@
 import { a as periodSchema, n as DAY_MS } from "../.setup/limits-iMrGeJ-3.mjs";
+import { i as itemKey, n as aggregateDays, t as aggregateDay } from "../.setup/aggregate-l0KMm8Hi.mjs";
 import path from "node:path";
 import { z } from "zod";
 import fs from "node:fs";
 import { configureSqliteConnectionPragmas, migrateSqliteSchemaToStrict } from "openclaw/plugin-sdk/plugin-state-runtime";
-import { enableNodeSqliteKyselyStatementCache, executeSqliteQuerySync, executeSqliteQueryTakeFirstSync, getNodeSqliteKysely, openNodeSqliteDatabase, runSqliteImmediateTransactionSync } from "openclaw/plugin-sdk/sqlite-worker-runtime";
+import { enableNodeSqliteKyselyStatementCache, executeSqliteQuerySync, executeSqliteQueryTakeFirstSync, getNodeSqliteKysely, iterateSqliteQuerySync, openNodeSqliteDatabase, runSqliteDeferredTransactionSync, runSqliteImmediateTransactionSync } from "openclaw/plugin-sdk/sqlite-worker-runtime";
 //#region extensions/team-reports/src/store-schema.ts
 const TEAM_REPORTS_SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS team_reports_schema_migrations (
@@ -207,6 +208,71 @@ var TeamReportsDatabase = class {
 		this.db = db;
 		this.maintenance = maintenance;
 		this.query = getNodeSqliteKysely(db);
+		db.exec(`CREATE TEMP TABLE team_reports_activity (
+      source TEXT NOT NULL, key TEXT NOT NULL, at_ms INTEGER NOT NULL,
+      sort_key TEXT NOT NULL, actor TEXT NOT NULL, data_json TEXT NOT NULL,
+      PRIMARY KEY (source, key)
+    ) STRICT;`);
+	}
+	resetActivity() {
+		executeSqliteQuerySync(this.db, this.query.deleteFrom("team_reports_activity"));
+	}
+	appendActivity(input) {
+		if (input.entries.length === 0) return;
+		if (input.entries.length > 100) throw new Error("Activity batch exceeds 100 entries");
+		const rows = input.source === "github" ? input.entries.map(({ key, value }) => ({
+			source: input.source,
+			key,
+			at_ms: value.atMs,
+			sort_key: itemKey(value),
+			actor: value.actor,
+			data_json: JSON.stringify(value)
+		})) : input.entries.map(({ key, value }) => ({
+			source: input.source,
+			key,
+			at_ms: value.atMs,
+			sort_key: value.channelId,
+			actor: value.authorId,
+			data_json: JSON.stringify(value)
+		}));
+		executeSqliteQuerySync(this.db, this.query.insertInto("team_reports_activity").values(rows).onConflict((conflict) => conflict.columns(["source", "key"]).doUpdateSet((eb) => ({
+			at_ms: eb.ref("excluded.at_ms"),
+			sort_key: eb.ref("excluded.sort_key"),
+			actor: eb.ref("excluded.actor"),
+			data_json: eb.ref("excluded.data_json")
+		}))));
+	}
+	*activity(source) {
+		const order = executeSqliteQuerySync(this.db, this.query.selectFrom("team_reports_activity").select([
+			"key",
+			"at_ms",
+			"sort_key",
+			"actor"
+		]).where("source", "=", source).orderBy("key")).rows;
+		order.sort((a, b) => b.at_ms - a.at_ms || a.sort_key.localeCompare(b.sort_key) || a.actor.localeCompare(b.actor) || a.key.localeCompare(b.key));
+		for (let offset = 0; offset < order.length; offset += 100) {
+			const keys = order.slice(offset, offset + 100).map((row) => row.key);
+			const rows = executeSqliteQuerySync(this.db, this.query.selectFrom("team_reports_activity").select(["key", "data_json"]).where("source", "=", source).where("key", "in", keys)).rows;
+			const data = new Map(rows.map((row) => [row.key, row.data_json]));
+			for (const key of keys) {
+				const json = data.get(key);
+				if (json === void 0) throw new Error("Collected activity disappeared before aggregation");
+				yield JSON.parse(json);
+			}
+		}
+	}
+	aggregateActivity(input) {
+		return aggregateDay({
+			...input,
+			items: this.activity("github"),
+			messages: this.activity("discord")
+		});
+	}
+	aggregatePeriod(input) {
+		return runSqliteDeferredTransactionSync(this.db, () => aggregateDays({
+			...input,
+			days: () => this.dayReports(input.period.sinceMs, input.period.untilMs)
+		}));
 	}
 	upsertPeriod(value) {
 		const { report } = value;
@@ -321,7 +387,10 @@ var TeamReportsDatabase = class {
 		};
 	}
 	getDayReports(sinceMs, untilMs) {
-		return executeSqliteQuerySync(this.db, this.query.selectFrom("team_reports_periods").select("data_json").where("period", "=", "day").where("since_ms", ">=", sinceMs).where("since_ms", "<", untilMs).orderBy("since_ms", "asc")).rows.map((row) => reportDocumentSchema.parse(JSON.parse(row.data_json)));
+		return [...this.dayReports(sinceMs, untilMs)];
+	}
+	*dayReports(sinceMs, untilMs) {
+		for (const row of iterateSqliteQuerySync(this.db, this.query.selectFrom("team_reports_periods").select("data_json").where("period", "=", "day").where("since_ms", ">=", sinceMs).where("since_ms", "<", untilMs).orderBy("since_ms", "asc"))) yield reportDocumentSchema.parse(JSON.parse(row.data_json));
 	}
 	listPersonDays(login, options = {}) {
 		let query = this.selectPersonDays().where("login", "=", login.toLowerCase()).orderBy("day_key", "desc");
@@ -455,6 +524,10 @@ function createSqliteWorkerBackend(_input, context) {
 	return {
 		execute(command) {
 			switch (command.type) {
+				case "resetActivity": return database.resetActivity();
+				case "appendActivity": return database.appendActivity(command.input);
+				case "aggregateActivity": return database.aggregateActivity(command.input);
+				case "aggregatePeriod": return database.aggregatePeriod(command.input);
 				case "upsertPeriod": return database.upsertPeriod(command.input);
 				case "getPeriod": return database.getPeriod(command.input.period, command.input.key);
 				case "getPeriodDocument": return database.getPeriodDocument(command.input.period, command.input.key);

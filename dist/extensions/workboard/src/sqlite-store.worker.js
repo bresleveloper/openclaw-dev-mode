@@ -1,14 +1,11 @@
-import { c as isRecord } from "../../../record-coerce-DItp3I4t.mjs";
-import { a as iterateSqliteQuerySync, i as getNodeSqliteKysely, l as sqliteStringSet, r as executeSqliteQueryTakeFirstSync, t as compileSqliteQueryBindings } from "../../../kysely-sync-Bn6Qrpbz.mjs";
-import { t as openNodeSqliteDatabase } from "../../../node-sqlite-BO6jRFcG.mjs";
-import { i as runSqliteDeferredTransactionSync, o as runSqliteImmediateTransactionSync } from "../../../sqlite-transaction-DKSXLQhb.mjs";
-import { t as configureSqliteConnectionPragmas } from "../../../sqlite-wal-BzoPsBh0.mjs";
-import { t as migrateSqliteSchemaToStrict } from "../../../sqlite-strict-DxDkCm9i.mjs";
-import "../../../string-coerce-runtime-C_MKhRVt.mjs";
-import "../../../sqlite-worker-runtime-BV5P9OQ4.mjs";
-import "../../../plugin-state-runtime-BxOzg-qH.mjs";
-import { m as workboardCardSlotOwner, p as workboardCardConsumesOwnerSlot } from "../../../store-constants-DPYot7MP.mjs";
-import { t as encodeWorkboardSqliteFailure } from "../../../sqlite-store-errors-fETz-1pd.mjs";
+import { a as getNodeSqliteKysely, i as executeSqliteQueryTakeFirstSync, o as iterateSqliteQuerySync, r as executeSqliteQuerySync, t as compileSqliteQueryBindings, u as sqliteStringSet } from "../../../kysely-sync-K7ftY-g4.mjs";
+import { t as openNodeSqliteDatabase } from "../../../node-sqlite-XIcwmOrl.mjs";
+import { a as runSqliteImmediateTransactionSync, r as runSqliteDeferredTransactionSync } from "../../../sqlite-transaction-DsZ3X6nD.mjs";
+import { t as configureSqliteConnectionPragmas } from "../../../sqlite-wal-DUSYRhyv.mjs";
+import { t as migrateSqliteSchemaToStrict } from "../../../sqlite-strict-CYeSH78z.mjs";
+import "../../../sqlite-worker-runtime-BFi6Nryt.mjs";
+import "../../../plugin-state-runtime-CD-7t-B7.mjs";
+import { _ as createDefaultWorkboardSessionsBoardSpec, g as workboardCardSlotOwner, h as workboardCardConsumesOwnerSlot, t as encodeWorkboardSqliteFailure, v as normalizeWorkboardSessionsBoardSpec, y as patchWorkboardSessionsBoardSpec } from "../../../sqlite-store-errors-ClY8dC8v.mjs";
 import fs from "node:fs";
 import path from "node:path";
 //#region extensions/workboard/src/sqlite-store-records.ts
@@ -41,8 +38,9 @@ function requiredNumber(row, key) {
 function optional(value) {
 	return Object.keys(value).length > 0 ? value : void 0;
 }
-function asBlobContent(value) {
-	return Buffer.from(value, "base64");
+function definedFields(fields) {
+	for (const key in fields) if (fields[key] === void 0) delete fields[key];
+	return fields;
 }
 function blobToBase64(value) {
 	if (value instanceof Uint8Array) return Buffer.from(value).toString("base64");
@@ -119,142 +117,110 @@ function readLabels(db, cardId, preloaded) {
 }
 function readEvents(db, cardId, preloaded) {
 	const events = childRows(db, "workboard_card_events", cardId, preloaded).map((row) => {
-		const event = {
+		return definedFields({
 			id: requiredString(row, "id"),
 			kind: requiredString(row, "kind"),
-			at: requiredNumber(row, "at")
-		};
-		const fromStatus = stringValue(row, "from_status");
-		const toStatus = stringValue(row, "to_status");
-		const sessionKey = stringValue(row, "session_key");
-		const runId = stringValue(row, "run_id");
-		if (fromStatus) event.fromStatus = fromStatus;
-		if (toStatus) event.toStatus = toStatus;
-		if (sessionKey) event.sessionKey = sessionKey;
-		if (runId) event.runId = runId;
-		return event;
+			at: requiredNumber(row, "at"),
+			fromStatus: stringValue(row, "from_status"),
+			toStatus: stringValue(row, "to_status"),
+			sessionKey: stringValue(row, "session_key"),
+			runId: stringValue(row, "run_id")
+		});
 	});
 	return events.length > 0 ? events : void 0;
 }
 function readExecution(row) {
 	const id = stringValue(row, "execution_id");
 	if (!id) return;
-	return {
+	return definedFields({
 		id,
 		kind: "agent-session",
 		mode: requiredString(row, "execution_mode"),
 		status: requiredString(row, "execution_status"),
-		...stringValue(row, "execution_engine") ? { engine: stringValue(row, "execution_engine") } : {},
-		...stringValue(row, "execution_model") ? { model: stringValue(row, "execution_model") } : {},
-		...stringValue(row, "execution_session_key") ? { sessionKey: stringValue(row, "execution_session_key") } : {},
-		...stringValue(row, "execution_run_id") ? { runId: stringValue(row, "execution_run_id") } : {},
+		engine: stringValue(row, "execution_engine"),
+		model: stringValue(row, "execution_model"),
+		sessionKey: stringValue(row, "execution_session_key"),
+		runId: stringValue(row, "execution_run_id"),
 		startedAt: requiredNumber(row, "execution_started_at"),
 		updatedAt: requiredNumber(row, "execution_updated_at")
-	};
+	});
 }
 function readAttachment(row) {
-	return {
+	return definedFields({
 		id: requiredString(row, "id"),
 		cardId: requiredString(row, "card_id"),
 		createdAt: requiredNumber(row, "created_at"),
 		fileName: requiredString(row, "file_name"),
 		byteSize: requiredNumber(row, "byte_size"),
-		...stringValue(row, "mime_type") ? { mimeType: stringValue(row, "mime_type") } : {},
-		...stringValue(row, "note") ? { note: stringValue(row, "note") } : {}
-	};
+		mimeType: stringValue(row, "mime_type"),
+		note: stringValue(row, "note")
+	});
 }
 function readMetadata(db, row, preloaded) {
 	const cardId = requiredString(row, "id");
 	const attempts = childRows(db, "workboard_card_attempts", cardId, preloaded).map((child) => {
-		const entry = {
+		return definedFields({
 			id: requiredString(child, "id"),
 			status: requiredString(child, "status"),
-			startedAt: requiredNumber(child, "started_at")
-		};
-		const endedAt = numberValue(child, "ended_at");
-		const engine = stringValue(child, "engine");
-		const mode = stringValue(child, "mode");
-		const model = stringValue(child, "model");
-		const sessionKey = stringValue(child, "session_key");
-		const runId = stringValue(child, "run_id");
-		const error = stringValue(child, "error");
-		if (endedAt !== void 0) entry.endedAt = endedAt;
-		if (engine) entry.engine = engine;
-		if (mode) entry.mode = mode;
-		if (model) entry.model = model;
-		if (sessionKey) entry.sessionKey = sessionKey;
-		if (runId) entry.runId = runId;
-		if (error) entry.error = error;
-		return entry;
+			startedAt: requiredNumber(child, "started_at"),
+			endedAt: numberValue(child, "ended_at"),
+			engine: stringValue(child, "engine"),
+			mode: stringValue(child, "mode"),
+			model: stringValue(child, "model"),
+			sessionKey: stringValue(child, "session_key"),
+			runId: stringValue(child, "run_id"),
+			error: stringValue(child, "error")
+		});
 	});
 	const comments = childRows(db, "workboard_card_comments", cardId, preloaded).map((child) => {
-		const entry = {
+		return definedFields({
 			id: requiredString(child, "id"),
 			body: requiredString(child, "body"),
-			createdAt: requiredNumber(child, "created_at")
-		};
-		const updatedAt = numberValue(child, "updated_at");
-		if (updatedAt !== void 0) entry.updatedAt = updatedAt;
-		return entry;
+			createdAt: requiredNumber(child, "created_at"),
+			updatedAt: numberValue(child, "updated_at")
+		});
 	});
 	const links = childRows(db, "workboard_card_links", cardId, preloaded).map((child) => {
-		const entry = {
+		return definedFields({
 			id: requiredString(child, "id"),
 			type: requiredString(child, "type"),
-			createdAt: requiredNumber(child, "created_at")
-		};
-		const targetCardId = stringValue(child, "target_card_id");
-		const title = stringValue(child, "title");
-		const url = stringValue(child, "url");
-		if (targetCardId) entry.targetCardId = targetCardId;
-		if (title) entry.title = title;
-		if (url) entry.url = url;
-		return entry;
+			createdAt: requiredNumber(child, "created_at"),
+			targetCardId: stringValue(child, "target_card_id"),
+			title: stringValue(child, "title"),
+			url: stringValue(child, "url")
+		});
 	});
 	const proof = childRows(db, "workboard_card_proof", cardId, preloaded).map((child) => {
-		const entry = {
+		return definedFields({
 			id: requiredString(child, "id"),
 			status: requiredString(child, "status"),
-			createdAt: requiredNumber(child, "created_at")
-		};
-		const label = stringValue(child, "label");
-		const command = stringValue(child, "command");
-		const url = stringValue(child, "url");
-		const note = stringValue(child, "note");
-		if (label) entry.label = label;
-		if (command) entry.command = command;
-		if (url) entry.url = url;
-		if (note) entry.note = note;
-		return entry;
+			createdAt: requiredNumber(child, "created_at"),
+			label: stringValue(child, "label"),
+			command: stringValue(child, "command"),
+			url: stringValue(child, "url"),
+			note: stringValue(child, "note")
+		});
 	});
 	const artifacts = childRows(db, "workboard_card_artifacts", cardId, preloaded).map((child) => {
-		const entry = {
+		return definedFields({
 			id: requiredString(child, "id"),
-			createdAt: requiredNumber(child, "created_at")
-		};
-		const label = stringValue(child, "label");
-		const url = stringValue(child, "url");
-		const artifactPath = stringValue(child, "path");
-		const mimeType = stringValue(child, "mime_type");
-		if (label) entry.label = label;
-		if (url) entry.url = url;
-		if (artifactPath) entry.path = artifactPath;
-		if (mimeType) entry.mimeType = mimeType;
-		return entry;
+			createdAt: requiredNumber(child, "created_at"),
+			label: stringValue(child, "label"),
+			url: stringValue(child, "url"),
+			path: stringValue(child, "path"),
+			mimeType: stringValue(child, "mime_type")
+		});
 	});
 	const attachments = childRows(db, "workboard_card_attachments", cardId, preloaded).map(readAttachment);
 	const workerLogs = childRows(db, "workboard_worker_logs", cardId, preloaded).map((child) => {
-		const entry = {
+		return definedFields({
 			id: requiredString(child, "id"),
 			createdAt: requiredNumber(child, "created_at"),
 			level: requiredString(child, "level"),
-			message: requiredString(child, "message")
-		};
-		const sessionKey = stringValue(child, "session_key");
-		const runId = stringValue(child, "run_id");
-		if (sessionKey) entry.sessionKey = sessionKey;
-		if (runId) entry.runId = runId;
-		return entry;
+			message: requiredString(child, "message"),
+			sessionKey: stringValue(child, "session_key"),
+			runId: stringValue(child, "run_id")
+		});
 	});
 	const diagnostics = childRows(db, "workboard_card_diagnostics", cardId, preloaded).map((child) => ({
 		kind: requiredString(child, "kind"),
@@ -267,48 +233,43 @@ function readMetadata(db, row, preloaded) {
 		actions: parseJson(child.actions_json) ?? []
 	}));
 	const notifications = childRows(db, "workboard_card_notifications", cardId, preloaded).map((child) => {
-		const entry = {
+		return definedFields({
 			id: requiredString(child, "id"),
 			kind: requiredString(child, "kind"),
 			createdAt: requiredNumber(child, "created_at"),
-			message: requiredString(child, "message")
-		};
-		const sequence = numberValue(child, "sequence");
-		const sessionKey = stringValue(child, "session_key");
-		const runId = stringValue(child, "run_id");
-		if (sequence !== void 0) entry.sequence = sequence;
-		if (sessionKey) entry.sessionKey = sessionKey;
-		if (runId) entry.runId = runId;
-		return entry;
+			message: requiredString(child, "message"),
+			sequence: numberValue(child, "sequence"),
+			sessionKey: stringValue(child, "session_key"),
+			runId: stringValue(child, "run_id")
+		});
 	});
 	const protocol = workerProtocolRow(db, cardId, preloaded);
 	const automation = parseJson(row.automation_json);
 	const claim = parseJson(row.claim_json);
 	const stale = parseJson(row.stale_json);
-	const lifecycleStatusSourceUpdatedAt = numberValue(row, "lifecycle_status_source_updated_at");
-	return optional({
-		...attempts.length > 0 ? { attempts } : {},
-		...comments.length > 0 ? { comments } : {},
-		...links.length > 0 ? { links } : {},
-		...proof.length > 0 ? { proof } : {},
-		...artifacts.length > 0 ? { artifacts } : {},
-		...attachments.length > 0 ? { attachments } : {},
-		...workerLogs.length > 0 ? { workerLogs } : {},
-		...protocol ? { workerProtocol: {
+	return optional(definedFields({
+		attempts: attempts.length > 0 ? attempts : void 0,
+		comments: comments.length > 0 ? comments : void 0,
+		links: links.length > 0 ? links : void 0,
+		proof: proof.length > 0 ? proof : void 0,
+		artifacts: artifacts.length > 0 ? artifacts : void 0,
+		attachments: attachments.length > 0 ? attachments : void 0,
+		workerLogs: workerLogs.length > 0 ? workerLogs : void 0,
+		workerProtocol: protocol ? definedFields({
 			state: requiredString(protocol, "state"),
 			updatedAt: requiredNumber(protocol, "updated_at"),
-			...stringValue(protocol, "detail") ? { detail: stringValue(protocol, "detail") } : {}
-		} } : {},
-		...automation ? { automation } : {},
-		...claim ? { claim } : {},
-		...diagnostics.length > 0 ? { diagnostics } : {},
-		...notifications.length > 0 ? { notifications } : {},
-		...stringValue(row, "template_id") ? { templateId: stringValue(row, "template_id") } : {},
-		...numberValue(row, "archived_at") !== void 0 ? { archivedAt: numberValue(row, "archived_at") } : {},
-		...stale ? { stale } : {},
-		...lifecycleStatusSourceUpdatedAt !== void 0 ? { lifecycleStatusSourceUpdatedAt } : {},
-		...numberValue(row, "failure_count") !== void 0 ? { failureCount: numberValue(row, "failure_count") } : {}
-	});
+			detail: stringValue(protocol, "detail")
+		}) : void 0,
+		automation: automation || void 0,
+		claim: claim || void 0,
+		diagnostics: diagnostics.length > 0 ? diagnostics : void 0,
+		notifications: notifications.length > 0 ? notifications : void 0,
+		templateId: stringValue(row, "template_id"),
+		archivedAt: numberValue(row, "archived_at"),
+		stale: stale || void 0,
+		lifecycleStatusSourceUpdatedAt: numberValue(row, "lifecycle_status_source_updated_at"),
+		failureCount: numberValue(row, "failure_count")
+	}));
 }
 function readCard(db, row, preloaded) {
 	const card = {
@@ -324,20 +285,19 @@ function readCard(db, row, preloaded) {
 	const metadata = readMetadata(db, row, preloaded);
 	const events = readEvents(db, card.id, preloaded);
 	const execution = readExecution(row);
-	return {
+	return definedFields({
 		...card,
-		...stringValue(row, "notes") ? { notes: stringValue(row, "notes") } : {},
-		...stringValue(row, "agent_id") ? { agentId: stringValue(row, "agent_id") } : {},
-		...stringValue(row, "session_key") ? { sessionKey: stringValue(row, "session_key") } : {},
-		...stringValue(row, "run_id") ? { runId: stringValue(row, "run_id") } : {},
-		...stringValue(row, "task_id") ? { taskId: stringValue(row, "task_id") } : {},
-		...stringValue(row, "source_url") ? { sourceUrl: stringValue(row, "source_url") } : {},
-		...execution ? { execution } : {},
-		...numberValue(row, "started_at") !== void 0 ? { startedAt: numberValue(row, "started_at") } : {},
-		...numberValue(row, "completed_at") !== void 0 ? { completedAt: numberValue(row, "completed_at") } : {},
-		...events ? { events } : {},
-		...metadata ? { metadata } : {}
-	};
+		notes: stringValue(row, "notes"),
+		agentId: stringValue(row, "agent_id"),
+		sessionKey: stringValue(row, "session_key"),
+		runId: stringValue(row, "run_id"),
+		sourceUrl: stringValue(row, "source_url"),
+		execution,
+		startedAt: numberValue(row, "started_at"),
+		completedAt: numberValue(row, "completed_at"),
+		events,
+		metadata
+	});
 }
 //#endregion
 //#region extensions/workboard/src/sqlite-store-schema.ts
@@ -364,12 +324,25 @@ const WORKBOARD_SCHEMA_SQL = `
       description TEXT,
       icon TEXT,
       color TEXT,
+      kind TEXT,
+      sessions_spec TEXT,
       automation_job_id TEXT,
       default_workspace_json TEXT,
       orchestration_json TEXT,
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL,
       archived_at INTEGER
+    ) STRICT;
+
+    CREATE TABLE IF NOT EXISTS workboard_session_placements (
+      board_id TEXT NOT NULL REFERENCES workboard_boards(id) ON DELETE CASCADE,
+      session_key TEXT NOT NULL,
+      column_id TEXT NOT NULL,
+      source TEXT NOT NULL CHECK(source IN ('state', 'model', 'operator')),
+      reason TEXT NOT NULL,
+      facts_hash TEXT NOT NULL,
+      updated_at INTEGER NOT NULL,
+      PRIMARY KEY(board_id, session_key)
     ) STRICT;
 
     CREATE TABLE IF NOT EXISTS workboard_cards (
@@ -586,7 +559,8 @@ const WORKBOARD_SCHEMA_SQL = `
 function ensureWorkboardSchema(db) {
 	db.exec(WORKBOARD_SCHEMA_SQL);
 	ensureColumn(db, "workboard_boards", "automation_job_id", "automation_job_id TEXT");
-	ensureColumn(db, "workboard_cards", "lifecycle_status_source_updated_at", "lifecycle_status_source_updated_at INTEGER");
+	ensureColumn(db, "workboard_boards", "kind", "kind TEXT");
+	ensureColumn(db, "workboard_boards", "sessions_spec", "sessions_spec TEXT");
 	const migrationId = `schema-${SCHEMA_VERSION}`;
 	if (!db.prepare("SELECT 1 AS found FROM workboard_schema_migrations WHERE id = ?").get(migrationId)) {
 		migrateSqliteSchemaToStrict(db, WORKBOARD_SCHEMA_SQL, { databaseLabel: "workboard database" });
@@ -657,6 +631,122 @@ function createWorkboardDatabase(dbPath, retainClose) {
 	}
 }
 //#endregion
+//#region extensions/workboard/src/sqlite-store-sessions-board.ts
+const PREVIOUS_DEFAULT_RULES = new Map(Object.entries({
+	"needs-input": { health: ["waiting-on-user"] },
+	working: {
+		health: [
+			"on-track",
+			"grinding",
+			"wrapping-up"
+		],
+		run: ["active"]
+	},
+	stuck: { health: ["stuck", "failed"] },
+	"in-review": { pullRequest: ["open", "draft"] },
+	merged: { pullRequest: ["merged"] },
+	done: { health: ["done"] }
+}).map(([id, match]) => [id, JSON.stringify(match)]));
+var WorkboardSqliteSessionsBoardStore = class {
+	constructor(db, boards) {
+		this.db = db;
+		this.boards = boards;
+	}
+	get(boardId) {
+		const board = this.boards.lookup(boardId)?.board;
+		if (!board) throw new Error(`board not found: ${boardId}`);
+		if (board.kind !== "sessions" || !board.sessions) throw new Error("This board is not a Sessions board.");
+		return {
+			...board,
+			kind: "sessions",
+			sessions: board.sessions
+		};
+	}
+	update(boardId, patch) {
+		return runSqliteImmediateTransactionSync(this.db, () => {
+			const current = this.get(boardId);
+			const sessions = patchWorkboardSessionsBoardSpec(current.sessions, patch);
+			const updatedAt = Math.max(Date.now(), current.updatedAt + 1);
+			executeSqliteQuerySync(this.db, getNodeSqliteKysely(this.db).updateTable("workboard_boards").set({
+				sessions_spec: JSON.stringify(sessions),
+				updated_at: updatedAt
+			}).where("id", "=", boardId));
+			return {
+				...current,
+				sessions,
+				updatedAt
+			};
+		});
+	}
+	listPlacements(boardId) {
+		const query = getNodeSqliteKysely(this.db).selectFrom("workboard_session_placements").selectAll().where("board_id", "=", boardId).orderBy("session_key", "asc");
+		return Array.from(iterateSqliteQuerySync(this.db, query), (row) => ({
+			sessionKey: row.session_key,
+			columnId: row.column_id,
+			source: row.source,
+			reason: row.reason,
+			factsHash: row.facts_hash,
+			updatedAt: row.updated_at
+		}));
+	}
+	repairPlacements() {
+		return runSqliteImmediateTransactionSync(this.db, () => {
+			const query = getNodeSqliteKysely(this.db);
+			const placements = Number(executeSqliteQuerySync(this.db, query.deleteFrom("workboard_session_placements").where("source", "!=", "operator")).numAffectedRows ?? 0n);
+			const defaults = createDefaultWorkboardSessionsBoardSpec().columns;
+			let boards = 0;
+			for (const { id } of executeSqliteQuerySync(this.db, query.selectFrom("workboard_boards").select("id").where("kind", "=", "sessions")).rows) {
+				const board = this.get(id);
+				if (board.sessions.columns.some((column) => {
+					const previous = PREVIOUS_DEFAULT_RULES.get(column.id);
+					return previous === void 0 || JSON.stringify(column.match) !== previous;
+				})) continue;
+				const columns = board.sessions.columns.map((column) => ({
+					...column,
+					match: defaults.find((entry) => entry.id === column.id)?.match
+				}));
+				if (columns.map((column) => column.id).join(",") === [...PREVIOUS_DEFAULT_RULES.keys()].join(",")) columns.splice(1, 0, ...columns.splice(2, 1));
+				if (JSON.stringify(columns) !== JSON.stringify(board.sessions.columns)) {
+					this.update(id, { columns });
+					boards += 1;
+				}
+			}
+			return {
+				placements,
+				boards
+			};
+		});
+	}
+	writePlacement(boardId, placement, expectedSpec) {
+		const expected = JSON.stringify(normalizeWorkboardSessionsBoardSpec(expectedSpec));
+		return runSqliteImmediateTransactionSync(this.db, () => {
+			const board = this.get(boardId);
+			if (JSON.stringify(board.sessions) !== expected) return false;
+			if (!board.sessions.columns.some((column) => column.id === placement.columnId)) throw new Error(`Unknown sessions board column: ${placement.columnId}`);
+			if (!placement.sessionKey || placement.source !== "operator" || typeof placement.reason !== "string" || !Number.isSafeInteger(placement.updatedAt) || placement.updatedAt < 0) throw new Error("Invalid session pin.");
+			const query = getNodeSqliteKysely(this.db);
+			const current = executeSqliteQueryTakeFirstSync(this.db, query.selectFrom("workboard_session_placements").select("updated_at").where("board_id", "=", boardId).where("session_key", "=", placement.sessionKey));
+			if (current?.updated_at !== placement.expectedUpdatedAt) return false;
+			executeSqliteQuerySync(this.db, query.insertInto("workboard_session_placements").values({
+				board_id: boardId,
+				session_key: placement.sessionKey,
+				column_id: placement.columnId,
+				source: "operator",
+				reason: placement.reason,
+				facts_hash: "",
+				updated_at: Math.max(placement.updatedAt, (current?.updated_at ?? -1) + 1)
+			}).onConflict((conflict) => conflict.columns(["board_id", "session_key"]).doUpdateSet((eb) => ({
+				column_id: eb.ref("excluded.column_id"),
+				source: eb.ref("excluded.source"),
+				reason: eb.ref("excluded.reason"),
+				facts_hash: eb.ref("excluded.facts_hash"),
+				updated_at: eb.ref("excluded.updated_at")
+			}))));
+			return true;
+		});
+	}
+};
+//#endregion
 //#region extensions/workboard/src/sqlite-store-write.ts
 function cardBoardId(card) {
 	return card.metadata?.automation?.boardId ?? "default";
@@ -665,12 +755,20 @@ function bindNull(value) {
 	if (value === void 0 || value === null || typeof value === "string" || typeof value === "number" || typeof value === "bigint" || value instanceof Uint8Array) return value ?? null;
 	return JSON.stringify(value);
 }
-function insertChildren(db, table, cardId, entries, insert) {
-	const { compiled, bind } = compileSqliteQueryBindings(() => getNodeSqliteKysely(db).deleteFrom(table).where("card_id", "=", cardId));
-	db.prepare(compiled.sql).run(...bind());
-	entries?.forEach(insert);
+function insertChildren(db, table, cardId, entries, fields) {
+	const deletion = compileSqliteQueryBindings(() => getNodeSqliteKysely(db).deleteFrom(table).where("card_id", "=", cardId));
+	db.prepare(deletion.compiled.sql).run(...deletion.bind());
+	if (entries?.length) {
+		const { compiled, bind } = compileSqliteQueryBindings((parameter) => getNodeSqliteKysely(db).insertInto(table).values({
+			ordinal: parameter(([, ordinal]) => ordinal),
+			...Object.fromEntries(Object.entries(fields).map(([column, read]) => [column, parameter(([entry]) => read(entry))]))
+		}));
+		const statement = db.prepare(compiled.sql);
+		entries.forEach((entry, ordinal) => statement.run(...bind([entry, ordinal])));
+	}
 }
 function insertCard(db, card) {
+	if (executeSqliteQueryTakeFirstSync(db, getNodeSqliteKysely(db).selectFrom("workboard_boards").select("kind").where("id", "=", cardBoardId(card)))?.kind === "sessions") throw new Error("Sessions boards do not hold cards");
 	const execution = card.execution;
 	const metadata = card.metadata;
 	const query = getNodeSqliteKysely(db);
@@ -684,7 +782,6 @@ function insertCard(db, card) {
 		agent_id: p(() => bindNull(card.agentId)),
 		session_key: p(() => bindNull(card.sessionKey)),
 		run_id: p(() => bindNull(card.runId)),
-		task_id: p(() => bindNull(card.taskId)),
 		source_url: p(() => bindNull(card.sourceUrl)),
 		position: p(() => card.position),
 		created_at: p(() => card.createdAt),
@@ -717,7 +814,6 @@ function insertCard(db, card) {
 		agent_id: eb.ref("excluded.agent_id"),
 		session_key: eb.ref("excluded.session_key"),
 		run_id: eb.ref("excluded.run_id"),
-		task_id: eb.ref("excluded.task_id"),
 		source_url: eb.ref("excluded.source_url"),
 		position: eb.ref("excluded.position"),
 		created_at: eb.ref("excluded.created_at"),
@@ -743,150 +839,106 @@ function insertCard(db, card) {
 		failure_count: eb.ref("excluded.failure_count")
 	}))));
 	db.prepare(parent.compiled.sql).run(...parent.bind());
-	insertChildren(db, "workboard_card_labels", card.id, card.labels, (label, ordinal) => {
-		const { compiled, bind } = compileSqliteQueryBindings((p) => query.insertInto("workboard_card_labels").values({
-			card_id: p(() => card.id),
-			ordinal: p(() => ordinal),
-			label: p(() => label)
-		}));
-		db.prepare(compiled.sql).run(...bind());
+	insertChildren(db, "workboard_card_labels", card.id, card.labels, {
+		card_id: () => card.id,
+		label: (label) => label
 	});
-	insertChildren(db, "workboard_card_events", card.id, card.events, (event, ordinal) => {
-		const { compiled, bind } = compileSqliteQueryBindings((p) => query.insertInto("workboard_card_events").values({
-			id: p(() => event.id),
-			card_id: p(() => card.id),
-			ordinal: p(() => ordinal),
-			kind: p(() => event.kind),
-			at: p(() => event.at),
-			from_status: p(() => bindNull(event.fromStatus)),
-			to_status: p(() => bindNull(event.toStatus)),
-			session_key: p(() => bindNull(event.sessionKey)),
-			run_id: p(() => bindNull(event.runId))
-		}));
-		db.prepare(compiled.sql).run(...bind());
+	insertChildren(db, "workboard_card_events", card.id, card.events, {
+		id: (event) => event.id,
+		card_id: () => card.id,
+		kind: (event) => event.kind,
+		at: (event) => event.at,
+		from_status: (event) => bindNull(event.fromStatus),
+		to_status: (event) => bindNull(event.toStatus),
+		session_key: (event) => bindNull(event.sessionKey),
+		run_id: (event) => bindNull(event.runId)
 	});
-	insertChildren(db, "workboard_card_attempts", card.id, metadata?.attempts, (entry, ordinal) => {
-		const { compiled, bind } = compileSqliteQueryBindings((p) => query.insertInto("workboard_card_attempts").values({
-			id: p(() => entry.id),
-			card_id: p(() => card.id),
-			ordinal: p(() => ordinal),
-			status: p(() => entry.status),
-			started_at: p(() => entry.startedAt),
-			ended_at: p(() => bindNull(entry.endedAt)),
-			engine: p(() => bindNull(entry.engine)),
-			mode: p(() => bindNull(entry.mode)),
-			model: p(() => bindNull(entry.model)),
-			session_key: p(() => bindNull(entry.sessionKey)),
-			run_id: p(() => bindNull(entry.runId)),
-			error: p(() => bindNull(entry.error))
-		}));
-		db.prepare(compiled.sql).run(...bind());
+	insertChildren(db, "workboard_card_attempts", card.id, metadata?.attempts, {
+		id: (entry) => entry.id,
+		card_id: () => card.id,
+		status: (entry) => entry.status,
+		started_at: (entry) => entry.startedAt,
+		ended_at: (entry) => bindNull(entry.endedAt),
+		engine: (entry) => bindNull(entry.engine),
+		mode: (entry) => bindNull(entry.mode),
+		model: (entry) => bindNull(entry.model),
+		session_key: (entry) => bindNull(entry.sessionKey),
+		run_id: (entry) => bindNull(entry.runId),
+		error: (entry) => bindNull(entry.error)
 	});
-	insertChildren(db, "workboard_card_comments", card.id, metadata?.comments, (entry, ordinal) => {
-		const { compiled, bind } = compileSqliteQueryBindings((p) => query.insertInto("workboard_card_comments").values({
-			id: p(() => entry.id),
-			card_id: p(() => card.id),
-			ordinal: p(() => ordinal),
-			body: p(() => entry.body),
-			created_at: p(() => entry.createdAt),
-			updated_at: p(() => bindNull(entry.updatedAt))
-		}));
-		db.prepare(compiled.sql).run(...bind());
+	insertChildren(db, "workboard_card_comments", card.id, metadata?.comments, {
+		id: (entry) => entry.id,
+		card_id: () => card.id,
+		body: (entry) => entry.body,
+		created_at: (entry) => entry.createdAt,
+		updated_at: (entry) => bindNull(entry.updatedAt)
 	});
-	insertChildren(db, "workboard_card_links", card.id, metadata?.links, (entry, ordinal) => {
-		const { compiled, bind } = compileSqliteQueryBindings((p) => query.insertInto("workboard_card_links").values({
-			id: p(() => entry.id),
-			card_id: p(() => card.id),
-			ordinal: p(() => ordinal),
-			type: p(() => entry.type),
-			target_card_id: p(() => bindNull(entry.targetCardId)),
-			title: p(() => bindNull(entry.title)),
-			url: p(() => bindNull(entry.url)),
-			created_at: p(() => entry.createdAt)
-		}));
-		db.prepare(compiled.sql).run(...bind());
+	insertChildren(db, "workboard_card_links", card.id, metadata?.links, {
+		id: (entry) => entry.id,
+		card_id: () => card.id,
+		type: (entry) => entry.type,
+		target_card_id: (entry) => bindNull(entry.targetCardId),
+		title: (entry) => bindNull(entry.title),
+		url: (entry) => bindNull(entry.url),
+		created_at: (entry) => entry.createdAt
 	});
-	insertChildren(db, "workboard_card_proof", card.id, metadata?.proof, (entry, ordinal) => {
-		const { compiled, bind } = compileSqliteQueryBindings((p) => query.insertInto("workboard_card_proof").values({
-			id: p(() => entry.id),
-			card_id: p(() => card.id),
-			ordinal: p(() => ordinal),
-			status: p(() => entry.status),
-			label: p(() => bindNull(entry.label)),
-			command: p(() => bindNull(entry.command)),
-			url: p(() => bindNull(entry.url)),
-			note: p(() => bindNull(entry.note)),
-			created_at: p(() => entry.createdAt)
-		}));
-		db.prepare(compiled.sql).run(...bind());
+	insertChildren(db, "workboard_card_proof", card.id, metadata?.proof, {
+		id: (entry) => entry.id,
+		card_id: () => card.id,
+		status: (entry) => entry.status,
+		label: (entry) => bindNull(entry.label),
+		command: (entry) => bindNull(entry.command),
+		url: (entry) => bindNull(entry.url),
+		note: (entry) => bindNull(entry.note),
+		created_at: (entry) => entry.createdAt
 	});
-	insertChildren(db, "workboard_card_artifacts", card.id, metadata?.artifacts, (entry, ordinal) => {
-		const { compiled, bind } = compileSqliteQueryBindings((p) => query.insertInto("workboard_card_artifacts").values({
-			id: p(() => entry.id),
-			card_id: p(() => card.id),
-			ordinal: p(() => ordinal),
-			label: p(() => bindNull(entry.label)),
-			url: p(() => bindNull(entry.url)),
-			path: p(() => bindNull(entry.path)),
-			mime_type: p(() => bindNull(entry.mimeType)),
-			created_at: p(() => entry.createdAt)
-		}));
-		db.prepare(compiled.sql).run(...bind());
+	insertChildren(db, "workboard_card_artifacts", card.id, metadata?.artifacts, {
+		id: (entry) => entry.id,
+		card_id: () => card.id,
+		label: (entry) => bindNull(entry.label),
+		url: (entry) => bindNull(entry.url),
+		path: (entry) => bindNull(entry.path),
+		mime_type: (entry) => bindNull(entry.mimeType),
+		created_at: (entry) => entry.createdAt
 	});
-	insertChildren(db, "workboard_card_attachments", card.id, metadata?.attachments, (entry, ordinal) => {
-		const { compiled, bind } = compileSqliteQueryBindings((p) => query.insertInto("workboard_card_attachments").values({
-			id: p(() => entry.id),
-			card_id: p(() => entry.cardId),
-			ordinal: p(() => ordinal),
-			file_name: p(() => entry.fileName),
-			byte_size: p(() => entry.byteSize),
-			mime_type: p(() => bindNull(entry.mimeType)),
-			note: p(() => bindNull(entry.note)),
-			created_at: p(() => entry.createdAt)
-		}));
-		db.prepare(compiled.sql).run(...bind());
+	insertChildren(db, "workboard_card_attachments", card.id, metadata?.attachments, {
+		id: (entry) => entry.id,
+		card_id: (entry) => entry.cardId,
+		file_name: (entry) => entry.fileName,
+		byte_size: (entry) => entry.byteSize,
+		mime_type: (entry) => bindNull(entry.mimeType),
+		note: (entry) => bindNull(entry.note),
+		created_at: (entry) => entry.createdAt
 	});
-	insertChildren(db, "workboard_card_diagnostics", card.id, metadata?.diagnostics, (entry, ordinal) => {
-		const { compiled, bind } = compileSqliteQueryBindings((p) => query.insertInto("workboard_card_diagnostics").values({
-			card_id: p(() => card.id),
-			ordinal: p(() => ordinal),
-			kind: p(() => entry.kind),
-			severity: p(() => entry.severity),
-			title: p(() => entry.title),
-			detail: p(() => entry.detail),
-			first_seen_at: p(() => entry.firstSeenAt),
-			last_seen_at: p(() => entry.lastSeenAt),
-			count: p(() => entry.count),
-			actions_json: p(() => JSON.stringify(entry.actions))
-		}));
-		db.prepare(compiled.sql).run(...bind());
+	insertChildren(db, "workboard_card_diagnostics", card.id, metadata?.diagnostics, {
+		card_id: () => card.id,
+		kind: (entry) => entry.kind,
+		severity: (entry) => entry.severity,
+		title: (entry) => entry.title,
+		detail: (entry) => entry.detail,
+		first_seen_at: (entry) => entry.firstSeenAt,
+		last_seen_at: (entry) => entry.lastSeenAt,
+		count: (entry) => entry.count,
+		actions_json: (entry) => JSON.stringify(entry.actions)
 	});
-	insertChildren(db, "workboard_card_notifications", card.id, metadata?.notifications, (entry, ordinal) => {
-		const { compiled, bind } = compileSqliteQueryBindings((p) => query.insertInto("workboard_card_notifications").values({
-			id: p(() => entry.id),
-			card_id: p(() => card.id),
-			ordinal: p(() => ordinal),
-			kind: p(() => entry.kind),
-			message: p(() => entry.message),
-			created_at: p(() => entry.createdAt),
-			sequence: p(() => bindNull(entry.sequence)),
-			session_key: p(() => bindNull(entry.sessionKey)),
-			run_id: p(() => bindNull(entry.runId))
-		}));
-		db.prepare(compiled.sql).run(...bind());
+	insertChildren(db, "workboard_card_notifications", card.id, metadata?.notifications, {
+		id: (entry) => entry.id,
+		card_id: () => card.id,
+		kind: (entry) => entry.kind,
+		message: (entry) => entry.message,
+		created_at: (entry) => entry.createdAt,
+		sequence: (entry) => bindNull(entry.sequence),
+		session_key: (entry) => bindNull(entry.sessionKey),
+		run_id: (entry) => bindNull(entry.runId)
 	});
-	insertChildren(db, "workboard_worker_logs", card.id, metadata?.workerLogs, (entry, ordinal) => {
-		const { compiled, bind } = compileSqliteQueryBindings((p) => query.insertInto("workboard_worker_logs").values({
-			id: p(() => entry.id),
-			card_id: p(() => card.id),
-			ordinal: p(() => ordinal),
-			level: p(() => entry.level),
-			message: p(() => entry.message),
-			created_at: p(() => entry.createdAt),
-			session_key: p(() => bindNull(entry.sessionKey)),
-			run_id: p(() => bindNull(entry.runId))
-		}));
-		db.prepare(compiled.sql).run(...bind());
+	insertChildren(db, "workboard_worker_logs", card.id, metadata?.workerLogs, {
+		id: (entry) => entry.id,
+		card_id: () => card.id,
+		level: (entry) => entry.level,
+		message: (entry) => entry.message,
+		created_at: (entry) => entry.createdAt,
+		session_key: (entry) => bindNull(entry.sessionKey),
+		run_id: (entry) => bindNull(entry.runId)
 	});
 	const protocolDelete = compileSqliteQueryBindings((p) => query.deleteFrom("workboard_worker_protocol").where("card_id", "=", p(() => card.id)));
 	db.prepare(protocolDelete.compiled.sql).run(...protocolDelete.bind());
@@ -907,9 +959,8 @@ var WorkboardSqliteCardStore = class {
 		this.db = db;
 	}
 	matchesUpdatedAt(key, expectedUpdatedAt) {
-		const { compiled, bind } = compileSqliteQueryBindings((parameter) => getNodeSqliteKysely(this.db).selectFrom("workboard_cards").select("updated_at").where("id", "=", parameter((value) => value)));
-		const current = this.db.prepare(compiled.sql).get(...bind(key));
-		return isRecord(current) && numberValue(current, "updated_at") === expectedUpdatedAt;
+		const current = executeSqliteQueryTakeFirstSync(this.db, getNodeSqliteKysely(this.db).selectFrom("workboard_cards").select("updated_at").where("id", "=", key));
+		return current !== void 0 && numberValue(current, "updated_at") === expectedUpdatedAt;
 	}
 	validatePayload(key, value) {
 		if (value.version !== 1 || value.card.id !== key) throw new Error("invalid workboard card payload");
@@ -1076,23 +1127,27 @@ var WorkboardSqliteCardStore = class {
 	}
 };
 function readBoard(row) {
+	const kind = stringValue(row, "kind");
+	if (kind !== void 0 && kind !== "cards" && kind !== "sessions") throw new Error("invalid workboard board kind");
 	const defaultWorkspace = parseJson(row.default_workspace_json);
 	const orchestration = parseJson(row.orchestration_json);
 	return {
 		version: 1,
-		board: {
+		board: definedFields({
 			id: requiredString(row, "id"),
-			...stringValue(row, "name") ? { name: stringValue(row, "name") } : {},
-			...stringValue(row, "description") ? { description: stringValue(row, "description") } : {},
-			...stringValue(row, "icon") ? { icon: stringValue(row, "icon") } : {},
-			...stringValue(row, "color") ? { color: stringValue(row, "color") } : {},
-			...stringValue(row, "automation_job_id") ? { automationJobId: stringValue(row, "automation_job_id") } : {},
+			...kind ? { kind } : {},
+			...kind === "sessions" ? { sessions: normalizeWorkboardSessionsBoardSpec(parseJson(row.sessions_spec)) } : {},
+			name: stringValue(row, "name"),
+			description: stringValue(row, "description"),
+			icon: stringValue(row, "icon"),
+			color: stringValue(row, "color"),
+			automationJobId: stringValue(row, "automation_job_id"),
 			...defaultWorkspace ? { defaultWorkspace } : {},
 			...orchestration ? { orchestration } : {},
 			createdAt: requiredNumber(row, "created_at"),
 			updatedAt: requiredNumber(row, "updated_at"),
-			...numberValue(row, "archived_at") !== void 0 ? { archivedAt: numberValue(row, "archived_at") } : {}
-		}
+			archivedAt: numberValue(row, "archived_at")
+		})
 	};
 }
 var WorkboardSqliteBoardStore = class {
@@ -1109,6 +1164,8 @@ var WorkboardSqliteBoardStore = class {
 			description: parameter(() => bindNull(board.description)),
 			icon: parameter(() => bindNull(board.icon)),
 			color: parameter(() => bindNull(board.color)),
+			kind: parameter(() => bindNull(board.kind)),
+			sessions_spec: parameter(() => board.kind === "sessions" ? jsonValue(normalizeWorkboardSessionsBoardSpec(board.sessions)) : null),
 			automation_job_id: parameter(() => bindNull(board.automationJobId)),
 			default_workspace_json: parameter(() => jsonValue(board.defaultWorkspace)),
 			orchestration_json: parameter(() => jsonValue(board.orchestration)),
@@ -1127,14 +1184,23 @@ var WorkboardSqliteBoardStore = class {
 			updated_at: eb.ref("excluded.updated_at"),
 			archived_at: eb.ref("excluded.archived_at")
 		}))));
-		this.db.prepare(compiled.sql).run(...bind());
+		const statement = this.db.prepare(compiled.sql);
+		runSqliteImmediateTransactionSync(this.db, () => {
+			const existing = this.lookup(key)?.board;
+			if (existing && (existing.kind ?? "cards") !== (board.kind ?? "cards")) throw new Error("board kind cannot be changed after creation.");
+			if (board.kind === "sessions" && !existing) {
+				const card = executeSqliteQueryTakeFirstSync(this.db, getNodeSqliteKysely(this.db).selectFrom("workboard_cards").select("id").where("board_id", "=", key).limit(1));
+				if (key === "default" || card) throw new Error("board kind cannot be changed after creation.");
+			}
+			statement.run(...bind());
+		});
 	}
 	lookup(key) {
 		const row = executeSqliteQueryTakeFirstSync(this.db, this.rowsQuery.where("id", "=", key));
 		return row ? readBoard(row) : void 0;
 	}
 	delete(key) {
-		return this.db.prepare("DELETE FROM workboard_boards WHERE id = ?").run(key).changes > 0;
+		return (executeSqliteQuerySync(this.db, getNodeSqliteKysely(this.db).deleteFrom("workboard_boards").where("id", "=", key)).numAffectedRows ?? 0n) > 0n;
 	}
 	entries() {
 		return Array.from(iterateSqliteQuerySync(this.db, this.rowsQuery.orderBy("id", "asc")), (row) => ({
@@ -1148,21 +1214,21 @@ function readSubscription(row) {
 	const deliveredEventIds = parseJson(row.delivered_event_ids_json);
 	return {
 		version: 1,
-		subscription: {
+		subscription: definedFields({
 			id: requiredString(row, "id"),
 			boardId: requiredString(row, "board_id"),
-			...stringValue(row, "card_id") ? { cardId: stringValue(row, "card_id") } : {},
-			...stringValue(row, "session_key") ? { sessionKey: stringValue(row, "session_key") } : {},
-			...stringValue(row, "run_id") ? { runId: stringValue(row, "run_id") } : {},
-			...stringValue(row, "target") ? { target: stringValue(row, "target") } : {},
+			cardId: stringValue(row, "card_id"),
+			sessionKey: stringValue(row, "session_key"),
+			runId: stringValue(row, "run_id"),
+			target: stringValue(row, "target"),
 			...eventKinds ? { eventKinds } : {},
-			...numberValue(row, "last_event_at") !== void 0 ? { lastEventAt: numberValue(row, "last_event_at") } : {},
-			...stringValue(row, "last_event_id") ? { lastEventId: stringValue(row, "last_event_id") } : {},
-			...numberValue(row, "last_event_sequence") !== void 0 ? { lastEventSequence: numberValue(row, "last_event_sequence") } : {},
+			lastEventAt: numberValue(row, "last_event_at"),
+			lastEventId: stringValue(row, "last_event_id"),
+			lastEventSequence: numberValue(row, "last_event_sequence"),
 			...deliveredEventIds ? { deliveredEventIds } : {},
 			createdAt: requiredNumber(row, "created_at"),
 			updatedAt: requiredNumber(row, "updated_at")
-		}
+		})
 	};
 }
 var WorkboardSqliteSubscriptionStore = class {
@@ -1239,7 +1305,7 @@ var WorkboardSqliteAttachmentStore = class {
           INSERT INTO workboard_attachment_blobs (attachment_id, content)
           VALUES (?, ?)
           ON CONFLICT(attachment_id) DO UPDATE SET content = excluded.content
-        `).run(attachment.id, asBlobContent(value.contentBase64));
+        `).run(attachment.id, Buffer.from(value.contentBase64, "base64"));
 	}
 	lookup(key) {
 		const row = executeSqliteQueryTakeFirstSync(this.db, this.rowsQuery.where("a.id", "=", key));
@@ -1260,9 +1326,11 @@ var WorkboardSqliteAttachmentStore = class {
 };
 function createWorkboardSqliteKernel(dbPath, retainClose) {
 	const { db, close } = createWorkboardDatabase(dbPath, retainClose);
+	const boards = new WorkboardSqliteBoardStore(db);
 	return {
 		cards: new WorkboardSqliteCardStore(db),
-		boards: new WorkboardSqliteBoardStore(db),
+		boards,
+		sessionsBoard: new WorkboardSqliteSessionsBoardStore(db, boards),
 		subscriptions: new WorkboardSqliteSubscriptionStore(db),
 		attachments: new WorkboardSqliteAttachmentStore(db),
 		dataVersion: () => requiredNumber(db.prepare("PRAGMA data_version").get(), "data_version"),
@@ -1307,6 +1375,11 @@ function createSqliteWorkerBackend(_input, context) {
 			case "boards.lookup": return kernel.boards.lookup(...command.input.args);
 			case "boards.delete": return kernel.boards.delete(...command.input.args);
 			case "boards.entries": return kernel.boards.entries(...command.input.args);
+			case "sessionsBoard.get": return kernel.sessionsBoard.get(...command.input.args);
+			case "sessionsBoard.update": return kernel.sessionsBoard.update(...command.input.args);
+			case "sessionsBoard.listPlacements": return kernel.sessionsBoard.listPlacements(...command.input.args);
+			case "sessionsBoard.repairPlacements": return kernel.sessionsBoard.repairPlacements(...command.input.args);
+			case "sessionsBoard.writePlacement": return kernel.sessionsBoard.writePlacement(...command.input.args);
 			case "subscriptions.register": return kernel.subscriptions.register(...command.input.args);
 			case "subscriptions.lookup": return kernel.subscriptions.lookup(...command.input.args);
 			case "subscriptions.delete": return kernel.subscriptions.delete(...command.input.args);

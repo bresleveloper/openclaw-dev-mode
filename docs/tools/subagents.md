@@ -12,7 +12,7 @@ sidebarTitle: "Sub-agents"
 Sub-agents are background agent runs spawned from an existing agent run.
 Each one runs in its own session (`agent:<agentId>:subagent:<uuid>`) and,
 by default, **announces** its result back to the requester for review.
-Every sub-agent run is tracked as a [background task](/automation/tasks).
+Subagent runs are tracked by the native subagent lifecycle owner.
 
 Goals:
 
@@ -31,6 +31,10 @@ genuinely needs the requester's current transcript, spawn it with
 `context: "fork"` because they branch the current conversation into a
 follow-up thread.
 </Note>
+
+The Control UI shows the assigned task without model-only subagent instructions.
+Named subagent sessions use their task title without an automatic “Subagent:”
+prefix; their parent relationship and view-only state still identify the run.
 
 A subagent run ends; a session does not. When you open a subagent run in the
 Control UI, its transcript is view-only. Use **Open parent session** in the
@@ -146,7 +150,6 @@ the page that now holds the content.
 - [Session tools and state changes](/concepts/session-tool)
 - [ACP agents](/tools/acp-agents)
 - [Agent send](/tools/agent-send)
-- [Background tasks](/automation/tasks)
 - [Multi-agent sandbox tools](/tools/multi-agent-sandbox-tools)
 - [Parallel specialist lanes](/concepts/parallel-specialist-lanes) — role-scoped lanes for a single job
 - [Steer](/tools/steer) — redirect a running agent mid-task

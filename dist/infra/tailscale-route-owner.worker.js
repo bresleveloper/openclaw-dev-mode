@@ -1,12 +1,15 @@
-import { c as isRecord } from "../record-coerce-DItp3I4t.mjs";
-import { r as signalProcessTree } from "../kill-tree-BGQdx374.mjs";
+import { t as createDeferredCore } from "../deferred-D0La5CRk.mjs";
+import { c as isRecord } from "../record-coerce-TIsquoVR.mjs";
+import { r as signalProcessTree } from "../kill-tree-ecObdMeW.mjs";
 import "../tailscale-route-owner-protocol-B2D1XMya.mjs";
 import process from "node:process";
-import { spawn } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
+import { promisify } from "node:util";
 //#region src/infra/tailscale-route-owner.worker.ts
 const READY_MARKER = "Press Ctrl+C to exit.";
 const OUTPUT_LIMIT = 2e5;
 const STOP_GRACE_MS = 2e3;
+const execFileAsync = promisify(execFile);
 function appendBounded(current, chunk) {
 	const next = current + chunk.toString();
 	return next.length <= OUTPUT_LIMIT ? next : next.slice(next.length - OUTPUT_LIMIT);
@@ -23,9 +26,26 @@ function send(message) {
 		process.send(message, () => void 0);
 	} catch {}
 }
-function signalChild(child, signal) {
+async function signalChild(child, signal, privileged, onError) {
 	if (typeof child.pid !== "number" || child.pid <= 0) return;
 	if (process.platform !== "win32") {
+		if (privileged) {
+			try {
+				await execFileAsync("sudo", [
+					"-n",
+					"/bin/kill",
+					`-${signal.slice(3)}`,
+					"--",
+					`-${child.pid}`
+				], {
+					timeout: 5e3,
+					maxBuffer: 16384
+				});
+			} catch {
+				onError(`Could not stop the owned Tailscale process group ${child.pid} through sudo. Run \`sudo /bin/kill -TERM -- -${child.pid}\` to stop it, then \`sudo tailscale set --operator=\$USER\` to avoid privileged claims.`);
+			}
+			return;
+		}
 		signalProcessTree(child.pid, signal, { detached: true });
 		return;
 	}
@@ -35,15 +55,16 @@ function runTailscaleRouteOwner(start, sendMessage = send) {
 	const command = start.argv[0];
 	if (!command) throw new Error("Tailscale route-owner command is empty");
 	const args = start.argv.slice(1);
-	let stdout = "";
-	let stderr = "";
+	const output = {
+		stdout: "",
+		stderr: ""
+	};
 	let ready = false;
 	let stopping = false;
+	let closed = false;
 	let forceTimer;
-	let resolveExit;
-	const exited = new Promise((resolve) => {
-		resolveExit = resolve;
-	});
+	const signalOperations = [];
+	const exit = createDeferredCore();
 	const child = spawn(command, args, {
 		detached: process.platform !== "win32",
 		stdio: [
@@ -54,10 +75,18 @@ function runTailscaleRouteOwner(start, sendMessage = send) {
 		windowsHide: true
 	});
 	const stop = () => {
-		if (stopping) return;
+		if (stopping || closed) return;
 		stopping = true;
-		signalChild(child, "SIGTERM");
-		forceTimer = setTimeout(() => signalChild(child, "SIGKILL"), STOP_GRACE_MS);
+		const signal = (value) => {
+			signalOperations.push(signalChild(child, value, command === "sudo" && args[0] === "-n", (message) => {
+				if (!closed) sendMessage({
+					type: "stop-failed",
+					message
+				});
+			}));
+		};
+		signal("SIGTERM");
+		forceTimer = setTimeout(() => signal("SIGKILL"), STOP_GRACE_MS);
 		forceTimer.unref?.();
 	};
 	child.once("spawn", () => {
@@ -66,40 +95,35 @@ function runTailscaleRouteOwner(start, sendMessage = send) {
 			pid: child.pid
 		});
 	});
-	child.stdout?.on("data", (chunk) => {
-		stdout = appendBounded(stdout, chunk);
-		if (!ready && stdout.includes(READY_MARKER)) {
-			ready = true;
-			sendMessage({ type: "ready" });
-		}
-	});
-	child.stderr?.on("data", (chunk) => {
-		stderr = appendBounded(stderr, chunk);
-		if (!ready && stderr.includes(READY_MARKER)) {
+	for (const stream of ["stdout", "stderr"]) child[stream]?.on("data", (chunk) => {
+		output[stream] = appendBounded(output[stream], chunk);
+		if (!ready && output[stream].includes(READY_MARKER)) {
 			ready = true;
 			sendMessage({ type: "ready" });
 		}
 	});
 	child.once("error", (error) => {
-		stderr = appendBounded(stderr, error instanceof Error ? error.message : String(error));
+		output.stderr = appendBounded(output.stderr, error instanceof Error ? error.message : String(error));
 	});
 	child.once("close", (code, signal) => {
+		closed = true;
 		if (forceTimer) clearTimeout(forceTimer);
-		if (!stopping || !ready) sendMessage({
-			type: "failed",
-			code,
-			signal,
-			stdout,
-			stderr
-		});
-		resolveExit({
-			code,
-			signal,
-			stopping
+		Promise.all(signalOperations).then(() => {
+			if (!stopping || !ready) sendMessage({
+				type: "failed",
+				code,
+				signal,
+				...output
+			});
+			exit.resolve({
+				code,
+				signal,
+				stopping
+			});
 		});
 	});
 	return {
-		exited,
+		exited: exit.promise,
 		stop
 	};
 }

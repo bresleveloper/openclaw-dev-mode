@@ -1,27 +1,27 @@
-import { t as asNonArrayRecord } from "../../record-coerce-DItp3I4t.mjs";
-import { y as uniqueStrings } from "../../string-normalization-_gRhJUDw.mjs";
+import { t as asNonArrayRecord } from "../../record-coerce-TIsquoVR.mjs";
+import { y as uniqueStrings } from "../../string-normalization-CECOqf64.mjs";
 import { r as truncateUtf16Safe } from "../../utf16-slice-D_ngcYKd.mjs";
-import "../../api-CJ6hmLgL.mjs";
-import { m as resolveDefaultAgentId } from "../../agent-scope-config-IQKOEtZ4.mjs";
-import { t as formatErrorMessage } from "../../errors-DnjwnOju.mjs";
-import { t as ErrorCodes } from "../../gateway-error-details-D85F07e9.mjs";
-import { f as errorShape } from "../../error-codes-DvB36bCj.mjs";
-import "../../error-runtime-Bf1fYXFh.mjs";
+import { t as formatErrorMessage } from "../../errors-O33D01XW.mjs";
+import "../../api-K5hfJ7_s.mjs";
+import { g as resolveDefaultAgentId } from "../../agent-scope-config-CDYpzA0r.mjs";
+import { t as ErrorCodes } from "../../gateway-error-details-DIefe7Zy.mjs";
+import { f as errorShape } from "../../error-codes-Dh56LniQ.mjs";
+import "../../error-runtime-BmospGvZ.mjs";
+import "../../string-coerce-runtime-50qKeWeL.mjs";
+import "../../text-utility-runtime-BDs7x8Fk.mjs";
 import { n as textResult } from "../../tool-results-BCM3fdVS.mjs";
-import { d as readPositiveIntegerParam } from "../../common-XfKigJno.mjs";
-import "../../string-coerce-runtime-C_MKhRVt.mjs";
-import "../../text-utility-runtime-D7I29NA0.mjs";
-import { i as optionalFiniteNumberSchema } from "../../typebox-DIBvVmm8.mjs";
-import { n as buildPluginConfigSchema } from "../../config-schema-c9utjSlx.mjs";
-import { t as definePluginEntry } from "../../plugin-entry-BOulgRcx.mjs";
-import "../../gateway-runtime-BCC8MoQW.mjs";
-import { s as mapPluginConfigIssues } from "../../extension-shared-N0S3ppSB.mjs";
-import "../../channel-actions-BjxmEiuN.mjs";
-import "../../memory-host-core-BoCKByJ3.mjs";
-import "../../param-readers-BfezLD6d.mjs";
-import { A as ensureMemoryWikiVaultGeneration, B as setMemoryWikiDashboardState, C as listMemoryWikiImportInsights, D as initializeMemoryWikiVault, E as searchMemoryWiki, F as createMemoryWikiCompiledCacheStore, I as deactivateMemoryWikiCompiledCacheOwnersExcept, L as loadMemoryWikiCompiledCache, M as MemoryWikiDashboardUnavailableError, N as activateMemoryWikiCompiledCacheOwner, P as configureMemoryWikiCompiledCacheStore, R as reconcileMemoryWikiCompiledCacheOwner, T as getMemoryWikiPage, _ as ingestMemoryWikiSource, a as renderMemoryWikiStatus, b as compileMemoryWikiVault, c as waitForMemoryWikiImportedSourceSyncs, d as probeObsidianCli, f as runObsidianCommand, g as lintMemoryWikiVault, h as runObsidianSearch, j as loadMemoryWikiValidatedVaultIdentity, m as runObsidianOpen, n as renderWikiSearchResults, o as resolveMemoryWikiStatus, p as runObsidianDaily, r as buildMemoryWikiDoctorReport, s as syncMemoryWikiImportedSources, t as renderWikiMutationSummary, v as applyMemoryWikiMutation, w as WIKI_SEARCH_MODES, x as listMemoryWikiOverview, y as normalizeMemoryWikiMutationInput, z as resolveMemoryWikiCompiledCacheOwnerId } from "../../presentation-WGe1YFJx.mjs";
-import { a as resolveMemoryWikiConfig, i as resolveMemoryWikiAgentConfig, n as WIKI_SEARCH_BACKENDS, o as resolveMemoryWikiConfiguredAgentIds, r as WIKI_SEARCH_CORPORA, t as MemoryWikiConfigSource } from "../../config-DtaJXrmb.mjs";
-import { a as createMemoryWikiImportRunStateStore, h as createMemoryWikiSourceSyncStateStore, m as configureMemoryWikiSourceSyncStateStore, o as listMemoryWikiImportRunRecords, r as configureMemoryWikiImportRunStateStore } from "../../import-runs-state-CfUk1tsx.mjs";
+import { u as readPositiveIntegerParam } from "../../common-Dyxcwsy8.mjs";
+import { i as optionalFiniteNumberSchema } from "../../typebox-X-jU33BZ.mjs";
+import { n as buildPluginConfigSchema } from "../../config-schema-BBtylDlH.mjs";
+import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
+import "../../gateway-runtime-DMDKFL1_.mjs";
+import { s as mapPluginConfigIssues } from "../../extension-shared-GoQu59iC.mjs";
+import "../../channel-actions-DF1kQl0D.mjs";
+import "../../memory-host-core-BFby6pBK.mjs";
+import "../../param-readers-B4Zo5Lzz.mjs";
+import { A as activateMemoryWikiCompiledCacheOwner, C as searchMemoryWiki, D as ensureMemoryWikiVaultGeneration, F as loadMemoryWikiCompiledDashboards, I as reconcileMemoryWikiCompiledCacheOwner, L as resolveMemoryWikiCompiledCacheOwnerId, M as createMemoryWikiCompiledCacheStore, N as deactivateMemoryWikiCompiledCacheOwnersExcept, O as loadMemoryWikiValidatedVaultIdentity, P as loadMemoryWikiCompiledCache, R as setMemoryWikiDashboardState, S as getMemoryWikiPage, a as renderMemoryWikiStatus, c as waitForMemoryWikiImportedSourceSyncs, d as probeObsidianCli, f as runObsidianAction, g as normalizeMemoryWikiMutationInput, h as applyMemoryWikiMutation, j as configureMemoryWikiCompiledCacheStore, k as MemoryWikiDashboardUnavailableError, l as OBSIDIAN_ACTIONS, m as ingestMemoryWikiSource, n as renderWikiSearchResults, o as resolveMemoryWikiStatus, p as lintMemoryWikiVault, r as buildMemoryWikiDoctorReport, s as syncMemoryWikiImportedSources, t as renderWikiMutationSummary, u as assertOfficialObsidianCliSupported, w as initializeMemoryWikiVault, x as WIKI_SEARCH_MODES, y as compileMemoryWikiVault } from "../../presentation-DVqsdtcK.mjs";
+import { a as resolveMemoryWikiConfig, i as resolveMemoryWikiAgentConfig, n as WIKI_SEARCH_BACKENDS, o as resolveMemoryWikiConfiguredAgentIds, r as WIKI_SEARCH_CORPORA, t as MemoryWikiConfigSource } from "../../config-BATWLWdx.mjs";
+import { a as listMemoryWikiImportRunRecords, d as createMemoryWikiSourceSyncStateStore, i as createMemoryWikiImportRunStateStore, n as configureMemoryWikiImportRunStateStore, u as configureMemoryWikiSourceSyncStateStore } from "../../import-runs-state-DGOSREgh.mjs";
 import path from "node:path";
 import fs from "node:fs/promises";
 import { Type } from "typebox";
@@ -48,7 +48,7 @@ function createWikiCorpusSupplement(params) {
 		search: async (input) => {
 			const appConfig = params.getAppConfig();
 			const config = params.resolveConfig(input.agentId, appConfig);
-			return await searchMemoryWiki({
+			return (await searchMemoryWiki({
 				config,
 				appConfig,
 				agentId: config.agentId ?? input.agentId,
@@ -58,12 +58,12 @@ function createWikiCorpusSupplement(params) {
 				maxResults: input.maxResults,
 				searchBackend: "local",
 				searchCorpus: "wiki"
-			});
+			})).filter((result) => result.corpus === "wiki");
 		},
 		get: async (input) => {
 			const appConfig = params.getAppConfig();
 			const config = params.resolveConfig(input.agentId, appConfig);
-			return await getMemoryWikiPage({
+			const result = await getMemoryWikiPage({
 				config,
 				appConfig,
 				agentId: config.agentId ?? input.agentId,
@@ -75,6 +75,7 @@ function createWikiCorpusSupplement(params) {
 				searchBackend: "local",
 				searchCorpus: "wiki"
 			});
+			return result?.corpus === "wiki" ? result : null;
 		}
 	};
 }
@@ -149,11 +150,29 @@ function respondError(respond, error) {
 function registerMemoryWikiGatewayMethods(params) {
 	const { api, config: baseConfig } = params;
 	const registerResultMethod = (method, scope, handler) => {
-		api.registerGatewayMethod(method, async ({ params: requestParams, respond }) => {
+		api.registerGatewayMethod(method, async ({ params: requestParams, respond, client, signal, hasCurrentClientAuthority }) => {
+			let active = true;
+			const memoryContext = {
+				authority: client && hasCurrentClientAuthority ? {
+					kind: "operator",
+					scopes: client.connect.scopes ?? [],
+					connId: client.connId
+				} : {
+					kind: "host",
+					operation: method
+				},
+				signal,
+				assertCurrent() {
+					signal?.throwIfAborted();
+					if (!active || hasCurrentClientAuthority && !hasCurrentClientAuthority()) throw new Error("Memory Wiki request authority is no longer current.");
+				}
+			};
 			try {
-				respond(true, await handler(requestParams));
+				respond(true, await handler(requestParams, memoryContext));
 			} catch (error) {
 				respondError(respond, error);
+			} finally {
+				active = false;
 			}
 		}, { scope });
 	};
@@ -196,9 +215,6 @@ function registerMemoryWikiGatewayMethods(params) {
 			signal
 		};
 	};
-	const assertOfficialObsidianCliSupported = (config) => {
-		if (config.vault.scope === "agent") throw new Error("Official Obsidian CLI actions do not support memory-wiki vault.scope=agent.");
-	};
 	registerResultMethod("wiki.status", READ_SCOPE, async (requestParams) => {
 		const { appConfig, config, signal } = resolveRequestContext(requestParams);
 		await syncMemoryWikiImportedSources({
@@ -216,12 +232,12 @@ function registerMemoryWikiGatewayMethods(params) {
 	registerResultMethod("wiki.importInsights", READ_SCOPE, async (requestParams) => {
 		const { appConfig, config } = resolveRequestContext(requestParams);
 		syncImportedSourcesInBackground(config, appConfig);
-		return await listMemoryWikiImportInsights(config);
+		return (await loadMemoryWikiCompiledDashboards(config)).importInsights;
 	});
 	registerResultMethod("wiki.overview", READ_SCOPE, async (requestParams) => {
 		const { appConfig, config } = resolveRequestContext(requestParams);
 		syncImportedSourcesInBackground(config, appConfig);
-		return await listMemoryWikiOverview(config);
+		return (await loadMemoryWikiCompiledDashboards(config)).overview;
 	});
 	registerResultMethod("wiki.init", WRITE_SCOPE, async (requestParams) => {
 		const { config, signal } = resolveRequestContext(requestParams);
@@ -289,7 +305,7 @@ function registerMemoryWikiGatewayMethods(params) {
 			...signal ? { signal } : {}
 		});
 	});
-	registerResultMethod("wiki.search", READ_SCOPE, async (requestParams) => {
+	registerResultMethod("wiki.search", READ_SCOPE, async (requestParams, memoryContext) => {
 		const { agentId, appConfig, config, signal } = resolveRequestContext(requestParams);
 		await syncMemoryWikiImportedSources({
 			config,
@@ -302,6 +318,7 @@ function registerMemoryWikiGatewayMethods(params) {
 		const searchCorpus = readEnumParam(requestParams, "corpus", WIKI_SEARCH_CORPORA);
 		const mode = readEnumParam(requestParams, "mode", WIKI_SEARCH_MODES);
 		return await searchMemoryWiki({
+			memoryContext,
 			config,
 			appConfig,
 			...agentId ? { agentId } : {},
@@ -326,7 +343,7 @@ function registerMemoryWikiGatewayMethods(params) {
 			...signal ? { signal } : {}
 		});
 	});
-	registerResultMethod("wiki.get", READ_SCOPE, async (requestParams) => {
+	registerResultMethod("wiki.get", READ_SCOPE, async (requestParams, memoryContext) => {
 		const { agentId, appConfig, config, signal } = resolveRequestContext(requestParams);
 		await syncMemoryWikiImportedSources({
 			config,
@@ -339,6 +356,7 @@ function registerMemoryWikiGatewayMethods(params) {
 		const searchBackend = readEnumParam(requestParams, "backend", WIKI_SEARCH_BACKENDS);
 		const searchCorpus = readEnumParam(requestParams, "corpus", WIKI_SEARCH_CORPORA);
 		return await getMemoryWikiPage({
+			memoryContext,
 			config,
 			appConfig,
 			...agentId ? { agentId } : {},
@@ -350,37 +368,15 @@ function registerMemoryWikiGatewayMethods(params) {
 		});
 	});
 	registerResultMethod("wiki.obsidian.status", READ_SCOPE, () => probeObsidianCli());
-	registerResultMethod("wiki.obsidian.search", WRITE_SCOPE, async (requestParams) => {
+	for (const action of OBSIDIAN_ACTIONS) registerResultMethod(`wiki.obsidian.${action.command}`, WRITE_SCOPE, async (requestParams) => {
 		const { config } = resolveRequestContext(requestParams);
 		assertOfficialObsidianCliSupported(config);
-		const query = readStringParam(requestParams, "query", { required: true });
-		return await runObsidianSearch({
+		const value = action.argument ? readStringParam(requestParams, action.argument.name, { required: true }) : void 0;
+		return await runObsidianAction({
 			config,
-			query
+			action,
+			value
 		});
-	});
-	registerResultMethod("wiki.obsidian.open", WRITE_SCOPE, async (requestParams) => {
-		const { config } = resolveRequestContext(requestParams);
-		assertOfficialObsidianCliSupported(config);
-		const vaultPath = readStringParam(requestParams, "path", { required: true });
-		return await runObsidianOpen({
-			config,
-			vaultPath
-		});
-	});
-	registerResultMethod("wiki.obsidian.command", WRITE_SCOPE, async (requestParams) => {
-		const { config } = resolveRequestContext(requestParams);
-		assertOfficialObsidianCliSupported(config);
-		const id = readStringParam(requestParams, "id", { required: true });
-		return await runObsidianCommand({
-			config,
-			id
-		});
-	});
-	registerResultMethod("wiki.obsidian.daily", WRITE_SCOPE, async (requestParams) => {
-		const { config } = resolveRequestContext(requestParams);
-		assertOfficialObsidianCliSupported(config);
-		return await runObsidianDaily({ config });
 	});
 }
 //#endregion
@@ -402,7 +398,7 @@ function rankPromptClaimFreshness(level) {
 	}
 }
 function sortPromptClaims(claims) {
-	return [...claims].toSorted((left, right) => {
+	return claims.toSorted((left, right) => {
 		const leftConfidence = typeof left.confidence === "number" ? left.confidence : -1;
 		const rightConfidence = typeof right.confidence === "number" ? right.confidence : -1;
 		if (leftConfidence !== rightConfidence) return rightConfidence - leftConfidence;
@@ -423,7 +419,7 @@ function formatPromptClaim(claim) {
 }
 function buildDigestPromptSection(digest) {
 	if (!digest?.pages?.length) return [];
-	const selectedPages = [...digest.pages].filter((page) => (page.claimCount ?? 0) > 0 || (page.questions?.length ?? 0) > 0 || (page.contradictions?.length ?? 0) > 0).toSorted((left, right) => {
+	const selectedPages = digest.pages.filter((page) => (page.claimCount ?? 0) > 0 || (page.questions?.length ?? 0) > 0 || (page.contradictions?.length ?? 0) > 0).toSorted((left, right) => {
 		const leftScore = rankPromptDigestPage(left);
 		const rightScore = rankPromptDigestPage(right);
 		if (leftScore !== rightScore) return rightScore - leftScore;
@@ -446,23 +442,21 @@ function buildDigestPromptSection(digest) {
 	return truncateUtf16Safe(lines.join("\n"), DIGEST_MAX_PROMPT_CHARS).split("\n");
 }
 function buildWikiToolGuidance(availableTools) {
-	const hasMemorySearch = availableTools.has("memory_search");
-	const hasMemoryGet = availableTools.has("memory_get");
 	const hasWikiSearch = availableTools.has("wiki_search");
 	const hasWikiGet = availableTools.has("wiki_get");
-	const hasWikiApply = availableTools.has("wiki_apply");
-	const hasWikiLint = availableTools.has("wiki_lint");
-	if (!hasMemorySearch && !hasMemoryGet && !hasWikiSearch && !hasWikiGet && !hasWikiApply && !hasWikiLint) return [];
-	const lines = ["## Compiled Wiki", "Use the wiki when the answer depends on accumulated project knowledge, prior syntheses, entity pages, or source-backed notes that should survive beyond one conversation."];
-	if (hasMemorySearch) lines.push("Prefer `memory_search` with `corpus=all` for one recall pass across durable memory and the compiled wiki when both are relevant.");
-	if (hasMemoryGet) lines.push("Use `memory_get` with `corpus=wiki` or `corpus=all` when you already know the page path and want a small excerpt without leaving the shared memory tool flow.");
-	if (hasWikiSearch && hasWikiGet) lines.push("Workflow: `wiki_search` first, then `wiki_get` for the exact page or imported memory file you need. Use this when you want wiki-specific ranking or provenance details instead of the broader shared memory flow.");
-	else if (hasWikiSearch) lines.push("Use `wiki_search` before answering from stored knowledge when you want wiki-specific ranking or provenance details.");
-	else if (hasWikiGet) lines.push("Use `wiki_get` to inspect specific wiki pages or imported memory files by path/id.");
-	if (hasWikiApply) lines.push("Use `wiki_apply` for narrow synthesis filing and metadata repair instead of rewriting managed markdown blocks by hand.");
-	if (hasWikiLint) lines.push("After meaningful wiki updates, run `wiki_lint` before trusting the vault.");
-	lines.push("");
-	return lines;
+	const guidance = [
+		availableTools.has("memory_search") ? "Prefer `memory_search` with `corpus=all` for one recall pass across durable memory and the compiled wiki when both are relevant." : "",
+		availableTools.has("memory_get") ? "Use `memory_get` with `corpus=wiki` or `corpus=all` when you already know the page path and want a small excerpt without leaving the shared memory tool flow." : "",
+		hasWikiSearch && hasWikiGet ? "Workflow: `wiki_search` first, then `wiki_get` for the exact page or imported memory file you need. Use this when you want wiki-specific ranking or provenance details instead of the broader shared memory flow." : hasWikiSearch ? "Use `wiki_search` before answering from stored knowledge when you want wiki-specific ranking or provenance details." : hasWikiGet ? "Use `wiki_get` to inspect specific wiki pages or imported memory files by path/id." : "",
+		availableTools.has("wiki_apply") ? "Use `wiki_apply` for narrow synthesis filing and metadata repair instead of rewriting managed markdown blocks by hand." : "",
+		availableTools.has("wiki_lint") ? "After meaningful wiki updates, run `wiki_lint` before trusting the vault." : ""
+	].filter(Boolean);
+	return guidance.length > 0 ? [
+		"## Compiled Wiki",
+		"Use the wiki when the answer depends on accumulated project knowledge, prior syntheses, entity pages, or source-backed notes that should survive beyond one conversation.",
+		...guidance,
+		""
+	] : [];
 }
 function createWikiPromptSectionBuilder() {
 	return ({ availableTools }) => buildWikiToolGuidance(availableTools);
@@ -548,13 +542,6 @@ const WikiApplySchema = Type.Object({
 	}), Type.Null()])),
 	status: Type.Optional(Type.String({ minLength: 1 }))
 }, { additionalProperties: false });
-async function syncImportedSourcesIfNeeded(config, appConfig, signal) {
-	await syncMemoryWikiImportedSources({
-		config,
-		appConfig,
-		...signal ? { signal } : {}
-	});
-}
 function createWikiStatusTool(config, appConfig, memoryContext = {}) {
 	return {
 		name: "wiki_status",
@@ -562,7 +549,11 @@ function createWikiStatusTool(config, appConfig, memoryContext = {}) {
 		description: "Inspect the current memory wiki vault mode, health, and Obsidian CLI availability.",
 		parameters: WikiStatusSchema,
 		execute: async () => {
-			await syncImportedSourcesIfNeeded(config, appConfig, memoryContext.signal);
+			await syncMemoryWikiImportedSources({
+				config,
+				appConfig,
+				signal: memoryContext.signal
+			});
 			const status = await resolveMemoryWikiStatus(config, {
 				appConfig,
 				callerAgentId: memoryContext.agentId
@@ -579,7 +570,11 @@ function createWikiSearchTool(config, appConfig, memoryContext = {}) {
 		parameters: WikiSearchSchema,
 		execute: async (_toolCallId, rawParams) => {
 			const params = rawParams;
-			await syncImportedSourcesIfNeeded(config, appConfig, memoryContext.signal);
+			await syncMemoryWikiImportedSources({
+				config,
+				appConfig,
+				signal: memoryContext.signal
+			});
 			const results = await searchMemoryWiki({
 				config,
 				appConfig,
@@ -587,6 +582,7 @@ function createWikiSearchTool(config, appConfig, memoryContext = {}) {
 				agentSessionKey: memoryContext.agentSessionKey,
 				sandboxed: memoryContext.sandboxed,
 				conversationRecall: memoryContext.conversationRecall,
+				memoryContext: memoryContext.memoryContext,
 				query: params.query,
 				maxResults: params.maxResults,
 				...params.backend ? { searchBackend: params.backend } : {},
@@ -597,14 +593,18 @@ function createWikiSearchTool(config, appConfig, memoryContext = {}) {
 		}
 	};
 }
-function createWikiLintTool(config, appConfig, signal) {
+function createWikiLintTool(config, appConfig, { signal } = {}) {
 	return {
 		name: "wiki_lint",
 		label: "Wiki Lint",
 		description: "Lint the wiki vault and surface structural issues, provenance gaps, contradictions, and open questions.",
 		parameters: WikiLintSchema,
 		execute: async () => {
-			await syncImportedSourcesIfNeeded(config, appConfig, signal);
+			await syncMemoryWikiImportedSources({
+				config,
+				appConfig,
+				signal
+			});
 			const result = await lintMemoryWikiVault(config, signal ? { signal } : void 0);
 			const contradictions = result.issuesByCategory.contradictions.length;
 			const openQuestions = result.issuesByCategory["open-questions"].length;
@@ -628,7 +628,7 @@ function createWikiLintTool(config, appConfig, signal) {
 		}
 	};
 }
-function createWikiApplyTool(config, appConfig, signal) {
+function createWikiApplyTool(config, appConfig, { signal } = {}) {
 	return {
 		name: "wiki_apply",
 		label: "Wiki Apply",
@@ -636,7 +636,11 @@ function createWikiApplyTool(config, appConfig, signal) {
 		parameters: WikiApplySchema,
 		execute: async (_toolCallId, rawParams) => {
 			const mutation = normalizeMemoryWikiMutationInput(rawParams);
-			await syncImportedSourcesIfNeeded(config, appConfig, signal);
+			await syncMemoryWikiImportedSources({
+				config,
+				appConfig,
+				signal
+			});
 			const result = await applyMemoryWikiMutation({
 				config,
 				mutation,
@@ -656,7 +660,11 @@ function createWikiGetTool(config, appConfig, memoryContext = {}) {
 			const params = asNonArrayRecord(rawParams);
 			const lookup = typeof params.lookup === "string" ? params.lookup.trim() : "";
 			if (!lookup) return textResult("wiki_get requires a non-empty `lookup` path or id.", { found: false });
-			await syncImportedSourcesIfNeeded(config, appConfig, memoryContext.signal);
+			await syncMemoryWikiImportedSources({
+				config,
+				appConfig,
+				signal: memoryContext.signal
+			});
 			const result = await getMemoryWikiPage({
 				config,
 				appConfig,
@@ -664,6 +672,7 @@ function createWikiGetTool(config, appConfig, memoryContext = {}) {
 				agentSessionKey: memoryContext.agentSessionKey,
 				sandboxed: memoryContext.sandboxed,
 				conversationRecall: memoryContext.conversationRecall,
+				memoryContext: memoryContext.memoryContext,
 				lookup,
 				fromLine: params.fromLine,
 				lineCount: params.lineCount,
@@ -784,30 +793,46 @@ var memory_wiki_default = definePluginEntry({
 			resolveConfig,
 			resolveSourceSyncSignal: () => sourceSyncAbortController?.signal
 		});
-		api.registerTool((ctx) => {
-			const resolved = resolveToolContext(ctx.agentId);
-			return resolved ? createWikiStatusTool(resolved.config, resolved.appConfig, {
-				agentId: resolved.config.agentId ?? ctx.agentId,
-				...resolved.signal ? { signal: resolved.signal } : {}
-			}) : null;
-		}, { name: "wiki_status" });
-		for (const [name, createTool] of [["wiki_lint", createWikiLintTool], ["wiki_apply", createWikiApplyTool]]) api.registerTool((ctx) => {
-			const resolved = resolveToolContext(ctx.agentId);
-			return resolved ? createTool(resolved.config, resolved.appConfig, resolved.signal) : null;
-		}, { name });
-		for (const [name, createTool] of [["wiki_search", createWikiSearchTool], ["wiki_get", createWikiGetTool]]) api.registerTool((ctx) => {
-			const resolved = resolveToolContext(ctx.agentId);
-			if (!resolved) return null;
-			return createTool(resolved.config, resolved.appConfig, {
-				agentId: resolved.config.agentId ?? ctx.agentId,
-				agentSessionKey: ctx.sessionKey,
-				sandboxed: ctx.sandboxed,
-				conversationRecall: ctx.conversationRecall,
-				...resolved.signal ? { signal: resolved.signal } : {}
-			});
+		for (const [name, createTool] of [
+			["wiki_status", createWikiStatusTool],
+			["wiki_lint", createWikiLintTool],
+			["wiki_apply", createWikiApplyTool],
+			["wiki_search", createWikiSearchTool],
+			["wiki_get", createWikiGetTool]
+		]) api.registerTool({
+			contextVersion: 2,
+			create: (ctx) => {
+				const resolved = resolveToolContext(ctx.agentId);
+				if (!resolved) return null;
+				return createTool(resolved.config, resolved.appConfig, {
+					agentId: resolved.config.agentId ?? ctx.agentId,
+					agentSessionKey: ctx.sessionKey,
+					sandboxed: ctx.sandboxed,
+					conversationRecall: ctx.conversationRecall,
+					memoryContext: {
+						authority: ctx.sessionKey ? {
+							kind: "session",
+							conversationRecall: ctx.conversationRecall,
+							sessionKey: ctx.sessionKey,
+							sessionId: ctx.sessionId,
+							sandboxed: ctx.sandboxed === true,
+							audience: ctx.memoryAudience
+						} : {
+							kind: "host",
+							operation: "memory-wiki.tool"
+						},
+						assertCurrent() {
+							ctx.assertInvocationCurrent();
+							ctx.assertMemoryAudienceCurrent?.();
+						},
+						...resolved.signal ? { signal: resolved.signal } : {}
+					},
+					...resolved.signal ? { signal: resolved.signal } : {}
+				});
+			}
 		}, { name });
 		api.registerCli(async ({ program }) => {
-			const { registerWikiCli } = await import("../../cli-CYsh72qV.mjs");
+			const { registerWikiCli } = await import("../../cli-CbvcqneR.mjs");
 			registerWikiCli(program, {
 				config,
 				resolveConfig,

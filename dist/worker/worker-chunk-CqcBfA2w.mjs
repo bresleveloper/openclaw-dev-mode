@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function setProcessTimeout(e,t){let n,r=setTimeout(()=>{n=setTimeout(e,0)},t);return{clear(){clearTimeout(r),clearTimeout(n)},refresh(){clearTimeout(n),n=void 0,r.refresh()}}}var t=e((()=>{}));export{setProcessTimeout as n,t};

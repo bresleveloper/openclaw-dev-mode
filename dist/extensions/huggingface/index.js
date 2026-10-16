@@ -1,8 +1,8 @@
-import { h as runLiveProviderCatalog } from "../../provider-catalog-live-runtime-BprkJHe2.mjs";
-import { t as defineSingleProviderPluginEntry } from "../../provider-entry-DP2O-chg.mjs";
-import { o as openclaw_plugin_default } from "../../models-BCEWBikF.mjs";
-import { r as applyHuggingfaceConnectionConfig, t as HUGGINGFACE_DEFAULT_MODEL_REF } from "../../onboard-BcJ9rlHz.mjs";
-import { t as buildHuggingfaceProvider } from "../../provider-catalog-CDxF_0at.mjs";
+import { h as runLiveProviderCatalog } from "../../provider-catalog-live-runtime-NaavztHY.mjs";
+import { t as defineSingleProviderPluginEntry } from "../../provider-entry-B2Tqqb69.mjs";
+import { o as openclaw_plugin_default } from "../../models-CvOKDjoj.mjs";
+import { r as applyHuggingfaceConnectionConfig, t as HUGGINGFACE_DEFAULT_MODEL_REF } from "../../onboard-DDZTS5mJ.mjs";
+import { t as buildHuggingfaceProvider } from "../../provider-catalog-DibK3aKe.mjs";
 //#region extensions/huggingface/index.ts
 const PROVIDER_ID = "huggingface";
 var huggingface_default = defineSingleProviderPluginEntry({
@@ -20,8 +20,7 @@ var huggingface_default = defineSingleProviderPluginEntry({
 		},
 		catalog: {
 			run: async (ctx) => {
-				const pluginEntry = ctx.config?.plugins?.entries?.[PROVIDER_ID];
-				if ((pluginEntry && typeof pluginEntry === "object" && pluginEntry.config ? pluginEntry.config : void 0)?.discovery?.enabled === false) return null;
+				if ((ctx.config?.plugins?.entries?.[PROVIDER_ID]?.config)?.discovery?.enabled === false) return null;
 				const { apiKey, discoveryApiKey, profileId } = ctx.resolveProviderApiKey(PROVIDER_ID);
 				if (!apiKey) return null;
 				const run = async () => ({ provider: {

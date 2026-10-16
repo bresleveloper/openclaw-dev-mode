@@ -1,9 +1,10 @@
 import { loadLanceDbModule } from "./lancedb-runtime.js";
 import { MEMORY_TABLE_NAME, hasAgentScopeColumn, legacyMemorySchemaError, memoryAgentPredicate, quoteLanceSqlString } from "./lancedb-schema.js";
+import { createRequire } from "node:module";
 import { randomUUID } from "node:crypto";
 import { setTimeout } from "node:timers/promises";
-import { Field, FixedSizeList, Float32, Float64, Schema, Utf8 } from "apache-arrow";
 //#region extensions/memory-lancedb/lancedb-store.ts
+const { Field, FixedSizeList, Float32, Float64, Schema, Utf8 } = createRequire(import.meta.url)("apache-arrow");
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const TABLE_INITIALIZATION_ATTEMPTS = 3;
 const MEMORY_QUERY_COLUMNS = [
@@ -119,16 +120,10 @@ var MemoryDB = class {
 		}).filter((result) => result.score >= minScore);
 	}
 	async list(agentId, limit, options = {}) {
-		await this.ensureInitialized();
-		let query = this.table.query().where(memoryAgentPredicate(agentId)).select([
-			"id",
-			"text",
-			"importance",
-			"category",
-			"createdAt"
-		]);
-		if (!options.orderByCreatedAt && limit !== void 0) query = query.limit(limit);
-		const entries = (await query.toArray()).map((row) => ({
+		const entries = (await this.query(agentId, {
+			columns: [...MEMORY_QUERY_COLUMNS],
+			limit: options.orderByCreatedAt ? void 0 : limit
+		})).map((row) => ({
 			id: row.id,
 			text: row.text,
 			importance: row.importance,
@@ -153,10 +148,6 @@ var MemoryDB = class {
 			value: id
 		});
 		return (await this.table.delete(predicate)).numDeletedRows > 0;
-	}
-	async count(agentId) {
-		await this.ensureInitialized();
-		return await this.table.countRows(memoryAgentPredicate(agentId));
 	}
 	close() {
 		this.table?.close();

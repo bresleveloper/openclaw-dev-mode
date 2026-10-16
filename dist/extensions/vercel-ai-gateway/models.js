@@ -2,7 +2,7 @@ import { withTrustedEnvProxyGuardedFetchMode } from "openclaw/plugin-sdk/fetch-r
 import { parseStrictFiniteNumber } from "openclaw/plugin-sdk/number-runtime";
 import { buildLiveModelProviderConfig } from "openclaw/plugin-sdk/provider-catalog-live-runtime";
 import { fetchWithSsrFGuard } from "openclaw/plugin-sdk/ssrf-runtime";
-import { asPositiveSafeInteger } from "openclaw/plugin-sdk/string-coerce-runtime";
+import { asOptionalObjectRecord, asPositiveSafeInteger, isRecord } from "openclaw/plugin-sdk/string-coerce-runtime";
 //#region extensions/vercel-ai-gateway/models.ts
 const VERCEL_AI_GATEWAY_PROVIDER_ID = "vercel-ai-gateway";
 const VERCEL_AI_GATEWAY_BASE_URL = "https://ai-gateway.vercel.sh";
@@ -73,11 +73,11 @@ const STATIC_VERCEL_AI_GATEWAY_MODEL_CATALOG = [
 	}
 ];
 function toPerMillionCost(value) {
-	const numeric = typeof value === "number" ? value : typeof value === "string" ? parseStrictFiniteNumber(value) : void 0;
-	if (numeric === void 0 || numeric < 0) return 0;
-	return numeric * 1e6;
+	const price = (parseStrictFiniteNumber(value) ?? 0) * 1e6;
+	return Number.isFinite(price) && price >= 0 ? price : 0;
 }
-function normalizeCost(pricing) {
+function normalizeCost(value) {
+	const pricing = asOptionalObjectRecord(value);
 	return {
 		input: toPerMillionCost(pricing?.input),
 		output: toPerMillionCost(pricing?.output),
@@ -87,12 +87,7 @@ function normalizeCost(pricing) {
 }
 function buildStaticModelDefinition(model) {
 	return {
-		id: model.id,
-		name: model.name,
-		reasoning: model.reasoning,
-		input: model.input,
-		contextWindow: model.contextWindow,
-		maxTokens: model.maxTokens,
+		...model,
 		cost: {
 			...VERCEL_AI_GATEWAY_DEFAULT_COST,
 			...model.cost
@@ -119,7 +114,7 @@ function getStaticVercelAiGatewayModelCatalog() {
 	return STATIC_VERCEL_AI_GATEWAY_MODEL_CATALOG.map(buildStaticModelDefinition);
 }
 function buildDiscoveredModelDefinition(value) {
-	if (typeof value !== "object" || value === null || Array.isArray(value)) throw new Error("Vercel AI Gateway model list: malformed JSON response");
+	if (!isRecord(value)) throw new Error("Vercel AI Gateway model list: malformed JSON response");
 	const model = value;
 	const id = typeof model.id === "string" ? model.id.trim() : "";
 	if (!id || model.type !== void 0 && model.type !== "language") return null;

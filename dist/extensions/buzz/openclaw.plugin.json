@@ -65,7 +65,7 @@
               },
               {
                 "type": "string",
-                "pattern": "^[wW][sS][sS]?:\\/\\/"
+                "pattern": "^[wW][sS][sS]?:\\/\\/.+"
               }
             ]
           },
@@ -304,6 +304,9 @@
                 "requireMention": {
                   "type": "boolean"
                 },
+                "requireMentionInBotThreads": {
+                  "type": "boolean"
+                },
                 "groupPolicy": {
                   "type": "string",
                   "enum": [
@@ -384,7 +387,7 @@
                     },
                     {
                       "type": "string",
-                      "pattern": "^[wW][sS][sS]?:\\/\\/"
+                      "pattern": "^[wW][sS][sS]?:\\/\\/.+"
                     }
                   ]
                 },
@@ -622,6 +625,9 @@
                       "requireMention": {
                         "type": "boolean"
                       },
+                      "requireMentionInBotThreads": {
+                        "type": "boolean"
+                      },
                       "groupPolicy": {
                         "type": "string",
                         "enum": [
@@ -666,7 +672,17 @@
         "additionalProperties": false
       },
       "label": "Buzz",
-      "description": "Connect OpenClaw agents to Buzz team rooms."
+      "description": "Connect OpenClaw agents to Buzz team rooms.",
+      "uiHints": {
+        "groups.*.requireMentionInBotThreads": {
+          "label": "Require Mention in Bot Threads",
+          "help": "Override mention gating in threads whose root message was signed by this bot in the same room. False allows unmentioned replies; true requires a mention. Omit to preserve the room's mention policy. Sender restrictions still apply."
+        },
+        "accounts.*.groups.*.requireMentionInBotThreads": {
+          "label": "Require Mention in Bot Threads",
+          "help": "Override mention gating in threads whose root message was signed by this bot in the same room. False allows unmentioned replies; true requires a mention. Omit to preserve the room's mention policy. Sender restrictions still apply."
+        }
+      }
     }
   },
   "configSchema": {

@@ -1,0 +1,2 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{c as t,l as n}from"./worker-chunk-DuWcUqv3.mjs";function buildCodeModeScriptParseSource(e){return{source:`(async () => {
+${e}\n})`,codeOffset:15}}function parseCodeModeScriptSyntax(e){let{source:t}=buildCodeModeScriptParseSource(e);try{return{ok:!0,program:n(t,{ecmaVersion:`latest`})}}catch(e){let t=e;return{ok:!1,message:t.message.replace(/ \(\d+:\d+\)$/u,``),line:t.loc.line-1,column:t.loc.column}}}var r=e((()=>{t()}));export{r as n,parseCodeModeScriptSyntax as r,buildCodeModeScriptParseSource as t};

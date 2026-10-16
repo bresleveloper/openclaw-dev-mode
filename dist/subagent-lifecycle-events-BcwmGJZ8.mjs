@@ -1,0 +1,10 @@
+//#region src/agents/subagents/registry/subagent-lifecycle-events.ts
+const SUBAGENT_TARGET_KIND_SUBAGENT = "subagent";
+const SUBAGENT_ENDED_REASON_COMPLETE = "subagent-complete";
+const SUBAGENT_ENDED_REASON_ERROR = "subagent-error";
+const SUBAGENT_ENDED_REASON_KILLED = "subagent-killed";
+const SUBAGENT_ENDED_OUTCOME_ERROR = "error";
+const SUBAGENT_ENDED_OUTCOME_TIMEOUT = "timeout";
+const SUBAGENT_ENDED_OUTCOME_KILLED = "killed";
+//#endregion
+export { SUBAGENT_ENDED_REASON_ERROR as a, SUBAGENT_ENDED_REASON_COMPLETE as i, SUBAGENT_ENDED_OUTCOME_KILLED as n, SUBAGENT_ENDED_REASON_KILLED as o, SUBAGENT_ENDED_OUTCOME_TIMEOUT as r, SUBAGENT_TARGET_KIND_SUBAGENT as s, SUBAGENT_ENDED_OUTCOME_ERROR as t };

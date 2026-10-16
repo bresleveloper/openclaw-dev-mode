@@ -1,23 +1,5 @@
 import { defineBundledChannelEntry, loadBundledEntryExportSync } from "openclaw/plugin-sdk/channel-entry-contract";
 //#region extensions/nostr/index.ts
-function createNostrProfileHttpHandler() {
-	return loadBundledEntryExportSync(import.meta.url, {
-		specifier: "./api.js",
-		exportName: "createNostrProfileHttpHandler"
-	});
-}
-function getNostrRuntime() {
-	return loadBundledEntryExportSync(import.meta.url, {
-		specifier: "./api.js",
-		exportName: "getNostrRuntime"
-	})();
-}
-function resolveNostrAccount(params) {
-	return loadBundledEntryExportSync(import.meta.url, {
-		specifier: "./api.js",
-		exportName: "resolveNostrAccount"
-	})(params);
-}
 var nostr_default = defineBundledChannelEntry({
 	id: "nostr",
 	name: "Nostr",
@@ -36,10 +18,12 @@ var nostr_default = defineBundledChannelEntry({
 		exportName: "setNostrRuntime"
 	},
 	registerFull(api) {
-		const httpHandler = createNostrProfileHttpHandler()({
+		const { createNostrProfileHttpHandler, getNostrRuntime, resolveNostrAccount } = loadBundledEntryExportSync(import.meta.url, { specifier: "./api.js" });
+		const httpHandler = createNostrProfileHttpHandler({
 			getConfigProfile: (accountId) => {
+				const cfg = getNostrRuntime().config.current();
 				return resolveNostrAccount({
-					cfg: getNostrRuntime().config.current(),
+					cfg,
 					accountId
 				}).profile;
 			},
@@ -60,8 +44,9 @@ var nostr_default = defineBundledChannelEntry({
 				});
 			},
 			getAccountInfo: (accountId) => {
+				const cfg = getNostrRuntime().config.current();
 				const account = resolveNostrAccount({
-					cfg: getNostrRuntime().config.current(),
+					cfg,
 					accountId
 				});
 				if (!account.configured || !account.publicKey) return null;

@@ -11,19 +11,19 @@ import { t } from "../../i18n/index.ts";
 import { sidebarPanelDefinitions } from "./chat-pane-embedded-panels.ts";
 import type { ResolvedBoardView } from "./chat-pane-shared.ts";
 import type { ChatPageHost } from "./chat-state-host.ts";
+import type { SidebarFullMessageLoader } from "./components/chat-sidebar-content-types.ts";
 import type {
   SidebarPanelDefinition,
   SidebarPanelTemplates,
   SidebarRegionCallbacks,
 } from "./components/chat-sidebar-region-types.ts";
-import type { SidebarFullMessageLoader } from "./components/chat-sidebar.ts";
-import type { LinkFaviconFetcher } from "./link-favicon-loader.ts";
+import type { LinkFaviconFetcher } from "./link-favicon-cache.ts";
 import {
   activatePanel,
   toggleSidebarPanelExpanded,
   closeSlot,
   fitSidebarLayout,
-  isSidebarRegionCollapsed,
+  SIDEBAR_NARROW_BREAKPOINT_PX,
   openSlot,
   reorderPanel,
   sidebarDock,
@@ -40,7 +40,7 @@ type LazyPanelRuntime = {
   pending?: Promise<void>;
 };
 
-type LazyElementKey = "region" | SidebarSlotId;
+type LazyElementKey = "region" | "detail-panel" | SidebarSlotId;
 type LazyElement = readonly [tagName: string, loadModule: () => Promise<unknown>];
 
 const LAZY_SIDEBAR_ELEMENTS: Partial<Record<LazyElementKey, LazyElement>> = {
@@ -48,6 +48,9 @@ const LAZY_SIDEBAR_ELEMENTS: Partial<Record<LazyElementKey, LazyElement>> = {
     "openclaw-chat-sidebar-region",
     () => import("./components/chat-sidebar-region.runtime.ts"),
   ],
+  // Not a slot key: the detail slot also renders tool output and status
+  // templates synchronously, so only its panel branch waits for this element.
+  "detail-panel": ["openclaw-chat-detail-panel", () => import("./components/chat-detail-panel.ts")],
   terminal: [
     "openclaw-terminal-panel",
     () => import("../../components/terminal/terminal-panel-registration.ts"),
@@ -68,7 +71,7 @@ const LAZY_SIDEBAR_ELEMENTS: Partial<Record<LazyElementKey, LazyElement>> = {
 
 const lazyRuntimes = new Map<LazyElementKey, LazyPanelRuntime>();
 
-function ensureLazyElement(
+export function ensureLazySidebarElement(
   key: LazyElementKey,
   requestUpdate: () => void,
 ): TemplateResult | null | undefined {
@@ -157,6 +160,7 @@ export function sidebarRegionCallbacks(params: {
 
 export function renderSidebarRegion(params: {
   presentationId: string;
+  conversationTab?: Pick<SidebarPanelDefinition, "label" | "icon">;
   fetchFavicon?: LinkFaviconFetcher;
   availableWidth: number;
   callbacks: SidebarRegionCallbacks;
@@ -174,10 +178,12 @@ export function renderSidebarRegion(params: {
   const panelDefinitions = params.panelDefinitions ?? sidebarPanelDefinitions();
   const panelOpen = params.layout.open === true;
   const hasPanels = params.layout.columns.length > 0;
-  const regionError = hasPanels ? ensureLazyElement("region", params.requestUpdate) : undefined;
+  const regionError = hasPanels
+    ? ensureLazySidebarElement("region", params.requestUpdate)
+    : undefined;
   let panelTemplates: SidebarPanelTemplates | null = null;
   for (const panel of params.layout.columns[0]?.panels ?? []) {
-    const lazyState = ensureLazyElement(panel.slot, params.requestUpdate);
+    const lazyState = ensureLazySidebarElement(panel.slot, params.requestUpdate);
     if (lazyState !== undefined) {
       panelTemplates ??= { ...params.panelTemplates };
       panelTemplates[panel.slot] =
@@ -186,7 +192,7 @@ export function renderSidebarRegion(params: {
   }
   const availableWidth =
     params.availableWidth > 0 ? params.availableWidth : Number.POSITIVE_INFINITY;
-  const collapsed = params.narrow || isSidebarRegionCollapsed(params.layout, availableWidth);
+  const collapsed = params.narrow || availableWidth < SIDEBAR_NARROW_BREAKPOINT_PX;
   const main = sidebarMainPanel(params.layout);
   const chatMain = !main || main.slot === "conversation";
   const column = params.layout.columns[0];
@@ -214,6 +220,7 @@ export function renderSidebarRegion(params: {
           : null
         : html`<openclaw-chat-sidebar-region
             .panelIdPrefix=${panelIdPrefix}
+            .conversationTab=${params.conversationTab}
             .layout=${params.layout}
             .fetchFavicon=${params.fetchFavicon}
             .panelDefinitions=${panelDefinitions}
@@ -247,12 +254,9 @@ export function resolveSidebarLayoutForBoard(params: {
   let layout = params.layout;
   if (!params.board.available) {
     layout = closeSlot(layout, "dashboard");
-    return fitSidebarLayout(layout, params.paneWidth) ?? layout;
+  } else if (params.board.face === "dashboard" && layout.columns.length === 0) {
+    layout = openSlot(layout, "dashboard");
   }
-  if (params.board.face !== "dashboard" || layout.columns.length > 0) {
-    return fitSidebarLayout(layout, params.paneWidth) ?? layout;
-  }
-  layout = openSlot(layout, "dashboard");
   return fitSidebarLayout(layout, params.paneWidth) ?? layout;
 }
 

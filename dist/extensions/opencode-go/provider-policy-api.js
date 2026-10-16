@@ -1,2 +1,2 @@
-import { n as resolveOpencodeGoThinkingProfile, r as resolveThinkingProfile, t as isOpencodeGoFixedAnthropicReasoningModelId } from "../../provider-policy-api-DFDI0g_1.mjs";
-export { isOpencodeGoFixedAnthropicReasoningModelId, resolveOpencodeGoThinkingProfile, resolveThinkingProfile };
+import { i as resolveThinkingProfile, n as isOpencodeGoKimiNoReasoningModelId, r as resolveOpencodeGoThinkingProfile, t as isOpencodeGoFixedAnthropicReasoningModelId } from "../../provider-policy-api-CoTNAtCt.mjs";
+export { isOpencodeGoFixedAnthropicReasoningModelId, isOpencodeGoKimiNoReasoningModelId, resolveOpencodeGoThinkingProfile, resolveThinkingProfile };

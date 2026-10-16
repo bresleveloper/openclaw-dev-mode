@@ -1,17 +1,17 @@
-import { t as definePluginEntry } from "../../plugin-entry-BOulgRcx.mjs";
-import { r as resolvePluginConfigObject } from "../../plugin-config-runtime-CaI6yWBc.mjs";
-import { r as buildProviderToolCompatFamilyHooks } from "../../provider-tools-BDV45rRZ.mjs";
-import { t as buildOpenAIImageGenerationProvider } from "../../image-generation-provider-uWH6wuEl.mjs";
-import { t as openaiMediaUnderstandingProvider } from "../../media-understanding-provider-CXO0EvwX.mjs";
-import { t as openAiMemoryEmbeddingProviderAdapter } from "../../memory-embedding-adapter-BPExAKfB.mjs";
-import { t as buildOpenAIProvider } from "../../openai-provider-UeaVZXu9.mjs";
-import { n as resolveOpenAISystemPromptContribution, t as resolveOpenAIPromptOverlayMode } from "../../prompt-overlay-CYqP-X87.mjs";
-import { t as OPENAI_QUICKSILVER_OFFER_PATH } from "../../realtime-quicksilver-session-CyB914kA.mjs";
-import { n as releaseOpenAIQuicksilverBrowserSessionBroker, t as acquireOpenAIQuicksilverBrowserSessionBroker } from "../../realtime-quicksilver-session-owner-BOO0H3xk.mjs";
-import { t as buildOpenAIRealtimeTranscriptionProvider } from "../../realtime-transcription-provider-factory-C58OYx1b.mjs";
-import { t as buildOpenAIRealtimeVoiceProvider } from "../../realtime-voice-provider-factory-E_MZmbzi.mjs";
-import { t as buildOpenAISpeechProvider } from "../../speech-provider-DY5JF9Ii.mjs";
-import { t as buildOpenAIVideoGenerationProvider } from "../../video-generation-provider-Ee_pt6_n.mjs";
+import { c as resolveGpt5SystemPromptContribution, s as resolveGpt5PromptOverlayMode } from "../../gpt5-prompt-overlay-CiUtRDCv.mjs";
+import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
+import { r as resolvePluginConfigObject } from "../../plugin-config-runtime-DKh00pJ1.mjs";
+import "../../provider-model-metadata-fSBArSt7.mjs";
+import { r as buildProviderToolCompatFamilyHooks } from "../../provider-tools-DajrfQK1.mjs";
+import { t as buildOpenAIImageGenerationProvider } from "../../image-generation-provider-Dnv6lkDG.mjs";
+import { t as openaiMediaUnderstandingProvider } from "../../media-understanding-provider-D4MYxcY-.mjs";
+import { t as openAiMemoryEmbeddingProviderAdapter } from "../../memory-embedding-adapter-DMyygdTU.mjs";
+import { t as buildOpenAIProvider } from "../../openai-provider-BN4iyiRa.mjs";
+import { t as OPENAI_QUICKSILVER_OFFER_PATH } from "../../realtime-quicksilver-session-Dz0UfMuL.mjs";
+import { n as releaseOpenAIQuicksilverBrowserSessionBroker, t as acquireOpenAIQuicksilverBrowserSessionBroker } from "../../realtime-quicksilver-session-owner-DvKn7z-I.mjs";
+import { t as buildOpenAIRealtimeTranscriptionProvider } from "../../realtime-transcription-provider-factory-CYXi1Svw.mjs";
+import { t as buildOpenAIRealtimeVoiceProvider } from "../../realtime-voice-provider-factory-PUuN4Moy.mjs";
+import { t as buildOpenAISpeechProvider } from "../../speech-provider-D1lwXywV.mjs";
 //#region extensions/openai/index.ts
 var openai_default = definePluginEntry({
 	id: "openai",
@@ -20,22 +20,20 @@ var openai_default = definePluginEntry({
 	register(api) {
 		const { ensureAuthProfileStore, listProfilesForProvider, isProviderApiKeyConfigured } = api.runtime.modelAuth;
 		const openAIToolCompatHooks = buildProviderToolCompatFamilyHooks("openai");
-		const buildProviderWithPromptContribution = (provider) => ({
+		const provider = buildOpenAIProvider();
+		api.registerProvider({
 			...provider,
 			...openAIToolCompatHooks,
 			resolveSystemPromptContribution: (ctx) => {
 				const pluginConfig = resolvePluginConfigObject(ctx.config, "openai") ?? (ctx.config ? void 0 : api.pluginConfig);
-				return resolveOpenAISystemPromptContribution({
+				return resolveGpt5SystemPromptContribution({
 					config: ctx.config,
-					legacyPluginConfig: pluginConfig,
-					mode: resolveOpenAIPromptOverlayMode(pluginConfig),
-					modelProviderId: provider.id,
+					legacyPluginConfig: { personality: resolveGpt5PromptOverlayMode(void 0, pluginConfig) },
 					modelId: ctx.modelId,
 					trigger: ctx.trigger
 				});
 			}
 		});
-		api.registerProvider(buildProviderWithPromptContribution(buildOpenAIProvider()));
 		api.registerEmbeddingProvider(openAiMemoryEmbeddingProviderAdapter);
 		api.registerImageGenerationProvider(buildOpenAIImageGenerationProvider({
 			ensureAuthProfileStore,
@@ -71,7 +69,6 @@ var openai_default = definePluginEntry({
 		});
 		api.registerSpeechProvider(buildOpenAISpeechProvider());
 		api.registerMediaUnderstandingProvider(openaiMediaUnderstandingProvider);
-		api.registerVideoGenerationProvider(buildOpenAIVideoGenerationProvider({ isProviderApiKeyConfigured }));
 	}
 });
 //#endregion

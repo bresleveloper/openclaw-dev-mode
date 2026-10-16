@@ -1,6 +1,6 @@
 import { opencodeMediaUnderstandingProvider } from "./media-understanding-provider.js";
 import { OPENCODE_ZEN_DEFAULT_MODEL_REF, applyOpencodeZenProviderConfig } from "./onboard.js";
-import { a as prepareOpencodeZenModel, c as openclaw_plugin_default, i as normalizeOpencodeZenBaseUrl, n as buildStaticOpencodeZenProviderConfig, o as resolveOpencodeZenModel, r as listOpencodeZenModelCatalogEntries, s as resolveOpencodeZenStarterModel, t as buildOpencodeZenLiveProviderConfig } from "./.setup/provider-catalog-CfBqTHcl.mjs";
+import { a as prepareOpencodeZenModel, c as openclaw_plugin_default, i as normalizeOpencodeZenBaseUrl, n as buildStaticOpencodeZenProviderConfig, o as resolveOpencodeZenModel, r as listOpencodeZenModelCatalogEntries, s as resolveOpencodeZenStarterModel, t as buildOpencodeZenLiveProviderConfig } from "./.setup/provider-catalog-pNTuuSYH.mjs";
 import { resolveThinkingProfile } from "./provider-policy-api.js";
 import { registerOpenCodeSessionCatalog } from "./session-catalog-plugin.js";
 import { wrapOpencodeProviderStream } from "./stream.js";

@@ -1,11 +1,7 @@
-import { refreshAwsSharedConfigCacheForBedrock } from "./aws-credential-refresh.js";
-import { debugEmbeddingsLog, sanitizeAndNormalizeEmbedding } from "openclaw/plugin-sdk/memory-core-host-engine-embeddings";
+import { bedrockCredentialDefaultProvider } from "./aws-credential-refresh.js";
 import { asOptionalRecord, normalizeLowercaseStringOrEmpty, normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
+import { debugEmbeddingsLog, normalizeEmbeddingModelWithPrefixes, sanitizeAndNormalizeEmbedding } from "openclaw/plugin-sdk/memory-core-host-engine-embeddings";
 //#region extensions/amazon-bedrock/embedding-provider.ts
-/**
-* Amazon Bedrock embedding provider runtime. It normalizes model-specific
-* request/response shapes across Titan, Cohere, Nova, and TwelveLabs models.
-*/
 /** Default Bedrock embedding model used when no explicit model is configured. */
 const DEFAULT_BEDROCK_EMBEDDING_MODEL = "amazon.titan-embed-text-v2:0";
 const MODELS = {
@@ -117,12 +113,7 @@ async function loadSdk() {
 function loadDefaultCredentialProvider() {
 	return credentialProviderPromise ??= import("@aws-sdk/credential-provider-node").then(({ defaultProvider }) => defaultProvider).catch(() => null);
 }
-const MODEL_PREFIX_RE = /^(?:bedrock|amazon-bedrock|aws)\//;
 const REGION_RE = /bedrock-runtime(?:-fips)?\.([a-z0-9-]+)\./;
-function normalizeBedrockEmbeddingModel(model) {
-	const trimmed = model.trim();
-	return trimmed ? trimmed.replace(MODEL_PREFIX_RE, "") : DEFAULT_BEDROCK_EMBEDDING_MODEL;
-}
 function regionFromUrl(url) {
 	return url?.trim() ? REGION_RE.exec(url)?.[1] : void 0;
 }
@@ -186,7 +177,7 @@ function asNumberArray(value) {
 }
 function asNumberArrayBatch(value) {
 	if (!Array.isArray(value)) throw malformedBedrockEmbeddingResponse();
-	return value.map((entry) => asNumberArray(entry));
+	return value.map(asNumberArray);
 }
 function parseSingle(family, raw) {
 	const data = parseEmbeddingResponseJson(raw);
@@ -203,7 +194,6 @@ function parseSingle(family, raw) {
 }
 function parseCohereBatch(family, raw) {
 	const embeddings = parseEmbeddingResponseJson(raw).embeddings;
-	if (!embeddings) throw malformedBedrockEmbeddingResponse();
 	if (family === "cohere-v4" && !Array.isArray(embeddings)) {
 		const embeddingRecord = asOptionalRecord(embeddings);
 		if (!embeddingRecord) throw malformedBedrockEmbeddingResponse();
@@ -222,9 +212,17 @@ async function createBedrockEmbeddingProvider(options) {
 		dimensions: client.dimensions,
 		family
 	});
+	let credentialProvider;
+	const credentialDefaultProvider = (init) => {
+		const shared = credentialProvider ??= bedrockCredentialDefaultProvider(init);
+		return (credentialOptions) => shared({
+			...credentialOptions,
+			forceRefresh: true
+		});
+	};
 	const invoke = async (body, signal) => {
-		await refreshAwsSharedConfigCacheForBedrock();
 		const sdk = new BedrockRuntimeClient({
+			credentialDefaultProvider,
 			region: client.region,
 			endpoint: client.endpoint,
 			useFipsEndpoint: client.useFipsEndpoint,
@@ -248,7 +246,7 @@ async function createBedrockEmbeddingProvider(options) {
 	};
 	const embedCohere = async (texts, inputType, signal) => {
 		const raw = await invoke(buildCohereBody(family, texts, inputType, client.dimensions), signal);
-		return parseCohereBatch(family, raw).map((e) => sanitizeAndNormalizeEmbedding(e));
+		return parseCohereBatch(family, raw).map(sanitizeAndNormalizeEmbedding);
 	};
 	const embedQuery = async (text, signal) => {
 		if (!text.trim()) return [];
@@ -281,7 +279,15 @@ async function createBedrockEmbeddingProvider(options) {
 	};
 }
 function resolveBedrockEmbeddingClient(options, BedrockRuntimeClient) {
-	const model = normalizeBedrockEmbeddingModel(options.model);
+	const model = normalizeEmbeddingModelWithPrefixes({
+		model: options.model,
+		defaultModel: DEFAULT_BEDROCK_EMBEDDING_MODEL,
+		prefixes: [
+			"bedrock/",
+			"amazon-bedrock/",
+			"aws/"
+		]
+	});
 	const spec = resolveSpec(model);
 	const providerConfig = options.config.models?.providers?.["amazon-bedrock"];
 	let endpoint = normalizeOptionalString(options.remote?.baseUrl) ?? normalizeOptionalString(providerConfig?.baseUrl);
@@ -336,6 +342,7 @@ async function hasAwsCredentials(env = process.env, loadCredentialProvider = loa
 	if (!defaultProvider) return false;
 	try {
 		const credentials = await defaultProvider({
+			ignoreCache: true,
 			timeout: 1e3,
 			maxRetries: 0
 		})();

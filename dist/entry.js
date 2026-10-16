@@ -1,32 +1,33 @@
 #!/usr/bin/env node
-import { u as isRootHelpInvocation } from "./argv-IYTsfFsq.mjs";
-import { r as isForegroundGatewayRunArgv } from "./gateway-run-argv-L1ml5gbH.mjs";
-import { n as parseCliContainerArgs, r as resolveCliContainerTarget } from "./container-target-QMB0jS0E.mjs";
-import { r as defaultRuntime } from "./runtime-BC29JSZp.mjs";
-import { n as requestExitAfterOneShotOutput, r as runCliWithExitFinalization } from "./one-shot-exit-ZY0is37U.mjs";
-import { t as tryOutputPrecomputedCommandHelp } from "./precomputed-help-CjXdQ-GT.mjs";
-import { n as parseCliProfileArgs, t as applyCliProfileEnv } from "./profile-wa21S6WO.mjs";
-import { a as isNativeHookRelayArgv, i as isForegroundGmailRunArgv, n as runCliRespawnPlan, o as isTerminalInteractiveRespawnArgv, r as runRespawnChildWithSignalBridge, s as shouldKeepNativeHookRelayInProcess, t as buildCliRespawnPlan } from "./entry.respawn-DrPviqKU.mjs";
-import { o as withCliProcessScope } from "./runtime-cleanup-scope-C0g6_AIJ.mjs";
-import { i as normalizeEnv } from "./env-C4a8LL2I.mjs";
-import { r as createGatewayDispatchStartupTrace, t as configureGatewayStartupTraceConsoleFormatting } from "./startup-trace-DgSoCXij.mjs";
-import { t as normalizeWindowsArgv } from "./windows-argv-C3HwI-HD.mjs";
-import { t as enableOwnedNodeCompileCache } from "./node-compile-cache-env-DxpWFM0X.mjs";
+import { t as disableExitUnsafeCompilers } from "./node-exit-safe-compilers-B7V3uapp.mjs";
+import { u as isRootHelpInvocation } from "./argv-D_Nxd_3s.mjs";
+import { r as isForegroundGatewayRunArgv } from "./gateway-run-argv-DFDqy1EF.mjs";
+import { t as resolveCliArgvInvocation } from "./argv-invocation-CV_-dmd8.mjs";
+import { n as fsSafeEnvInput } from "./fs-safe-env-CCe2lU-3.mjs";
+import { n as parseCliProfileArgs, t as applyCliProfileEnv } from "./profile-DEgnfd3z.mjs";
+import { n as tryRunUpdateAdmissionBeforeStartup, t as isUpdateAdmissionInvocation } from "./run-main-update-admission-BS1Ry2Ic.mjs";
+import { i as normalizeEnv } from "./env-BBJTTIuE.mjs";
+import { i as createGatewayDispatchStartupTrace, n as configureGatewayStartupTraceConsoleFormatting, o as prepareGatewayStartupTraceConsoleFormatting } from "./startup-trace-D7hzafKJ.mjs";
+import { n as parseCliContainerArgs, r as resolveCliContainerTarget } from "./container-target-Bj4zLvq3.mjs";
+import { t as tryHandleRootVersionFastPath } from "./detached-async-context-B1URpzvl.mjs";
+import { t as isMainModule } from "./is-main-DYSvvM1W.mjs";
+import { t as tryOutputPrecomputedCommandHelp } from "./precomputed-help-bBDqtMtk.mjs";
+import { a as isNativeHookRelayArgv, i as isForegroundGmailRunArgv, n as runCliRespawnPlan, o as isTerminalInteractiveRespawnArgv, r as runRespawnChildWithSignalBridge, s as shouldKeepNativeHookRelayInProcess, t as buildCliRespawnPlan } from "./entry.respawn-Bu4PshQc.mjs";
+import { t as normalizeWindowsArgv } from "./windows-argv-DUGbJuRb.mjs";
+import { r as resolveOpenClawCompileCacheDirectory, t as enableOwnedNodeCompileCache } from "./node-compile-cache-env-CpY9xPJG.mjs";
 import { t as attachChildProcessBridge } from "./child-process-bridge-CFJsa4sQ.mjs";
 import { t as installDistEsmResolveFastPath } from "./entry.esm-resolve-fast-path-gJ7_FrDl.mjs";
-import { t as tryHandleRootVersionFastPath } from "./entry.version-fast-path-DEnppuUu.mjs";
-import { t as isMainModule } from "./is-main-CH4EEB_R.mjs";
 import { r as ensureOpenClawExecMarkerOnProcess } from "./openclaw-exec-env-Cc7ECPuD.mjs";
-import { t as installProcessWarningFilter } from "./warning-filter-BGYPTRmo.mjs";
+import { t as installProcessWarningFilter } from "./warning-filter-DPiX2pYu.mjs";
 import { i as requestNodeHostLauncherBootstrap, n as isNodeHostLauncherChild, t as getManagedNodeHostStatePath } from "./launcher-client-DNBTHwUk.mjs";
+import { r as defaultRuntime } from "./runtime-DlO3PTAd.mjs";
 import { getCompileCacheDir } from "node:module";
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync } from "node:fs";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
-import { format as format$1 } from "node:util";
 import path from "node:path";
 import { spawn } from "node:child_process";
-import os from "node:os";
+import { format as format$1 } from "node:util";
 //#region src/entry.compile-cache.ts
 const COMPILE_CACHE_DISABLED_RESPAWNED_ENV = "OPENCLAW_COMPILE_CACHE_DISABLED_RESPAWNED";
 function resolveEntryInstallRoot(entryFile) {
@@ -44,30 +45,7 @@ function isNodeCompileCacheRequested(env) {
 	return env?.NODE_COMPILE_CACHE !== void 0 && !isNodeCompileCacheDisabled(env);
 }
 function shouldEnableOpenClawCompileCache(params) {
-	return !isNodeCompileCacheDisabled(params.env) && !isSourceCheckoutInstallRoot(params.installRoot);
-}
-function sanitizeCompileCachePathSegment(value) {
-	const normalized = value.replace(/[^A-Za-z0-9._-]+/g, "_").replace(/^_+|_+$/g, "");
-	return normalized.length > 0 ? normalized : "unknown";
-}
-function readPackageVersion(packageJsonPath) {
-	try {
-		const parsed = JSON.parse(readFileSync(packageJsonPath, "utf8"));
-		if (parsed && typeof parsed === "object" && "version" in parsed && typeof parsed.version === "string" && parsed.version.trim().length > 0) return parsed.version;
-	} catch {}
-	return "unknown";
-}
-function resolveOpenClawCompileCacheDirectory(params) {
-	const env = params.env ?? process.env;
-	const packageJsonPath = path.join(params.installRoot, "package.json");
-	const version = sanitizeCompileCachePathSegment(readPackageVersion(packageJsonPath));
-	let installMarker = "no-package-json";
-	try {
-		const stat = statSync(packageJsonPath);
-		installMarker = `${Math.trunc(stat.mtimeMs)}-${stat.size}`;
-	} catch {}
-	const baseDirectory = env.NODE_COMPILE_CACHE && !isNodeCompileCacheDisabled(env) ? env.NODE_COMPILE_CACHE : path.join(os.tmpdir(), "node-compile-cache");
-	return path.join(baseDirectory, "openclaw", version, sanitizeCompileCachePathSegment(installMarker));
+	return !isNodeCompileCacheDisabled(params.env ?? process.env) && !isSourceCheckoutInstallRoot(params.installRoot);
 }
 function buildOpenClawCompileCacheRespawnPlan(params) {
 	const env = params.env ?? process.env;
@@ -134,7 +112,8 @@ function runOpenClawCompileCacheRespawnPlan(plan, runtime = {
 function enableOpenClawCompileCache(params) {
 	if (!shouldEnableOpenClawCompileCache(params)) return;
 	try {
-		enableOwnedNodeCompileCache(resolveOpenClawCompileCacheDirectory(params));
+		const directory = resolveOpenClawCompileCacheDirectory(params);
+		if (directory) enableOwnedNodeCompileCache(directory);
 	} catch {}
 }
 //#endregion
@@ -155,23 +134,23 @@ const ENTRY_WRAPPER_PAIRS = [
 	}
 ];
 const loadRootHelpLiveConfigModule = async () => await import("./root-help-live-config-DLFpCf-w.mjs");
-const loadRootHelpMetadataModule = async () => await import("./root-help-metadata-DoWAQ8F9.mjs");
+const loadRootHelpMetadataModule = async () => await import("./root-help-metadata-DJawK_mA.mjs");
 async function writeCapturedCliArgumentError(message) {
-	const { loadCliDotEnv } = await import("./dotenv-CBg4mACh.mjs");
+	const { loadCliDotEnv } = await import("./dotenv-DprAYqRb.mjs");
 	loadCliDotEnv({ quiet: true });
 	await configureGatewayStartupTraceConsoleFormatting(gatewayEntryStartupTrace);
-	const { enableConsoleCapture } = await import("./logging-Cqdmmtkf.mjs");
+	const { enableConsoleCapture } = await import("./logging-Y02LUhnQ.mjs");
 	enableConsoleCapture();
-	const [{ formatCliJsonFailure }, { isJsonOutputModeActive }] = await Promise.all([import("./failure-output-Tnld8e4L.mjs"), import("./json-output-mode-pwhUEVjJ.mjs")]);
+	const [{ formatCliJsonFailure }, { isJsonOutputModeActive }] = await Promise.all([import("./failure-output-CKN7Q5cE.mjs"), import("./json-output-mode-BR-Z3WUl.mjs")]);
 	if (isJsonOutputModeActive(process.argv)) defaultRuntime.writeJson(formatCliJsonFailure(message));
 	console.error(`[openclaw] ${message}`);
 }
 async function prepareCliDiagnosticBlockWriter() {
 	const loadWriter = async () => {
-		const { loadCliDotEnv } = await import("./dotenv-CBg4mACh.mjs");
+		const { loadCliDotEnv } = await import("./dotenv-DprAYqRb.mjs");
 		loadCliDotEnv({ quiet: true });
 		await configureGatewayStartupTraceConsoleFormatting(gatewayEntryStartupTrace);
-		const { formatConsoleDiagnosticBlock } = await import("./json-console-line-BzCCANfr.mjs");
+		const { formatConsoleDiagnosticBlock } = await import("./json-console-line-lWJWZD8J.mjs");
 		return (message, error) => {
 			const formatted = error === void 0 ? message : format$1(message, error);
 			process.stderr.write(formatConsoleDiagnosticBlock({
@@ -184,7 +163,7 @@ async function prepareCliDiagnosticBlockWriter() {
 }
 async function flushEntryStartupTraceForEarlyReturn(argv) {
 	if (!gatewayEntryStartupTrace.enabled) return;
-	const { loadCliDotEnvForEarlyDiagnostic } = await import("./dotenv-CBg4mACh.mjs");
+	const { loadCliDotEnvForEarlyDiagnostic } = await import("./dotenv-DprAYqRb.mjs");
 	await loadCliDotEnvForEarlyDiagnostic(argv);
 	await configureGatewayStartupTraceConsoleFormatting(gatewayEntryStartupTrace);
 }
@@ -194,10 +173,13 @@ function shouldForceReadOnlyAuthStore(argv) {
 	return false;
 }
 const gatewayEntryStartupTrace = createGatewayDispatchStartupTrace(process.argv, "entry");
-if (!isMainModule({
+const isEntryMain = isMainModule({
 	currentFile: fileURLToPath(import.meta.url),
 	wrapperEntryPairs: [...ENTRY_WRAPPER_PAIRS]
-})) {} else {
+});
+if (isEntryMain) disableExitUnsafeCompilers();
+if (!isEntryMain) {} else if (isUpdateAdmissionInvocation(resolveCliArgvInvocation(process.argv))) await tryRunUpdateAdmissionBeforeStartup(resolveCliArgvInvocation(process.argv));
+else {
 	const entryFile = fileURLToPath(import.meta.url);
 	const installRoot = resolveEntryInstallRoot(entryFile);
 	installDistEsmResolveFastPath(import.meta.url);
@@ -207,10 +189,10 @@ if (!isMainModule({
 	process.argv = normalizeWindowsArgv(process.argv);
 	const earlyProfile = parseCliProfileArgs(process.argv);
 	if (earlyProfile.ok && earlyProfile.profile) applyCliProfileEnv({ profile: earlyProfile.profile });
-	const startupEnv = { ...process.env };
-	const { assertSupportedRuntime, isCurrentRuntimeSupported } = await import("./runtime-guard-ynPCG7W5.mjs");
+	const startupEnv = { ...fsSafeEnvInput(process.env) };
+	const { assertSupportedRuntime, isCurrentRuntimeSupported } = await import("./runtime-guard-Du_GbNsi.mjs");
 	if (!await isCurrentRuntimeSupported()) {
-		const { loadCliDotEnv } = await import("./dotenv-CBg4mACh.mjs");
+		const { loadCliDotEnv } = await import("./dotenv-DprAYqRb.mjs");
 		loadCliDotEnv({ quiet: true });
 		await configureGatewayStartupTraceConsoleFormatting(gatewayEntryStartupTrace);
 	}
@@ -274,12 +256,15 @@ if (!isMainModule({
 			}
 			gatewayEntryStartupTrace.mark("argv");
 			if (!tryHandleRootVersionFastPath(process.argv)) {
-				const run = (finalize) => withCliProcessScope(() => runMainOrRootHelp(process.argv, { finalize }));
+				const run = async (finalize) => {
+					const { withCliProcessScope } = await import("./runtime-cleanup-scope-DfAoBUW-.mjs");
+					return withCliProcessScope(() => runMainOrRootHelp(process.argv, { finalize }));
+				};
 				const managedNodeStatePath = getManagedNodeHostStatePath();
 				if (managedNodeStatePath) {
-					const { withExistingOpenClawStateSchema } = await import("./openclaw-state-db-schema-policy-CkgdXK6T.mjs");
+					const { withExistingOpenClawStateSchema } = await import("./openclaw-state-db-schema-policy-W6CVzs2_.mjs");
 					await withExistingOpenClawStateSchema({ path: managedNodeStatePath }, async () => {
-						const { openOpenClawStateDatabase, closeOpenClawStateDatabaseByPathAsync } = await import("./openclaw-state-db-quM4UOZq.mjs");
+						const { openOpenClawStateDatabase, closeOpenClawStateDatabaseByPathAsync } = await import("./openclaw-state-db-Dwulrh8X.mjs");
 						openOpenClawStateDatabase({ path: managedNodeStatePath });
 						await run(async () => {
 							await closeOpenClawStateDatabaseByPathAsync(managedNodeStatePath);
@@ -304,32 +289,51 @@ async function tryHandleRootHelpFastPath(argv, deps = {}) {
 		if (!liveRootHelpOptions) {
 			if ((deps.outputPrecomputedRootHelpText ?? (await loadRootHelpMetadataModule()).outputPrecomputedRootHelpText)()) return true;
 		}
-		await (deps.outputRootHelp ?? (await import("./root-help-B1D2WwRy.mjs")).outputRootHelp)(liveRootHelpOptions ?? void 0);
+		await (deps.outputRootHelp ?? (await import("./root-help-C0eHaA8V.mjs")).outputRootHelp)(liveRootHelpOptions ?? void 0);
 		return true;
 	} catch (error) {
 		await handleError(error);
 		return true;
 	}
 }
-async function tryHandlePrecomputedCommandHelpFastPath(argv, deps = {}) {
-	const env = deps.env ?? process.env;
-	if (resolveCliContainerTarget(argv, env)) return false;
+async function tryHandlePrecomputedCommandHelpFastPath(argv) {
+	if (resolveCliContainerTarget(argv)) return false;
 	try {
-		return await tryOutputPrecomputedCommandHelp(argv, {
-			...deps,
-			env
-		});
+		return await tryOutputPrecomputedCommandHelp(argv);
 	} catch {
 		return false;
 	}
 }
+async function prepareCliFailureHandler(argv, commandStarted) {
+	const [{ loadCliDotEnvForEarlyDiagnostic }, { enableConsoleCapture }, { formatCliFailureLines, formatCliJsonFailure }, { isJsonOutputModeActive }, configureTrace] = await Promise.all([
+		import("./dotenv-DprAYqRb.mjs"),
+		import("./logging-Y02LUhnQ.mjs"),
+		import("./failure-output-CKN7Q5cE.mjs"),
+		import("./json-output-mode-BR-Z3WUl.mjs"),
+		prepareGatewayStartupTraceConsoleFormatting(gatewayEntryStartupTrace)
+	]);
+	return async (error) => {
+		await loadCliDotEnvForEarlyDiagnostic(argv);
+		configureTrace();
+		enableConsoleCapture();
+		if (isJsonOutputModeActive(argv)) defaultRuntime.writeJson(formatCliJsonFailure(error));
+		for (const line of formatCliFailureLines({
+			title: commandStarted() ? "The CLI command failed." : "Could not start the CLI.",
+			error,
+			argv
+		})) console.error(line);
+		process.exitCode = 1;
+	};
+}
 async function runMainOrRootHelp(argv, deps = {}) {
 	let commandStarted = false;
+	let failureHandler;
+	const { runCliWithExitFinalization, requestExitAfterOneShotOutput } = await import("./one-shot-exit-45nwQ_jz.mjs");
 	await runCliWithExitFinalization({
 		finalize: deps.finalize,
 		run: async () => {
 			if (isNativeHookRelayArgv(argv) && !argv.includes("--help") && !argv.includes("-h")) {
-				const { runNativeHookRelayCliFromArgv } = await import("./native-hook-relay-cli-uM2lhH4q.mjs");
+				const { runNativeHookRelayCliFromArgv } = await import("./native-hook-relay-cli-BQas81cV.mjs");
 				const exitCode = await runNativeHookRelayCliFromArgv(argv);
 				process.exitCode = exitCode;
 				requestExitAfterOneShotOutput(defaultRuntime, exitCode);
@@ -337,13 +341,16 @@ async function runMainOrRootHelp(argv, deps = {}) {
 			}
 			if (await tryHandleRootHelpFastPath(argv)) {
 				await flushEntryStartupTraceForEarlyReturn(argv);
+				requestExitAfterOneShotOutput(defaultRuntime);
 				return;
 			}
 			if (await tryHandlePrecomputedCommandHelpFastPath(argv)) {
 				await flushEntryStartupTraceForEarlyReturn(argv);
+				requestExitAfterOneShotOutput(defaultRuntime);
 				return;
 			}
 			const { runCli } = await gatewayEntryStartupTrace.measure("run-main-import", deps.loadRunCli ?? (() => import("./cli/run-main.js")));
+			failureHandler = await prepareCliFailureHandler(argv, () => commandStarted);
 			commandStarted = true;
 			await runCli(argv, {
 				additionalStartupTrace: gatewayEntryStartupTrace,
@@ -351,21 +358,7 @@ async function runMainOrRootHelp(argv, deps = {}) {
 				retainConsoleRoutingUntilProcessExit: true
 			});
 		},
-		onError: async (error) => {
-			const { loadCliDotEnvForEarlyDiagnostic } = await import("./dotenv-CBg4mACh.mjs");
-			await loadCliDotEnvForEarlyDiagnostic(argv);
-			await configureGatewayStartupTraceConsoleFormatting(gatewayEntryStartupTrace);
-			const { enableConsoleCapture } = await import("./logging-Cqdmmtkf.mjs");
-			enableConsoleCapture();
-			const [{ formatCliFailureLines, formatCliJsonFailure }, { isJsonOutputModeActive }] = await Promise.all([import("./failure-output-Tnld8e4L.mjs"), import("./json-output-mode-pwhUEVjJ.mjs")]);
-			if (isJsonOutputModeActive(argv)) defaultRuntime.writeJson(formatCliJsonFailure(error));
-			for (const line of formatCliFailureLines({
-				title: commandStarted ? "The CLI command failed." : "Could not start the CLI.",
-				error,
-				argv
-			})) console.error(line);
-			process.exitCode = 1;
-		}
+		onError: async (error) => (failureHandler ?? await prepareCliFailureHandler(argv, () => commandStarted))(error)
 	});
 }
 //#endregion

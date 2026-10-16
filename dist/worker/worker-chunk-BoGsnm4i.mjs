@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function isSystemAgentNavigationOperation(e){switch(e.kind){case`channel-setup`:case`skills-setup`:case`search-setup`:case`gateway-config-setup`:case`memory-import`:case`model-setup`:case`model-accounts`:case`open-setup`:case`open-tui`:return!0;default:return!1}}var t=e((()=>{}));export{isSystemAgentNavigationOperation as n,t};

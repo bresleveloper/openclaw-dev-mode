@@ -12,7 +12,6 @@ function hasBrowserToolReference(config) {
 	if (toolPolicyReferencesBrowser(config.tools)) return true;
 	return listAgentIds(config).some((agentId) => toolPolicyReferencesBrowser(resolveAgentConfig(config, agentId)?.tools));
 }
-/** Setup entry that detects existing Browser configuration references. */
 var setup_api_default = definePluginEntry({
 	id: "browser",
 	name: "Browser Setup",

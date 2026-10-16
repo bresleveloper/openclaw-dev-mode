@@ -1,3 +1,3 @@
 import { t as createRealtimeVoiceOutputActivityTracker } from "../output-activity-tracker-DibtmiPc.mjs";
-import { r as isRealtimeVoiceAudioAudible } from "../audio-energy-CUNIcCl_.mjs";
+import { r as isRealtimeVoiceAudioAudible } from "../audio-energy-DXFUFDyy.mjs";
 export { createRealtimeVoiceOutputActivityTracker, isRealtimeVoiceAudioAudible };

@@ -11,7 +11,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { basename, dirname, join } from "node:path";
-import { inflateRawSync } from "node:zlib";
+import { crc32, inflateRawSync } from "node:zlib";
 
 const ACTIONS_ARTIFACT_API_VERSION = "2026-03-10";
 const DEFAULT_MAX_ACTIONS_ARTIFACT_BYTES = 256 * 1024 * 1024;
@@ -68,7 +68,7 @@ function assertTrimmedString(value, label) {
   return value;
 }
 
-function hasControlCharacters(value) {
+export function hasControlCharacters(value) {
   for (const character of value) {
     const codePoint = character.codePointAt(0);
     if (codePoint <= 0x1f || codePoint === 0x7f) {
@@ -78,7 +78,7 @@ function hasControlCharacters(value) {
   return false;
 }
 
-function boundedLimit(value, fallback, label) {
+export function boundedLimit(value, fallback, label) {
   if (value === undefined) {
     return fallback;
   }
@@ -175,7 +175,7 @@ export function sha256Digest(bytes) {
   return `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
 }
 
-function compareCodeUnits(left, right) {
+export function compareCodeUnits(left, right) {
   return left < right ? -1 : left > right ? 1 : 0;
 }
 
@@ -258,17 +258,6 @@ function findEndOfCentralDirectory(bytes) {
   );
 }
 
-function crc32(bytes) {
-  let crc = 0xffffffff;
-  for (const byte of bytes) {
-    crc ^= byte;
-    for (let bit = 0; bit < 8; bit += 1) {
-      crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0);
-    }
-  }
-  return (crc ^ 0xffffffff) >>> 0;
-}
-
 function normalizeArchivePolicy(policy) {
   if (!policy || typeof policy !== "object") {
     throw new Error("Actions artifact ZIP policy is required.");
@@ -324,7 +313,6 @@ function normalizeArchivePolicy(policy) {
   }
   return {
     expectedEntries,
-    expectedEntrySet: expectedEntries ? new Set(expectedEntries) : undefined,
     maxArchiveBytes,
     maxEntries,
     maxExpandedBytes,
@@ -708,7 +696,11 @@ function requireExpectedBinding(params) {
     "workflow head branch",
   );
   const runStatePolicy = assertTrimmedString(expected.runStatePolicy, "workflow run-state policy");
-  if (runStatePolicy !== "completed-success" && runStatePolicy !== "same-run-producer-success") {
+  if (
+    runStatePolicy !== "completed-success" &&
+    runStatePolicy !== "same-run-producer-success" &&
+    runStatePolicy !== "completed-producer-success"
+  ) {
     throw new Error(`Unsupported workflow run-state policy: ${runStatePolicy}`);
   }
   const consumerRunAttempt =
@@ -716,7 +708,8 @@ function requireExpectedBinding(params) {
       ? assertPositiveInteger(expected.consumerRunAttempt, "consumer workflow run attempt")
       : undefined;
   const producerJobName =
-    runStatePolicy === "same-run-producer-success"
+    runStatePolicy === "same-run-producer-success" ||
+    runStatePolicy === "completed-producer-success"
       ? assertTrimmedString(expected.producerJobName, "producer job name")
       : undefined;
   const producerStepName =
@@ -804,7 +797,10 @@ export function validateActionsArtifactBinding(params) {
 
 export function validateActionsArtifactProducerJob(params) {
   const expected = requireExpectedBinding(params);
-  if (expected.runStatePolicy !== "same-run-producer-success") {
+  if (
+    expected.runStatePolicy !== "same-run-producer-success" &&
+    expected.runStatePolicy !== "completed-producer-success"
+  ) {
     return expected;
   }
   const response = params.workflowJobs;
@@ -1202,7 +1198,10 @@ export async function downloadActionsArtifactArchive(params) {
   );
   validateActionsArtifactBinding({ artifactMetadata, expected, workflowRun });
   let workflowJobs;
-  if (expected.runStatePolicy === "same-run-producer-success") {
+  if (
+    expected.runStatePolicy === "same-run-producer-success" ||
+    expected.runStatePolicy === "completed-producer-success"
+  ) {
     workflowJobs = await transfer.json(
       `actions/runs/${expected.runId}/attempts/${expected.runAttempt}/jobs?per_page=100`,
       "GitHub Actions producer jobs",

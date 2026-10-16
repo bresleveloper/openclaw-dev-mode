@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{i as t}from"./worker-chunk-CTNyDcqI.mjs";function asFsSafeFileLockRoot(e){return e}var n=e((()=>{t()}));export{n,asFsSafeFileLockRoot as t};

@@ -1,2 +1,2 @@
-import { t as applyXaiRuntimeModelCompat } from "../../runtime-model-compat-DN-v6E6i.mjs";
+import { t as applyXaiRuntimeModelCompat } from "../../runtime-model-compat-DAKPoZ8t.mjs";
 export { applyXaiRuntimeModelCompat };

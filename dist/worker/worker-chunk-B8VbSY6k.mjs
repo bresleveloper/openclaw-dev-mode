@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{c as t,l as n}from"./worker-chunk-D-pM6VZQ.mjs";function isLegacyOAuthRef(e){return n(e)?e.source===r&&e.provider===`openai-codex`&&typeof e.id==`string`&&/^[a-f0-9]{32}$/.test(e.id):!1}var r,i,a=e((()=>{t(),r=`openclaw-credentials`,i=`openai-codex`}));export{a as n,isLegacyOAuthRef as r,i as t};

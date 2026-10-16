@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function isPluginActivityToolName(e){return/^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$/u.test(e)}var t,n,r,i,a=e((()=>{t=`assets/icon.png`,n=`assets/activity.svg`,r=`assets/activity`,i=32768}));export{a,t as i,n,isPluginActivityToolName as o,r,i as t};

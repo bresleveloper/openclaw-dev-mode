@@ -1,9 +1,9 @@
-import { n as runTavilySearch, t as runTavilyExtract } from "./.setup/tavily-client-C3TGlzye.mjs";
-import { t as createTavilyWebSearchProvider } from "./.setup/tavily-search-provider-DC_XNplb.mjs";
+import { n as runTavilySearch, t as runTavilyExtract } from "./.setup/tavily-client-S2RhlGv8.mjs";
+import { t as createTavilyWebSearchProvider } from "./.setup/tavily-search-provider-DskCyo7n.mjs";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
+import { optionalStringEnum } from "openclaw/plugin-sdk/channel-actions";
 import { jsonResult, readPositiveIntegerParam, readStringArrayParam, readStringParam } from "openclaw/plugin-sdk/provider-web-search";
 import { Type } from "typebox";
-import { optionalStringEnum } from "openclaw/plugin-sdk/channel-actions";
 //#region extensions/tavily/src/tavily-tool-config.ts
 function resolveTavilyToolConfig(api, ctx) {
 	return ctx?.getRuntimeConfig?.() ?? ctx?.runtimeConfig ?? ctx?.config ?? api.config;
@@ -90,27 +90,19 @@ function createTavilySearchTool(api, ctx) {
 		parameters: TavilySearchToolSchema,
 		execute: async (_toolCallId, rawParams, signal) => {
 			signal?.throwIfAborted();
-			const query = readStringParam(rawParams, "query", { required: true });
-			const searchDepth = readStringParam(rawParams, "search_depth") || void 0;
-			const topic = readStringParam(rawParams, "topic") || void 0;
-			const maxResults = readPositiveIntegerParam(rawParams, "max_results", {
-				max: 20,
-				message: "max_results must be an integer from 1 to 20."
-			});
-			const includeAnswer = rawParams.include_answer === true;
-			const timeRange = readStringParam(rawParams, "time_range") || void 0;
-			const includeDomains = readStringArrayParam(rawParams, "include_domains");
-			const excludeDomains = readStringArrayParam(rawParams, "exclude_domains");
 			return jsonResult(await runTavilySearch({
+				query: readStringParam(rawParams, "query", { required: true }),
+				searchDepth: readStringParam(rawParams, "search_depth") || void 0,
+				topic: readStringParam(rawParams, "topic") || void 0,
+				maxResults: readPositiveIntegerParam(rawParams, "max_results", {
+					max: 20,
+					message: "max_results must be an integer from 1 to 20."
+				}),
+				includeAnswer: rawParams.include_answer === true,
+				timeRange: readStringParam(rawParams, "time_range") || void 0,
+				includeDomains: readStringArrayParam(rawParams, "include_domains"),
+				excludeDomains: readStringArrayParam(rawParams, "exclude_domains"),
 				cfg: resolveTavilyToolConfig(api, ctx),
-				query,
-				searchDepth,
-				topic,
-				maxResults,
-				includeAnswer,
-				timeRange,
-				includeDomains,
-				excludeDomains,
 				...signal ? { signal } : {}
 			}));
 		}

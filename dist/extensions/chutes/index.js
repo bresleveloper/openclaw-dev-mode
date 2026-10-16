@@ -7,9 +7,6 @@ import { createProviderApiKeyAuthMethod } from "openclaw/plugin-sdk/provider-aut
 import { runLiveProviderCatalog } from "openclaw/plugin-sdk/provider-catalog-live-runtime";
 import { normalizeOptionalString, readStringValue } from "openclaw/plugin-sdk/string-coerce-runtime";
 //#region extensions/chutes/index.ts
-/**
-* Chutes provider plugin entrypoint with OAuth and API-key auth methods.
-*/
 const PROVIDER_ID = "chutes";
 async function runChutesOAuth(ctx) {
 	const isRemote = ctx.isRemote;
@@ -105,7 +102,7 @@ var chutes_default = definePluginEntry({
 					groupLabel: "Chutes",
 					groupHint: "OAuth + API key"
 				},
-				run: async (ctx) => await runChutesOAuth(ctx)
+				run: runChutesOAuth
 			}, createProviderApiKeyAuthMethod({
 				providerId: PROVIDER_ID,
 				methodId: "api-key",
@@ -119,7 +116,7 @@ var chutes_default = definePluginEntry({
 				noteMessage: ["Chutes provides access to leading open-source models including Llama, DeepSeek, and more.", "Get your API key at: https://chutes.ai/settings/api-keys"].join("\n"),
 				defaultModel: CHUTES_DEFAULT_MODEL_REF,
 				expectedProviders: ["chutes"],
-				applyConfig: (cfg) => applyChutesApiKeyConfig(cfg),
+				applyConfig: applyChutesApiKeyConfig,
 				wizard: {
 					choiceId: "chutes-api-key",
 					choiceLabel: "Chutes API key",
@@ -147,7 +144,7 @@ var chutes_default = definePluginEntry({
 				order: "profile",
 				run: async () => ({ provider: buildStaticChutesProvider() })
 			},
-			refreshOAuth: refreshChutesOAuthCredential
+			refreshOAuth: (credential) => refreshChutesOAuthCredential(credential)
 		});
 	}
 });

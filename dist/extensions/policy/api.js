@@ -1,2 +1,2 @@
-import { t as registerPolicyDoctorChecks } from "../../register-CTZ0C_Hj.mjs";
+import { t as registerPolicyDoctorChecks } from "../../register-BVeik9_S.mjs";
 export { registerPolicyDoctorChecks };

@@ -16,6 +16,8 @@ import { runScopedSqliteArchiveOperation } from "./session-accessor.sqlite-archi
 import type {
   MaterializedSessionStateDeletePlan,
   SessionStateDeletePlan,
+  TranscriptArchivePagePlan,
+  TranscriptArchivePageResult,
   TranscriptArchivePublishPlan,
   TranscriptArchivePublishResult,
   TranscriptArchiveReadPlan,
@@ -32,6 +34,7 @@ import {
   type SqliteWorkerWriteAdmission,
 } from "./session-accessor.sqlite-worker-request.js";
 import type { SessionColdWorkerData } from "./session-cold-storage-worker.js";
+import { withSessionHistoryWorkerDatabase } from "./session-transcript-worker-runtime.js";
 
 export function createSqliteTranscriptArchiveWorker(workerData: object): Worker {
   const workerUrl = resolveRuntimeWorkerUrl(runtimeProcessEntrypoints.sessionTranscriptArchive);
@@ -99,11 +102,7 @@ function spawnSqliteTranscriptArchiveWorkerOperation<Result>(
           onExit: (code) => {
             exitCode = code;
           },
-          dispatch: () =>
-            worker.postMessage(
-              { type: "mutate", coordination },
-              coordination.stateLifecycle ? [coordination.stateLifecycle] : [],
-            ),
+          dispatch: () => worker.postMessage({ type: "mutate", coordination }, []),
         }),
     ).then((result) => [result]);
     const observe = (outcome: "resolved" | "rejected") => {
@@ -240,11 +239,12 @@ function runSqliteTranscriptArchiveWorker(
 
 export function runSqliteTranscriptArchivePublishWorker(
   plans: readonly TranscriptArchivePublishPlan[],
+  signal?: AbortSignal,
 ): Promise<TranscriptArchivePublishResult[]> {
   const scoped = runScopedSqliteArchiveOperation(
     { operation: "publish", plans },
     createSqliteTranscriptArchiveWorker,
-    runExclusiveSqliteTranscriptArchiveWorker,
+    (run) => runExclusiveSqliteTranscriptArchiveWorker(run, signal),
   );
   if (scoped) {
     return scoped.then((result) => {
@@ -255,9 +255,26 @@ export function runSqliteTranscriptArchivePublishWorker(
     });
   }
   return runSqliteTranscriptArchiveWorkerOperation<TranscriptArchivePublishResult>({
+    signal,
     expectedMessageType: "published",
     workerData: { operation: "publish", type: "sqlite-transcript-archive-v2", plans },
   });
+}
+
+/** Probe pending publication without creating a writable database or archive schema. */
+export async function readPendingSqliteTranscriptArchivesInWorker(
+  plan: {
+    agentId: string;
+    databasePath: string;
+    env: NodeJS.ProcessEnv;
+  },
+  signal: AbortSignal,
+): Promise<boolean> {
+  signal.throwIfAborted();
+  return withSessionHistoryWorkerDatabase(
+    { agentId: plan.agentId, path: plan.databasePath, env: plan.env },
+    (reader) => reader.readPendingArchives({ env: plan.env }, signal),
+  );
 }
 
 export async function runSqliteTranscriptArchiveReadWorker(
@@ -273,6 +290,24 @@ export async function runSqliteTranscriptArchiveReadWorker(
   }
   const result = await scoped;
   if (result.type !== "final-read") {
+    throw new Error("SQLite archive Worker returned another operation's result");
+  }
+  return result.results;
+}
+
+export async function runSqliteTranscriptArchivePageWorker(
+  plans: readonly TranscriptArchivePagePlan[],
+): Promise<Array<TranscriptArchivePageResult | undefined>> {
+  const scoped = runScopedSqliteArchiveOperation(
+    { operation: "read-page", plans },
+    createSqliteTranscriptArchiveWorker,
+    runExclusiveSqliteTranscriptArchiveWorker,
+  );
+  if (!scoped) {
+    throw new Error("SQLite archive reads require their captured database scope");
+  }
+  const result = await scoped;
+  if (result.type !== "page-read") {
     throw new Error("SQLite archive Worker returned another operation's result");
   }
   return result.results;

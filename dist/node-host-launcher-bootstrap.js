@@ -1,10 +1,9 @@
 import path from "node:path";
 import os from "node:os";
-import fs from "node:fs";
 import { AsyncLocalStorage, AsyncResource } from "node:async_hooks";
-import { parse } from "dotenv";
-import "@openclaw/fs-safe/config";
+import fs from "node:fs";
 import { readRegularFileSync } from "@openclaw/fs-safe/advanced";
+import { parse } from "dotenv";
 import { compareBuild, parse as parse$1 } from "semver";
 import "@openclaw/fs-safe/path";
 //#region packages/normalization-core/src/string-coerce.ts
@@ -61,9 +60,7 @@ function resolveGatewayLaunchAgentLabel(profile) {
 	return `ai.openclaw.${normalized}`;
 }
 function resolveGatewaySystemdServiceName(profile) {
-	const suffix = resolveGatewayProfileSuffix(profile);
-	if (!suffix) return GATEWAY_SYSTEMD_SERVICE_NAME;
-	return `openclaw-gateway${suffix}`;
+	return `${GATEWAY_SYSTEMD_SERVICE_NAME}${resolveGatewayProfileSuffix(profile)}`;
 }
 function resolveGatewayWindowsTaskName(profile) {
 	const normalized = normalizeGatewayProfile(profile);
@@ -107,6 +104,36 @@ function resolveEffectiveHomeDir(env = process.env, homedir = os.homedir, option
 	return path.resolve(explicitHome);
 }
 //#endregion
+//#region src/shared/global-singleton.ts
+/**
+* Process-local singleton helpers for registries, caches, and SDK-visible shared state.
+* Keys must be symbols so unrelated modules cannot collide on `globalThis` property names.
+*/
+const GLOBAL_SINGLETON_RESETS_KEY = Symbol.for("openclaw.globalSingletonLifecycleResets");
+function resolveGlobalSingletonResetRegistry() {
+	const globalStore = globalThis;
+	const existing = globalStore[GLOBAL_SINGLETON_RESETS_KEY];
+	if (existing instanceof Map) return existing;
+	const created = /* @__PURE__ */ new Map();
+	globalStore[GLOBAL_SINGLETON_RESETS_KEY] = created;
+	return created;
+}
+/** Resolves a process-local singleton for caches and registries that tolerate helper lookup. */
+function resolveGlobalSingleton(key, create, reset, lifecycle = "close-and-restart") {
+	const globalStore = globalThis;
+	let value;
+	if (Object.hasOwn(globalStore, key)) value = globalStore[key];
+	else {
+		value = create();
+		globalStore[key] = value;
+	}
+	if (reset) resolveGlobalSingletonResetRegistry().set(key, {
+		lifecycle,
+		reset: () => reset(value)
+	});
+	return value;
+}
+//#endregion
 //#region src/infra/safe-cwd.ts
 function tryProcessCwd() {
 	try {
@@ -117,6 +144,7 @@ function tryProcessCwd() {
 }
 //#endregion
 //#region src/infra/home-dir.ts
+const userPathBaseDirectory = resolveGlobalSingleton(Symbol.for("openclaw.userPathBaseDirectory"), () => new AsyncLocalStorage());
 /** Resolves the effective home or falls back to cwd when no home source exists. */
 function resolveRequiredHomeDir(env = process.env, homedir = os.homedir) {
 	const resolved = resolveEffectiveHomeDir(env, homedir) ?? tryProcessCwd();
@@ -130,22 +158,23 @@ function expandHomePrefix(input, opts) {
 	if (!home) return input;
 	return input.replace(/^~(?=$|[\\/])/, () => home);
 }
-/** Resolves a user-supplied path after trimming and expanding against the effective home. */
-function resolveHomeRelativePath(input, opts) {
+function resolvePathWithHome(input, opts, resolveHome) {
 	const trimmed = input.trim();
 	if (!trimmed) return trimmed;
-	if (trimmed.startsWith("~")) {
-		const expanded = expandHomePrefix(trimmed, {
-			home: resolveRequiredHomeDir(opts?.env ?? process.env, opts?.homedir ?? os.homedir),
-			env: opts?.env,
-			homedir: opts?.homedir
-		});
-		return path.resolve(expanded);
-	}
-	return path.resolve(trimmed);
+	const expanded = trimmed.startsWith("~") ? expandHomePrefix(trimmed, {
+		home: resolveHome(opts?.env ?? process.env, opts?.homedir ?? os.homedir),
+		env: opts?.env,
+		homedir: opts?.homedir
+	}) : trimmed;
+	const base = userPathBaseDirectory.getStore();
+	return base ? path.resolve(base, expanded) : path.resolve(expanded);
+}
+/** Resolves a user-supplied path after trimming and expanding against the effective home. */
+function resolveHomeRelativePath(input, opts) {
+	return resolvePathWithHome(input, opts, resolveRequiredHomeDir);
 }
 /** Resolves a user path against the effective home, preserving an empty input. */
-function resolveUserPath$1(input, env = process.env, homedir = os.homedir) {
+function resolveUserPath(input, env = process.env, homedir = os.homedir) {
 	if (!input) return "";
 	return resolveHomeRelativePath(input, {
 		env,
@@ -159,6 +188,16 @@ function isExperimentalClawsEnabled(env = process.env) {
 	const value = env[EXPERIMENTAL_CLAWS_ENV]?.trim().toLowerCase();
 	return value === "1" || value === "true";
 }
+[.../* @__PURE__ */ new Set([
+	"-r",
+	"--preload",
+	"--require",
+	"--import",
+	"--loader",
+	"--experimental-loader",
+	"--test-reporter",
+	"--test-global-setup"
+])];
 const ROOT_BOOLEAN_FLAGS = /* @__PURE__ */ new Set(["--dev", "--no-color"]);
 const ROOT_VALUE_FLAGS = /* @__PURE__ */ new Set([
 	"--profile",
@@ -223,11 +262,13 @@ function consumeKnownOptionToken(args, index, booleanFlags, valueFlags, mode) {
 function getCommandPositionalsWithRootOptions(argv, options) {
 	return parseCommandArgsWithRootOptions(argv, options, false);
 }
-function parseCommandArgsWithRootOptions(argv, options, returnTail) {
+function parseCommandArgsWithRootOptions(argv, options, returnTail, returnOptions = false) {
 	const args = argv.slice(2);
 	const booleanFlags = new Set(options.booleanFlags ?? []);
 	const valueFlags = new Set(options.valueFlags ?? []);
 	const positionals = [];
+	const rootOptions = [];
+	const commandOptions = [];
 	let commandIndex = 0;
 	let literal = false;
 	for (let index = 0; index < args.length; index += 1) {
@@ -240,12 +281,14 @@ function parseCommandArgsWithRootOptions(argv, options, returnTail) {
 		}
 		const rootConsumed = literal ? 0 : options.mode === "command-path" ? consumeRootCommandOptionToken(args, index) : consumeRootOptionToken(args, index);
 		if (rootConsumed > 0) {
+			(commandIndex > 0 && booleanFlags.has(arg) ? commandOptions : rootOptions).push(...args.slice(index, index + rootConsumed));
 			index += rootConsumed - 1;
 			continue;
 		}
 		if (!literal && arg.startsWith("-")) {
 			const optionConsumed = consumeKnownOptionToken(args, index, booleanFlags, valueFlags, options.mode);
 			if (optionConsumed === 0 || commandIndex === 0) return null;
+			commandOptions.push(arg);
 			index += optionConsumed - 1;
 			continue;
 		}
@@ -259,9 +302,12 @@ function parseCommandArgsWithRootOptions(argv, options, returnTail) {
 			continue;
 		}
 		positionals.push(arg);
-		if (positionals.length === options.maxPositionals) return positionals;
+		if (!returnOptions && positionals.length === options.maxPositionals) return positionals;
 	}
-	return commandIndex < options.commandPath.length ? null : positionals;
+	return commandIndex < options.commandPath.length ? null : returnOptions ? {
+		rootOptions,
+		commandOptions
+	} : positionals;
 }
 //#endregion
 //#region src/cli/update-option-specs.ts
@@ -277,9 +323,12 @@ const UPDATE_OPTION_SPECS = [
 		"Preview update actions without making changes",
 		false
 	],
+	["--admission <auto|installed>", "Select candidate or installed admission checks (default: auto)"],
 	["--channel <stable|extended-stable|beta|dev>", "Persist update channel (git + npm)"],
 	["--tag <dist-tag|version|spec>", "Override the package target for this update (dist-tag, version, or package spec)"],
-	["--timeout <seconds>", "Timeout for each update step in seconds (default: 1800)"],
+	["--timeout <seconds>", "Set a per-step deadline in seconds"],
+	["--drain-timeout <seconds>", "Set the immutable activation drain budget before interruption"],
+	["--sha <commit>", "Prepare an exact official commit for an adopted immutable installation"],
 	[
 		"--yes",
 		"Skip confirmation prompts (non-interactive)",
@@ -361,12 +410,14 @@ function isConfigMachineOutput(argv) {
 	return subcommand === "get" || subcommand === "file" || subcommand === "schema";
 }
 //#endregion
-//#region src/cli/program/commander-parse-facts.ts
+//#region src/cli/program/command-tree.ts
 function getCommandHierarchy(command) {
 	const hierarchy = [];
 	for (let current = command; current; current = current.parent ?? null) hierarchy.unshift(current);
 	return hierarchy;
 }
+//#endregion
+//#region src/cli/program/commander-parse-facts.ts
 function requiresFollowingValue(token, options) {
 	if (token.includes("=")) return false;
 	const exact = options.find((option) => option.short === token || option.long === token);
@@ -405,10 +456,6 @@ function hasCommanderOptionToken(command, argv, tokens, kind) {
 }
 //#endregion
 //#region src/cli/machine-output-argv.ts
-/** Read positional command tokens after supported root options, without importing CLI catalogs. */
-function getMachineOutputCommandPath(argv, depth) {
-	return getRootOptionAwareCommandPath(argv, depth);
-}
 /** Prefer registered option roles; early discovery falls back to literal option spellings. */
 function hasMachineOutputOption(argv, flag, command) {
 	if (command) return hasCommanderOptionToken(command, argv, /* @__PURE__ */ new Set([flag]), "flag");
@@ -428,7 +475,6 @@ function isDoctorMachineOutput(params) {
 }
 //#endregion
 //#region src/cli/program/core-command-descriptors.ts
-/** Static root-command descriptors for the core CLI surface. */
 const CORE_CLI_COMMAND_DESCRIPTORS = [
 	{
 		name: "setup",
@@ -478,6 +524,13 @@ const CORE_CLI_COMMAND_DESCRIPTORS = [
 		name: "migrate",
 		description: "Import state from another agent system",
 		hasSubcommands: true
+	},
+	{
+		name: "storage",
+		description: "List, initialize, and test configured storage locations",
+		hasSubcommands: true,
+		parentDefaultHelp: true,
+		machineOutput: ({ argv }) => hasMachineOutputOption(argv, "--json")
 	},
 	{
 		name: "doctor",
@@ -551,11 +604,6 @@ const CORE_CLI_COMMAND_DESCRIPTORS = [
 		name: "sessions",
 		description: "List stored conversation sessions",
 		hasSubcommands: true
-	},
-	{
-		name: "tasks",
-		description: "Inspect durable background tasks and TaskFlow state",
-		hasSubcommands: true
 	}
 ];
 const CRON_GATEWAY_VALUE_FLAGS = [
@@ -566,55 +614,20 @@ const CRON_GATEWAY_VALUE_FLAGS = [
 	"timeout",
 	"expectFinal"
 ].filter((name) => name !== "expectFinal").map((name) => `--${name}`);
-const CRON_OUTPUT_COMMANDS = {
-	status: {
-		aliases: [],
-		alwaysJson: true
-	},
-	add: {
-		aliases: ["create"],
-		alwaysJson: true
-	},
-	rm: {
-		aliases: ["remove", "delete"],
-		alwaysJson: true
-	},
-	enable: {
-		aliases: [],
-		alwaysJson: true
-	},
-	disable: {
-		aliases: [],
-		alwaysJson: true
-	},
-	get: {
-		aliases: [],
-		alwaysJson: true
-	},
-	runs: {
-		aliases: [],
-		alwaysJson: true
-	},
-	run: {
-		aliases: [],
-		alwaysJson: true
-	},
-	edit: {
-		aliases: [],
-		alwaysJson: true
-	},
-	scratch: {
-		aliases: [],
-		alwaysJson: false
-	}
-};
-const MACHINE_OUTPUT_COMMANDS$1 = /* @__PURE__ */ new Set();
-for (const [name, definition] of Object.entries(CRON_OUTPUT_COMMANDS)) {
-	MACHINE_OUTPUT_COMMANDS$1.add(name);
-	for (const alias of definition.aliases) MACHINE_OUTPUT_COMMANDS$1.add(alias);
-}
+const MACHINE_OUTPUT_COMMANDS$1 = new Set(Object.entries({
+	status: [],
+	add: ["create"],
+	rm: ["remove", "delete"],
+	enable: [],
+	disable: [],
+	get: [],
+	runs: [],
+	run: [],
+	edit: [],
+	scratch: []
+}).flatMap(([name, aliases]) => [name].concat(aliases)));
 function isCronMachineOutput(argv) {
-	const [root] = getMachineOutputCommandPath(argv, 1);
+	const [root] = getRootOptionAwareCommandPath(argv, 1);
 	if (!root) return false;
 	const [command] = getCommandPositionalsWithRootOptions(argv, {
 		commandPath: [root],
@@ -627,7 +640,7 @@ function isCronMachineOutput(argv) {
 //#endregion
 //#region src/cli/devices-output-mode.ts
 function isDevicesMachineOutput(argv) {
-	const [, command] = getMachineOutputCommandPath(argv, 2);
+	const [, command] = getRootOptionAwareCommandPath(argv, 2);
 	return command === "rotate" || command === "revoke";
 }
 //#endregion
@@ -701,7 +714,7 @@ function isModelsPlainMachineOutput(argv, command) {
 //#endregion
 //#region src/cli/nodes-cli/output-mode.ts
 function isNodesMachineOutput(argv) {
-	const [, command] = getMachineOutputCommandPath(argv, 2);
+	const [, command] = getRootOptionAwareCommandPath(argv, 2);
 	return command === "invoke" || command === "approve" || command === "reject";
 }
 //#endregion
@@ -715,7 +728,7 @@ const MACHINE_OUTPUT_COMMANDS = /* @__PURE__ */ new Set([
 ]);
 /** Proxy inspection commands reserve stdout for JSON or raw captured content. */
 function isProxyMachineOutput(argv) {
-	const [, command] = getMachineOutputCommandPath(argv, 2);
+	const [, command] = getRootOptionAwareCommandPath(argv, 2);
 	return MACHINE_OUTPUT_COMMANDS.has(command ?? "");
 }
 //#endregion
@@ -734,48 +747,33 @@ const DEFAULT_JSON_PATHS = /* @__PURE__ */ new Set([
 ]);
 /** System query/control commands emit JSON even when `--json` is omitted. */
 function isSystemMachineOutput(argv) {
-	return DEFAULT_JSON_PATHS.has(getMachineOutputCommandPath(argv, 3).slice(1).join(" "));
-}
-//#endregion
-//#region src/shared/global-singleton.ts
-/**
-* Process-local singleton helpers for registries, caches, and SDK-visible shared state.
-* Keys must be symbols so unrelated modules cannot collide on `globalThis` property names.
-*/
-const GLOBAL_SINGLETON_RESETS_KEY = Symbol.for("openclaw.globalSingletonLifecycleResets");
-function resolveGlobalSingletonResetRegistry() {
-	const globalStore = globalThis;
-	const existing = globalStore[GLOBAL_SINGLETON_RESETS_KEY];
-	if (existing instanceof Map) return existing;
-	const created = /* @__PURE__ */ new Map();
-	globalStore[GLOBAL_SINGLETON_RESETS_KEY] = created;
-	return created;
-}
-/** Resolves a process-local singleton for caches and registries that tolerate helper lookup. */
-function resolveGlobalSingleton(key, create, reset, lifecycle = "close-and-restart") {
-	const globalStore = globalThis;
-	let value;
-	if (Object.hasOwn(globalStore, key)) value = globalStore[key];
-	else {
-		value = create();
-		globalStore[key] = value;
-	}
-	if (reset) resolveGlobalSingletonResetRegistry().set(key, {
-		lifecycle,
-		reset: () => reset(value)
-	});
-	return value;
+	return DEFAULT_JSON_PATHS.has(getRootOptionAwareCommandPath(argv, 3).slice(1).join(" "));
 }
 resolveGlobalSingleton(Symbol.for("openclaw.asyncWorkScope"), () => new AsyncLocalStorage());
 resolveGlobalSingleton(Symbol.for("openclaw.asyncWorkScopeAncestry"), () => new AsyncLocalStorage());
 resolveGlobalSingleton(Symbol.for("openclaw.detachedAsyncContext"), () => new AsyncResource("openclaw.detached-async-context"));
+resolveGlobalSingleton(Symbol.for("openclaw.pluginSourceRecoveryUnavailableError"), () => class SourceRecoveryUnavailableError extends Error {
+	constructor(cause) {
+		super("Captured plugin source is missing; its previous code cannot be recovered.", { cause });
+		this.name = "PluginSourceRecoveryUnavailableError";
+	}
+});
+resolveGlobalSingleton(Symbol.for("openclaw.pluginInstanceDrainTimeoutError"), () => class DrainTimeoutError extends Error {
+	constructor(message, settled, options, forcedRetirement) {
+		super(message, options);
+		this.settled = settled;
+		this.forcedRetirement = forcedRetirement;
+		this.name = "PluginInstanceDrainTimeoutError";
+	}
+});
 //#endregion
 //#region src/plugins/plugin-instance-invocation.ts
 var InvocationFrame = class InvocationFrame {
-	constructor(scopes) {
-		this.invocation = scopes.invocation;
+	constructor(scopes, invocation = scopes.invocation) {
+		this.invocation = invocation;
 		this.metadataScope = scopes.metadataScope;
 		this.cacheScope = scopes.cacheScope;
+		this.sourceCaptureStorage = scopes.sourceCaptureStorage;
 	}
 	withScopes(scopes) {
 		return new InvocationFrame(scopes);
@@ -1081,9 +1079,7 @@ const subCliCommandDescriptors = [
 		hasSubcommands: false
 	}
 ];
-/** Visible sub-CLI descriptors after private QA gating. */
 const SUB_CLI_DESCRIPTORS = getSubCliEntriesCore();
-/** Return visible sub-CLI descriptors in help/registration order. */
 function getSubCliEntriesCore() {
 	return isPrivateQaCliEnabled() ? subCliCommandDescriptors : subCliCommandDescriptors.filter((descriptor) => descriptor.name !== "qa");
 }
@@ -1181,7 +1177,6 @@ function resolveCliArgvInvocation(argv) {
 //#region src/cli/profile-utils.ts
 const PROFILE_NAME_RE = /^[a-z0-9][a-z0-9_-]{0,63}$/i;
 function isValidProfileName(value) {
-	if (!value) return false;
 	return PROFILE_NAME_RE.test(value);
 }
 /** Resolve the canonical home-scoped state root for a validated CLI profile. */
@@ -1334,9 +1329,8 @@ function applyCliProfileEnv(params) {
 	const inheritedProfile = normalizeOptionalString(env.OPENCLAW_PROFILE) ?? "default";
 	const existingStateDir = normalizeOptionalString(env.OPENCLAW_STATE_DIR);
 	const existingConfigPath = normalizeOptionalString(env.OPENCLAW_CONFIG_PATH);
-	const profileEnv = env;
-	const inheritedProfileStateDir = resolveProfileStateDir(inheritedProfile, profileEnv, homedir);
-	const selectedProfileStateDir = resolveProfileStateDir(profile, profileEnv, homedir);
+	const inheritedProfileStateDir = resolveProfileStateDir(inheritedProfile, env, homedir);
+	const selectedProfileStateDir = resolveProfileStateDir(profile, env, homedir);
 	const switchesInheritedProfile = inheritedProfileStateDir !== selectedProfileStateDir;
 	const inheritedSystemdServiceName = resolveGatewaySystemdServiceName(inheritedProfile);
 	const inheritedServiceSelectors = {
@@ -1378,16 +1372,11 @@ function isFastTestRuntimeEnv(env = process.env) {
 }
 //#endregion
 //#region src/config/state-dir.ts
-const LEGACY_STATE_DIRNAMES = [".clawdbot"];
-const NEW_STATE_DIRNAME = ".openclaw";
-function resolveDefaultHomeDir() {
-	return resolveRequiredHomeDir(process.env, os.homedir);
+function resolveLegacyStateDirs(homedir = resolveRequiredHomeDir) {
+	return [path.join(homedir(), ".clawdbot")];
 }
-function resolveLegacyStateDirs(homedir = resolveDefaultHomeDir) {
-	return LEGACY_STATE_DIRNAMES.map((dir) => path.join(homedir(), dir));
-}
-function resolveNewStateDir(homedir = resolveDefaultHomeDir) {
-	return path.join(homedir(), NEW_STATE_DIRNAME);
+function resolveNewStateDir(homedir = resolveRequiredHomeDir) {
+	return path.join(homedir(), ".openclaw");
 }
 /**
 * State directory for mutable data (sessions, logs, caches).
@@ -1406,27 +1395,73 @@ function resolveStateDir(env = process.env, homedir = () => resolveRequiredHomeD
 /** Select a default state directory from the caller's already resolved home. */
 function resolveStateDirFromHome(env, effectiveHomedir) {
 	const newDir = resolveNewStateDir(effectiveHomedir);
-	if (isFastTestRuntimeEnv(env)) return newDir;
-	if (fs.existsSync(newDir)) return newDir;
-	const existingLegacy = resolveLegacyStateDirs(effectiveHomedir).find((dir) => {
-		try {
-			return fs.existsSync(dir);
-		} catch {
-			return false;
-		}
-	});
-	if (existingLegacy) return existingLegacy;
-	return newDir;
+	if (isFastTestRuntimeEnv(env) || fs.existsSync(newDir)) return newDir;
+	return resolveLegacyStateDirs(effectiveHomedir).find((dir) => fs.existsSync(dir)) ?? newDir;
 }
 //#endregion
 //#region src/infra/config-dir.ts
 /** Resolves the OpenClaw config directory from state/config env overrides or home. */
 function resolveConfigDir(env = process.env, homedir = os.homedir) {
 	const override = env.OPENCLAW_STATE_DIR?.trim();
-	if (override) return resolveUserPath$1(override, env, homedir);
+	if (override) return resolveUserPath(override, env, homedir);
 	const configPath = env.OPENCLAW_CONFIG_PATH?.trim();
-	if (configPath) return path.dirname(resolveUserPath$1(configPath, env, homedir));
+	if (configPath) return path.dirname(resolveUserPath(configPath, env, homedir));
 	return path.join(resolveRequiredHomeDir(env, homedir), ".openclaw");
+}
+//#endregion
+//#region src/infra/fs-safe-env.ts
+const nativeModeKey = "OPENCLAW_FS_SAFE_NATIVE_MODE";
+const legacyModeKeys = ["FS_SAFE_PYTHON_MODE", "OPENCLAW_FS_SAFE_PYTHON_MODE"];
+const legacyKeys = [
+	...legacyModeKeys,
+	"FS_SAFE_PYTHON",
+	"OPENCLAW_FS_SAFE_PYTHON",
+	"OPENCLAW_PINNED_PYTHON",
+	"OPENCLAW_PINNED_WRITE_PYTHON"
+];
+const fallbacks = /* @__PURE__ */ new WeakMap();
+let warned = false;
+function nativeModeIsValid(value) {
+	const normalized = value?.trim().toLowerCase() ?? "";
+	return /^(?:0|false|off|never|1|true|on|auto|required|require)$/u.test(normalized);
+}
+function currentFallback(env) {
+	const fallback = fallbacks.get(env);
+	return fallback && env[fallback.key] === fallback.value ? fallback : void 0;
+}
+/** Retire our unchanged projection before an environment owner writes real inputs. */
+function clearFsSafeEnvFallback(env) {
+	const fallback = currentFallback(env);
+	fallbacks.delete(env);
+	if (!fallback) return;
+	if (!fallback.existed) delete env[fallback.key];
+	else env[fallback.key] = fallback.previous;
+}
+/** Preserve OpenClaw's retired Python mode env contract below both native names. */
+function normalizeFsSafeNativeEnv(env = process.env) {
+	clearFsSafeEnvFallback(env);
+	const configured = legacyKeys.filter((key) => env[key] !== void 0);
+	if (configured.length && env === process.env && !warned) {
+		warned = true;
+		process.emitWarning(`${configured.join(", ")} is deprecated. OpenClaw maps legacy mode values to native mode only when neither FS_SAFE_NATIVE_MODE nor OPENCLAW_FS_SAFE_NATIVE_MODE selects a mode. Replace Python mode variables with native mode variables; interpreter path settings are ignored.`, {
+			code: "FS_SAFE_PYTHON_DEPRECATED",
+			type: "DeprecationWarning"
+		});
+	}
+	if (nativeModeIsValid(env.FS_SAFE_NATIVE_MODE) || nativeModeIsValid(env[nativeModeKey])) return;
+	const value = legacyModeKeys.map((key) => env[key]).find((entry) => entry !== void 0);
+	if (value === void 0) return;
+	const keys = Object.keys(env);
+	const key = !keys.includes(nativeModeKey) && Object.hasOwn(env, nativeModeKey) ? keys.find((candidate) => candidate.toUpperCase() === nativeModeKey) ?? nativeModeKey : nativeModeKey;
+	const existed = Object.hasOwn(env, key);
+	const previous = env[key];
+	env[key] = value;
+	fallbacks.set(env, {
+		key,
+		value,
+		previous,
+		existed
+	});
 }
 //#endregion
 //#region src/infra/host-env-security-policy.json
@@ -1801,34 +1836,11 @@ function loadHostEnvSecurityPolicy(rawPolicy = host_env_security_policy_default)
 */
 const HOST_ENV_SECURITY_POLICY = loadHostEnvSecurityPolicy();
 //#endregion
-//#region src/infra/openclaw-exec-env.ts
-/** Child-shell routing hint; it does not authenticate or authorize a Gateway caller. */
-const SUBAGENT_EXEC_ENV_VAR = "OPENCLAW_SUBAGENT_EXEC";
-//#endregion
 //#region src/infra/host-env-security.ts
 const PORTABLE_ENV_VAR_KEY = /^[A-Za-z_][A-Za-z0-9_]*$/;
-const HOST_DANGEROUS_ENV_KEY_VALUES = Object.freeze([...HOST_ENV_SECURITY_POLICY.blockedKeys]);
-Object.freeze([...HOST_ENV_SECURITY_POLICY.blockedPrefixes]);
-const HOST_DANGEROUS_INHERITED_ENV_KEY_VALUES = Object.freeze([...HOST_ENV_SECURITY_POLICY.blockedInheritedKeys]);
-Object.freeze([...HOST_ENV_SECURITY_POLICY.blockedInheritedPrefixes]);
-const HOST_DANGEROUS_OVERRIDE_ENV_KEY_VALUES = Object.freeze([...HOST_ENV_SECURITY_POLICY.blockedOverrideKeys]);
-Object.freeze([...HOST_ENV_SECURITY_POLICY.blockedOverridePrefixes]);
-const HOST_SHELL_WRAPPER_ALLOWED_OVERRIDE_ENV_KEY_VALUES = Object.freeze([
-	"TERM",
-	"LANG",
-	"LC_ALL",
-	"LC_CTYPE",
-	"LC_MESSAGES",
-	"COLORTERM",
-	"NO_COLOR",
-	"FORCE_COLOR",
-	SUBAGENT_EXEC_ENV_VAR
-]);
-Object.freeze(["LC_"]);
-new Set(HOST_DANGEROUS_ENV_KEY_VALUES);
-new Set(HOST_DANGEROUS_INHERITED_ENV_KEY_VALUES);
-new Set(HOST_DANGEROUS_OVERRIDE_ENV_KEY_VALUES);
-new Set(HOST_SHELL_WRAPPER_ALLOWED_OVERRIDE_ENV_KEY_VALUES);
+new Set(HOST_ENV_SECURITY_POLICY.blockedKeys);
+new Set(HOST_ENV_SECURITY_POLICY.blockedInheritedKeys);
+new Set(HOST_ENV_SECURITY_POLICY.blockedOverrideKeys);
 new AsyncLocalStorage();
 function normalizeEnvVarKey(rawKey, options) {
 	const key = rawKey.trim();
@@ -1875,6 +1887,7 @@ function readDotEnvFileCore(params) {
 	return parseDotEnvFile(params, content);
 }
 function loadParsedDotEnvFiles(files, env, overrideKeys, onWarning) {
+	clearFsSafeEnvFallback(env);
 	const preExistingKeys = new Set(Object.keys(env));
 	const canonicalizeKey = (key) => normalizeEnvVarKey(key, { portable: true })?.toUpperCase() ?? null;
 	const normalizedOverrideKeys = new Set([...overrideKeys ?? []].flatMap((key) => {
@@ -1917,9 +1930,9 @@ function loadParsedDotEnvFiles(files, env, overrideKeys, onWarning) {
 			else appliedKeysByFile.set(file.filePath, [key]);
 		}
 	}
+	normalizeFsSafeNativeEnv(env);
 	for (const conflict of conflicts.values()) {
 		const keys = [...conflict.keys].toSorted();
-		if (keys.length === 0) continue;
 		onWarning?.(`Conflicting values in ${conflict.keptPath} and ${conflict.ignoredPath} for ${keys.join(", ")}; keeping ${conflict.keptPath}.`, {
 			keptPath: conflict.keptPath,
 			ignoredPath: conflict.ignoredPath,
@@ -1989,9 +2002,8 @@ function parseOpenClawReleaseVersion(value) {
 	const [label, sequence] = parsed.prerelease;
 	const isStable = parsed.prerelease.length === 0;
 	const isCorrection = isOpenClawCorrectionSemver(parsed) && typeof label === "number" && label > 0;
-	const isAlpha = parsed.prerelease.length === 2 && label === "alpha" && typeof sequence === "number" && sequence > 0;
-	const isBeta = parsed.prerelease.length === 2 && label === "beta" && typeof sequence === "number" && sequence > 0;
-	if (!isStable && !isCorrection && !isAlpha && !isBeta) return null;
+	const isPrerelease = parsed.prerelease.length === 2 && (label === "alpha" || label === "beta") && typeof sequence === "number" && sequence > 0;
+	if (!isStable && !isCorrection && !isPrerelease) return null;
 	return parsed;
 }
 /** Compares OpenClaw monthly patch release versions across alpha, beta, stable, and corrections. */
@@ -2015,15 +2027,15 @@ function resolveIsNixMode(env = process.env) {
 resolveIsNixMode();
 const CONFIG_FILENAME = "openclaw.json";
 const LEGACY_CONFIG_FILENAMES = ["clawdbot.json"];
+function configPathsInStateDir(stateDir) {
+	return [CONFIG_FILENAME, ...LEGACY_CONFIG_FILENAMES].map((name) => path.join(stateDir, name));
+}
+function findExistingConfigPath(candidates) {
+	return candidates.find((candidate) => fs.existsSync(candidate));
+}
 /** Build a homedir thunk that respects OPENCLAW_HOME for the given env. */
 function envHomedir(env) {
 	return () => resolveRequiredHomeDir(env, os.homedir);
-}
-function resolveUserPath(input, env = process.env, homedir = envHomedir(env)) {
-	return resolveHomeRelativePath(input, {
-		env,
-		homedir
-	});
 }
 resolveStateDir();
 /**
@@ -2044,15 +2056,7 @@ function resolveConfigPathCandidate(env = process.env, homedir = envHomedir(env)
 	const override = env.OPENCLAW_CONFIG_PATH?.trim();
 	if (override) return resolveUserPath(override, env, homedir);
 	if (isFastTestRuntimeEnv(env)) return resolveCanonicalConfigPath(env, resolveStateDir(env, homedir));
-	const existing = resolveDefaultConfigCandidates(env, homedir).find((candidate) => {
-		try {
-			return fs.existsSync(candidate);
-		} catch {
-			return false;
-		}
-	});
-	if (existing) return existing;
-	return resolveCanonicalConfigPath(env, resolveStateDir(env, homedir));
+	return findExistingConfigPath(resolveDefaultConfigCandidates(env, homedir)) ?? resolveCanonicalConfigPath(env, resolveStateDir(env, homedir));
 }
 resolveConfigPathCandidate();
 /**
@@ -2063,20 +2067,14 @@ function resolveDefaultConfigCandidates(env = process.env, homedir = envHomedir(
 	const effectiveHomedir = () => resolveRequiredHomeDir(env, homedir);
 	const explicit = env.OPENCLAW_CONFIG_PATH?.trim();
 	if (explicit) return [resolveUserPath(explicit, env, effectiveHomedir)];
-	const candidates = [];
 	const openclawStateDir = env.OPENCLAW_STATE_DIR?.trim();
-	if (openclawStateDir) {
-		const resolved = resolveUserPath(openclawStateDir, env, effectiveHomedir);
-		candidates.push(path.join(resolved, CONFIG_FILENAME));
-		candidates.push(...LEGACY_CONFIG_FILENAMES.map((name) => path.join(resolved, name)));
-	}
-	const defaultDirs = [resolveNewStateDir(effectiveHomedir), ...resolveLegacyStateDirs(effectiveHomedir)];
-	for (const dir of defaultDirs) {
-		candidates.push(path.join(dir, CONFIG_FILENAME));
-		candidates.push(...LEGACY_CONFIG_FILENAMES.map((name) => path.join(dir, name)));
-	}
-	return candidates;
+	return [
+		...openclawStateDir ? [resolveUserPath(openclawStateDir, env, effectiveHomedir)] : [],
+		resolveNewStateDir(effectiveHomedir),
+		...resolveLegacyStateDirs(effectiveHomedir)
+	].flatMap(configPathsInStateDir);
 }
+AsyncLocalStorage.snapshot();
 //#endregion
 //#region src/state/openclaw-state-db.paths.ts
 /** Resolve the shared state SQLite file path. */

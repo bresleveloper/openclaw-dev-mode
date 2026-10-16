@@ -13,6 +13,9 @@
   "modelPricing": {
     "providers": {
       "kilocode": {
+        "modelsDev": {
+          "passthroughProviderModel": true
+        },
         "openRouter": {
           "passthroughProviderModel": true
         },

@@ -1,16 +1,15 @@
-import { l as normalizeOptionalString } from "../../string-coerce-CIXf7egm.mjs";
-import { r as extensionForMime } from "../../mime-1zBUMwu6.mjs";
-import "../../string-coerce-runtime-C_MKhRVt.mjs";
-import { h as resolveProviderOperationTimeoutMs, r as createProviderOperationDeadline } from "../../shared-BLFkM12I.mjs";
-import "../../media-mime-D8SxWw0k.mjs";
-import { a as resolveApiKeyForProvider } from "../../provider-auth-runtime-BWjBKWym.mjs";
-import "../../provider-http-Dn9NddwC.mjs";
-import { r as generatedMusicAssetFromBase64 } from "../../music-generation-RVbN53b4.mjs";
-import { n as resolveGoogleGenerativeAiApiOrigin } from "../../provider-policy-BWkzSuhk.mjs";
-import { p as createGoogleMusicGenerationProviderMetadata } from "../../generation-provider-metadata-Rktr_0z6.mjs";
-import "../../api-BOVzuGpO.mjs";
-import { n as toStandardGoogleProviderBase64 } from "../../base64-m7hzKALO.mjs";
-import { t as createGoogleGenAI } from "../../google-genai-runtime-I16xkIJE.mjs";
+import { l as normalizeOptionalString } from "../../string-coerce-1VuiLaaR.mjs";
+import { r as extensionForMime } from "../../mime-CGDYrRzL.mjs";
+import "../../string-coerce-runtime-50qKeWeL.mjs";
+import { _ as resolveProviderOperationTimeoutMs, r as createProviderOperationDeadline } from "../../shared-DcnGQdHV.mjs";
+import "../../media-mime-DLFR6fqC.mjs";
+import { a as resolveApiKeyForProvider } from "../../provider-auth-runtime-CpGmMxRN.mjs";
+import "../../provider-http-CuRGJD0L.mjs";
+import { r as generatedMusicAssetFromBase64 } from "../../music-generation-D-5knzUP.mjs";
+import { n as resolveGoogleGenerativeAiApiOrigin } from "../../provider-policy-4Ba5tPL0.mjs";
+import { p as createGoogleMusicGenerationProviderMetadata } from "../../generation-provider-metadata-D0HXeJwn.mjs";
+import { n as toStandardGoogleProviderBase64 } from "../../base64-CKISTF1b.mjs";
+import { t as createGoogleGenAI } from "../../google-genai-runtime-BvkO2YGf.mjs";
 //#region extensions/google/music-generation-provider.ts
 const DEFAULT_TIMEOUT_MS = 18e4;
 function resolveConfiguredGoogleMusicBaseUrl(req) {

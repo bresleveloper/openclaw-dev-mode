@@ -1,4 +1,4 @@
-import { t as createA2aChannelPluginBase } from "../../channel-base-C4895_4Q.mjs";
+import { t as createA2aChannelPluginBase } from "../../channel-base-Tkl6tbru.mjs";
 //#region extensions/a2a/src/channel.setup.ts
 const a2aChannelSetupPlugin = createA2aChannelPluginBase();
 //#endregion

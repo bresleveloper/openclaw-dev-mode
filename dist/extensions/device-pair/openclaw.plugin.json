@@ -6,7 +6,7 @@
   "doctorContract": {
     "stateMigrations": [
       {
-        "id": "device-pair-notify-json-to-plugin-state"
+        "id": "device-pair-retired-state"
       }
     ]
   },

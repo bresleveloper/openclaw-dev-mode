@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import t from"node:crypto";function randomToken(){return t.randomBytes(24).toString(`hex`)}var n=e((()=>{}));export{randomToken as n,n as t};

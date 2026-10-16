@@ -1,28 +1,29 @@
 import { c as isWindowsTaskSupervisorChildArgument, l as readWindowsTaskSupervisorRestartExitCode } from "../windows-task-supervisor-contract-DlaAkrWJ.mjs";
-import { a as rewritePnpmVersionedOpenClawEntryPath } from "../openclaw-root-Cur9Uhkp.mjs";
-import { n as isTruthyEnvValue } from "../env-C4a8LL2I.mjs";
-import { t as formatErrorMessage } from "../errors-DnjwnOju.mjs";
-import { i as detectRespawnSupervisor, n as detectGatewayRespawnSupervisor, r as detectGatewayRespawnSupervisorIdentity } from "../supervisor-markers-DL2AtFkv.mjs";
-import { t as isContainerEnvironment } from "../container-environment-CNsJSTpY.mjs";
-import { E as writeRestartSentinelIfUnchanged, g as readRestartSentinelReadOnly, m as markUpdateRestartSentinelFailure } from "../restart-sentinel-KM6PPxhT.mjs";
-import { n as scheduleDetachedLaunchdRestartHandoff } from "../launchd-restart-handoff-_boJ24Gr.mjs";
-import { n as resolveGatewayRestartDrainTimeoutMs } from "../restart-budget-4VeKpJhh.mjs";
-import { n as waitForGatewayHealthyRestart } from "../restart-health-CfYI80Lp.mjs";
-import { n as consumeGatewayRestartIntentPayloadSync, r as consumeGatewayRestartIntentSync } from "../restart-intent-hiIYFAg0.mjs";
-import { i as writeGatewayRestartHandoffSync } from "../restart-handoff-Cb-qLJTf.mjs";
-import { a as claimManagedServiceUpdateHandoff, f as requestManagedServiceUpdateHandoffPark, i as captureForegroundUpdateHandoffStop, o as commitManagedServiceUpdateHandoff, r as cancelManagedServiceUpdateHandoff, s as completeForegroundUpdateHandoffAfterClose, u as isForegroundUpdateHandoff } from "../update-managed-service-handoff-Dix99eHy.mjs";
-import { _ as rotateAgentEventLifecycleGeneration } from "../agent-events-BOSJcayE.mjs";
-import { r as reloadTaskRuntimeStateFromStore } from "../runtime-internal-B8axyNgv.mjs";
-import { a as getDiagnosticSessionActivitySnapshot } from "../diagnostic-run-activity-DTzzZJ-S.mjs";
-import { s as writeDiagnosticStabilityBundleForFailureSync } from "../diagnostic-stability-bundle-CqpC4la9.mjs";
-import { n as abortEmbeddedAgentRun } from "../runs-1VQeqQMi.mjs";
-import { n as listActiveEmbeddedRunSessionIds } from "../active-run-projections-ESx3qFOE.mjs";
-import { a as markGatewayRestartHandled, c as resetGatewayRestartStateForInProcessRestart, g as abortPendingChannelReloads, i as isGatewayRestartExternallyAllowed, l as rollbackGatewayRestartSignalAdmission, n as consumeGatewayRestartIntent, o as peekGatewayRestartReason, p as triggerOpenClawRestart, s as requestGatewayRestartWithSignalAdmission, t as consumeGatewayRestartAuthorization, u as scheduleGatewayRestart } from "../restart-F_MByM2R.mjs";
-import { E as waitForActiveCronJobs, T as resetCronActiveJobs, t as advanceCronActiveJobGeneration } from "../active-jobs-BdNx3YyC.mjs";
-import { a as retireActiveCronTaskRunTracking, s as waitForActiveCronTaskRuns, t as abortActiveCronTaskRuns } from "../active-run-cancellation-BIgTNPfC.mjs";
-import { f as markGatewayDraining, m as resetAllLanes } from "../command-queue-CaY517ob.mjs";
-import { r as waitForGatewayActiveWork, t as createGatewayActiveWorkSnapshot } from "../gateway-active-work-Bf_MlrLA.mjs";
-import { o as resetGatewaySuspendCoordinatorForLifecycleRestart } from "../gateway-suspend-coordinator-CYhfd7GR.mjs";
+import { a as rewritePnpmVersionedOpenClawEntryPath } from "../openclaw-root-CBoxhfke.mjs";
+import { n as isTruthyEnvValue } from "../env-BBJTTIuE.mjs";
+import { t as formatErrorMessage } from "../errors-O33D01XW.mjs";
+import { a as stopActiveManagedProviderLocalServices } from "../provider-runtime-lifecycle-fpszViWt.mjs";
+import { t as isContainerEnvironment } from "../container-environment-e2wGNmXf.mjs";
+import { E as writeRestartSentinelIfUnchanged, g as readRestartSentinelReadOnly, m as markUpdateRestartSentinelFailure } from "../restart-sentinel-CWHFSDjo.mjs";
+import { _ as rotateAgentEventLifecycleGeneration } from "../agent-events-GvNTkbe3.mjs";
+import { p as markGatewayRestartDraining } from "../gateway-work-admission-rc4ZgKq_.mjs";
+import { D as waitForActiveCronJobs, E as resetCronActiveJobs, t as advanceCronActiveJobGeneration } from "../active-jobs-BS2UT6i2.mjs";
+import { n as scheduleDetachedLaunchdRestartHandoff } from "../launchd-restart-handoff-D0piwaJS.mjs";
+import { n as consumeGatewayRestartIntentPayloadSync, r as consumeGatewayRestartIntentSync } from "../restart-intent-p09TpP-N.mjs";
+import { n as detectGatewayRespawnSupervisor, r as detectGatewayRespawnSupervisorIdentity } from "../supervisor-markers-Cab7F5S1.mjs";
+import { a as claimManagedServiceUpdateHandoff, d as requestManagedServiceUpdateHandoffPark, i as captureForegroundUpdateHandoffStop, l as isForegroundUpdateHandoff, m as waitForSystemServiceUpdateHandoffs, o as commitManagedServiceUpdateHandoff, r as cancelManagedServiceUpdateHandoff, s as completeForegroundUpdateHandoffAfterClose } from "../update-managed-service-handoff-Ch-l8xRx.mjs";
+import { n as resolveGatewayRestartDrainTimeoutMs } from "../restart-budget-C6PCt2me.mjs";
+import { n as waitForGatewayHealthyRestart } from "../restart-health-DTQ4sMhk.mjs";
+import { o as getDiagnosticSessionActivitySnapshot } from "../diagnostic-run-activity-BlCpLag4.mjs";
+import { s as writeDiagnosticStabilityBundleForFailureSync } from "../diagnostic-stability-bundle-vmtXgIWw.mjs";
+import { n as abortEmbeddedAgentRun } from "../runs-BErx7xDZ.mjs";
+import { n as listActiveEmbeddedRunSessionIds } from "../active-run-projections-B86tDIo_.mjs";
+import { a as markGatewayRestartHandled, c as resetGatewayRestartStateForInProcessRestart, g as abortPendingChannelReloads, i as isGatewayRestartExternallyAllowed, l as rollbackGatewayRestartSignalAdmission, n as consumeGatewayRestartIntent, o as peekGatewayRestartReason, p as triggerOpenClawRestart, s as requestGatewayRestartWithSignalAdmission, t as consumeGatewayRestartAuthorization, u as scheduleGatewayRestart } from "../restart-DQIBmMjt.mjs";
+import { i as writeGatewayRestartHandoffSync } from "../restart-handoff-HHx3Pddl.mjs";
+import { i as retireActiveCronTaskRunTracking, o as waitForActiveCronTaskRuns, t as abortActiveCronTaskRuns } from "../active-run-cancellation-CKD08Yo7.mjs";
+import { p as resetAllLanes } from "../command-queue-CFE60Avj.mjs";
+import { r as waitForGatewayActiveWork, t as createGatewayActiveWorkSnapshot } from "../gateway-active-work-D2-QpshF.mjs";
+import { c as resetGatewaySuspendCoordinatorForLifecycleRestart } from "../gateway-suspend-coordinator-xypp_ryT.mjs";
 import { spawn } from "node:child_process";
 //#region src/infra/process-respawn.ts
 function resolveGatewayRestartDecision() {
@@ -131,12 +132,4 @@ function respawnGatewayProcessForUpdate(opts = {}) {
 	}
 }
 //#endregion
-//#region src/cli/gateway-cli/lifecycle.runtime.ts
-async function stopGatewayManagedProviderLocalServices() {
-	const { hasManagedProviderLocalServices } = await import("../provider-runtime-lifecycle-B_VEgtSV.mjs");
-	if (!hasManagedProviderLocalServices()) return;
-	const { stopManagedProviderLocalServices } = await import("../provider-local-service-q1tyyCxV.mjs");
-	await stopManagedProviderLocalServices();
-}
-//#endregion
-export { abortActiveCronTaskRuns, abortEmbeddedAgentRun, abortPendingChannelReloads, advanceCronActiveJobGeneration, cancelManagedServiceUpdateHandoff, captureForegroundUpdateHandoffStop, claimManagedServiceUpdateHandoff, commitManagedServiceUpdateHandoff, completeForegroundUpdateHandoffAfterClose, consumeGatewayRestartAuthorization, consumeGatewayRestartIntent, consumeGatewayRestartIntentPayloadSync, consumeGatewayRestartIntentSync, createGatewayActiveWorkSnapshot, detectGatewayRespawnSupervisor, detectGatewayRespawnSupervisorIdentity, detectRespawnSupervisor, getDiagnosticSessionActivitySnapshot, isForegroundUpdateHandoff, isGatewayRestartExternallyAllowed, listActiveEmbeddedRunSessionIds, markGatewayDraining, markGatewayRestartHandled, markUpdateRestartSentinelFailure, peekGatewayRestartReason, readRestartSentinelReadOnly, reloadTaskRuntimeStateFromStore, requestGatewayRestartWithSignalAdmission, requestManagedServiceUpdateHandoffPark, resetAllLanes, resetCronActiveJobs, resetGatewayRestartStateForInProcessRestart, resetGatewaySuspendCoordinatorForLifecycleRestart, resolveGatewayRestartDecision, resolveGatewayRestartDrainTimeoutMs, respawnGatewayProcessForUpdate, restartGatewayProcessWithFreshPid, retireActiveCronTaskRunTracking, rollbackGatewayRestartSignalAdmission, rotateAgentEventLifecycleGeneration, scheduleGatewayRestart, stopGatewayManagedProviderLocalServices, waitForActiveCronJobs, waitForActiveCronTaskRuns, waitForGatewayActiveWork, waitForGatewayHealthyRestart, writeDiagnosticStabilityBundleForFailureSync, writeGatewayRestartHandoffSync, writeRestartSentinelIfUnchanged };
+export { abortActiveCronTaskRuns, abortEmbeddedAgentRun, abortPendingChannelReloads, advanceCronActiveJobGeneration, cancelManagedServiceUpdateHandoff, captureForegroundUpdateHandoffStop, claimManagedServiceUpdateHandoff, commitManagedServiceUpdateHandoff, completeForegroundUpdateHandoffAfterClose, consumeGatewayRestartAuthorization, consumeGatewayRestartIntent, consumeGatewayRestartIntentPayloadSync, consumeGatewayRestartIntentSync, createGatewayActiveWorkSnapshot, detectGatewayRespawnSupervisorIdentity, getDiagnosticSessionActivitySnapshot, isForegroundUpdateHandoff, isGatewayRestartExternallyAllowed, listActiveEmbeddedRunSessionIds, markGatewayRestartDraining as markGatewayDraining, markGatewayRestartHandled, markUpdateRestartSentinelFailure, peekGatewayRestartReason, readRestartSentinelReadOnly, requestGatewayRestartWithSignalAdmission, requestManagedServiceUpdateHandoffPark, resetAllLanes, resetCronActiveJobs, resetGatewayRestartStateForInProcessRestart, resetGatewaySuspendCoordinatorForLifecycleRestart, resolveGatewayRestartDecision, resolveGatewayRestartDrainTimeoutMs, respawnGatewayProcessForUpdate, restartGatewayProcessWithFreshPid, retireActiveCronTaskRunTracking, rollbackGatewayRestartSignalAdmission, rotateAgentEventLifecycleGeneration, scheduleGatewayRestart, stopActiveManagedProviderLocalServices, waitForActiveCronJobs, waitForActiveCronTaskRuns, waitForGatewayActiveWork, waitForGatewayHealthyRestart, waitForSystemServiceUpdateHandoffs, writeDiagnosticStabilityBundleForFailureSync, writeGatewayRestartHandoffSync, writeRestartSentinelIfUnchanged };

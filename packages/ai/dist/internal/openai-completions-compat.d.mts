@@ -1,2 +1,2 @@
-import { a as resolveOpenAICompletionsCompat } from "../openai-completions-compat-DfJG1wSO.mjs";
+import { a as resolveOpenAICompletionsCompat } from "../openai-completions-compat-BgPg1BRs.mjs";
 export { resolveOpenAICompletionsCompat };

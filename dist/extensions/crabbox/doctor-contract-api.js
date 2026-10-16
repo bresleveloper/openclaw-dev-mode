@@ -1,6 +1,6 @@
-import { a as asOptionalRecord } from "../../record-coerce-DItp3I4t.mjs";
-import "../../string-coerce-runtime-C_MKhRVt.mjs";
-import { r as projectCrabboxLegacyWarmLeases, t as crabboxLegacyWarmImageCaptureSelector } from "../../crabbox-worker-warm-image-records-CKlhPK62.mjs";
+import { a as asOptionalRecord } from "../../record-coerce-TIsquoVR.mjs";
+import "../../string-coerce-runtime-50qKeWeL.mjs";
+import { r as projectCrabboxLegacyWarmLeases, t as crabboxLegacyWarmImageCaptureSelector } from "../../crabbox-worker-warm-image-records-D4Yqzjt9.mjs";
 //#region extensions/crabbox/doctor-contract-api.ts
 const imageFields = /* @__PURE__ */ new Set([
 	"checkpointId",

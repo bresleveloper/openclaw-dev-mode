@@ -1,6 +1,11 @@
-import { a as asNullableRecord, i as normalizeOptionalString, t as normalizeLowercaseStringOrEmpty } from "./string-coerce-Dyy0qgLy.js";
-import { l as normalizeChannelConfigEntries, n as defineKeyMoveMigration, s as defineChannelAliasMigration, u as stripRetiredChannelKeys, x as hasLegacyAccountStreamingAliases, y as asBoolean } from "./runtime-doctor-migrations-8XPPImoy.js";
-import "./string-coerce-runtime-BSQ-eR6f.js";
+import { S as normalizeChannelConfigEntries, T as normalizeLowercaseStringOrEmpty, a as defineChannelAliasMigration, b as hasLegacyAccountStreamingAliases, k as asNullableRecord, n as defineKeyMoveMigration, o as stripRetiredChannelKeys } from "./runtime-doctor-migrations-BhouWAUC.js";
+import "./string-coerce-runtime-CM4JCyJk.js";
+//#region src/utils/boolean.ts
+/** Returns only real boolean values and leaves boolean-like strings for explicit parsing. */
+function asBoolean(value) {
+	return typeof value === "boolean" ? value : void 0;
+}
+//#endregion
 //#region src/channels/streaming-config-readers.ts
 function getChannelStreamingConfigObject(entry) {
 	const streaming = asNullableRecord(entry?.streaming);
@@ -11,39 +16,18 @@ function resolveChannelStreamingNativeTransport(entry) {
 }
 //#endregion
 //#region extensions/slack/src/streaming-compat.ts
-function normalizeStreamingMode(value) {
-	if (typeof value !== "string") return null;
-	return (normalizeOptionalString(value) == null ? "" : normalizeLowercaseStringOrEmpty(value)) || null;
-}
-function parseStreamingMode(value) {
-	const normalized = normalizeStreamingMode(value);
-	if (normalized === "off" || normalized === "partial" || normalized === "block" || normalized === "progress") return normalized;
-	return null;
-}
-function parseSlackLegacyDraftStreamMode(value) {
-	const normalized = normalizeStreamingMode(value);
-	if (normalized === "replace" || normalized === "status_final" || normalized === "append") return normalized;
-	return null;
-}
-function mapSlackLegacyDraftStreamModeToStreaming(mode) {
-	if (mode === "append") return "block";
-	if (mode === "status_final") return "progress";
-	return "partial";
-}
 function resolveSlackStreamingMode(params = {}) {
-	const parsedStreaming = parseStreamingMode(getChannelStreamingConfigObject(params)?.mode ?? params.streaming);
-	if (parsedStreaming) return parsedStreaming;
-	const legacyStreamMode = parseSlackLegacyDraftStreamMode(params.streamMode);
-	if (legacyStreamMode) return mapSlackLegacyDraftStreamModeToStreaming(legacyStreamMode);
-	if (typeof params.streaming === "boolean") return params.streaming ? "partial" : "off";
-	return "progress";
+	const mode = normalizeLowercaseStringOrEmpty(getChannelStreamingConfigObject(params)?.mode ?? params.streaming);
+	if (mode === "off" || mode === "partial" || mode === "block" || mode === "progress") return mode;
+	switch (normalizeLowercaseStringOrEmpty(params.streamMode)) {
+		case "append": return "block";
+		case "status_final": return "progress";
+		case "replace": return "partial";
+		default: return typeof params.streaming === "boolean" ? params.streaming ? "partial" : "off" : "progress";
+	}
 }
 function resolveSlackNativeStreaming(params = {}) {
-	const canonical = resolveChannelStreamingNativeTransport(params);
-	if (typeof canonical === "boolean") return canonical;
-	if (typeof params.nativeStreaming === "boolean") return params.nativeStreaming;
-	if (typeof params.streaming === "boolean") return params.streaming;
-	return true;
+	return resolveChannelStreamingNativeTransport(params) ?? (typeof params.nativeStreaming === "boolean" ? params.nativeStreaming : typeof params.streaming === "boolean" ? params.streaming : true);
 }
 //#endregion
 //#region extensions/slack/src/doctor-contract.ts
@@ -69,11 +53,6 @@ const threadMentionPolicyMigration = defineKeyMoveMigration({
 	map: (value) => typeof value === "boolean" ? { value: !value } : null,
 	pruneEmptySource: true,
 	movedMessage: ({ sourcePath, targetPath, mappedValue }) => `Moved ${sourcePath} → ${targetPath} (${String(mappedValue)}).`
-});
-const channelAllowMigration = defineKeyMoveMigration({
-	scope: ["channels", "*"],
-	from: ["allow"],
-	to: ["enabled"]
 });
 function hasInteractiveRepliesCapability(value) {
 	const capabilities = asNullableRecord(value)?.capabilities;
@@ -173,20 +152,6 @@ const legacyConfigRules = [
 		],
 		message: "channels.slack.accounts.<id>.thread.requireExplicitMention is legacy; use channels.slack.accounts.<id>.implicitMentions.threadParticipation instead. Run \"openclaw doctor --fix\".",
 		match: (value) => hasLegacyAccountStreamingAliases(value, threadMentionPolicyMigration.hasLegacy)
-	},
-	{
-		path: ["channels", "slack"],
-		message: "channels.slack.channels.<id>.allow is legacy; use channels.slack.channels.<id>.enabled instead. Run \"openclaw doctor --fix\".",
-		match: channelAllowMigration.hasLegacy
-	},
-	{
-		path: [
-			"channels",
-			"slack",
-			"accounts"
-		],
-		message: "channels.slack.accounts.<id>.channels.<id>.allow is legacy; use channels.slack.accounts.<id>.channels.<id>.enabled instead. Run \"openclaw doctor --fix\".",
-		match: (value) => hasLegacyAccountStreamingAliases(value, channelAllowMigration.hasLegacy)
 	}
 ];
 function normalizeSlackEntry(params) {
@@ -199,13 +164,9 @@ function normalizeSlackEntry(params) {
 		...params,
 		entry: dm.entry
 	});
-	const channels = channelAllowMigration.normalize({
-		...params,
-		entry: thread.entry
-	});
 	return {
-		entry: channels.entry,
-		changed: retiredInteractiveReplies.changed || dm.changed || thread.changed || channels.changed
+		entry: thread.entry,
+		changed: retiredInteractiveReplies.changed || dm.changed || thread.changed
 	};
 }
 function normalizeCompatibilityConfig({ cfg }) {

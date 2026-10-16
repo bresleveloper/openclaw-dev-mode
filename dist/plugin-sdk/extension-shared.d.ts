@@ -1,5 +1,4 @@
 import { t as createLoggerBackedRuntime } from "../runtime-logger.internal-Dlpp6FcE.js";
-import { n as buildTimeoutAbortSignal } from "../fetch-timeout-D2yvPshT.js";
 import { ZodType, z } from "zod";
 //#region src/shared/deferred.d.ts
 type Deferred<T = void> = {
@@ -19,6 +18,23 @@ type Deferred<T = void> = {
 export declare function safeParseWithSchema<T>(schema: ZodType<T>, value: unknown): T | null;
 /** Parses JSON, then safely validates it with a Zod schema, returning null for parse or schema failures. */
 export declare function safeParseJsonWithSchema<T>(schema: ZodType<T>, raw: string): T | null;
+//#endregion
+//#region src/utils/fetch-timeout.d.ts
+type TimeoutAbortSignalParams = {
+  timeoutMs?: number;
+  signal?: AbortSignal;
+  operation?: string;
+  url?: string;
+};
+/**
+ * Builds an abort signal that combines an optional parent signal with a timeout.
+ * Callers must run `cleanup`; `refresh` restarts only the internal timeout timer.
+ */
+export declare function buildTimeoutAbortSignal(params: TimeoutAbortSignalParams): {
+  signal?: AbortSignal;
+  cleanup: () => void;
+  refresh: () => void;
+};
 //#endregion
 //#region src/plugin-sdk/extension-shared.d.ts
 type PassiveChannelStatusSnapshot = {
@@ -134,4 +150,3 @@ export declare function resolveAmbientNodeProxyAgent<TAgent>(params?: {
   protocol?: "http" | "https";
 }): Promise<TAgent | undefined>;
 //#endregion
-export { buildTimeoutAbortSignal };

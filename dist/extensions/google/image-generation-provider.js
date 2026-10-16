@@ -1,34 +1,30 @@
-import { w as parseStrictPositiveInteger } from "../../number-coercion-CLj0HTDM.mjs";
-import { c as isRecord } from "../../record-coerce-DItp3I4t.mjs";
-import { l as normalizeOptionalString, o as normalizeLowercaseStringOrEmpty } from "../../string-coerce-CIXf7egm.mjs";
-import { m as readProviderJsonResponse, n as assertOkOrThrowHttpError } from "../../provider-http-errors-CTY_-ABT.mjs";
-import { p as sanitizeConfiguredModelProviderRequest } from "../../provider-request-config-DOrVD029.mjs";
-import "../../string-coerce-runtime-C_MKhRVt.mjs";
-import { n as resolveGeneratedMediaMaxBytes } from "../../configured-max-bytes-DR1WorLz.mjs";
-import { l as postJsonRequest } from "../../shared-BLFkM12I.mjs";
-import "../../number-runtime-CGwowceO.mjs";
-import { t as isProviderApiKeyConfigured } from "../../provider-auth-availability-rDVWv1YO.mjs";
-import "../../media-generation-runtime-B4Zm_9mu.mjs";
-import { a as resolveApiKeyForProvider } from "../../provider-auth-runtime-BWjBKWym.mjs";
-import "../../provider-http-Dn9NddwC.mjs";
-import { l as resolveInlineImageJsonResponseMaxBytes, n as generatedImageAssetFromBase64 } from "../../image-generation-Cp9Xz2Yv.mjs";
-import "../../provider-auth-DFHjplgz.mjs";
-import { n as normalizeGoogleModelId } from "../../model-id-CAmKILzd.mjs";
-import { d as createGoogleImageGenerationProviderMetadata } from "../../generation-provider-metadata-Rktr_0z6.mjs";
-import { t as resolveGoogleGenerativeAiHttpRequestConfig } from "../../api-BOVzuGpO.mjs";
-import { n as toStandardGoogleProviderBase64 } from "../../base64-m7hzKALO.mjs";
+import { l as normalizeOptionalString, o as normalizeLowercaseStringOrEmpty } from "../../string-coerce-1VuiLaaR.mjs";
+import { w as parseStrictPositiveInteger } from "../../number-coercion-CuVhdCBs.mjs";
+import { c as isRecord } from "../../record-coerce-TIsquoVR.mjs";
+import { m as readProviderJsonResponse, n as assertOkOrThrowHttpError } from "../../provider-http-errors-DmewLLH7.mjs";
+import { n as normalizeGooglePreviewModelId } from "../../provider-model-id-normalize-Bx8UgVVS.mjs";
+import { p as sanitizeConfiguredModelProviderRequest } from "../../provider-request-config-By9R9pyt.mjs";
+import "../../string-coerce-runtime-50qKeWeL.mjs";
+import { r as resolveGeneratedMediaMaxBytes } from "../../configured-max-bytes-CtwRSse3.mjs";
+import { d as postJsonRequest } from "../../shared-DcnGQdHV.mjs";
+import "../../number-runtime-CgyXj1A5.mjs";
+import { t as isProviderApiKeyConfigured } from "../../provider-auth-availability-BmVs5Dky.mjs";
+import "../../media-generation-runtime-D1HcnVCx.mjs";
+import { a as resolveApiKeyForProvider } from "../../provider-auth-runtime-CpGmMxRN.mjs";
+import "../../provider-http-CuRGJD0L.mjs";
+import { c as resolveInlineImageJsonResponseMaxBytes, t as generatedImageAssetFromBase64 } from "../../image-assets-DT0442If.mjs";
+import "../../image-generation-OBYa9Syc.mjs";
+import "../../provider-auth-C3BBF7yn.mjs";
+import "../../model-id-CPDOOOMu.mjs";
+import { d as createGoogleImageGenerationProviderMetadata } from "../../generation-provider-metadata-D0HXeJwn.mjs";
+import { t as resolveGoogleGenerativeAiHttpRequestConfig } from "../../http-request-Bp4RpyLy.mjs";
+import { n as toStandardGoogleProviderBase64 } from "../../base64-CKISTF1b.mjs";
 //#region extensions/google/image-generation-provider.ts
 const DEFAULT_IMAGE_TIMEOUT_MS = 18e4;
 const DEFAULT_OUTPUT_MIME = "image/png";
 const GOOGLE_IMAGE_MALFORMED_RESPONSE = "Google image generation response malformed";
-function normalizeGoogleImageModel(model) {
-	const trimmed = model?.trim();
-	return normalizeGoogleModelId(trimmed || "gemini-3.1-flash-image");
-}
 function mapSizeToImageConfig(size) {
-	const trimmed = size?.trim();
-	if (!trimmed) return;
-	const normalized = normalizeLowercaseStringOrEmpty(trimmed);
+	const normalized = normalizeLowercaseStringOrEmpty(size);
 	const aspectRatio = (/* @__PURE__ */ new Map([
 		["1024x1024", "1:1"],
 		["1024x1536", "2:3"],
@@ -74,14 +70,12 @@ function googleInlineDataFromPart(part) {
 	return inline;
 }
 function buildGoogleImageGenerationProvider() {
-	const { capabilities, ...metadata } = createGoogleImageGenerationProviderMetadata();
 	return {
-		...metadata,
+		...createGoogleImageGenerationProviderMetadata(),
 		isConfigured: (ctx) => isProviderApiKeyConfigured({
 			provider: "google",
 			...ctx
 		}),
-		capabilities,
 		async generateImage(req) {
 			const auth = await resolveApiKeyForProvider({
 				provider: "google",
@@ -90,7 +84,7 @@ function buildGoogleImageGenerationProvider() {
 				store: req.authStore
 			});
 			if (!auth.apiKey) throw new Error("Google API key missing");
-			const model = normalizeGoogleImageModel(req.model);
+			const model = normalizeGooglePreviewModelId(req.model?.trim() || "gemini-3.1-flash-image");
 			const { baseUrl, allowPrivateNetwork, headers, dispatcherPolicy } = resolveGoogleGenerativeAiHttpRequestConfig({
 				apiKey: auth.apiKey,
 				baseUrl: req.cfg?.models?.providers?.google?.baseUrl,
@@ -131,7 +125,6 @@ function buildGoogleImageGenerationProvider() {
 			try {
 				await assertOkOrThrowHttpError(res, "Google image generation failed");
 				const payload = await readProviderJsonResponse(res, "google.image-generation", { maxBytes: resolveInlineImageJsonResponseMaxBytes(4, resolveGeneratedMediaMaxBytes(req.cfg, "image")) });
-				let imageIndex = 0;
 				const images = [];
 				for (const part of googleResponseParts(payload)) {
 					const inline = googleInlineDataFromPart(part);
@@ -142,11 +135,10 @@ function buildGoogleImageGenerationProvider() {
 					if (!standardData) throw new Error(GOOGLE_IMAGE_MALFORMED_RESPONSE);
 					const image = generatedImageAssetFromBase64({
 						base64: standardData,
-						index: imageIndex,
+						index: images.length,
 						mimeType: normalizeOptionalString(inline.mimeType) ?? normalizeOptionalString(inline.mime_type) ?? DEFAULT_OUTPUT_MIME
 					});
 					if (!image) throw new Error(GOOGLE_IMAGE_MALFORMED_RESPONSE);
-					imageIndex += 1;
 					images.push(image);
 				}
 				if (images.length === 0) throw new Error("Google image generation response missing image data");

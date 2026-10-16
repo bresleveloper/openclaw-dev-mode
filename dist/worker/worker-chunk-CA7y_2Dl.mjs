@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{n as t,t as n}from"./worker-chunk-BPRtk9Jm.mjs";function warnProcessSupervisorSpawnFailure(e){r.warn(e)}var r;e((()=>{t(),r=n(`process/supervisor`)}))();export{warnProcessSupervisorSpawnFailure};

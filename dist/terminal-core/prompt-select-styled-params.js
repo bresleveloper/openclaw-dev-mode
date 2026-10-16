@@ -1,2 +1,2 @@
-import { t as styleSelectParams } from "../prompt-select-styled-params-Di2tA0mA.mjs";
+import { t as styleSelectParams } from "../prompt-select-styled-params-DiyhlGNl.mjs";
 export { styleSelectParams };

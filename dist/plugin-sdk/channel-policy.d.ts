@@ -1,11 +1,29 @@
-import { Nt as GroupToolPolicyBySenderConfig, Pt as GroupToolPolicyConfig, r as OpenClawConfig } from "../types.openclaw-Ccmw-oTa.js";
-import { g as GroupPolicy } from "../types.base-CA0_JvyZ.js";
-import { D as ChannelSecurityDmPolicy } from "../types.core-BfkZpaZ6.js";
-import { t as ChannelId } from "../channel-id.types-CjcGKHk0.js";
-import { D as ChannelSecurityAdapter, L as SecurityAuditFinding } from "../types.adapters-IC4-T9eq.js";
-import { a as resolveChannelGroupsConfigPath, i as resolveChannelGroupToolsPolicy, n as resolveChannelGroupPolicy, o as resolveToolsBySender, r as resolveChannelGroupRequireMention, s as resolveChannelGroups, t as ChannelGroupPolicy } from "../group-policy-3v_gkaet.js";
-import { t as buildAccountScopedDmSecurityPolicy } from "../helpers-BjSTA4Z3.js";
-import { a as resolveEffectiveAllowFromLists, i as resolveDmGroupAccessWithLists, o as resolveOpenDmAllowlistAccess, r as readStoreAllowFromForDmPolicy, t as DM_GROUP_ACCESS_REASON } from "../dm-policy-shared-BXVdVRPm.js";
+import { Bt as GroupToolPolicyBySenderConfig, Vt as GroupToolPolicyConfig, r as OpenClawConfig } from "../types.openclaw-DWWUw8hA.js";
+import { m as GroupPolicy } from "../types.base-D8MIFbSh.js";
+import { D as ChannelSecurityDmPolicy } from "../types.core-Bra2QBA5.js";
+import { t as ChannelId } from "../channel-id.types-CM2F8b5e.js";
+import { k as ChannelSecurityAdapter, z as SecurityAuditFinding } from "../types.adapters-Bo2TMZGx.js";
+import { a as resolveChannelGroupsConfigPath, c as resolveChannelGroups, i as resolveChannelGroupToolsPolicy, n as resolveChannelGroupPolicy, o as GroupToolPolicySender, r as resolveChannelGroupRequireMention, s as resolveToolsBySender, t as ChannelGroupPolicy } from "../group-policy-C84ZgrRi.js";
+import { t as buildAccountScopedDmSecurityPolicy } from "../helpers-gk1rbVRv.js";
+import { t as readChannelIngressStoreAllowFromForDmPolicy } from "../store-allow-from-Dd95vAW-.js";
+import { i as resolveOpenDmAllowlistAccess, r as resolveDmGroupAccessWithLists, t as DM_GROUP_ACCESS_REASON } from "../dm-policy-shared-BQETzBuF.js";
+import "../channel-access-compat-CuzvLvYk.js";
+//#region src/channels/message-access/effective-allow-from.d.ts
+/**
+ * Merge configured direct, group, and pairing-store allowlists into the
+ * effective lists consumed by sender and context-visibility checks.
+ */
+declare function resolveChannelIngressEffectiveAllowFromLists(params: {
+  allowFrom?: Array<string | number> | null;
+  groupAllowFrom?: Array<string | number> | null;
+  storeAllowFrom?: Array<string | number> | null;
+  dmPolicy?: string | null;
+  groupAllowFromFallbackToAllowFrom?: boolean | null;
+}): {
+  effectiveAllowFrom: string[];
+  effectiveGroupAllowFrom: string[];
+};
+//#endregion
 //#region src/channels/plugins/group-policy-warnings.d.ts
 type GroupPolicyWarningCollector = (groupPolicy: GroupPolicy) => string[];
 type AccountGroupPolicyWarningCollector<ResolvedAccount> = (params: {
@@ -97,38 +115,40 @@ export declare function createOpenGroupPolicyRestrictSendersWarningCollector<Res
   resolveGroupPolicy: (account: ResolvedAccount) => GroupPolicy | null | undefined;
   defaultGroupPolicy?: GroupPolicy;
 } & Omit<Parameters<typeof collectOpenGroupPolicyRestrictSendersWarnings>[0], "groupPolicy">): (account: ResolvedAccount) => string[];
-export declare function collectAllowlistProviderGroupPolicyWarnings(params: {
-  cfg: OpenClawConfig;
-  providerConfigPresent: boolean;
-  configuredGroupPolicy?: GroupPolicy | null;
-  collect: GroupPolicyWarningCollector;
-}): string[];
-/** Build a config-aware allowlist-provider warning collector from an arbitrary policy resolver. */
-export declare function createAllowlistProviderGroupPolicyWarningCollector<Params extends {
-  cfg: OpenClawConfig;
-}>(params: {
-  providerConfigPresent: (cfg: OpenClawConfig) => boolean;
-  resolveGroupPolicy: (params: Params) => GroupPolicy | null | undefined;
-  collect: (params: Params & {
-    groupPolicy: GroupPolicy;
+declare const { collectWarnings: collectAllowlistProviderGroupPolicyWarnings, createCollector: createAllowlistProviderGroupPolicyWarningCollector }: {
+  collectWarnings: (params: {
+    cfg: OpenClawConfig;
+    providerConfigPresent: boolean;
+    configuredGroupPolicy?: GroupPolicy | null;
+    collect: GroupPolicyWarningCollector;
   }) => string[];
-}): ConfigGroupPolicyWarningCollector<Params>;
-export declare function collectOpenProviderGroupPolicyWarnings(params: {
-  cfg: OpenClawConfig;
-  providerConfigPresent: boolean;
-  configuredGroupPolicy?: GroupPolicy | null;
-  collect: GroupPolicyWarningCollector;
-}): string[];
-/** Build a config-aware open-provider warning collector from an arbitrary policy resolver. */
-export declare function createOpenProviderGroupPolicyWarningCollector<Params extends {
-  cfg: OpenClawConfig;
-}>(params: {
-  providerConfigPresent: (cfg: OpenClawConfig) => boolean;
-  resolveGroupPolicy: (params: Params) => GroupPolicy | null | undefined;
-  collect: (params: Params & {
-    groupPolicy: GroupPolicy;
+  createCollector: <Params extends {
+    cfg: OpenClawConfig;
+  }>(params: {
+    providerConfigPresent: (cfg: OpenClawConfig) => boolean;
+    resolveGroupPolicy: (params: Params) => GroupPolicy | null | undefined;
+    collect: (params: Params & {
+      groupPolicy: GroupPolicy;
+    }) => string[];
+  }) => ConfigGroupPolicyWarningCollector<Params>;
+};
+declare const { collectWarnings: collectOpenProviderGroupPolicyWarnings, createCollector: createOpenProviderGroupPolicyWarningCollector }: {
+  collectWarnings: (params: {
+    cfg: OpenClawConfig;
+    providerConfigPresent: boolean;
+    configuredGroupPolicy?: GroupPolicy | null;
+    collect: GroupPolicyWarningCollector;
   }) => string[];
-}): ConfigGroupPolicyWarningCollector<Params>;
+  createCollector: <Params extends {
+    cfg: OpenClawConfig;
+  }>(params: {
+    providerConfigPresent: (cfg: OpenClawConfig) => boolean;
+    resolveGroupPolicy: (params: Params) => GroupPolicy | null | undefined;
+    collect: (params: Params & {
+      groupPolicy: GroupPolicy;
+    }) => string[];
+  }) => ConfigGroupPolicyWarningCollector<Params>;
+};
 /** Build an account-aware allowlist-provider warning collector for simple open-policy warnings. */
 export declare function createAllowlistProviderOpenWarningCollector<ResolvedAccount>(params: {
   providerConfigPresent: (cfg: OpenClawConfig) => boolean;
@@ -178,7 +198,6 @@ type ScopeTree = {
 type ScopePath = string[];
 export declare const encodeScopeSegment: (value: string) => string;
 export declare function scopeKey(...segments: Array<readonly [prefix: string, value: string]>): string;
-type ScopeToolPolicySender = Omit<Parameters<typeof resolveToolsBySender>[0], "toolsBySender">;
 export declare function buildChannelGroupsScopeTree(cfg: OpenClawConfig, channel: ChannelId, accountId?: string | null): ScopeTree;
 export declare function resolveScopeKeyCaseInsensitive(tree: ScopeTree, key: string | null | undefined): string | undefined;
 export declare function resolveScopeRequireMention(params: {
@@ -191,7 +210,7 @@ export declare function resolveScopeRequireMention(params: {
 export declare function resolveScopeToolsPolicy(params: {
   tree: ScopeTree;
   path: ScopePath;
-} & ScopeToolPolicySender): GroupToolPolicyConfig | undefined;
+} & GroupToolPolicySender): GroupToolPolicyConfig | undefined;
 export declare function resolveScopeIntroHint(params: {
   tree: ScopeTree;
   path: ScopePath;
@@ -323,4 +342,4 @@ export declare function createRestrictSendersChannelSecurity<ResolvedAccount ext
   dmRouting?: ChannelSecurityAdapter<ResolvedAccount>["dmRouting"];
 }): ChannelSecurityAdapter<ResolvedAccount>;
 //#endregion
-export { type ChannelGroupPolicy, DM_GROUP_ACCESS_REASON, type GroupToolPolicyBySenderConfig, type GroupToolPolicyConfig, type ScopeNode, type ScopePath, type ScopeTree, buildAccountScopedDmSecurityPolicy, readStoreAllowFromForDmPolicy, resolveChannelGroupPolicy, resolveChannelGroupRequireMention, resolveChannelGroupToolsPolicy, resolveChannelGroups, resolveChannelGroupsConfigPath, resolveDmGroupAccessWithLists, resolveEffectiveAllowFromLists, resolveOpenDmAllowlistAccess, resolveToolsBySender };
+export { type ChannelGroupPolicy, DM_GROUP_ACCESS_REASON, type GroupToolPolicyBySenderConfig, type GroupToolPolicyConfig, type ScopeNode, type ScopePath, type ScopeTree, buildAccountScopedDmSecurityPolicy, collectAllowlistProviderGroupPolicyWarnings, collectOpenProviderGroupPolicyWarnings, createAllowlistProviderGroupPolicyWarningCollector, createOpenProviderGroupPolicyWarningCollector, readChannelIngressStoreAllowFromForDmPolicy as readStoreAllowFromForDmPolicy, resolveChannelGroupPolicy, resolveChannelGroupRequireMention, resolveChannelGroupToolsPolicy, resolveChannelGroups, resolveChannelGroupsConfigPath, resolveDmGroupAccessWithLists, resolveChannelIngressEffectiveAllowFromLists as resolveEffectiveAllowFromLists, resolveOpenDmAllowlistAccess, resolveToolsBySender };

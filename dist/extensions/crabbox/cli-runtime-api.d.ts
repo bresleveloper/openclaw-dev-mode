@@ -1,4 +1,4 @@
-import { t as SpawnResult } from "../../exec-CSuWltlK.js";
+import { t as SpawnResult } from "../../worker-task-pool-Bu9802Z-.js";
 //#region extensions/crabbox/src/crabbox-worker-command.d.ts
 type CrabboxCommandRunner = (argv: string[], options: {
   killProcessTree: boolean;

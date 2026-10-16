@@ -1,21 +1,32 @@
 //#region extensions/amazon-bedrock/aws-credential-refresh.ts
-/**
-* AWS shared config cache refresh helpers for Bedrock. They nudge the AWS SDK
-* to re-read profile/SSO config when no static credentials are present.
-*/
-function hasStaticAwsCredentialEnv(env) {
-	return Boolean(env.AWS_ACCESS_KEY_ID && env.AWS_SECRET_ACCESS_KEY);
+/** Keep shared-file refresh on the chain that actually signs the Bedrock request. */
+function bedrockCredentialDefaultProvider(init) {
+	let provider;
+	return async (...args) => {
+		const { defaultProvider } = await import("@aws-sdk/credential-provider-node");
+		provider ??= defaultProvider({
+			...init,
+			ignoreCache: true
+		});
+		return provider(...args);
+	};
 }
-/** Return whether Bedrock should refresh the AWS shared config cache before discovery. */
-function shouldRefreshAwsSharedConfigCacheForBedrock(env) {
-	if (env.AWS_BEDROCK_SKIP_AUTH === "1" || env.AWS_BEARER_TOKEN_BEDROCK) return false;
-	return !hasStaticAwsCredentialEnv(env);
-}
-/** Refresh Smithy shared config files when Bedrock needs default-chain credentials. */
-async function refreshAwsSharedConfigCacheForBedrock(env = process.env) {
-	if (!shouldRefreshAwsSharedConfigCacheForBedrock(env)) return;
-	const { loadSharedConfigFiles } = await import("@smithy/shared-ini-file-loader");
-	await loadSharedConfigFiles({ ignoreCache: true });
+/** Preserve explicit proxy and bearer authentication ahead of the default AWS chain. */
+function resolveBedrockRuntimeAuth(bearerToken) {
+	const config = { credentialDefaultProvider: bedrockCredentialDefaultProvider };
+	if (process.env.AWS_BEDROCK_SKIP_AUTH === "1") {
+		if (process.versions?.node || process.versions?.bun) config.credentials = {
+			accessKeyId: "dummy-access-key",
+			secretAccessKey: "dummy-secret-key"
+		};
+	} else {
+		const token = bearerToken || process.env.AWS_BEARER_TOKEN_BEDROCK || void 0;
+		if (token !== void 0) {
+			config.token = { token };
+			config.authSchemePreference = ["httpBearerAuth"];
+		}
+	}
+	return config;
 }
 //#endregion
-export { refreshAwsSharedConfigCacheForBedrock };
+export { bedrockCredentialDefaultProvider, resolveBedrockRuntimeAuth };

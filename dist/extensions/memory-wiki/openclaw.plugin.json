@@ -4,7 +4,6 @@
     "memory"
   ],
   "doctorContract": {
-    "configRepair": true,
     "stateMigrations": [
       {
         "id": "memory-wiki-compiled-cache-file-cleanup"
@@ -345,11 +344,6 @@
         }
       }
     }
-  },
-  "configContracts": {
-    "compatibilityMigrationPaths": [
-      "plugins.entries.memory-wiki.config.bridge.readMemoryCore"
-    ]
   },
   "commandAliases": [
     {

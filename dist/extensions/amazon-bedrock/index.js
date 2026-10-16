@@ -9,9 +9,7 @@ var amazon_bedrock_default = definePluginEntry({
 	id: "amazon-bedrock",
 	name: "Amazon Bedrock Provider",
 	description: "Bundled Amazon Bedrock provider policy plugin",
-	register(api) {
-		registerAmazonBedrockPlugin(api);
-	}
+	register: registerAmazonBedrockPlugin
 });
 //#endregion
 export { amazon_bedrock_default as default };

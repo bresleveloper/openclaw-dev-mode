@@ -5,14 +5,16 @@ import fsSync from "node:fs";
 import fsPromises from "node:fs/promises";
 import path from "node:path";
 import { movePathWithCopyFallback } from "@openclaw/fs-safe/atomic";
+import { GUEST_FILESYSTEM_PYTHON } from "@openclaw/fs-safe/guest";
 import { createDeferred, formatPluginConfigIssue, mapPluginConfigIssues } from "openclaw/plugin-sdk/extension-shared";
 import { KeyedAsyncQueue } from "openclaw/plugin-sdk/keyed-async-queue";
 import { FsSafeError, canonicalPathFromExistingAncestor, extractErrorCode } from "openclaw/plugin-sdk/security-runtime";
-import { normalizeLowercaseStringOrEmpty } from "openclaw/plugin-sdk/string-coerce-runtime";
+import { asOptionalRecord, normalizeLowercaseStringOrEmpty } from "openclaw/plugin-sdk/string-coerce-runtime";
+import { safeParseJson } from "openclaw/plugin-sdk/text-utility-runtime";
 import { buildPluginConfigSchema } from "openclaw/plugin-sdk/core";
 import { MAX_TIMER_TIMEOUT_SECONDS } from "openclaw/plugin-sdk/number-runtime";
 import { z } from "zod";
-import { assertNoSymlinkParents, canonicalPathFromExistingAncestor as canonicalPathFromExistingAncestor$1, isPathInside, root } from "openclaw/plugin-sdk/file-access-runtime";
+import { assertNoSymlinkParents, isPathInside, root } from "openclaw/plugin-sdk/file-access-runtime";
 import pLimit from "p-limit";
 //#region extensions/openshell/src/cli.ts
 function buildOpenShellBaseArgv(config) {
@@ -62,20 +64,9 @@ const DEFAULT_SOURCE = "openclaw";
 const DEFAULT_REMOTE_WORKSPACE_DIR = "/sandbox";
 const DEFAULT_REMOTE_AGENT_WORKSPACE_DIR = "/agent";
 const DEFAULT_TIMEOUT_MS = 12e4;
-const OPEN_SHELL_MANAGED_REMOTE_ROOTS = [DEFAULT_REMOTE_WORKSPACE_DIR, DEFAULT_REMOTE_AGENT_WORKSPACE_DIR];
-function normalizeProviders(value) {
-	const seen = /* @__PURE__ */ new Set();
-	const providers = [];
-	for (const entry of value ?? []) {
-		const normalized = entry.trim();
-		if (seen.has(normalized)) continue;
-		seen.add(normalized);
-		providers.push(normalized);
-	}
-	return providers;
-}
+const OPEN_SHELL_MANAGED_REMOTE_PATH = /^\/(?:sandbox|agent)(?:\/|$)/;
 const nonEmptyTrimmedString = (message) => z.string({ error: message }).trim().min(1, { error: message });
-const openShellManagedRemotePath = (fieldName) => nonEmptyTrimmedString(`${fieldName} must be a non-empty string`).regex(/^\/(?:sandbox|agent)(?:\/|$)/, { error: (issue) => String(issue.input).startsWith("/") ? `OpenShell ${fieldName} must stay under /sandbox or /agent` : `OpenShell ${fieldName} must be absolute` }).refine((value) => isManagedOpenShellRemotePath(path.posix.normalize(value)), { error: `OpenShell ${fieldName} must stay under /sandbox or /agent` });
+const openShellManagedRemotePath = (fieldName) => nonEmptyTrimmedString(`${fieldName} must be a non-empty string`).regex(OPEN_SHELL_MANAGED_REMOTE_PATH, { error: (issue) => String(issue.input).startsWith("/") ? `OpenShell ${fieldName} must stay under /sandbox or /agent` : `OpenShell ${fieldName} must be absolute` }).refine((value) => OPEN_SHELL_MANAGED_REMOTE_PATH.test(path.posix.normalize(value)), { error: `OpenShell ${fieldName} must stay under /sandbox or /agent` });
 const openShellWorkspaceName = z.string({ error: "workspace must be a valid OpenShell workspace name" }).trim().min(1, { error: "workspace must be a valid OpenShell workspace name" }).max(19, { error: "workspace must be at most 19 characters" }).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, { error: "workspace must contain lowercase alphanumeric characters or single hyphens and must not start or end with a hyphen" });
 const OpenShellPluginConfigSchema = z.strictObject({
 	mode: z.enum(["mirror", "remote"], { error: "mode must be one of mirror, remote" }).optional(),
@@ -92,14 +83,9 @@ const OpenShellPluginConfigSchema = z.strictObject({
 	remoteAgentWorkspaceDir: openShellManagedRemotePath("remoteAgentWorkspaceDir").optional(),
 	timeoutSeconds: z.number({ error: `timeoutSeconds must be a number between 1 and ${MAX_TIMER_TIMEOUT_SECONDS}` }).min(1, { error: "timeoutSeconds must be a number >= 1" }).max(MAX_TIMER_TIMEOUT_SECONDS, { error: `timeoutSeconds must be a number <= ${MAX_TIMER_TIMEOUT_SECONDS}` }).optional()
 });
-function isManagedOpenShellRemotePath(value) {
-	return OPEN_SHELL_MANAGED_REMOTE_ROOTS.some((root) => value === root || value.startsWith(`${root}/`));
-}
-function normalizeOpenShellRemotePath(value, fallback, fieldName = "remote path") {
-	const candidate = value ?? fallback;
-	const normalized = path.posix.normalize(candidate.trim() || fallback);
-	if (!normalized.startsWith("/")) throw new Error(`OpenShell ${fieldName} must be absolute: ${candidate}`);
-	if (!isManagedOpenShellRemotePath(normalized)) throw new Error(`OpenShell ${fieldName} must stay under ${OPEN_SHELL_MANAGED_REMOTE_ROOTS.join(" or ")}: ${candidate}`);
+function normalizeOpenShellRemotePath(value) {
+	const normalized = path.posix.normalize(value);
+	if (!OPEN_SHELL_MANAGED_REMOTE_PATH.test(normalized)) throw new Error(`OpenShell remote path must stay under /sandbox or /agent: ${value}`);
 	return normalized;
 }
 function createOpenShellPluginConfigSchema() {
@@ -120,22 +106,7 @@ function createOpenShellPluginConfigSchema() {
 	} });
 }
 function resolveOpenShellPluginConfig(value) {
-	if (value === void 0) return {
-		mode: DEFAULT_MODE,
-		command: DEFAULT_COMMAND,
-		gateway: void 0,
-		gatewayEndpoint: void 0,
-		workspace: void 0,
-		from: DEFAULT_SOURCE,
-		policy: void 0,
-		providers: [],
-		gpu: false,
-		autoProviders: true,
-		remoteWorkspaceDir: DEFAULT_REMOTE_WORKSPACE_DIR,
-		remoteAgentWorkspaceDir: DEFAULT_REMOTE_AGENT_WORKSPACE_DIR,
-		timeoutMs: DEFAULT_TIMEOUT_MS
-	};
-	const parsed = OpenShellPluginConfigSchema.safeParse(value);
+	const parsed = OpenShellPluginConfigSchema.safeParse(value === void 0 ? {} : value);
 	if (!parsed.success) {
 		const message = formatPluginConfigIssue(parsed.error.issues[0]);
 		throw new Error(`Invalid openshell plugin config: ${message}`);
@@ -149,11 +120,11 @@ function resolveOpenShellPluginConfig(value) {
 		workspace: cfg.workspace,
 		from: cfg.from ?? DEFAULT_SOURCE,
 		policy: cfg.policy,
-		providers: normalizeProviders(cfg.providers),
+		providers: [...new Set(cfg.providers ?? [])],
 		gpu: cfg.gpu ?? false,
 		autoProviders: cfg.autoProviders ?? true,
-		remoteWorkspaceDir: normalizeOpenShellRemotePath(cfg.remoteWorkspaceDir, DEFAULT_REMOTE_WORKSPACE_DIR, "remoteWorkspaceDir"),
-		remoteAgentWorkspaceDir: normalizeOpenShellRemotePath(cfg.remoteAgentWorkspaceDir, DEFAULT_REMOTE_AGENT_WORKSPACE_DIR, "remoteAgentWorkspaceDir"),
+		remoteWorkspaceDir: normalizeOpenShellRemotePath(cfg.remoteWorkspaceDir ?? DEFAULT_REMOTE_WORKSPACE_DIR),
+		remoteAgentWorkspaceDir: normalizeOpenShellRemotePath(cfg.remoteAgentWorkspaceDir ?? DEFAULT_REMOTE_AGENT_WORKSPACE_DIR),
 		timeoutMs: typeof cfg.timeoutSeconds === "number" ? Math.floor(cfg.timeoutSeconds * 1e3) : DEFAULT_TIMEOUT_MS
 	};
 }
@@ -196,64 +167,49 @@ var OpenShellFsBridge = class {
 	}
 	async readFile(params) {
 		const target = this.resolveTarget(params);
-		const hostPath = this.requireHostPath(target);
-		let opened;
+		const hostPath = target.hostPath;
 		try {
-			await assertLocalPathSafety({
-				target,
-				allowFinalSymlinkForUnlink: false
-			});
-			const root$1 = await root(target.mountHostRoot);
-			if (params.maxBytes !== void 0) return (await root$1.read(path.relative(target.mountHostRoot, hostPath), {
+			return (await (await root(target.mountHostRoot)).read(relativeToRoot(target, hostPath), {
 				hardlinks: "reject",
-				maxBytes: params.maxBytes
+				maxBytes: params.maxBytes ?? Infinity
 			})).buffer;
-			opened = await root$1.open(path.relative(target.mountHostRoot, hostPath), { hardlinks: "reject" });
-			try {
-				return await opened.handle.readFile();
-			} finally {
-				await opened.handle.close();
-			}
 		} catch (err) {
 			throw new Error(`Sandbox boundary checks failed; cannot read files: ${target.containerPath}`, { cause: err });
 		}
 	}
 	async readDirectory(params) {
 		const target = this.resolveTarget(params);
-		const hostPath = this.requireHostPath(target);
-		await assertLocalPathSafety({
-			target,
-			allowFinalSymlinkForUnlink: false
-		});
-		return (await (await root(target.mountHostRoot)).list(relativeToRoot(target, hostPath), { withFileTypes: true })).map(({ name, isDirectory }) => ({
+		const hostPath = target.hostPath;
+		const root$1 = await root(target.mountHostRoot);
+		const entries = [];
+		for await (const { name, isDirectory } of root$1.entries(relativeToRoot(target, hostPath), { order: "sorted" })) entries.push({
 			name,
 			isDirectory
-		}));
+		});
+		return entries;
 	}
 	async writeFile(params) {
 		const target = this.resolveTarget(params);
-		const hostPath = this.requireHostPath(target);
+		const hostPath = target.hostPath;
 		this.ensureWritable(target, "write files");
-		await assertLocalPathSafety({
-			target,
-			allowFinalSymlinkForUnlink: false
-		});
 		const buffer = Buffer.isBuffer(params.data) ? params.data : Buffer.from(params.data, params.encoding ?? "utf8");
-		await (await root(target.mountHostRoot)).write(path.relative(target.mountHostRoot, hostPath), buffer, { mkdir: params.mkdir });
+		await (await root(target.mountHostRoot)).write(relativeToRoot(target, hostPath), buffer, {
+			mkdir: params.mkdir,
+			mutationSymlinks: "reject"
+		});
 		await this.backend.syncLocalPathToRemote(hostPath, target.containerPath);
 	}
 	async createFileExclusive(params) {
 		const target = this.resolveTarget(params);
-		const hostPath = this.requireHostPath(target);
+		const hostPath = target.hostPath;
 		this.ensureWritable(target, "create files");
-		await assertLocalPathSafety({
-			target,
-			allowFinalSymlinkForUnlink: false
-		});
 		const buffer = Buffer.isBuffer(params.data) ? params.data : Buffer.from(params.data, params.encoding ?? "utf8");
 		const root$2 = await root(target.mountHostRoot);
 		try {
-			await root$2.create(path.relative(target.mountHostRoot, hostPath), buffer, { mkdir: params.mkdir !== false });
+			await root$2.create(relativeToRoot(target, hostPath), buffer, {
+				mkdir: params.mkdir !== false,
+				mutationSymlinks: "reject"
+			});
 		} catch (error) {
 			if (error instanceof FsSafeError && error.code === "already-exists") return "exists";
 			throw error;
@@ -263,21 +219,17 @@ var OpenShellFsBridge = class {
 	}
 	async mkdirp(params) {
 		const target = this.resolveTarget(params);
-		const hostPath = this.requireHostPath(target);
 		this.ensureWritable(target, "create directories");
 		await assertLocalPathSafety({
 			target,
 			allowFinalSymlinkForUnlink: false
 		});
 		await this.backend.mkdirpRemotePath(target.containerPath, params.signal);
-		await mkdirLocalRootPath({
-			hostPath,
-			target
-		});
+		const relativePath = relativeToRoot(target, target.hostPath);
+		if (relativePath) await (await root(target.mountHostRoot)).mkdir(relativePath);
 	}
 	async remove(params) {
 		const target = this.resolveTarget(params);
-		const hostPath = this.requireHostPath(target);
 		this.ensureWritable(target, "remove files", params.recursive);
 		await assertLocalPathSafety({
 			target,
@@ -290,15 +242,12 @@ var OpenShellFsBridge = class {
 		});
 		await removeLocalRootPath({
 			force: params.force,
-			hostPath,
 			recursive: params.recursive,
 			target
 		});
 	}
 	async rename(params) {
 		const { from, to } = this.resolveRenameTargets(params);
-		const fromHostPath = this.requireHostPath(from);
-		const toHostPath = this.requireHostPath(to);
 		await assertLocalPathSafety({
 			target: from,
 			allowFinalSymlinkForUnlink: true
@@ -307,24 +256,24 @@ var OpenShellFsBridge = class {
 			target: to,
 			allowFinalSymlinkForUnlink: false
 		});
-		await assertRenameSourceSupported(fromHostPath);
+		await assertRenameSourceSupported(from.hostPath);
 		if (from.mountHostRoot !== to.mountHostRoot) throw new Error("OpenShell cross-root mirror renames require pinned fs-safe support");
 		await assertSameDeviceRenameSupported({
-			fromHostPath,
+			fromHostPath: from.hostPath,
 			root: from.mountHostRoot,
-			toHostPath
+			toHostPath: to.hostPath
 		});
 		await this.backend.renameRemotePath(from.containerPath, to.containerPath, params.signal);
-		await moveLocalRootPath({
-			from,
-			fromHostPath,
-			to,
-			toHostPath
-		});
+		const root$3 = await root(from.mountHostRoot);
+		const fromRelativePath = relativeToRoot(from, from.hostPath);
+		const toRelativePath = relativeToRoot(to, to.hostPath);
+		const parentPath = path.dirname(toRelativePath);
+		if (parentPath !== "." && parentPath !== "") await root$3.mkdir(parentPath);
+		await root$3.move(fromRelativePath, toRelativePath, { overwrite: true });
 	}
 	async stat(params) {
 		const target = this.resolveTarget(params);
-		const hostPath = this.requireHostPath(target);
+		const hostPath = target.hostPath;
 		const stats = await fsPromises.lstat(hostPath).catch(() => null);
 		if (!stats) return null;
 		await assertLocalPathSafety({
@@ -347,10 +296,6 @@ var OpenShellFsBridge = class {
 			...this.sandbox,
 			workdir
 		})), ...this.sandbox.readOnlyResourceMounts ?? []];
-	}
-	requireHostPath(target) {
-		if (!target.hostPath) throw new Error(`OpenShell mirror bridge requires a local host path: ${target.containerPath}`);
-		return target.hostPath;
 	}
 	containerMounts(readOnlyMounts = this.readOnlyMounts()) {
 		const workspaceRoot = path.resolve(this.sandbox.workspaceDir);
@@ -440,18 +385,13 @@ function expectResolvedContainerTarget(target, input) {
 	if (!target) throw new Error(`Sandbox path escapes allowed mounts; cannot access: ${input}`);
 	return target;
 }
-async function mkdirLocalRootPath(params) {
-	const relativePath = relativeToRoot(params.target, params.hostPath);
-	if (!relativePath) return;
-	await (await root(params.target.mountHostRoot)).mkdir(relativePath);
-}
 async function removeLocalRootPath(params) {
-	const root$3 = await root(params.target.mountHostRoot);
-	const relativePath = relativeToRoot(params.target, params.hostPath);
+	const root$4 = await root(params.target.mountHostRoot);
+	const relativePath = relativeToRoot(params.target, params.target.hostPath);
 	try {
-		if (params.force === false) await fsPromises.lstat(params.hostPath);
-		const targets = params.recursive && !relativePath ? await root$3.list("") : [relativePath];
-		for (const target of targets) await root$3.remove(target, {
+		if (params.force === false) await fsPromises.lstat(params.target.hostPath);
+		const targets = params.recursive && !relativePath ? (await root$4.list("")).map((name) => relativeToRoot(params.target, path.join(params.target.hostPath, name))) : [relativePath];
+		for (const target of targets) await root$4.remove(target, {
 			force: params.force !== false,
 			...params.recursive ? {
 				recursive: true,
@@ -465,21 +405,9 @@ async function removeLocalRootPath(params) {
 		throw err;
 	}
 }
-async function moveLocalRootPath(params) {
-	const root$4 = await root(params.from.mountHostRoot);
-	const fromRelativePath = relativeToRoot(params.from, params.fromHostPath);
-	const toRelativePath = relativeToRoot(params.to, params.toHostPath);
-	await mkdirParentPath(root$4, toRelativePath);
-	await root$4.move(fromRelativePath, toRelativePath, { overwrite: true });
-}
-async function mkdirParentPath(root, relativePath) {
-	const parentPath = path.dirname(relativePath);
-	if (parentPath === "." || parentPath === "") return;
-	await root.mkdir(parentPath);
-}
 function relativeToRoot(target, hostPath) {
 	const relativePath = path.relative(target.mountHostRoot, hostPath);
-	return relativePath === "." ? "" : relativePath;
+	return relativePath ? `.${path.sep}${relativePath}` : "";
 }
 async function assertRenameSourceSupported(fromHostPath) {
 	const stats = await fsPromises.lstat(fromHostPath);
@@ -513,21 +441,14 @@ async function nearestExistingDirectoryStats(params) {
 	return await fsPromises.lstat(rootPath);
 }
 function isNotFoundError(err) {
-	return err instanceof FsSafeError && err.code === "not-found" || typeof err === "object" && err !== null && "code" in err && err.code === "ENOENT";
+	return err instanceof FsSafeError && err.code === "not-found" || extractErrorCode(err) === "ENOENT";
 }
 async function assertLocalPathSafety(params) {
 	const { hostPath, mountHostRoot } = params.target;
-	if (!hostPath) throw new Error(`Missing local host path for ${params.target.containerPath}`);
-	const canonicalRoot = await fsPromises.realpath(mountHostRoot).catch((error) => {
-		if (isNotFoundError(error)) return path.resolve(mountHostRoot);
-		throw error;
-	});
 	const unlinkSymlink = params.allowFinalSymlinkForUnlink && hostPath !== mountHostRoot && (await fsPromises.lstat(hostPath).catch((error) => {
 		if (isNotFoundError(error)) return null;
 		throw error;
 	}))?.isSymbolicLink();
-	const candidate = unlinkSymlink ? path.resolve(canonicalRoot, path.relative(mountHostRoot, hostPath)) : await canonicalPathFromExistingAncestor$1(hostPath);
-	if (!isPathInside(canonicalRoot, candidate)) throw new Error(`Sandbox path escapes allowed mounts; cannot access: ${params.target.containerPath}`);
 	await assertNoSymlinkParents({
 		rootDir: mountHostRoot,
 		targetPath: unlinkSymlink ? path.dirname(hostPath) : hostPath,
@@ -619,107 +540,28 @@ function buildOpenShellDirectoryUploadArgs(params) {
 	];
 }
 const REMOTE_MANAGED_ROOTS_EMPTY_SCRIPT = "for root in \"$@\"; do if [ -d \"$root\" ] && [ -n \"$(ls -A \"$root\")\" ]; then printf \"1\\n\"; exit 0; fi; done; printf \"0\\n\"";
-const PINNED_REMOTE_PATH_MUTATION_SCRIPT = [
-	"set -eu",
-	"die() { echo \"$1\" >&2; exit 1; }",
-	"validate_basename() {",
-	"  case \"$1\" in \"\"|\".\"|\"..\"|*/*) die \"unsafe remote basename: $1\" ;; esac",
-	"}",
-	"pin_dir() {",
-	"  root=\"$1\"",
-	"  relative=\"$2\"",
-	"  create=\"$3\"",
-	"  case \"$root\" in /*) ;; *) die \"remote root must be absolute: $root\" ;; esac",
-	"  root=\"${root%/}\"",
-	"  [ -n \"$root\" ] || root=\"/\"",
-	"  if [ -L \"$root\" ]; then die \"unsafe remote root symlink: $root\"; fi",
-	"  mkdir -p -- \"$root\"",
-	"  canonical_root=\"$(cd \"$root\" && pwd -P)\"",
-	"  current=\"$canonical_root\"",
-	"  relative=\"${relative#/}\"",
-	"  while [ -n \"$relative\" ]; do",
-	"    part=\"${relative%%/*}\"",
-	"    if [ \"$part\" = \"$relative\" ]; then relative=\"\"; else relative=\"${relative#*/}\"; fi",
-	"    [ -n \"$part\" ] || continue",
-	"    case \"$part\" in \".\"|\"..\") die \"unsafe remote directory component: $part\" ;; esac",
-	"    if [ \"$current\" = \"/\" ]; then next=\"/$part\"; else next=\"$current/$part\"; fi",
-	"    if [ -L \"$next\" ]; then die \"unsafe remote directory symlink: $next\"; fi",
-	"    if [ -e \"$next\" ]; then",
-	"      if [ ! -d \"$next\" ]; then die \"unsafe remote directory component: $next\"; fi",
-	"    else",
-	"      if [ \"$create\" != \"1\" ]; then die \"remote directory not found: $next\"; fi",
-	"      mkdir -- \"$next\"",
-	"    fi",
-	"    current=\"$next\"",
-	"  done",
-	"  printf \"%s\\n\" \"$current\"",
-	"}",
-	"pin_dir_or_missing() {",
-	"  root=\"$1\"",
-	"  relative=\"$2\"",
-	"  missing_ok=\"$3\"",
-	"  case \"$root\" in /*) ;; *) die \"remote root must be absolute: $root\" ;; esac",
-	"  root=\"${root%/}\"",
-	"  [ -n \"$root\" ] || root=\"/\"",
-	"  if [ -L \"$root\" ]; then die \"unsafe remote root symlink: $root\"; fi",
-	"  if [ ! -d \"$root\" ]; then",
-	"    if [ -e \"$root\" ]; then die \"unsafe remote root component: $root\"; fi",
-	"    if [ \"$missing_ok\" = \"1\" ]; then printf \"\\n\"; return 0; fi",
-	"    die \"remote directory not found: $root\"",
-	"  fi",
-	"  canonical_root=\"$(cd \"$root\" && pwd -P)\"",
-	"  current=\"$canonical_root\"",
-	"  relative=\"${relative#/}\"",
-	"  while [ -n \"$relative\" ]; do",
-	"    part=\"${relative%%/*}\"",
-	"    if [ \"$part\" = \"$relative\" ]; then relative=\"\"; else relative=\"${relative#*/}\"; fi",
-	"    [ -n \"$part\" ] || continue",
-	"    case \"$part\" in \".\"|\"..\") die \"unsafe remote directory component: $part\" ;; esac",
-	"    if [ \"$current\" = \"/\" ]; then next=\"/$part\"; else next=\"$current/$part\"; fi",
-	"    if [ -L \"$next\" ]; then die \"unsafe remote directory symlink: $next\"; fi",
-	"    if [ -e \"$next\" ]; then",
-	"      if [ ! -d \"$next\" ]; then die \"unsafe remote directory component: $next\"; fi",
-	"    else",
-	"      if [ \"$missing_ok\" = \"1\" ]; then printf \"\\n\"; return 0; fi",
-	"      die \"remote directory not found: $next\"",
-	"    fi",
-	"    current=\"$next\"",
-	"  done",
-	"  printf \"%s\\n\" \"$current\"",
-	"}",
-	"operation=\"$1\"",
-	"case \"$operation\" in",
-	"  mkdirp)",
-	"    pin_dir \"$2\" \"$3\" 1 >/dev/null",
-	"    ;;",
-	"  remove)",
-	"    validate_basename \"$4\"",
-	"    parent=\"$(pin_dir_or_missing \"$2\" \"$3\" \"${5:-0}\")\"",
-	"    [ -n \"$parent\" ] || exit 0",
-	"    target=\"$parent/$4\"",
-	"    if [ -d \"$target\" ] && [ ! -L \"$target\" ]; then rm -rf -- \"$target\"; elif [ -e \"$target\" ] || [ -L \"$target\" ]; then rm -f -- \"$target\"; fi",
-	"    ;;",
-	"  removefile)",
-	"    validate_basename \"$4\"",
-	"    parent=\"$(pin_dir_or_missing \"$2\" \"$3\" \"${5:-0}\")\"",
-	"    [ -n \"$parent\" ] || exit 0",
-	"    target=\"$parent/$4\"",
-	"    if [ -d \"$target\" ] && [ ! -L \"$target\" ]; then rmdir -- \"$target\"; elif [ -e \"$target\" ] || [ -L \"$target\" ]; then rm -f -- \"$target\"; fi",
-	"    ;;",
-	"  rename)",
-	"    src_parent=\"$(pin_dir \"$2\" \"$3\" 0)\"",
-	"    validate_basename \"$4\"",
-	"    dst_parent=\"$(pin_dir \"$5\" \"$6\" 1)\"",
-	"    validate_basename \"$7\"",
-	"    if [ -L \"$dst_parent/$7\" ]; then die \"unsafe remote rename target symlink: $dst_parent/$7\"; fi",
-	"    if [ -d \"$dst_parent/$7\" ]; then die \"unsafe remote rename target directory: $dst_parent/$7\"; fi",
-	"    mv -- \"$src_parent/$4\" \"$dst_parent/$7\"",
-	"    ;;",
-	"  *)",
-	"    die \"unknown remote path mutation: $operation\"",
-	"    ;;",
-	"esac"
-].join("\n");
+const OPEN_SHELL_GUEST_MUTATION_PYTHON = `
+import os, sys
+guest = sys.argv.pop(1)
+ignore_missing_parent = sys.argv.pop(1) == '1'
+operation = sys.argv[1]
+for index in ((2, 5) if operation == 'rename' else (2,)):
+    root = sys.argv[index].rstrip('/') or '/'
+    sys.argv[index] = root
+    if not os.path.isabs(root) or os.path.islink(root):
+        raise OSError('unsafe remote root: ' + root)
+    if operation != 'remove':
+        os.makedirs(root, exist_ok=True)
+if operation == 'rename':
+    target = os.path.join(sys.argv[5], sys.argv[6], sys.argv[7])
+    if os.path.islink(target) or os.path.isdir(target):
+        raise OSError('unsafe remote rename target: ' + target)
+try:
+    exec(guest)
+except FileNotFoundError:
+    if operation != 'remove' or not ignore_missing_parent:
+        raise
+`;
 const ENSURE_OPEN_SHELL_REMOTE_REAL_DIRECTORY_SCRIPT = [
 	"set -e",
 	"target=\"$1\"",
@@ -767,14 +609,24 @@ const ENSURE_OPEN_SHELL_REMOTE_REAL_DIRECTORY_SCRIPT = [
 	"  current=\"$next\"",
 	"done"
 ].join("\n");
-function buildOpenShellSshExecEnv() {
-	return sanitizeEnvVars(process.env).allowed;
-}
 function createOpenShellSandboxBackendFactory(params) {
-	return async (createParams) => await createOpenShellSandboxBackend({
-		...params,
-		createParams
-	});
+	return async (createParams) => {
+		if ((createParams.cfg.docker.binds?.length ?? 0) > 0) throw new Error("OpenShell sandbox backend does not support sandbox.docker.binds.");
+		const { sandboxName, legacyRuntimeAdopted } = resolveOpenShellSandboxName({
+			scopeKey: createParams.scopeKey,
+			registeredRuntimeIds: createParams.registeredRuntimeIds
+		});
+		return new OpenShellSandboxBackendImpl({
+			createParams,
+			execContext: {
+				config: params.pluginConfig,
+				sandboxName
+			},
+			legacyRuntimeAdopted,
+			remoteWorkspaceDir: params.pluginConfig.remoteWorkspaceDir,
+			remoteAgentWorkspaceDir: params.pluginConfig.remoteAgentWorkspaceDir
+		}).asHandle();
+	};
 }
 function createOpenShellSandboxBackendManager(params) {
 	return {
@@ -816,25 +668,6 @@ function createOpenShellSandboxBackendManager(params) {
 		}
 	};
 }
-async function createOpenShellSandboxBackend(params) {
-	if ((params.createParams.cfg.docker.binds?.length ?? 0) > 0) throw new Error("OpenShell sandbox backend does not support sandbox.docker.binds.");
-	const resolvedSandboxName = resolveOpenShellSandboxName({
-		scopeKey: params.createParams.scopeKey,
-		registeredRuntimeIds: params.createParams.registeredRuntimeIds
-	});
-	const sandboxName = resolvedSandboxName.sandboxName;
-	const execContext = {
-		config: params.pluginConfig,
-		sandboxName
-	};
-	return new OpenShellSandboxBackendImpl({
-		createParams: params.createParams,
-		execContext,
-		legacyRuntimeAdopted: resolvedSandboxName.legacyRuntimeAdopted,
-		remoteWorkspaceDir: params.pluginConfig.remoteWorkspaceDir,
-		remoteAgentWorkspaceDir: params.pluginConfig.remoteAgentWorkspaceDir
-	}).asHandle();
-}
 var OpenShellSandboxBackendImpl = class {
 	constructor(params) {
 		this.params = params;
@@ -868,7 +701,7 @@ var OpenShellSandboxBackendImpl = class {
 				});
 				return {
 					argv: pending.argv,
-					env: buildOpenShellSshExecEnv(),
+					env: sanitizeEnvVars(process.env).allowed,
 					stdinMode: "pipe-open",
 					finalizeToken: pending.token
 				};
@@ -1004,16 +837,7 @@ var OpenShellSandboxBackendImpl = class {
 	}
 	resolveWorkdirValidationRoot(workdir) {
 		try {
-			const normalized = normalizeRemotePath(workdir);
-			return resolveOpenShellWorkspaceRoot([{
-				remote: normalizeRemotePath(this.params.remoteWorkspaceDir),
-				owner: "workspace",
-				value: void 0
-			}, {
-				remote: normalizeRemotePath(this.params.remoteAgentWorkspaceDir),
-				owner: "agent",
-				value: void 0
-			}], normalized)?.remote ?? this.params.remoteWorkspaceDir;
+			return this.resolveRemoteTarget(workdir).root;
 		} catch {
 			return this.params.remoteWorkspaceDir;
 		}
@@ -1080,12 +904,14 @@ var OpenShellSandboxBackendImpl = class {
 		const target = this.resolveRemoteTarget(remotePath);
 		await this.runPinnedRemotePathMutation({
 			args: [
-				params?.recursive ? "remove" : "removefile",
+				"remove",
 				target.root,
 				path.posix.dirname(target.relativePath) === "." ? "" : path.posix.dirname(target.relativePath),
 				path.posix.basename(target.relativePath),
-				params?.ignoreMissing ? "1" : "0"
+				params?.recursive ? "1" : "0",
+				"1"
 			],
+			ignoreMissingParent: params?.ignoreMissing,
 			signal: params?.signal
 		});
 	}
@@ -1100,7 +926,8 @@ var OpenShellSandboxBackendImpl = class {
 				path.posix.basename(from.relativePath),
 				to.root,
 				path.posix.dirname(to.relativePath) === "." ? "" : path.posix.dirname(to.relativePath),
-				path.posix.basename(to.relativePath)
+				path.posix.basename(to.relativePath),
+				"1"
 			],
 			signal
 		});
@@ -1130,24 +957,11 @@ var OpenShellSandboxBackendImpl = class {
 		await this.maybeSeedRemoteWorkspace();
 		const target = this.resolveRemoteTarget(remotePath);
 		const stats = await fsPromises.lstat(localPath).catch(() => null);
-		if (!stats) {
-			await this.runPinnedRemotePathMutation({ args: [
-				"remove",
-				target.root,
-				path.posix.dirname(target.relativePath) === "." ? "" : path.posix.dirname(target.relativePath),
-				path.posix.basename(target.relativePath),
-				"1"
-			] });
-			return;
-		}
-		if (stats.isSymbolicLink()) {
-			await this.runPinnedRemotePathMutation({ args: [
-				"remove",
-				target.root,
-				path.posix.dirname(target.relativePath) === "." ? "" : path.posix.dirname(target.relativePath),
-				path.posix.basename(target.relativePath),
-				"1"
-			] });
+		if (!stats || stats.isSymbolicLink()) {
+			await this.removeRemotePath(remotePath, {
+				recursive: true,
+				ignoreMissing: true
+			});
 			return;
 		}
 		if (stats.isDirectory()) {
@@ -1175,8 +989,13 @@ var OpenShellSandboxBackendImpl = class {
 	}
 	async runPinnedRemotePathMutation(params) {
 		return await this.runRemoteShellScript({
-			script: PINNED_REMOTE_PATH_MUTATION_SCRIPT,
-			args: params.args,
+			script: "python_script=\"$1\"; shift; python3 -c \"$python_script\" \"$@\"",
+			args: [
+				OPEN_SHELL_GUEST_MUTATION_PYTHON,
+				GUEST_FILESYSTEM_PYTHON,
+				params.ignoreMissingParent ? "1" : "0",
+				...params.args
+			],
 			signal: params.signal
 		});
 	}
@@ -1412,7 +1231,7 @@ var OpenShellSandboxBackendImpl = class {
 					}
 					const relativeSkillsPath = path.posix.relative(root.remote, remoteSkillsWorkspaceDir);
 					if (relativeSkillsPath === "" || !relativeSkillsPath.startsWith("../") && !path.posix.isAbsolute(relativeSkillsPath)) await removeDownloadedWorkspacePath(tmpDir, relativeSkillsPath.split("/").filter(Boolean));
-					if (root.owner === "workspace") await moveLocalShadowAside({
+					await moveLocalShadowAside({
 						workspaceDir: root.local,
 						tmpDir,
 						relativeParts: MATERIALIZED_SKILLS_REMOTE_PARTS,
@@ -1525,30 +1344,20 @@ function resolveOpenShellSandboxName(params) {
 	};
 }
 function parseOpenShellSandboxPhasePage(stdout, sandboxName) {
-	try {
-		const parsed = JSON.parse(stdout);
-		if (!Array.isArray(parsed)) return;
-		for (const entry of parsed) {
-			if (!entry || typeof entry !== "object") continue;
-			const record = entry;
-			if (record.name === sandboxName && typeof record.phase === "string") return {
-				count: parsed.length,
-				phase: record.phase
-			};
-		}
-		return { count: parsed.length };
-	} catch {
-		return;
+	const parsed = safeParseJson(stdout);
+	if (!Array.isArray(parsed)) return;
+	for (const entry of parsed) {
+		const record = asOptionalRecord(entry);
+		if (record?.name === sandboxName && typeof record.phase === "string") return {
+			count: parsed.length,
+			phase: record.phase
+		};
 	}
+	return { count: parsed.length };
 }
 function parseOpenShellSandboxPhase(stdout) {
-	try {
-		const parsed = JSON.parse(stdout);
-		if (typeof parsed !== "object" || parsed === null || !("phase" in parsed)) return;
-		return typeof parsed.phase === "string" ? parsed.phase : void 0;
-	} catch {
-		return;
-	}
+	const parsed = asOptionalRecord(safeParseJson(stdout));
+	return typeof parsed?.phase === "string" ? parsed.phase : void 0;
 }
 function resolveRemoteMaterializedSkillsWorkspaceDir(remoteWorkspaceDir) {
 	const root = remoteWorkspaceDir.replace(/\\/g, "/").replace(/\/+$/, "") || "/";
@@ -1567,14 +1376,7 @@ async function removeDownloadedWorkspacePath(tmpDir, parts) {
 		const next = path.join(cursor, part);
 		const stats = await fsPromises.lstat(next).catch(() => null);
 		if (!stats) return;
-		if (index === parts.length - 1) {
-			await fsPromises.rm(next, {
-				recursive: true,
-				force: true
-			});
-			return;
-		}
-		if (stats.isSymbolicLink() || !stats.isDirectory()) {
+		if (index === parts.length - 1 || stats.isSymbolicLink() || !stats.isDirectory()) {
 			await fsPromises.rm(next, {
 				recursive: true,
 				force: true

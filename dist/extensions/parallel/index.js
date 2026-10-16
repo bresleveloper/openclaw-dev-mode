@@ -1,4 +1,4 @@
-import { n as createParallelWebSearchProvider, t as createParallelFreeWebSearchProvider } from "./.setup/parallel-free-web-search-provider-cXSsdp4Y.mjs";
+import { n as createParallelWebSearchProvider, t as createParallelFreeWebSearchProvider } from "./.setup/parallel-free-web-search-provider-ComsnjrF.mjs";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 //#region extensions/parallel/index.ts
 var parallel_default = definePluginEntry({

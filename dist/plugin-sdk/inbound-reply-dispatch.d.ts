@@ -1,32 +1,13 @@
-import { Ii as ChannelTurnRecordOptions, Pi as ChannelTurnDroppedHistoryOptions, Ui as ChannelBotLoopProtectionFacts, Wi as recordChannelBotPairLoopAndCheckSuppression, _a as DispatchReplyWithBufferedBlockDispatcher, _i as recordDroppedChannelTurnHistory } from "../agent-harness-runtime-wMciqZ6Z.js";
-import { r as OpenClawConfig } from "../types.openclaw-Ccmw-oTa.js";
-import { h as GetReplyOptions, r as FinalizedMsgContext } from "../templating-0ElMwhje.js";
-import { h as ReplyPayload } from "../reply-payload-DSrL-UWv.js";
-import { f as runChannelInboundEvent, i as ChannelInboundEventRunnerParams, l as dispatchChannelInboundReply, o as InboundReplyDispatchResult, p as runPreparedInboundReply, s as PreparedInboundReply, t as AssembledInboundReply } from "../channel-inbound-DcDh12dH.js";
-import { n as hasVisibleChannelTurnDispatch, r as resolveChannelTurnDispatchCounts, t as hasFinalChannelTurnDispatch } from "../dispatch-result-CC62y_Y1.js";
-import { a as DurableInboundReplyDeliveryParams, i as DurableInboundReplyDeliveryOptions } from "../receipt-CIhXFsCC.js";
-import { n as deliverInboundReplyWithMessageSendContext } from "../channel-outbound-B339aBc0.js";
-import { t as recordInboundSession } from "../session-Dzsx6DOO.js";
+import { r as OpenClawConfig } from "../types.openclaw-DWWUw8hA.js";
+import { pn as ReplyPayload, st as FinalizedMsgContext, yt as GetReplyOptions } from "../reply-payload-DazZPys5.js";
+import { Ba as ChannelTurnRecordOptions, La as ChannelTurnDroppedHistoryOptions, Xa as recordChannelBotPairLoopAndCheckSuppression, Ya as ChannelBotLoopProtectionFacts, ba as recordDroppedChannelTurnHistory, uo as DispatchReplyWithBufferedBlockDispatcher } from "../agent-harness-runtime-DZjstJNb.js";
+import { at as hasVisibleChannelTurnDispatch, f as runChannelInboundEvent, i as ChannelInboundEventRunnerParams, it as hasFinalChannelTurnDispatch, l as dispatchChannelInboundReply, o as InboundReplyDispatchResult, ot as resolveChannelTurnDispatchCounts, p as runPreparedInboundReply, s as PreparedInboundReply, t as AssembledInboundReply } from "../channel-inbound-ClTMyLfP.js";
+import { a as DurableInboundReplyDeliveryParams, i as DurableInboundReplyDeliveryOptions } from "../receipt-D19RX4vZ.js";
+import { n as deliverInboundReplyWithMessageSendContext } from "../channel-outbound-S1LTwK5l.js";
+import { t as recordInboundSession } from "../session-D7eRBIsl.js";
 //#region src/infra/outbound/reply-payload-normalize.d.ts
-/**
- * Outbound-facing subset of reply payload fields accepted from loose producers.
- */
-type OutboundReplyPayload = {
-  text?: string;
-  mediaUrls?: string[];
-  mediaUrl?: string;
-  presentation?: ReplyPayload["presentation"];
-  presentationTextMode?: ReplyPayload["presentationTextMode"];
-  /**
-   * @deprecated Use presentation. Runtime support remains for legacy producers.
-   */
-  interactive?: ReplyPayload["interactive"];
-  channelData?: ReplyPayload["channelData"];
-  sensitiveMedia?: boolean;
-  replyToId?: string;
-  location?: ReplyPayload["location"];
-  videoAsNote?: boolean;
-};
+/** Outbound fields accepted from loose producers. */
+type OutboundReplyPayload = Pick<ReplyPayload, "text" | "mediaUrls" | "mediaUrl" | "presentation" | "presentationTextMode" | "interactive" | "channelData" | "sensitiveMedia" | "replyToId" | "location" | "videoAsNote">;
 //#endregion
 //#region src/plugin-sdk/inbound-reply-dispatch.d.ts
 type ReplyOptionsWithoutModelSelected = Omit<Omit<GetReplyOptions, "onBlockReply">, "onModelSelected">;

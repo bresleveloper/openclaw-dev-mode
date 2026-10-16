@@ -15,6 +15,10 @@ Many of the bundled provider plugins below already publish a default catalog. Us
 
 Bundled and catalog-known routes take their `compat` capabilities from the owning provider plugin. A config `compat` block is for a custom provider/model or a different `api`/`baseUrl` route whose endpoint contract you have verified; see the [custom-provider capability guide](/gateway/config-tools#custom-provider-capability-declarations). Doctor removes legacy values that merely repeat the catalog and leaves divergent values visible for operator review.
 
+A custom endpoint does not inherit the original catalog route's preferred Code Mode tier. With automatic Code Mode and no custom `compat.codeMode` declaration, the embedded runtime keeps its normal tool surface. Set `compat.codeMode: "preferred"` only after verifying Code Mode on that endpoint.
+
+Provider-normalized aliases, such as an Anthropic endpoint's `/v1` suffix, keep their canonical catalog capabilities.
+
 Gateway model capability checks also read explicit `models.providers.<id>.models[]` metadata. If a custom or proxy model accepts images, set `input: ["text", "image"]` on that model so WebChat and node-origin attachment paths pass images as native model inputs instead of text-only media refs.
 
 `agents.defaults.models["provider/model"]` controls aliases and per-model metadata for agents. It neither restricts overrides nor registers a new runtime model by itself. For custom provider models, also add `models.providers.<provider>.models[]` with at least the matching `id`; use `agents.defaults.modelPolicy.allow` separately when you want an override restriction.
@@ -425,6 +429,7 @@ Example (OpenAI-compatible):
   </Accordion>
   <Accordion title="Proxy-route shaping rules">
     - For `api: "openai-completions"` on non-native endpoints (any non-empty `baseUrl` whose host is not `api.openai.com`), OpenClaw forces `compat.supportsDeveloperRole: false` to avoid provider 400 errors for unsupported `developer` roles.
+    - Runtime notices stay in conversation order as `developer` messages when the route supports that role, or labeled `user` messages otherwise. They never add a later `system` message, so strict chat templates can continue after a notice without changing the leading prompt or stored history.
     - Proxy-style OpenAI-compatible routes also skip native OpenAI-only request shaping: no `service_tier`, no Responses `store`, no Completions `store`, no prompt-cache hints, no OpenAI reasoning-compat payload shaping, and no hidden OpenClaw attribution headers.
     - For OpenAI-compatible Completions proxies that need vendor-specific fields, set `agents.defaults.models["provider/model"].params.extra_body` (or `extraBody`) to merge extra JSON into the outbound request body.
     - For vLLM chat-template controls, set `agents.defaults.models["provider/model"].params.chat_template_kwargs`. The bundled vLLM plugin automatically sends `enable_thinking: false` and `force_nonempty_content: true` for `vllm/nemotron-3-*` when the session thinking level is off.

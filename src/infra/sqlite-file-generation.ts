@@ -1,10 +1,11 @@
 import fs, { type BigIntStats } from "node:fs";
+import { sameFileIdentity, type FileIdentityStat } from "@openclaw/fs-safe/advanced";
+import { isRecord } from "@openclaw/normalization-core/record-coerce";
 import {
   hashFileDescriptorSync,
   sameFileMutationFingerprint,
   type FileMutationFingerprint,
 } from "./file-descriptor.js";
-import { sameFileIdentity, type FileIdentityStat } from "./fs-safe-advanced.js";
 
 export function readSqliteIntegrityFileIdentity(
   pathname: string,
@@ -19,15 +20,7 @@ export function readSqliteIntegrityFileIdentity(
 
 type SqliteFileFingerprint = FileMutationFingerprint & { sha256: string };
 
-type SerializedSqliteFileFingerprint = {
-  birthtimeNs: string;
-  ctimeNs: string;
-  dev: string;
-  ino: string;
-  mtimeNs: string;
-  sha256: string;
-  size: string;
-};
+type SerializedSqliteFileFingerprint = Record<keyof SqliteFileFingerprint, string>;
 
 export type SqliteFileGeneration = {
   database: SqliteFileFingerprint;
@@ -153,11 +146,10 @@ export function serializeSqliteFileGeneration(generation: SqliteFileGeneration):
   });
 }
 
-function parseFileFingerprint(value: unknown): SqliteFileFingerprint {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
+function parseFileFingerprint(fingerprint: unknown): SqliteFileFingerprint {
+  if (!isRecord(fingerprint)) {
     throw new Error("SQLite file fingerprint must be an object");
   }
-  const fingerprint = value as Record<string, unknown>;
   const fields = ["birthtimeNs", "ctimeNs", "dev", "ino", "mtimeNs", "size"] as const;
   for (const field of fields) {
     if (typeof fingerprint[field] !== "string" || !/^-?\d+$/u.test(fingerprint[field])) {
@@ -179,11 +171,10 @@ function parseFileFingerprint(value: unknown): SqliteFileFingerprint {
 }
 
 export function parseSqliteFileGeneration(serialized: string): SqliteFileGeneration {
-  const value = JSON.parse(serialized) as unknown;
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
+  const generation: unknown = JSON.parse(serialized);
+  if (!isRecord(generation)) {
     throw new Error("SQLite file generation must be an object");
   }
-  const generation = value as Record<string, unknown>;
   return {
     database: parseFileFingerprint(generation.database),
     ...(generation.journal === undefined

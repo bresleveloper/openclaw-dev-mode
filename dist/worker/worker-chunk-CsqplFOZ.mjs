@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function assertCronJobScratchContent(e){let n=Buffer.byteLength(e,`utf8`);if(n>262144)throw Error(`cron scratch exceeds ${t} bytes (${n} bytes provided)`)}var t,n=e((()=>{t=262144}));export{assertCronJobScratchContent as n,n as r,t};

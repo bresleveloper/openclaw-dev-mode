@@ -1,7 +1,7 @@
-import { a as resolveWhatsAppAccount } from "./.setup/accounts-D_NGDjCx.mjs";
+import { a as resolveWhatsAppAccount } from "./.setup/accounts-F0vHuze2.mjs";
 import { r as getWhatsAppConnectionController } from "./.setup/connection-controller-runtime-context-hgLJoRc8.mjs";
-import { s as resolveJidToE164 } from "./.setup/targets-runtime-RBjx3pg_.mjs";
-import { n as registerWhatsAppLoginTool } from "./.setup/agent-tools-login-CL5C1rA2.mjs";
+import { s as resolveJidToE164 } from "./.setup/targets-runtime-Dls-Xh4F.mjs";
+import { n as registerWhatsAppLoginTool } from "./.setup/agent-tools-login-B7VEvJO7.mjs";
 import { createActionGate, stringEnum } from "openclaw/plugin-sdk/channel-actions";
 import path from "node:path";
 import { resolveOAuthDir } from "openclaw/plugin-sdk/state-paths";
@@ -31,10 +31,6 @@ const WhatsAppCallToolSchema = Type.Object({
 		maxLength: MAX_MESSAGE_LENGTH
 	}))
 }, { additionalProperties: false });
-const defaultDependencies = {
-	detectMeowCaller: () => detectBinary(MEOWCALLER_COMMAND),
-	resolveStateDir: (accountId) => path.join(resolveOAuthDir(), "whatsapp-calls", normalizeAccountId(accountId))
-};
 async function isRegularFile(filePath) {
 	try {
 		return (await fs.stat(filePath)).isFile();
@@ -119,13 +115,13 @@ async function resolveLinkedWhatsAppSelfE164(params) {
 function resolveRuntimeConfig(api, context) {
 	return context.getRuntimeConfig?.() ?? context.runtimeConfig ?? context.config ?? api.config;
 }
-function createWhatsAppCallToolWithDependencies(api, context, dependencies) {
+function createWhatsAppCallTool(api, context) {
 	const cfg = resolveRuntimeConfig(api, context);
 	const isActionEnabled = createActionGate(cfg.channels?.whatsapp?.actions);
 	const requesterSenderId = context.requesterSenderId?.trim();
 	if (!isActionEnabled("calls", false) || context.messageChannel !== "whatsapp" || !requesterSenderId) return null;
 	const accountId = normalizeAccountId(context.agentAccountId);
-	const stateDir = dependencies.resolveStateDir(accountId);
+	const stateDir = path.join(resolveOAuthDir(), "whatsapp-calls", accountId);
 	const sessionStorePath = path.join(stateDir, SESSION_DATABASE);
 	return {
 		name: "whatsapp_call",
@@ -134,7 +130,7 @@ function createWhatsAppCallToolWithDependencies(api, context, dependencies) {
 		parameters: WhatsAppCallToolSchema,
 		async execute(_toolCallId, rawParams, signal) {
 			const params = rawParams;
-			const binaryFound = await dependencies.detectMeowCaller();
+			const binaryFound = await detectBinary(MEOWCALLER_COMMAND);
 			const sessionStoreFound = await isRegularFile(sessionStorePath);
 			if (params.action === "status") return jsonResult$1({
 				binaryFound,
@@ -215,9 +211,6 @@ function createWhatsAppCallToolWithDependencies(api, context, dependencies) {
 			}
 		}
 	};
-}
-function createWhatsAppCallTool(api, context) {
-	return createWhatsAppCallToolWithDependencies(api, context, defaultDependencies);
 }
 function registerWhatsAppCallTool(api) {
 	api.registerTool((context) => createWhatsAppCallTool(api, context), { name: "whatsapp_call" });

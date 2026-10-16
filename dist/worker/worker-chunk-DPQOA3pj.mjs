@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function quotePowerShellArg(e){return`'${e.replace(/['‘-‛]/gu,`$&$&`)}'`}function quoteCliArg(e){return/^[A-Za-z0-9_/:=.,@%+-]+$/.test(e)?e:`'${e.replaceAll(`'`,`'\\''`)}'`}var t=e((()=>{}));export{quoteCliArg as n,quotePowerShellArg as r,t};

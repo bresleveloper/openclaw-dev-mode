@@ -1,17 +1,15 @@
-import { S as setDiscordAudioOutputStatus, _ as getDiscordAudioOutputStatus, b as retireDiscordAudioOutput, f as createRealtimePcmToDiscordConverter, h as DiscordAudioOutputStatus, i as enableDaveReceivePassthrough, l as createDiscordOpusEncodeStream, n as analyzeVoiceReceiveError, p as decodeOpusStreamChunks, s as recoverDaveZeroTransition, u as createDiscordOpusPlaybackStream, v as releaseDiscordAudioInput, x as serializeDiscordAudioError } from "../../.setup/receive-recovery-DHst8WRx.mjs";
+import { _ as releaseDiscordAudioInput, b as serializeDiscordAudioError, c as createDiscordOpusEncodeStream, d as createRealtimePcmToDiscordConverter, f as decodeOpusStreamChunks, g as getDiscordAudioOutputStatus, i as enableDaveReceivePassthrough, l as createDiscordOpusPlaybackStream, m as DiscordAudioOutputStatus, n as analyzeVoiceReceiveError, o as recoverDaveZeroTransition, x as setDiscordAudioOutputStatus, y as retireDiscordAudioOutput } from "../../.setup/receive-recovery-DgkX7Qvi.mjs";
 import { createRequire } from "node:module";
-import { formatErrorMessage } from "openclaw/plugin-sdk/error-runtime";
-import { createSubsystemLogger } from "openclaw/plugin-sdk/runtime-env";
 import { parentPort, workerData } from "node:worker_threads";
 import { PassThrough, pipeline } from "node:stream";
+import { formatErrorMessage } from "openclaw/plugin-sdk/error-runtime";
 import { REALTIME_VOICE_AUDIO_FORMAT_PCM16_24KHZ } from "openclaw/plugin-sdk/realtime-voice-provider";
+import { createSubsystemLogger } from "openclaw/plugin-sdk/runtime-env";
 import { createRealtimeVoiceOutputActivityTracker, isRealtimeVoiceAudioAudible } from "openclaw/plugin-sdk/realtime-voice";
 //#region extensions/discord/src/voice/sdk-runtime.ts
 let cachedDiscordVoiceSdk = null;
 function loadDiscordVoiceSdk() {
-	if (cachedDiscordVoiceSdk) return cachedDiscordVoiceSdk;
-	cachedDiscordVoiceSdk = createRequire(import.meta.url)("@discordjs/voice");
-	return cachedDiscordVoiceSdk;
+	return cachedDiscordVoiceSdk ||= createRequire(import.meta.url)("@discordjs/voice");
 }
 //#endregion
 //#region extensions/discord/src/voice/realtime-player.runtime.ts
@@ -110,7 +108,7 @@ const DISCORD_REALTIME_OUTPUT_PLAYBACK_WATCHDOG_MARGIN_MS = 3e3;
 var DiscordRealtimeOutput = class {
 	constructor(params) {
 		this.params = params;
-		this.activity = createRealtimeVoiceOutputActivityTracker();
+		this.activity = createRealtimeVoiceOutputActivityTracker({ now: () => performance.now() });
 		this.converter = createRealtimePcmToDiscordConverter();
 		this.stream = new PassThrough({ highWaterMark: DISCORD_RAW_PCM_FRAME_BYTES * 128 });
 		this.ready = false;
@@ -515,7 +513,7 @@ var DiscordAudioWorker = class {
 		this.stopped = false;
 		this.stopAbort = new AbortController();
 		this.tasks = /* @__PURE__ */ new Set();
-		this.onPlayerError = (error) => this.post({
+		this.onError = (error) => this.post({
 			type: "error",
 			error: serializeDiscordAudioError(error)
 		});
@@ -552,10 +550,10 @@ var DiscordAudioWorker = class {
 			type: "player",
 			status: state.status
 		}));
-		this.player.on("error", this.onPlayerError);
+		this.player.on("error", this.onError);
 	}
 	async connect() {
-		const deadline = Date.now() + this.options.connectTimeoutMs;
+		const deadline = performance.now() + this.options.connectTimeoutMs;
 		for (let attempt = 0; attempt < 2; attempt += 1) {
 			if (this.stopped) return;
 			const connection = this.sdk.joinVoiceChannel({
@@ -581,12 +579,9 @@ var DiscordAudioWorker = class {
 				}
 			});
 			this.connection = connection;
-			connection.on("error", (error) => this.post({
-				type: "error",
-				error: serializeDiscordAudioError(error)
-			}));
+			connection.on("error", this.onError);
 			try {
-				await this.sdk.entersState(connection, this.sdk.VoiceConnectionStatus.Ready, AbortSignal.any([this.stopAbort.signal, AbortSignal.timeout(Math.max(1, deadline - Date.now()))]));
+				await this.sdk.entersState(connection, this.sdk.VoiceConnectionStatus.Ready, AbortSignal.any([this.stopAbort.signal, AbortSignal.timeout(Math.max(1, Math.floor(deadline - performance.now())))]));
 				if (this.stopped) return;
 				connection.subscribe(this.player);
 				connection.on("stateChange", (_old, state) => {
@@ -613,7 +608,7 @@ var DiscordAudioWorker = class {
 			} catch (error) {
 				if (this.stopped) return;
 				if (connection.state.status !== this.sdk.VoiceConnectionStatus.Destroyed) connection.destroy();
-				if (attempt === 0 && !this.stopped && Date.now() < deadline && error instanceof Error && error.message.toLowerCase().includes("operation was aborted")) continue;
+				if (attempt === 0 && !this.stopped && performance.now() < deadline && error instanceof Error && error.message.toLowerCase().includes("operation was aborted")) continue;
 				throw error;
 			}
 		}
@@ -1002,10 +997,7 @@ var DiscordAudioWorker = class {
 	}
 	track(task) {
 		this.tasks.add(task);
-		task.catch((error) => this.post({
-			type: "error",
-			error: serializeDiscordAudioError(error)
-		})).finally(() => this.tasks.delete(task));
+		task.catch(this.onError).finally(() => this.tasks.delete(task));
 	}
 	async stop() {
 		if (this.stopped) return;
@@ -1025,7 +1017,7 @@ var DiscordAudioWorker = class {
 		connection?.receiver.speaking.off("end", this.onSpeakingEnd);
 		connection?.off(this.sdk.VoiceConnectionStatus.Disconnected, this.onDisconnected);
 		connection?.off(this.sdk.VoiceConnectionStatus.Destroyed, this.onDestroyed);
-		this.player.off("error", this.onPlayerError);
+		this.player.off("error", this.onError);
 		if (connection && connection.state.status !== this.sdk.VoiceConnectionStatus.Destroyed) connection.destroy();
 		this.post({ type: "gateway-destroy" });
 		await Promise.allSettled(this.tasks);
@@ -1040,26 +1032,23 @@ const media = new DiscordAudioWorker(workerData, (event) => {
 	port.postMessage(event);
 	if (event.type === "stopped") port.close();
 });
-port.on("message", (command) => {
-	try {
-		media.receive(command);
-	} catch (error) {
-		port.postMessage({
-			type: "error",
-			error: serializeDiscordAudioError(error)
-		});
-		media.stop();
-	}
-});
-port.on("close", () => {
-	media.stop();
-});
-media.connect().catch((error) => {
+const fail = (error) => {
 	port.postMessage({
 		type: "error",
 		error: serializeDiscordAudioError(error)
 	});
 	media.stop();
+};
+port.on("message", (command) => {
+	try {
+		media.receive(command);
+	} catch (error) {
+		fail(error);
+	}
 });
+port.on("close", () => {
+	media.stop();
+});
+media.connect().catch(fail);
 //#endregion
 export {};

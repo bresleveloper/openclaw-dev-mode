@@ -1,35 +1,13 @@
-import { n as appendRegularFile } from "../../fs-safe-BAPek8At.mjs";
-import { E as resolveStateDir } from "../../paths-DehQwyE0.mjs";
-import { t as formatErrorMessage } from "../../errors-DnjwnOju.mjs";
-import { t as createSubsystemLogger } from "../../subsystem-DleLyu58.mjs";
+import { n as appendRegularFile } from "../../fs-safe-BUXBSN-4.mjs";
+import { r as resolveStateDir } from "../../state-dir-BHJORNly.mjs";
+import "../../paths-DGIwWbpu.mjs";
+import { t as formatErrorMessage } from "../../errors-O33D01XW.mjs";
+import { t as createSubsystemLogger } from "../../subsystem-I-uqdx4f.mjs";
 import path from "node:path";
 import fs from "node:fs/promises";
 import os from "node:os";
 //#region src/hooks/bundled/command-logger/handler.ts
-/**
-* Example hook handler: Log command lifecycle events to a file
-*
-* This handler demonstrates how to create a hook that logs emitted command events
-* to a centralized log file for audit/debugging purposes.
-*
-* Enable this bundled hook with `openclaw hooks enable command-logger` or config:
-*
-* ```json
-* {
-*   "hooks": {
-*     "internal": {
-*       "entries": {
-*         "command-logger": { "enabled": true }
-*       }
-*     }
-*   }
-* }
-* ```
-*/
 const log = createSubsystemLogger("command-logger");
-/**
-* Log emitted command events to a file
-*/
 const logCommand = async (event) => {
 	if (event.type !== "command") return;
 	try {

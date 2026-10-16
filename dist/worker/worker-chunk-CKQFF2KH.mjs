@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function isExperimentalClawsEnabled(e=process.env){let n=e[t]?.trim().toLowerCase();return n===`1`||n===`true`}var t,n=e((()=>{t=`OPENCLAW_EXPERIMENTAL_CLAWS`}));export{isExperimentalClawsEnabled as n,n as t};

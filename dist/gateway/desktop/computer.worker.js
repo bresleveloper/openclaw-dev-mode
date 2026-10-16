@@ -1,8 +1,8 @@
 import { t as createDeferredCore } from "../../deferred-D0La5CRk.mjs";
-import { n as requestExitAfterOneShotOutput, r as runCliWithExitFinalization } from "../../one-shot-exit-ZY0is37U.mjs";
-import { r as getRuntimeConfig } from "../../io.runtime-CXaC-ufL.mjs";
-import "../../config-DH29aVhU.mjs";
-import { a as listRegisteredNodeHostCapsAndCommands, o as notifyRegisteredNodeHostCommandDisconnect, r as invokeRegisteredNodeHostCommand, s as watchRegisteredNodeHostCommandAvailability, t as ensureNodeHostPluginRegistry } from "../../plugin-node-host-k4CnPOTh.mjs";
+import { n as requestExitAfterOneShotOutput, r as runCliWithExitFinalization } from "../../one-shot-exit-CSOrFNcy.mjs";
+import { r as getRuntimeConfig } from "../../io.runtime-CPntde4x.mjs";
+import "../../config-CzeZu5J_.mjs";
+import { a as listRegisteredNodeHostCapsAndCommands, o as notifyRegisteredNodeHostCommandDisconnect, r as invokeRegisteredNodeHostCommand, s as watchRegisteredNodeHostCommandAvailability, t as ensureNodeHostPluginRegistry } from "../../plugin-node-host-BQ-t8Tr2.mjs";
 import { n as parseComputerHostInput } from "../../computer-protocol-BHvtEXcO.mjs";
 import { createInterface } from "node:readline";
 //#region src/gateway/desktop/computer.worker.ts
@@ -23,24 +23,27 @@ async function runComputerHost() {
 	let stopped = false;
 	const stop = (execution) => {
 		if (stopping) return stopping;
+		stopping = completion.promise;
 		stopped = true;
 		if (!execution) for (const request of requests.values()) request.abort(/* @__PURE__ */ new Error("Computer host is stopping"));
-		stopping = (async () => {
+		(async () => {
 			await startup?.catch(() => {});
 			await Promise.allSettled(operations);
 			try {
-				if (execution) await invokeRegisteredNodeHostCommand("computer.act", JSON.stringify({
-					action: "__close_execution",
-					...execution
-				}));
-				await notifyRegisteredNodeHostCommandDisconnect();
+				const failures = (await Promise.allSettled([(async () => {
+					if (execution) await invokeRegisteredNodeHostCommand("computer.act", JSON.stringify({
+						action: "__close_execution",
+						...execution
+					}));
+					await notifyRegisteredNodeHostCommandDisconnect();
+				})(), Promise.resolve().then(() => stopWatching?.())])).flatMap((result) => result.status === "rejected" ? [result.reason] : []);
+				if (failures.length === 1) throw failures[0];
+				if (failures.length > 1) throw new AggregateError(failures, "Computer host cleanup failed");
 			} finally {
-				stopWatching?.();
 				input.close();
 				requestExitAfterOneShotOutput();
 			}
-		})();
-		stopping.then(completion.resolve, completion.reject);
+		})().then(completion.resolve, completion.reject);
 		return stopping;
 	};
 	const stopAfterError = (error) => {

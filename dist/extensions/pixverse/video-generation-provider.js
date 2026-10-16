@@ -1,4 +1,4 @@
-import { DEFAULT_PIXVERSE_REGION, PIXVERSE_BASE_URL_BY_REGION, PIXVERSE_PROVIDER_ID } from "./constants.js";
+import { DEFAULT_PIXVERSE_REGION, PIXVERSE_BASE_URL_BY_REGION, PIXVERSE_PROVIDER_ID, normalizePixVerseRegion } from "./constants.js";
 import { asFiniteNumber, asSafeIntegerInRange, normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { randomUUID } from "node:crypto";
 import { bufferToBlobPart } from "openclaw/plugin-sdk/blob-runtime";
@@ -40,17 +40,9 @@ function resolvePixVerseBaseUrl(req) {
 }
 function resolvePixVerseApiRegion(value) {
 	const region = normalizeOptionalString(value)?.toLowerCase();
-	switch (region) {
-		case "cn":
-		case "china":
-		case "mainland":
-		case "pai": return "cn";
-		case "global":
-		case "intl":
-		case "international":
-		case void 0: return DEFAULT_PIXVERSE_REGION;
-		default: throw new Error(`Unsupported PixVerse API region "${region}". Use "international" or "cn".`);
-	}
+	const normalized = normalizePixVerseRegion(region);
+	if (normalized || region === void 0) return normalized ?? "international";
+	throw new Error(`Unsupported PixVerse API region "${region}". Use "international" or "cn".`);
 }
 function normalizePixVerseModel(model) {
 	return (normalizeOptionalString(model)?.replace(/^pixverse\//iu, ""))?.toLowerCase() || "v6";
@@ -65,26 +57,11 @@ function resolvePixVerseDurationSeconds(value) {
 	if (typeof value !== "number" || !Number.isFinite(value)) return 5;
 	return Math.max(1, Math.min(MAX_DURATION_SECONDS, Math.round(value)));
 }
-function appendOptionalNumber(body, key, value) {
-	const numberValue = asFiniteNumber(value);
-	if (numberValue != null) body[key] = numberValue;
-}
-function appendOptionalInt32Seed(body, value) {
-	const seed = asSafeIntegerInRange(value, {
-		min: 0,
-		max: PIXVERSE_SEED_MAX
-	});
-	if (seed !== void 0) body.seed = seed;
-}
 function readPixVerseSeed(value) {
 	return asSafeIntegerInRange(value, {
 		min: 0,
 		max: PIXVERSE_SEED_MAX
 	});
-}
-function appendOptionalString(body, key, value) {
-	const stringValue = normalizeOptionalString(value);
-	if (stringValue) body[key] = stringValue;
 }
 function buildPixVerseHeaders(headers, contentType) {
 	const next = new Headers(headers);
@@ -105,20 +82,13 @@ function readPixVerseSuccess(payload, label) {
 async function readPixVerseJson(response, label) {
 	return readPixVerseSuccess(await readProviderJsonResponse(response, label), label);
 }
-function readPixVerseVideoId(payload) {
-	const videoId = asSafeIntegerInRange(payload.video_id, { min: 0 });
-	if (videoId == null) throw new Error("PixVerse video generation response missing video_id");
-	return videoId;
-}
-function readPixVerseImageId(payload) {
-	const imageId = asSafeIntegerInRange(payload.img_id, { min: 0 });
-	if (imageId == null) throw new Error("PixVerse image upload response missing img_id");
-	return imageId;
+function readPixVerseInteger(value, label) {
+	const integer = asSafeIntegerInRange(value, { min: 0 });
+	if (integer === void 0) throw new Error(label);
+	return integer;
 }
 function readPixVerseStatus(payload) {
-	const status = asSafeIntegerInRange(payload.status, { min: 0 });
-	if (status == null) throw new Error("PixVerse video status response missing status");
-	return status;
+	return readPixVerseInteger(payload.status, "PixVerse video status response missing status");
 }
 function buildUploadImageForm(asset) {
 	const form = new FormData();
@@ -147,10 +117,14 @@ function buildVideoBody(req, model, imageId) {
 		body.img_id = imageId;
 		body.motion_mode = normalizeOptionalString(options.motion_mode) ?? normalizeOptionalString(options.motionMode) ?? "normal";
 	} else body.aspect_ratio = normalizeOptionalString(req.aspectRatio) ?? "16:9";
-	appendOptionalString(body, "negative_prompt", normalizeOptionalString(options.negative_prompt) ?? normalizeOptionalString(options.negativePrompt));
-	appendOptionalString(body, "camera_movement", normalizeOptionalString(options.camera_movement) ?? normalizeOptionalString(options.cameraMovement));
-	appendOptionalNumber(body, "template_id", asFiniteNumber(options.template_id) ?? asFiniteNumber(options.templateId));
-	appendOptionalInt32Seed(body, options.seed);
+	const negativePrompt = normalizeOptionalString(options.negative_prompt) ?? normalizeOptionalString(options.negativePrompt);
+	if (negativePrompt) body.negative_prompt = negativePrompt;
+	const cameraMovement = normalizeOptionalString(options.camera_movement) ?? normalizeOptionalString(options.cameraMovement);
+	if (cameraMovement) body.camera_movement = cameraMovement;
+	const templateId = asFiniteNumber(options.template_id) ?? asFiniteNumber(options.templateId);
+	if (templateId != null) body.template_id = templateId;
+	const seed = readPixVerseSeed(options.seed);
+	if (seed !== void 0) body.seed = seed;
 	if (req.audio !== void 0) body.generate_audio_switch = req.audio;
 	return body;
 }
@@ -162,35 +136,35 @@ function readPixVerseFailureMessage(payload) {
 		default: return;
 	}
 }
-async function pollPixVerseVideo(params) {
-	const readResult = (payload) => readPixVerseSuccess(payload, "PixVerse video status request failed");
-	return readResult(await pollProviderOperationJson({
-		url: `${params.baseUrl}/video/result/${params.videoId}`,
-		headers: () => buildPixVerseHeaders(params.headers),
-		deadline: params.deadline,
-		defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
-		fetchFn: params.fetchFn,
-		maxAttempts: MAX_POLL_ATTEMPTS,
-		pollIntervalMs: POLL_INTERVAL_MS,
-		requestFailedMessage: "PixVerse video status request failed",
-		timeoutMessage: `PixVerse video generation task ${params.videoId} did not finish in time`,
-		isComplete: (candidate) => readPixVerseStatus(readResult(candidate)) === 1,
-		getFailureMessage: (candidate) => readPixVerseFailureMessage(readResult(candidate)),
-		allowPrivateNetwork: params.allowPrivateNetwork,
-		dispatcherPolicy: params.dispatcherPolicy
-	}));
-}
-function extractPixVerseVideo(payload) {
-	const url = normalizeOptionalString(payload.url);
-	if (!url) throw new Error("PixVerse video generation completed without output URL");
+function buildPixVerseModeCapabilities(imageToVideo = false) {
 	return {
-		url,
-		mimeType: "video/mp4",
-		fileName: "video-1.mp4",
-		metadata: {
-			sourceUrl: url,
-			outputWidth: asFiniteNumber(payload.outputWidth),
-			outputHeight: asFiniteNumber(payload.outputHeight)
+		maxVideos: 1,
+		...imageToVideo ? { maxInputImages: 1 } : {},
+		maxDurationSeconds: MAX_DURATION_SECONDS,
+		supportedDurationSeconds: Array.from({ length: MAX_DURATION_SECONDS }, (_, index) => index + 1),
+		...!imageToVideo ? { aspectRatios: [...PIXVERSE_TEXT_ASPECT_RATIOS] } : {},
+		resolutions: [
+			"360P",
+			"540P",
+			"720P",
+			"1080P"
+		],
+		...!imageToVideo ? { supportsAspectRatio: true } : {},
+		supportsResolution: true,
+		supportsAudio: true,
+		providerOptions: {
+			seed: "number",
+			negative_prompt: "string",
+			negativePrompt: "string",
+			quality: "string",
+			...imageToVideo ? {
+				motion_mode: "string",
+				motionMode: "string"
+			} : {},
+			camera_movement: "string",
+			cameraMovement: "string",
+			template_id: "number",
+			templateId: "number"
 		}
 	};
 }
@@ -206,57 +180,10 @@ function buildPixVerseVideoGenerationProvider() {
 			...ctx
 		}),
 		capabilities: {
-			generate: {
-				maxVideos: 1,
-				maxDurationSeconds: MAX_DURATION_SECONDS,
-				supportedDurationSeconds: Array.from({ length: MAX_DURATION_SECONDS }, (_, index) => index + 1),
-				aspectRatios: [...PIXVERSE_TEXT_ASPECT_RATIOS],
-				resolutions: [
-					"360P",
-					"540P",
-					"720P",
-					"1080P"
-				],
-				supportsAspectRatio: true,
-				supportsResolution: true,
-				supportsAudio: true,
-				providerOptions: {
-					seed: "number",
-					negative_prompt: "string",
-					negativePrompt: "string",
-					quality: "string",
-					camera_movement: "string",
-					cameraMovement: "string",
-					template_id: "number",
-					templateId: "number"
-				}
-			},
+			generate: buildPixVerseModeCapabilities(),
 			imageToVideo: {
 				enabled: true,
-				maxVideos: 1,
-				maxInputImages: 1,
-				maxDurationSeconds: MAX_DURATION_SECONDS,
-				supportedDurationSeconds: Array.from({ length: MAX_DURATION_SECONDS }, (_, index) => index + 1),
-				resolutions: [
-					"360P",
-					"540P",
-					"720P",
-					"1080P"
-				],
-				supportsResolution: true,
-				supportsAudio: true,
-				providerOptions: {
-					seed: "number",
-					negative_prompt: "string",
-					negativePrompt: "string",
-					quality: "string",
-					motion_mode: "string",
-					motionMode: "string",
-					camera_movement: "string",
-					cameraMovement: "string",
-					template_id: "number",
-					templateId: "number"
-				}
+				...buildPixVerseModeCapabilities(true)
 			},
 			videoToVideo: { enabled: false }
 		},
@@ -303,7 +230,7 @@ function buildPixVerseVideoGenerationProvider() {
 				});
 				try {
 					await assertOkOrThrowHttpError(upload.response, "PixVerse image upload failed");
-					imageId = readPixVerseImageId(await readPixVerseJson(upload.response, "PixVerse image upload failed"));
+					imageId = readPixVerseInteger((await readPixVerseJson(upload.response, "PixVerse image upload failed")).img_id, "PixVerse image upload response missing img_id");
 				} finally {
 					await upload.release();
 				}
@@ -323,18 +250,36 @@ function buildPixVerseVideoGenerationProvider() {
 			});
 			try {
 				await assertOkOrThrowHttpError(create.response, "PixVerse video generation failed");
-				const videoId = readPixVerseVideoId(await readPixVerseJson(create.response, "PixVerse video generation failed"));
-				const completed = await pollPixVerseVideo({
-					videoId,
-					baseUrl,
+				const videoId = readPixVerseInteger((await readPixVerseJson(create.response, "PixVerse video generation failed")).video_id, "PixVerse video generation response missing video_id");
+				const readResult = (payload) => readPixVerseSuccess(payload, "PixVerse video status request failed");
+				const completed = readResult(await pollProviderOperationJson({
+					url: `${baseUrl}/video/result/${videoId}`,
+					headers: () => buildPixVerseHeaders(headers),
 					deadline,
+					defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
 					fetchFn,
+					maxAttempts: MAX_POLL_ATTEMPTS,
+					pollIntervalMs: POLL_INTERVAL_MS,
+					requestFailedMessage: "PixVerse video status request failed",
+					timeoutMessage: `PixVerse video generation task ${videoId} did not finish in time`,
+					isComplete: (candidate) => readPixVerseStatus(readResult(candidate)) === 1,
+					getFailureMessage: (candidate) => readPixVerseFailureMessage(readResult(candidate)),
 					allowPrivateNetwork,
-					dispatcherPolicy,
-					headers
-				});
+					dispatcherPolicy
+				}));
+				const url = normalizeOptionalString(completed.url);
+				if (!url) throw new Error("PixVerse video generation completed without output URL");
 				return {
-					videos: [extractPixVerseVideo(completed)],
+					videos: [{
+						url,
+						mimeType: "video/mp4",
+						fileName: "video-1.mp4",
+						metadata: {
+							sourceUrl: url,
+							outputWidth: asFiniteNumber(completed.outputWidth),
+							outputHeight: asFiniteNumber(completed.outputHeight)
+						}
+					}],
 					model,
 					metadata: {
 						endpoint,

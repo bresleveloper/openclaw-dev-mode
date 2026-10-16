@@ -1,7 +1,7 @@
 import { readFileSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { CHROMIUM_FULL_VERSION, TRUSTED_CLIENT_TOKEN, generateSecMsGecToken } from "node-edge-tts/dist/drm.js";
-import { asBoolean, asFiniteNumber, asOptionalRecord, normalizeLowercaseStringOrEmpty, normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
+import { asBoolean, asFiniteNumber, asOptionalRecord, filterStringRecord, normalizeLowercaseStringOrEmpty, normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
 import { mkdir } from "node:fs/promises";
 //#region extensions/microsoft/tts.ts
 function inferEdgeExtension(outputFormat) {
@@ -59,35 +59,24 @@ function normalizeMicrosoftProviderConfig(rawConfig) {
 		...rawMicrosoft,
 		...rawProviderMicrosoft
 	};
-	const outputFormat = normalizeOptionalString(raw.outputFormat);
-	return {
-		enabled: asBoolean(raw.enabled) ?? true,
-		voice: normalizeOptionalString(raw.voice) ?? DEFAULT_EDGE_VOICE,
-		lang: normalizeOptionalString(raw.lang) ?? DEFAULT_EDGE_LANG,
-		outputFormat: outputFormat ?? DEFAULT_EDGE_OUTPUT_FORMAT,
-		outputFormatConfigured: Boolean(outputFormat),
-		pitch: normalizeOptionalString(raw.pitch),
-		rate: normalizeOptionalString(raw.rate),
-		volume: normalizeOptionalString(raw.volume),
-		saveSubtitles: asBoolean(raw.saveSubtitles) ?? false,
-		proxy: normalizeOptionalString(raw.proxy),
-		timeoutMs: asFiniteNumber(raw.timeoutMs)
-	};
+	return readMicrosoftProviderConfig({
+		...raw,
+		outputFormatConfigured: Boolean(normalizeOptionalString(raw.outputFormat))
+	});
 }
 function readMicrosoftProviderConfig(config) {
-	const defaults = normalizeMicrosoftProviderConfig({});
 	return {
-		enabled: asBoolean(config.enabled) ?? defaults.enabled,
-		voice: normalizeOptionalString(config.voice) ?? defaults.voice,
-		lang: normalizeOptionalString(config.lang) ?? defaults.lang,
-		outputFormat: normalizeOptionalString(config.outputFormat) ?? defaults.outputFormat,
-		outputFormatConfigured: asBoolean(config.outputFormatConfigured) ?? defaults.outputFormatConfigured,
-		pitch: normalizeOptionalString(config.pitch) ?? defaults.pitch,
-		rate: normalizeOptionalString(config.rate) ?? defaults.rate,
-		volume: normalizeOptionalString(config.volume) ?? defaults.volume,
-		saveSubtitles: asBoolean(config.saveSubtitles) ?? defaults.saveSubtitles,
-		proxy: normalizeOptionalString(config.proxy) ?? defaults.proxy,
-		timeoutMs: asFiniteNumber(config.timeoutMs) ?? defaults.timeoutMs
+		enabled: asBoolean(config.enabled) ?? true,
+		voice: normalizeOptionalString(config.voice) ?? DEFAULT_EDGE_VOICE,
+		lang: normalizeOptionalString(config.lang) ?? DEFAULT_EDGE_LANG,
+		outputFormat: normalizeOptionalString(config.outputFormat) ?? DEFAULT_EDGE_OUTPUT_FORMAT,
+		outputFormatConfigured: asBoolean(config.outputFormatConfigured) ?? false,
+		pitch: normalizeOptionalString(config.pitch),
+		rate: normalizeOptionalString(config.rate),
+		volume: normalizeOptionalString(config.volume),
+		saveSubtitles: asBoolean(config.saveSubtitles) ?? false,
+		proxy: normalizeOptionalString(config.proxy),
+		timeoutMs: asFiniteNumber(config.timeoutMs)
 	};
 }
 function buildMicrosoftVoiceHeaders() {
@@ -118,7 +107,8 @@ const DEFAULT_CHINESE_EDGE_VOICE = "zh-CN-XiaoxiaoNeural";
 const DEFAULT_CHINESE_EDGE_LANG = "zh-CN";
 async function listMicrosoftVoices(timeoutMs = DEFAULT_MICROSOFT_VOICE_LIST_TIMEOUT_MS) {
 	const { assertOkOrThrowProviderError, readProviderJsonResponse } = await import("openclaw/plugin-sdk/provider-http");
-	const { captureHttpExchange, isDebugProxyGlobalFetchPatchInstalled } = await import("openclaw/plugin-sdk/proxy-capture");
+	const proxyCaptureSdk = await import("openclaw/plugin-sdk/proxy-capture");
+	const captureHost = proxyCaptureSdk;
 	const { fetchWithSsrFGuard, ssrfPolicyFromHttpBaseUrlAllowedHostname } = await import("openclaw/plugin-sdk/ssrf-runtime");
 	const url = `https://speech.platform.bing.com/consumer/speech/synthesize/readaloud/voices/list?trustedclienttoken=${TRUSTED_CLIENT_TOKEN}`;
 	const headers = buildMicrosoftVoiceHeaders();
@@ -130,7 +120,7 @@ async function listMicrosoftVoices(timeoutMs = DEFAULT_MICROSOFT_VOICE_LIST_TIME
 		timeoutMs
 	});
 	try {
-		if (!isDebugProxyGlobalFetchPatchInstalled()) captureHttpExchange({
+		if (!proxyCaptureSdk.isDebugProxyGlobalFetchPatchInstalled()) captureHost.captureHttpExchangeAsync?.({
 			url,
 			method: "GET",
 			requestHeaders: headers,
@@ -140,7 +130,7 @@ async function listMicrosoftVoices(timeoutMs = DEFAULT_MICROSOFT_VOICE_LIST_TIME
 				provider: "microsoft",
 				capability: "speech-voices"
 			}
-		});
+		}).catch(() => {});
 		await assertOkOrThrowProviderError(response, "Microsoft voices API error");
 		const voices = await readProviderJsonResponse(response, "microsoft.speech-voices");
 		return Array.isArray(voices) ? voices.flatMap((value) => {
@@ -175,20 +165,22 @@ function buildMicrosoftSpeechProvider() {
 			return {
 				...normalizeMicrosoftProviderConfig(baseTtsConfig),
 				enabled: true,
-				...normalizeOptionalString(talkProviderConfig.voiceId) == null ? {} : { voice: normalizeOptionalString(talkProviderConfig.voiceId) },
-				...normalizeOptionalString(talkProviderConfig.languageCode) == null ? {} : { lang: normalizeOptionalString(talkProviderConfig.languageCode) },
-				...normalizeOptionalString(talkProviderConfig.outputFormat) == null ? {} : { outputFormat: normalizeOptionalString(talkProviderConfig.outputFormat) },
-				...normalizeOptionalString(talkProviderConfig.pitch) == null ? {} : { pitch: normalizeOptionalString(talkProviderConfig.pitch) },
-				...normalizeOptionalString(talkProviderConfig.rate) == null ? {} : { rate: normalizeOptionalString(talkProviderConfig.rate) },
-				...normalizeOptionalString(talkProviderConfig.volume) == null ? {} : { volume: normalizeOptionalString(talkProviderConfig.volume) },
-				...normalizeOptionalString(talkProviderConfig.proxy) == null ? {} : { proxy: normalizeOptionalString(talkProviderConfig.proxy) },
+				...filterStringRecord({
+					voice: normalizeOptionalString(talkProviderConfig.voiceId),
+					lang: normalizeOptionalString(talkProviderConfig.languageCode),
+					outputFormat: normalizeOptionalString(talkProviderConfig.outputFormat),
+					pitch: normalizeOptionalString(talkProviderConfig.pitch),
+					rate: normalizeOptionalString(talkProviderConfig.rate),
+					volume: normalizeOptionalString(talkProviderConfig.volume),
+					proxy: normalizeOptionalString(talkProviderConfig.proxy)
+				}),
 				...asFiniteNumber(talkProviderConfig.timeoutMs) == null ? {} : { timeoutMs: asFiniteNumber(talkProviderConfig.timeoutMs) }
 			};
 		},
-		resolveTalkOverrides: ({ params }) => ({
-			...normalizeOptionalString(params.voiceId) == null ? {} : { voice: normalizeOptionalString(params.voiceId) },
-			...normalizeOptionalString(params.outputFormat) == null ? {} : { outputFormat: normalizeOptionalString(params.outputFormat) }
-		}),
+		resolveTalkOverrides: ({ params }) => filterStringRecord({
+			voice: normalizeOptionalString(params.voiceId),
+			outputFormat: normalizeOptionalString(params.outputFormat)
+		}) ?? {},
 		listVoices: async (req) => {
 			return await listMicrosoftVoices(readMicrosoftProviderConfig(req.providerConfig ?? {}).timeoutMs ?? req.timeoutMs);
 		},
@@ -205,7 +197,7 @@ function buildMicrosoftSpeechProvider() {
 			const overrideVoice = normalizeOptionalString(req.providerOverrides?.voice);
 			let voice = overrideVoice ?? config.voice;
 			let lang = config.lang;
-			let outputFormat = normalizeOptionalString(req.providerOverrides?.outputFormat) ?? config.outputFormat;
+			const outputFormat = normalizeOptionalString(req.providerOverrides?.outputFormat) ?? config.outputFormat;
 			const fallbackOutputFormat = outputFormat !== DEFAULT_EDGE_OUTPUT_FORMAT ? DEFAULT_EDGE_OUTPUT_FORMAT : void 0;
 			if (!overrideVoice && voice === DEFAULT_EDGE_VOICE && isCjkDominant(req.text)) {
 				voice = DEFAULT_CHINESE_EDGE_VOICE;
@@ -236,9 +228,8 @@ function buildMicrosoftSpeechProvider() {
 				try {
 					return await runEdge(outputFormat);
 				} catch (error) {
-					if (!fallbackOutputFormat || fallbackOutputFormat === outputFormat) throw error;
-					outputFormat = fallbackOutputFormat;
-					return await runEdge(outputFormat);
+					if (!fallbackOutputFormat) throw error;
+					return await runEdge(fallbackOutputFormat);
 				}
 			} finally {
 				await temp.cleanup();

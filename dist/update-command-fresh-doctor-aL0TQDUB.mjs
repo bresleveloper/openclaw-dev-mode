@@ -1,0 +1,2 @@
+import { n as runUpdateFinalizationDoctorInFreshProcess } from "./update-command-fresh-doctor-Bwujc8Qv.mjs";
+export { runUpdateFinalizationDoctorInFreshProcess };

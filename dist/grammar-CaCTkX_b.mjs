@@ -1,0 +1,289 @@
+//#region packages/tool-call-repair/src/grammar.ts
+/** Legacy marker some models emit after a serialized JSON tool request. */
+const END_TOOL_REQUEST = "[END_TOOL_REQUEST]";
+/** Harmony stream marker that introduces the target channel before a tool call. */
+const HARMONY_CHANNEL_MARKER = "<|channel|>";
+/** Harmony stream marker that may separate the header from the JSON payload. */
+const HARMONY_MESSAGE_MARKER = "<|message|>";
+/** Harmony stream marker that may close a serialized tool-call payload. */
+const HARMONY_CALL_MARKER = "<|call|>";
+/** Tool names in bracket/plain-text repairs intentionally match provider-safe ids only. */
+function isPlainTextToolNameChar(char) {
+	return Boolean(char && /[A-Za-z0-9_-]/.test(char));
+}
+/** XML-ish function tags allow namespace punctuation used by some model families. */
+function isXmlishNameChar(char) {
+	return Boolean(char && /[A-Za-z0-9_.:-]/.test(char));
+}
+/** Skips spaces and tabs only, preserving line boundaries for grammar decisions. */
+function skipHorizontalWhitespace(text, start) {
+	let index = start;
+	while (index < text.length && (text[index] === " " || text[index] === "	")) index += 1;
+	return index;
+}
+/** Skips indentation whitespace without crossing the current line boundary. */
+function skipLineIndentation(text, start) {
+	let index = start;
+	while (index < text.length && /[^\S\r\n]/u.test(text[index] ?? "")) index += 1;
+	return index;
+}
+/** Skips all JavaScript whitespace when line structure is no longer meaningful. */
+function skipWhitespace(text, start) {
+	let index = start;
+	while (index < text.length && /\s/.test(text[index] ?? "")) index += 1;
+	return index;
+}
+/** Consumes either Unix or Windows line endings and returns the first offset after them. */
+function consumeLineBreak(text, start) {
+	if (text[start] === "\r") return text[start + 1] === "\n" ? start + 2 : start + 1;
+	if (text[start] === "\n") return start + 1;
+	return null;
+}
+function consumeStructuralLineBreakAfterHorizontalWhitespace(text, start, options) {
+	const right = skipHorizontalWhitespace(text, start);
+	const actual = consumeLineBreak(text, right);
+	if (actual !== null) return actual;
+	for (let offset = start; offset <= right; offset += 1) if (options?.lineBreakOffsets.has(offset)) {
+		options.usedLineBreakOffsets?.add(offset);
+		return offset;
+	}
+	return null;
+}
+const utf8Encoder = new TextEncoder();
+/** Returns the encoded byte length when a source span stays within its serialized limit. */
+function utf8ByteLengthWithinLimit(text, start, end, maxBytes) {
+	if (end - start > maxBytes) return null;
+	const byteLength = utf8Encoder.encode(text.slice(start, end)).byteLength;
+	return byteLength <= maxBytes ? byteLength : null;
+}
+const FUNCTION_OPEN = "<function=";
+const FUNCTION_CLOSE = "</function>";
+const PARAMETER_OPEN = "<parameter=";
+const PARAMETER_CLOSE = "</parameter>";
+function startsWithAsciiMarkerIgnoreCase(text, cursor, marker) {
+	return text.slice(cursor, cursor + marker.length).toLowerCase() === marker;
+}
+function isAsciiMarkerPrefixIgnoreCase(text, cursor, marker) {
+	const rest = text.slice(cursor, cursor + marker.length).toLowerCase();
+	return rest.length < marker.length && marker.startsWith(rest);
+}
+function indexOfAsciiMarkerIgnoreCase(text, marker, start) {
+	for (let cursor = text.indexOf("<", start); cursor !== -1; cursor = text.indexOf("<", cursor + 1)) if (startsWithAsciiMarkerIgnoreCase(text, cursor, marker)) return cursor;
+	return -1;
+}
+function scanXmlishNameEnd(text, start, isNameChar = isXmlishNameChar) {
+	let end = start;
+	while (isNameChar(text[end]) && end - start < 121) end += 1;
+	return end;
+}
+/** Uncapped structural scan shared by parsing, stripping, and stream buffering. */
+function scanXmlishToolCall(text, start = 0, structuralLineBreaks) {
+	let cursor = start;
+	let syntax;
+	let name;
+	if (text[cursor] === "<") {
+		if (!startsWithAsciiMarkerIgnoreCase(text, cursor, FUNCTION_OPEN) && !isAsciiMarkerPrefixIgnoreCase(text, cursor, FUNCTION_OPEN)) return {
+			kind: "invalid",
+			at: start
+		};
+		if (text.length - cursor < 10) return { kind: "prefix" };
+		cursor += 10;
+		const nameStart = cursor;
+		cursor = scanXmlishNameEnd(text, nameStart);
+		name = {
+			start: nameStart,
+			end: cursor
+		};
+		syntax = "function";
+		if (cursor - nameStart > 120) return {
+			kind: "invalid",
+			at: cursor
+		};
+		if (cursor === text.length) return {
+			kind: "prefix",
+			candidate: {
+				syntax,
+				name,
+				nameComplete: false,
+				parameters: []
+			}
+		};
+		if (cursor === nameStart || text[cursor] !== ">") return {
+			kind: "invalid",
+			at: cursor
+		};
+		cursor += 1;
+	} else if (text[cursor] === "[") {
+		cursor += 1;
+		const firstNameStart = cursor;
+		cursor = scanXmlishNameEnd(text, firstNameStart, isPlainTextToolNameChar);
+		if (cursor - firstNameStart > 120) return {
+			kind: "invalid",
+			at: cursor
+		};
+		const firstName = text.slice(firstNameStart, cursor);
+		if (cursor === text.length && "tool".startsWith(firstName)) return { kind: "prefix" };
+		syntax = "named-bracket";
+		name = {
+			start: firstNameStart,
+			end: cursor
+		};
+		if (text[cursor] === ":" && firstName === "tool") {
+			syntax = "tool-bracket";
+			cursor += 1;
+			const nameStart = cursor;
+			cursor = scanXmlishNameEnd(text, nameStart, isPlainTextToolNameChar);
+			name = {
+				start: nameStart,
+				end: cursor
+			};
+			if (cursor - nameStart > 120) return {
+				kind: "invalid",
+				at: cursor
+			};
+		}
+		if (cursor === text.length) return {
+			kind: "prefix",
+			candidate: {
+				syntax,
+				name,
+				nameComplete: false,
+				parameters: []
+			}
+		};
+		if (name.start === name.end || text[cursor] !== "]") return {
+			kind: "invalid",
+			at: cursor
+		};
+		cursor += 1;
+		if (syntax === "named-bracket") {
+			if (cursor === text.length) return {
+				kind: "prefix",
+				candidate: {
+					syntax,
+					name,
+					nameComplete: true,
+					parameters: []
+				}
+			};
+			const afterLineBreak = consumeStructuralLineBreakAfterHorizontalWhitespace(text, cursor, structuralLineBreaks);
+			if (afterLineBreak === null) return {
+				kind: "invalid",
+				at: cursor
+			};
+			cursor = afterLineBreak;
+		}
+	} else return {
+		kind: "invalid",
+		at: start
+	};
+	const bodyStart = cursor;
+	const parameters = [];
+	const candidate = (payloadEnd, activeParameterOpenEnd) => ({
+		syntax,
+		name,
+		nameComplete: true,
+		parameters,
+		payload: {
+			start: bodyStart,
+			end: payloadEnd
+		},
+		...activeParameterOpenEnd === void 0 ? {} : { activeParameterOpenEnd }
+	});
+	let lastParameterEnd;
+	const prefix = (payloadEnd, activeParameterOpenEnd) => ({
+		kind: "prefix",
+		candidate: candidate(payloadEnd, activeParameterOpenEnd),
+		completeEnd: syntax === "tool-bracket" ? lastParameterEnd : void 0
+	});
+	const complete = (payloadEnd, end = payloadEnd) => ({
+		kind: "complete",
+		...candidate(payloadEnd),
+		end
+	});
+	while (true) {
+		const markerStart = skipWhitespace(text, cursor);
+		if (markerStart === text.length) return syntax === "tool-bracket" && lastParameterEnd !== void 0 ? complete(lastParameterEnd) : {
+			kind: "prefix",
+			candidate: candidate(text.length)
+		};
+		if (startsWithAsciiMarkerIgnoreCase(text, markerStart, FUNCTION_CLOSE)) return syntax !== "function" && parameters.length === 0 ? {
+			kind: "invalid",
+			at: markerStart,
+			candidate: candidate(markerStart)
+		} : complete(markerStart, markerStart + 11);
+		if (isAsciiMarkerPrefixIgnoreCase(text, markerStart, FUNCTION_CLOSE)) return prefix(markerStart);
+		if (startsWithAsciiMarkerIgnoreCase(text, markerStart, PARAMETER_OPEN)) {
+			const nameStart = markerStart + 11;
+			const nameEnd = scanXmlishNameEnd(text, nameStart);
+			if (nameEnd - nameStart > 120) return {
+				kind: "invalid",
+				at: markerStart,
+				candidate: candidate(markerStart)
+			};
+			if (nameEnd === text.length) return prefix(markerStart);
+			if (nameEnd === nameStart || text[nameEnd] !== ">") return {
+				kind: "invalid",
+				at: markerStart,
+				candidate: candidate(markerStart)
+			};
+			const valueStart = nameEnd + 1;
+			const closeStart = indexOfAsciiMarkerIgnoreCase(text, PARAMETER_CLOSE, valueStart);
+			if (closeStart === -1) return prefix(text.length, valueStart);
+			const end = closeStart + 12;
+			parameters.push({
+				name: {
+					start: nameStart,
+					end: nameEnd
+				},
+				value: {
+					start: valueStart,
+					end: closeStart
+				}
+			});
+			cursor = end;
+			lastParameterEnd = end;
+			continue;
+		}
+		if (isAsciiMarkerPrefixIgnoreCase(text, markerStart, PARAMETER_OPEN)) return prefix(markerStart);
+		if (syntax === "tool-bracket" && lastParameterEnd !== void 0) return complete(lastParameterEnd);
+		return {
+			kind: "invalid",
+			at: markerStart,
+			candidate: candidate(markerStart)
+		};
+	}
+}
+/** Continue the same object scan across parser spans or bounded stream chunks. */
+function scanJsonObject(text, start, state = {
+	depth: 0,
+	escaped: false,
+	inString: false
+}) {
+	for (let index = start; index < text.length; index += 1) {
+		const char = text[index];
+		if (state.inString) {
+			if (state.escaped) state.escaped = false;
+			else if (char === "\\") state.escaped = true;
+			else if (char === "\"") state.inString = false;
+			continue;
+		}
+		if (char === "\"") state.inString = true;
+		else if (char === "{") state.depth += 1;
+		else if (char === "}") {
+			state.depth -= 1;
+			if (state.depth === 0) return {
+				kind: "complete",
+				end: index + 1,
+				state
+			};
+		}
+	}
+	return {
+		kind: "prefix",
+		end: text.length,
+		state
+	};
+}
+//#endregion
+export { utf8ByteLengthWithinLimit as _, consumeLineBreak as a, isAsciiMarkerPrefixIgnoreCase as c, scanJsonObject as d, scanXmlishToolCall as f, startsWithAsciiMarkerIgnoreCase as g, skipWhitespace as h, HARMONY_MESSAGE_MARKER as i, isPlainTextToolNameChar as l, skipLineIndentation as m, HARMONY_CALL_MARKER as n, consumeStructuralLineBreakAfterHorizontalWhitespace as o, skipHorizontalWhitespace as p, HARMONY_CHANNEL_MARKER as r, indexOfAsciiMarkerIgnoreCase as s, END_TOOL_REQUEST as t, isXmlishNameChar as u };

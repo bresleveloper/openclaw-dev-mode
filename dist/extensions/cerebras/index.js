@@ -1,4 +1,4 @@
-import { r as openclaw_plugin_default, t as CEREBRAS_MODEL_DISCOVERY } from "./.setup/provider-catalog-CjtjKKvK.mjs";
+import { o as openclaw_plugin_default, r as CEREBRAS_MODEL_DISCOVERY } from "./.setup/provider-catalog-DycAcVkn.mjs";
 import { applyCerebrasConfig } from "./onboard.js";
 import { defineSingleProviderPluginEntry } from "openclaw/plugin-sdk/provider-entry";
 var cerebras_default = defineSingleProviderPluginEntry({

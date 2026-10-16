@@ -1,2 +1,2 @@
-import { t as createDirtyDirectoryWatch } from "../../session-catalog-tree-watch-C_yiNljq.mjs";
+import { t as createDirtyDirectoryWatch } from "../../session-catalog-tree-watch-vO2PbKr0.mjs";
 export { createDirtyDirectoryWatch };

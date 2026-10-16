@@ -1,4 +1,4 @@
-import { r as ChannelRuntimeSurface, t as ChannelRuntimeContextKey } from "../channel-runtime-surface.types-BlHhLfWv.js";
+import { r as ChannelRuntimeSurface, t as ChannelRuntimeContextKey } from "../channel-runtime-surface.types-W_EoSebH.js";
 //#region src/infra/channel-runtime-context.d.ts
 /** Registers a channel-scoped runtime context, returning null when no runtime registry exists. */
 export declare function registerChannelRuntimeContext(params: ChannelRuntimeContextKey & {

@@ -1,5 +1,6 @@
-import { Jt as OpenClawConfig, Yt as ModelDefinitionConfig, Zt as ModelProviderDeclarationConfig } from "../../runtime-api-DpOeiZhR.js";
-import "../../provider-model-shared-Bq2qfQMS.js";
+import { S as ModelProviderDeclarationConfig, v as ModelDefinitionConfig } from "../../group-policy-Dw25VUD2.js";
+import "../../provider-model-shared-DyxwAg5_.js";
+import { t as ProviderOnboardPresetAppliers } from "../../provider-onboard-BRaUQflr.js";
 //#region extensions/together/models.d.ts
 export declare const TOGETHER_BASE_URL: string;
 export declare const TOGETHER_MODEL_CATALOG: ModelDefinitionConfig[];
@@ -9,5 +10,7 @@ export declare function buildTogetherProvider(): ModelProviderDeclarationConfig;
 //#endregion
 //#region extensions/together/onboard.d.ts
 export declare const TOGETHER_DEFAULT_MODEL_REF: string;
-export declare const applyTogetherConfig: (cfg: OpenClawConfig) => OpenClawConfig;
+declare const { applyConfig: applyTogetherConfig }: ProviderOnboardPresetAppliers<[]>;
+declare const { applyConfig: applyTogetherConnectionConfig }: ProviderOnboardPresetAppliers<[]>;
 //#endregion
+export { applyTogetherConfig };

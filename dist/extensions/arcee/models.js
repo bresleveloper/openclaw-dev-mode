@@ -1,7 +1,5 @@
 //#region extensions/arcee/models.ts
-/** Default direct Arcee API base URL. */
 const ARCEE_BASE_URL = "https://api.arcee.ai/api/v1";
-/** Static Arcee model catalog used for provider registration. */
 const ARCEE_MODEL_CATALOG = [
 	{
 		id: "trinity-mini",
@@ -50,7 +48,6 @@ const ARCEE_MODEL_CATALOG = [
 		}
 	}
 ];
-/** Build one OpenAI-compatible Arcee model definition. */
 function buildArceeModelDefinition(model) {
 	return {
 		id: model.id,

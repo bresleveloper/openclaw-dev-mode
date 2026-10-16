@@ -3,7 +3,6 @@ import { assertOkOrThrowProviderError, createProviderOperationDeadline, readProv
 import { readResponseWithLimit } from "openclaw/plugin-sdk/response-limit-runtime";
 import { normalizeStringEntries } from "openclaw/plugin-sdk/string-coerce-runtime";
 //#region extensions/voyage/embedding-batch.ts
-const VOYAGE_BATCH_ENDPOINT = EMBEDDING_BATCH_ENDPOINT;
 const VOYAGE_BATCH_COMPLETION_WINDOW = "12h";
 const VOYAGE_BATCH_MAX_REQUESTS = 5e4;
 const VOYAGE_BATCH_RESPONSE_MAX_BYTES = 16777216;
@@ -28,7 +27,7 @@ async function submitVoyageBatch(params) {
 		ssrfPolicy: params.client.ssrfPolicy,
 		body: {
 			input_file_id: inputFileId,
-			endpoint: VOYAGE_BATCH_ENDPOINT,
+			endpoint: EMBEDDING_BATCH_ENDPOINT,
 			completion_window: VOYAGE_BATCH_COMPLETION_WINDOW,
 			request_params: {
 				model: params.client.model,

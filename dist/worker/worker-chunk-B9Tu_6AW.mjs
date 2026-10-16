@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import t from"node:fs/promises";async function isSqliteSnapshotFile(e){if(e.endsWith(`.sqlite`))return!0;let n=await t.open(e,`r`);try{let e=Buffer.alloc(16);return(await n.read(e,0,16,0)).bytesRead===16&&e.toString()===`SQLite format 3\0`}finally{await n.close()}}var n=e((()=>{}));export{isSqliteSnapshotFile as n,n as t};

@@ -1,6 +1,6 @@
-import { o as PlatformMessageNotDispatchedError } from "../deliver-types-_mbDrloe.js";
-import { i as readErrorName, n as collectErrorGraphCandidates, o as toErrorObject, r as extractErrorCode, s as toStringifiedError, t as coerceErrorMessage } from "../error-coercion-vrFGEpI-.js";
-import { n as formatUncaughtError, t as formatErrorMessage } from "../errors-D-udqO7F.js";
+import { s as PlatformMessageNotDispatchedError } from "../deliver-types-Qc6HS898.js";
+import { a as toErrorObject, i as readErrorName, n as collectErrorGraphCandidates, o as toStringifiedError, r as extractErrorCode, t as coerceErrorMessage } from "../error-coercion-BcU5CC86.js";
+import { n as formatUncaughtError, t as formatErrorMessage } from "../errors-CfgKklp4.js";
 //#region src/infra/error-diagnostics.d.ts
 /** Attach operator diagnostics; callers must mask opaque credentials before attachment. */
 export declare function attachErrorDiagnostic<T extends object>(error: T, diagnostic: string): T;

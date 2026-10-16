@@ -1,6 +1,6 @@
-import { resolveBedrockConfigApiKey } from "./discovery-shared.js";
-import { migrateAmazonBedrockLegacyConfig } from "./config-compat.js";
+import { t as migrateAmazonBedrockLegacyConfig } from "./.setup/config-compat-HlsW2HRS.mjs";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
+import { resolveAwsSdkEnvVarName } from "openclaw/plugin-sdk/provider-auth-runtime";
 //#region extensions/amazon-bedrock/setup-api.ts
 /**
 * Lightweight Amazon Bedrock setup entry. It exposes auth detection and config
@@ -15,7 +15,7 @@ var setup_api_default = definePluginEntry({
 			id: "amazon-bedrock",
 			label: "Amazon Bedrock",
 			auth: [],
-			resolveConfigApiKey: ({ env }) => resolveBedrockConfigApiKey(env)
+			resolveConfigApiKey: ({ env }) => resolveAwsSdkEnvVarName(env)
 		});
 		api.registerConfigMigration((config) => migrateAmazonBedrockLegacyConfig(config));
 	}

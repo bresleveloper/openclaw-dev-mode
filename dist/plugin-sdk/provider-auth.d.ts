@@ -1,14 +1,14 @@
-import { $l as ProviderAuthResult, $p as upsertAuthProfile, Bp as ensureAuthProfileStore, Kp as updateAuthProfileStoreWithLock, Mp as resolveEnvApiKey, Np as ProviderEnvVarLookupParams$1, Pp as omitEnvKeysCaseInsensitive, Qp as removeProviderAuthProfilesWithLock, Vp as ensureAuthProfileStoreForLocalUpdate, Xl as ProviderAuthContext, Zl as ProviderAuthMethod, Zp as SecretInputMode, cm as hasUsableOAuthCredential, cu as isProviderApiKeyConfigured, dr as readCodexCliCredentialsCached, du as resolveProviderAuthProfileApiKey, em as listProfilesForProvider, im as resolveAuthProfileOrder, lu as isProviderAuthProfileConfigured, rd as OAuthCredentials, sm as DEFAULT_OAUTH_REFRESH_MARGIN_MS, tu as ProviderPluginWizardSetup, uu as listUsableProviderAuthProfileIds } from "../agent-harness-runtime-wMciqZ6Z.js";
-import { r as OpenClawConfig } from "../types.openclaw-Ccmw-oTa.js";
-import { _ as resolveDefaultSecretProviderAlias, d as SecretInput, f as SecretRef, o as coerceSecretRef, s as hasConfiguredSecretInput } from "../types.secrets-BR-Cncxg.js";
-import { b as PluginMetadataSnapshot } from "../io-BuIvr25R.js";
-import "../types-BaRTNmIt.js";
-import "../config-Dt1SOlIN.js";
-import { C as AuthProfileCredential, D as OAuthCredential, E as AuthProfileStore } from "../types-DtHZVXiQ.js";
-import { i as resolveRequiredHomeDir } from "../home-dir-zeNXGRsP.js";
-import { p as WizardPrompter } from "../setup-wizard-types-f6I7iVCq.js";
-import { a as isNonSecretApiKeyMarker, i as isKnownEnvApiKeyMarker, n as CUSTOM_LOCAL_AUTH_MARKER, o as resolveOAuthApiKeyMarker, r as MINIMAX_OAUTH_MARKER } from "../model-auth-markers-1ePEMiK3.js";
-import { i as resolveNonEnvSecretRefApiKeyMarker, n as normalizeSecretInput, t as normalizeOptionalSecretInput } from "../normalize-secret-input-Dxh5lAWq.js";
+import { r as OpenClawConfig } from "../types.openclaw-DWWUw8hA.js";
+import { _ as resolveDefaultSecretProviderAlias, d as SecretInput, f as SecretRef, o as coerceSecretRef, s as hasConfiguredSecretInput } from "../types.secrets-CqlN900w.js";
+import { v as PluginMetadataSnapshot } from "../io-CwO8iq4h.js";
+import "../types-C-BtfS0H.js";
+import "../config-Dpca5-xX.js";
+import { Af as SecretInputMode, Bf as DEFAULT_OAUTH_REFRESH_MARGIN_MS, Lf as resolveAuthProfileOrder, Mf as upsertAuthProfile, Ml as OAuthCredentials, Nf as listProfilesForProvider, Tf as updateAuthProfileStoreWithLock, Vf as hasUsableOAuthCredential, _c as ProviderAuthResult, al as isProviderAuthProfileConfigured, bf as ensureAuthProfileStoreForLocalUpdate, df as resolveEnvApiKey, ff as ProviderEnvVarLookupParams$1, hc as ProviderAuthMethod, il as isProviderApiKeyConfigured, jf as removeProviderAuthProfilesWithLock, mc as ProviderAuthContext, ol as listUsableProviderAuthProfileIds, pf as omitEnvKeysCaseInsensitive, sl as resolveProviderAuthProfileApiKey, yc as ProviderPluginWizardSetup, yf as ensureAuthProfileStore } from "../agent-harness-runtime-DZjstJNb.js";
+import { A as OAuthProvider, O as AuthProfileStore, T as AuthProfileCredential, k as OAuthCredential } from "../types-BooLarQr.js";
+import { t as resolveRequiredHomeDir } from "../home-dir-BLQZzvXY.js";
+import { m as WizardPrompter } from "../setup-wizard-types-nN6P9WIn.js";
+import { a as isNonSecretApiKeyMarker, i as isKnownEnvApiKeyMarker, n as CUSTOM_LOCAL_AUTH_MARKER, o as resolveOAuthApiKeyMarker, r as MINIMAX_OAUTH_MARKER } from "../model-auth-markers-C0aschiV.js";
+import { i as resolveNonEnvSecretRefApiKeyMarker, n as normalizeSecretInput, t as normalizeOptionalSecretInput } from "../normalize-secret-input-Cx-x3POu.js";
 import { execSync } from "node:child_process";
 //#region packages/model-catalog-core/src/provider-id.d.ts
 export declare function findNormalizedProviderValue<T>(entries: Record<string, T> | undefined, provider: string): T | undefined;
@@ -97,29 +97,6 @@ fallback: string): string;
  */
 export declare function normalizeGithubCopilotDomain(raw: string | undefined | null): string;
 //#endregion
-//#region src/plugin-sdk/provider-auth-copilot-cache.d.ts
-/** @deprecated GitHub Copilot provider-owned helper; do not use from third-party plugins. */
-type CachedCopilotToken = {
-  /** Copilot API token returned by GitHub's internal exchange endpoint. */
-  token: string;
-  /** Absolute epoch milliseconds when the Copilot API token expires. */
-  expiresAt: number;
-  /** Absolute epoch milliseconds when this cache entry was written. */
-  updatedAt: number;
-  /** Copilot integration id that produced this cached token. */
-  integrationId?: string;
-  /** SHA-256 fingerprint of the GitHub credential exchanged for this token. */
-  sourceCredentialFingerprint?: string;
-  /**
-   * GitHub host this token was minted for. Guards against reusing a public
-   * `github.com` Copilot token against a `*.ghe.com` tenant host (or vice
-   * versa) after a domain switch. Shipped caches predate this field and were
-   * only ever minted for public github.com, so a missing value means
-   * `github.com` (keeps valid public entries usable across upgrade).
-   */
-  domain?: string;
-};
-//#endregion
 //#region src/plugin-sdk/provider-auth-write-compat.d.ts
 type AuthProfileUpsertParams = {
   profileId: string;
@@ -133,6 +110,27 @@ type AuthProfileUpdateParams = Omit<Parameters<typeof updateAuthProfileStoreWith
 declare function updateAuthProfileStoreWithLockCompat(params: AuthProfileUpdateParams): Promise<AuthProfileStore | null>;
 declare function upsertAuthProfileWithLockCompat({ profileId, credential, agentDir, stateDir }: AuthProfileUpsertParams): Promise<AuthProfileStore | null>;
 declare function removeProviderAuthProfilesWithLockCompat(params: Parameters<typeof removeProviderAuthProfilesWithLock>[0]): Promise<AuthProfileStore | null>;
+//#endregion
+//#region src/agents/cli-credentials.d.ts
+/** Credential shape parsed from Codex CLI storage. */
+type CodexCliCredential = {
+  type: "oauth";
+  provider: OAuthProvider;
+  access: string;
+  refresh: string;
+  expires: number;
+  accountId?: string;
+  idToken?: string;
+};
+type ExecSyncFn = typeof execSync;
+/** Reads Codex CLI credentials with optional short-lived cache and file fingerprinting. */
+export declare function readCodexCliCredentialsCached(options?: {
+  codexHome?: string;
+  allowKeychainPrompt?: boolean;
+  ttlMs?: number;
+  platform?: NodeJS.Platform;
+  execSync?: ExecSyncFn;
+}): CodexCliCredential | null;
 //#endregion
 //#region src/plugin-sdk/provider-auth-claude-compat.d.ts
 /** Retired Claude CLI credential shape kept only for source compatibility. */
@@ -237,21 +235,10 @@ export declare function formatApiKeyPreview(raw: string, opts?: {
 /** Normalizes secret input mode values accepted by provider setup. */
 export declare function normalizeSecretInputModeInput(secretInputMode: string | null | undefined): SecretInputMode | undefined;
 /** Resolves an API key from CLI options first, then environment or prompt fallback. */
-export declare function ensureApiKeyFromOptionEnvOrPrompt(params: {
+export declare function ensureApiKeyFromOptionEnvOrPrompt(params: Parameters<typeof ensureApiKeyFromEnvOrPrompt>[0] & {
   token: string | undefined;
   tokenProvider: string | undefined;
-  secretInputMode?: SecretInputMode;
-  config: OpenClawConfig;
-  env?: NodeJS.ProcessEnv;
-  workspaceDir?: string;
   expectedProviders: string[];
-  provider: string;
-  envLabel: string;
-  promptMessage: string;
-  normalize: (value: string) => string;
-  validate: (value: string) => string | undefined;
-  prompter: WizardPrompter;
-  setCredential: (apiKey: SecretInput, mode?: SecretInputMode) => Promise<void>;
   noteMessage?: string;
   noteTitle?: string;
 }): Promise<string>;
@@ -428,50 +415,4 @@ export declare function buildCopilotIdeHeaders(params?: {
   includeApiVersion?: boolean;
 }): Record<string, string>;
 //#endregion
-//#region src/plugin-sdk/provider-auth.d.ts
-/** @deprecated GitHub Copilot provider-owned helper; do not use from third-party plugins. */
-export declare const DEFAULT_COPILOT_API_BASE_URL = "https://api.individual.githubcopilot.com";
-/** @deprecated GitHub Copilot provider-owned helper; do not use from third-party plugins. */
-export declare function deriveCopilotApiBaseUrlFromToken(
-/** Copilot API token text that may contain a `proxy-ep` attribute. */
-token: string): string | null;
-/**
- * @deprecated GitHub Copilot provider-owned helper; do not use from third-party plugins.
- */
-export declare function resolveCopilotApiToken(params: {
-  /** GitHub OAuth token exchanged for a Copilot API token. */
-  githubToken: string;
-  /** Environment used to resolve the default token cache path. */
-  env?: NodeJS.ProcessEnv;
-  /** Fetch implementation used for the Copilot token exchange. */
-  fetchImpl?: typeof fetch;
-  /** Explicit cache file path for the exchanged Copilot token. */
-  cachePath?: string;
-  /** Cache reader override for tests and alternate storage backends. */
-  loadJsonFileImpl?: (path: string) => unknown;
-  /** Cache writer override for tests and alternate storage backends. */
-  saveJsonFileImpl?: (path: string, value: CachedCopilotToken) => void;
-  /**
-   * Data-residency GitHub Enterprise host (e.g. `acme.ghe.com`). Resolved from
-   * config by callers that have it; the `COPILOT_GITHUB_DOMAIN` env override
-   * still wins. Defaults to `github.com`.
-   */
-  githubDomain?: string;
-  /**
-   * OpenClaw config used to resolve the persisted `githubDomain` provider
-   * param when an explicit `githubDomain` is not supplied. Precedence is
-   * `COPILOT_GITHUB_DOMAIN` env > explicit `githubDomain` > config.
-   */
-  config?: OpenClawConfig;
-}): Promise<{
-  /** Copilot API token, from cache or fresh exchange. */
-  token: string;
-  /** Absolute epoch milliseconds when the Copilot API token expires. */
-  expiresAt: number;
-  /** Source marker identifying cache path or exchange endpoint. */
-  source: string;
-  /** Copilot API base URL derived from token metadata or default endpoint. */
-  baseUrl: string;
-}>;
-//#endregion
-export { type ApiKeyStorageOptions, type AuthProfileStore, CUSTOM_LOCAL_AUTH_MARKER, type CachedCopilotToken, DEFAULT_OAUTH_REFRESH_MARGIN_MS, MINIMAX_OAUTH_MARKER, type OAuthCredential, type OpenAICodexAuthIdentity, type OpenClawConfig, type ProviderAuthContext, type ProviderAuthResult, type SecretInput, type SecretInputMode, type WriteOAuthCredentialsOptions, coerceSecretRef, ensureAuthProfileStore, ensureAuthProfileStoreForLocalUpdate, hasConfiguredSecretInput, hasUsableOAuthCredential, isKnownEnvApiKeyMarker, isNonSecretApiKeyMarker, isProviderApiKeyConfigured, isProviderAuthProfileConfigured, listProfilesForProvider, listUsableProviderAuthProfileIds, normalizeOptionalSecretInput, normalizeSecretInput, omitEnvKeysCaseInsensitive, readCodexCliCredentialsCached, removeProviderAuthProfilesWithLockCompat as removeProviderAuthProfilesWithLock, resolveAuthProfileOrder, resolveDefaultSecretProviderAlias, resolveEnvApiKey, resolveNonEnvSecretRefApiKeyMarker, resolveOAuthApiKeyMarker, resolveProviderAuthProfileApiKey, resolveRequiredHomeDir, updateAuthProfileStoreWithLockCompat as updateAuthProfileStoreWithLock, upsertAuthProfile, upsertAuthProfileWithLockCompat as upsertAuthProfileWithLock };
+export { type ApiKeyStorageOptions, type AuthProfileStore, CUSTOM_LOCAL_AUTH_MARKER, DEFAULT_OAUTH_REFRESH_MARGIN_MS, MINIMAX_OAUTH_MARKER, type OAuthCredential, type OpenAICodexAuthIdentity, type OpenClawConfig, type ProviderAuthContext, type ProviderAuthResult, type SecretInput, type SecretInputMode, type WriteOAuthCredentialsOptions, coerceSecretRef, ensureAuthProfileStore, ensureAuthProfileStoreForLocalUpdate, hasConfiguredSecretInput, hasUsableOAuthCredential, isKnownEnvApiKeyMarker, isNonSecretApiKeyMarker, isProviderApiKeyConfigured, isProviderAuthProfileConfigured, listProfilesForProvider, listUsableProviderAuthProfileIds, normalizeOptionalSecretInput, normalizeSecretInput, omitEnvKeysCaseInsensitive, removeProviderAuthProfilesWithLockCompat as removeProviderAuthProfilesWithLock, resolveAuthProfileOrder, resolveDefaultSecretProviderAlias, resolveEnvApiKey, resolveNonEnvSecretRefApiKeyMarker, resolveOAuthApiKeyMarker, resolveProviderAuthProfileApiKey, resolveRequiredHomeDir, updateAuthProfileStoreWithLockCompat as updateAuthProfileStoreWithLock, upsertAuthProfile, upsertAuthProfileWithLockCompat as upsertAuthProfileWithLock };

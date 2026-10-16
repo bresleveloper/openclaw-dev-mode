@@ -1,10 +1,10 @@
-import { Ns as OpenClawPluginApi$1, Tc as PluginCommandContext$1, wc as OpenClawPluginCommandDefinition$1 } from "../agent-harness-runtime-wMciqZ6Z.js";
-import { r as OpenClawConfig } from "../types.openclaw-Ccmw-oTa.js";
-import { l as ChannelConfigSchema } from "../zod-schema.implicit-mentions-Du1YLL_X.js";
-import { R as ChannelLegacyStateMigrationPlan } from "../types.adapters-IC4-T9eq.js";
-import { n as ChannelOutboundAdapter } from "../outbound.types-DZsrSgdc.js";
-import { t as ChannelPlugin } from "../types.plugin-DWwKnMgs.js";
-import { n as AnyAgentTool$1 } from "../common-Y4Bsty3O.js";
+import { r as OpenClawConfig } from "../types.openclaw-DWWUw8hA.js";
+import { _ as ChannelConfigSchema } from "../zod-schema.implicit-mentions-BfiN-dfC.js";
+import { Fc as PluginCommandContext$1, Pc as OpenClawPluginCommandDefinition$1, Ss as OpenClawPluginApi$1 } from "../agent-harness-runtime-DZjstJNb.js";
+import { B as ChannelLegacyStateMigrationPlan } from "../types.adapters-Bo2TMZGx.js";
+import { n as ChannelOutboundAdapter } from "../outbound.types-B8D3jrzb.js";
+import { n as ChannelPlugin } from "../types.plugin-BiZwy65L.js";
+import { n as AnyAgentTool$1 } from "../common-K-HB_vKp.js";
 import { createJiti } from "jiti";
 //#region src/plugins/jiti-factory.d.ts
 /** Keep Babel's lazy require inside Jiti's CJS module, where native resolver hooks retain its parent. */
@@ -44,7 +44,7 @@ export type OpenClawPluginApi = OpenClawPluginApi$1;
 export type OpenClawPluginCommandDefinition = OpenClawPluginCommandDefinition$1;
 export type PluginCommandContext = PluginCommandContext$1;
 type BundledChannelRuntime = unknown;
-type ChannelEntryConfigSchema<TPlugin> = TPlugin extends ChannelPlugin<unknown> ? NonNullable<TPlugin["configSchema"]> : ChannelConfigSchema;
+type ChannelEntryConfigSchema<TPlugin> = TPlugin extends ChannelPlugin<unknown, unknown, unknown, 1 | 2> ? NonNullable<TPlugin["configSchema"]> : ChannelConfigSchema;
 type BundledEntryModuleRef = {
   specifier: string;
   exportName?: string;

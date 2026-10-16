@@ -1,1 +1,1 @@
-export * from "./assistant-avatar-thumbnail.runtime-vfqeZ176.mjs";
+export * from "./assistant-avatar-thumbnail.runtime-Xc6cwJhv.mjs";

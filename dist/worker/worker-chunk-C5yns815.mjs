@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function encodeStartupTraceSegment(e){if(!e)return`~`;let n=``;for(let r=0;r<e.length;r+=1){let i=e[r]??``;if(t.test(i)){n+=i;continue}n+=`~${e.charCodeAt(r).toString(16).toUpperCase().padStart(4,`0`)}`}return n}var t,n=e((()=>{t=/^[A-Za-z0-9_-]$/u}));export{n,encodeStartupTraceSegment as t};

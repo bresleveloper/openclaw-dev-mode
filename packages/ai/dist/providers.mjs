@@ -1,6 +1,7 @@
-import { t as AssistantMessageEventStream } from "./event-stream-D8PARQfL.mjs";
-import { n as projectProviderError } from "./provider-error-CRhW7lkJ.mjs";
-import { n as clampOpenAIPromptCacheKey, t as OPENAI_PROMPT_CACHE_KEY_MAX_LENGTH } from "./openai-prompt-cache-CjV_2IRI.mjs";
+import { t as AssistantMessageEventStream } from "./event-stream-C5AbCAaZ.mjs";
+import { n as projectProviderError } from "./provider-error-DQBE1bUQ.mjs";
+import { n as clampOpenAIPromptCacheKey, t as OPENAI_PROMPT_CACHE_KEY_MAX_LENGTH } from "./openai-prompt-cache-BK6E2g4Q.mjs";
+import { t as createZeroUsage } from "./usage-CJH5D6Ea.mjs";
 //#region packages/ai/src/providers/register-builtins.ts
 /** Source id used for built-in API provider registrations. */
 const BUILT_IN_API_PROVIDER_SOURCE_ID = "core:built-in";
@@ -15,20 +16,7 @@ function createLazyLoadErrorMessage(model, error, signal) {
 		api: model.api,
 		provider: model.provider,
 		model: model.id,
-		usage: {
-			input: 0,
-			output: 0,
-			cacheRead: 0,
-			cacheWrite: 0,
-			totalTokens: 0,
-			cost: {
-				input: 0,
-				output: 0,
-				cacheRead: 0,
-				cacheWrite: 0,
-				total: 0
-			}
-		},
+		usage: createZeroUsage(),
 		...projectProviderError(error, signal),
 		timestamp: Date.now()
 	};
@@ -62,35 +50,39 @@ function createLazyRegistration(api, importModule, select) {
 	};
 }
 const registerBuiltIns = [
-	createLazyRegistration("anthropic-messages", () => import("./anthropic-DvT9cX58.mjs").then((n) => n.t), (module) => ({
+	createLazyRegistration("anthropic-messages", () => import("./anthropic-DloU96D6.mjs").then((n) => n.t), (module) => ({
 		stream: module.streamAnthropic,
 		streamSimple: module.streamSimpleAnthropic
 	})),
-	createLazyRegistration("openai-completions", () => import("./openai-completions-Dmj7bJob.mjs").then((n) => n.t), (module) => ({
+	createLazyRegistration("openai-completions", () => import("./openai-completions-XvUwdvJc.mjs").then((n) => n.t), (module) => ({
 		stream: module.streamOpenAICompletions,
 		streamSimple: module.streamSimpleOpenAICompletions
 	})),
-	createLazyRegistration("mistral-conversations", () => import("./mistral-6yGXWD_U.mjs"), (module) => ({
+	createLazyRegistration("mistral-conversations", () => import("./mistral-cnoBDSIg.mjs"), (module) => ({
 		stream: module.streamMistral,
 		streamSimple: module.streamSimpleMistral
 	})),
-	createLazyRegistration("openai-responses", () => import("./openai-responses-dnM5X18f.mjs").then((n) => n.t), (module) => ({
+	createLazyRegistration("openai-responses", () => import("./openai-responses-DNWY56mK.mjs").then((n) => n.t), (module) => ({
 		stream: module.streamOpenAIResponses,
 		streamSimple: module.streamSimpleOpenAIResponses
 	})),
-	createLazyRegistration("azure-openai-responses", () => import("./azure-openai-responses-BDaeKfnP.mjs"), (module) => ({
+	createLazyRegistration("azure-openai-responses", () => import("./azure-openai-responses-CAyTrcy6.mjs"), (module) => ({
 		stream: module.streamAzureOpenAIResponses,
 		streamSimple: module.streamSimpleAzureOpenAIResponses
 	})),
-	createLazyRegistration("openai-chatgpt-responses", () => import("./openai-chatgpt-responses-CKND8gZ-.mjs"), (module) => ({
+	createLazyRegistration("openai-chatgpt-responses", () => import("./openai-chatgpt-responses-vk4XdUjX.mjs"), (module) => ({
 		stream: module.streamOpenAICodexResponses,
 		streamSimple: module.streamSimpleOpenAICodexResponses
 	})),
-	createLazyRegistration("google-generative-ai", () => import("./google-DYJefZfv.mjs"), (module) => ({
+	createLazyRegistration("google-generative-ai", () => import("./google-B2g_Xn4d.mjs"), (module) => ({
 		stream: module.streamGoogle,
 		streamSimple: module.streamSimpleGoogle
 	})),
-	createLazyRegistration("google-vertex", () => import("./google-vertex-3eVNR2qW.mjs"), (module) => ({
+	createLazyRegistration("google-interactions", () => import("./google-interactions-DNXzPPwQ.mjs"), (module) => ({
+		stream: module.streamGoogleInteractions,
+		streamSimple: module.streamSimpleGoogleInteractions
+	})),
+	createLazyRegistration("google-vertex", () => import("./google-vertex-_khoip47.mjs"), (module) => ({
 		stream: module.streamGoogleVertex,
 		streamSimple: module.streamSimpleGoogleVertex
 	}))

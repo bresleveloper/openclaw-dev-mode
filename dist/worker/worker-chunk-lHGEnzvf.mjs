@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function setEmbeddedMode(e){t=e}function isEmbeddedMode(){return t}var t,n=e((()=>{t=!1}));export{isEmbeddedMode as n,setEmbeddedMode as r,n as t};

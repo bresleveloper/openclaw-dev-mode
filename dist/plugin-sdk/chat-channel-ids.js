@@ -1,4 +1,4 @@
-import { n as listBundledChannelCatalogEntries } from "../bundled-channel-catalog-read-RR5snA6Y.mjs";
+import { n as listBundledChannelCatalogEntries } from "../bundled-channel-catalog-read-RnVMS1bC.mjs";
 //#region src/plugin-sdk/chat-channel-ids.ts
 /**
 * Canonical bundled chat-channel id list.
@@ -15,14 +15,6 @@ import { n as listBundledChannelCatalogEntries } from "../bundled-channel-catalo
 * do not have a generated config metadata entry.
 */
 const BUNDLED_CHAT_CHANNEL_ENTRIES = listBundledChannelCatalogEntries();
-function pushUniquePrefix(target, seen, raw) {
-	const value = raw?.trim();
-	if (!value) return;
-	const key = value.toLocaleLowerCase("en-US");
-	if (seen.has(key)) return;
-	seen.add(key);
-	target.push(value);
-}
 /** Bundled chat-channel ids from the official channel catalog. */
 const BUNDLED_CHAT_CHANNEL_IDS = Object.freeze(BUNDLED_CHAT_CHANNEL_ENTRIES.map((entry) => entry.id));
 /**
@@ -30,14 +22,17 @@ const BUNDLED_CHAT_CHANNEL_IDS = Object.freeze(BUNDLED_CHAT_CHANNEL_ENTRIES.map(
 * Consumers should use this for envelope cleanup instead of hardcoding channel names.
 */
 const BUNDLED_CHAT_CHANNEL_ENVELOPE_PREFIXES = Object.freeze((() => {
-	const seen = /* @__PURE__ */ new Set();
-	const prefixes = [];
-	for (const entry of BUNDLED_CHAT_CHANNEL_ENTRIES) {
-		pushUniquePrefix(prefixes, seen, entry.id);
-		pushUniquePrefix(prefixes, seen, entry.channel.label);
-		for (const alias of entry.aliases) pushUniquePrefix(prefixes, seen, alias);
+	const prefixes = /* @__PURE__ */ new Map();
+	for (const entry of BUNDLED_CHAT_CHANNEL_ENTRIES) for (const raw of [
+		entry.id,
+		entry.channel.label,
+		...entry.aliases
+	]) {
+		const value = raw?.trim();
+		const key = value?.toLocaleLowerCase("en-US");
+		if (value && key && !prefixes.has(key)) prefixes.set(key, value);
 	}
-	return prefixes;
+	return [...prefixes.values()];
 })());
 //#endregion
 export { BUNDLED_CHAT_CHANNEL_ENVELOPE_PREFIXES, BUNDLED_CHAT_CHANNEL_IDS };

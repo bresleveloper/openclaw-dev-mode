@@ -4,11 +4,11 @@ import { defineBundledChannelSetupEntry } from "openclaw/plugin-sdk/channel-entr
 var setup_entry_default = defineBundledChannelSetupEntry({
 	importMetaUrl: import.meta.url,
 	plugin: {
-		specifier: fileURLToPath(new URL(".setup/setup-plugin-api-Chb62Feq.mjs", import.meta.url).href),
+		specifier: fileURLToPath(new URL(".setup/setup-plugin-api-vyeNqPxP.mjs", import.meta.url).href),
 		exportName: "telegramSetupPlugin"
 	},
 	secrets: {
-		specifier: fileURLToPath(new URL(".setup/secret-contract-api-C7FRWLpS.mjs", import.meta.url).href),
+		specifier: fileURLToPath(new URL(".setup/secret-contract-api-C22XSwop.mjs", import.meta.url).href),
 		exportName: "channelSecrets"
 	}
 });

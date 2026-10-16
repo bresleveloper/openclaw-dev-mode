@@ -1,4 +1,4 @@
-import { t as OpenAIQuicksilverSocketRuntime } from "../../realtime-quicksilver-socket.runtime-aVzAbWtf.mjs";
+import { t as OpenAIQuicksilverSocketRuntime } from "../../realtime-quicksilver-socket.runtime--8Ys_4gC.mjs";
 import { parentPort, workerData } from "node:worker_threads";
 import WebSocket$1 from "ws";
 //#region extensions/openai/realtime-quicksilver-socket.worker.ts

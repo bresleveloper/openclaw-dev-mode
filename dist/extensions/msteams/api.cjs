@@ -1,6 +1,6 @@
 Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
-const require_channel = require("./.setup/channel-BDp16XRR.cjs");
-const require_channel_setup = require("./.setup/channel.setup-BVDfgdCc.cjs");
+const require_channel = require("./.setup/channel-BFhXodl2.cjs");
+const require_channel_setup = require("./.setup/channel.setup-ss0TO-ap.cjs");
 exports.createMSTeamsSetupWizardBase = require_channel_setup.createMSTeamsSetupWizardBase;
 exports.msteamsPlugin = require_channel.msteamsPlugin;
 exports.msteamsSetupAdapter = require_channel_setup.msteamsSetupAdapter;

@@ -22,44 +22,23 @@ const xiaomiPreset = {
 };
 const { applyConfig: applyXiaomiConfig, applyProviderConfig: applyXiaomiProviderConfig } = createDefaultModelsPresetAppliers(xiaomiPreset);
 const { applyConfig: applyXiaomiConnectionConfig } = createDefaultModelsConnectionPresetAppliers(xiaomiPreset);
-const xiaomiTokenPlanPresetAppliers = createDefaultModelsPresetAppliers({
+const { applyConfig: applyXiaomiTokenPlanConfig } = createDefaultModelsPresetAppliers({
 	primaryModelRef: XIAOMI_TOKEN_PLAN_DEFAULT_MODEL_REF,
-	resolveParams: (cfg) => {
+	resolveParams: (cfg, region) => {
 		const defaultProvider = buildXiaomiTokenPlanProvider();
+		const defaultModel = defaultProvider.models.find((model) => model.id === XIAOMI_TOKEN_PLAN_DEFAULT_MODEL_ID);
 		return {
 			providerId: XIAOMI_TOKEN_PLAN_PROVIDER_ID,
 			api: defaultProvider.api ?? "openai-completions",
-			baseUrl: defaultProvider.baseUrl,
+			baseUrl: resolveXiaomiTokenPlanBaseUrl(region),
 			defaultModels: cfg.models?.mode === "replace" ? defaultProvider.models ?? [] : [],
 			defaultModelId: XIAOMI_TOKEN_PLAN_DEFAULT_MODEL_ID,
-			aliases: (() => {
-				const defaultModel = defaultProvider.models?.find((m) => m.id === XIAOMI_TOKEN_PLAN_DEFAULT_MODEL_ID);
-				return [{
-					modelRef: XIAOMI_TOKEN_PLAN_DEFAULT_MODEL_REF,
-					alias: defaultModel?.name ?? "Xiaomi MiMo V2.6 Pro"
-				}];
-			})()
+			aliases: [{
+				modelRef: XIAOMI_TOKEN_PLAN_DEFAULT_MODEL_REF,
+				alias: defaultModel?.name ?? "Xiaomi MiMo V2.6 Pro"
+			}]
 		};
 	}
 });
-function withProviderBaseUrl(cfg, providerId, baseUrl) {
-	const providers = {
-		...cfg.models?.providers,
-		[providerId]: {
-			...cfg.models?.providers?.[providerId],
-			baseUrl
-		}
-	};
-	return {
-		...cfg,
-		models: {
-			...cfg.models,
-			providers
-		}
-	};
-}
-function applyXiaomiTokenPlanConfig(cfg, region) {
-	return withProviderBaseUrl(xiaomiTokenPlanPresetAppliers.applyConfig(cfg), XIAOMI_TOKEN_PLAN_PROVIDER_ID, resolveXiaomiTokenPlanBaseUrl(region));
-}
 //#endregion
 export { XIAOMI_DEFAULT_MODEL_REF, XIAOMI_TOKEN_PLAN_DEFAULT_MODEL_REF, applyXiaomiConfig, applyXiaomiConnectionConfig, applyXiaomiProviderConfig, applyXiaomiTokenPlanConfig };

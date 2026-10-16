@@ -1,4 +1,4 @@
-import { definePluginEntry } from "./api.js";
+import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import { fileURLToPath } from "node:url";
@@ -33,12 +33,8 @@ async function resolveViewerRuntimeFileUrl() {
 async function getServedViewerAsset(pathname) {
 	if (pathname !== VIEWER_LOADER_PATH && pathname !== VIEWER_RUNTIME_PATH) return null;
 	const assets = await loadViewerAssets();
-	if (pathname === VIEWER_LOADER_PATH) return {
-		body: assets.loaderBody,
-		contentType: "text/javascript; charset=utf-8"
-	};
 	return {
-		body: assets.runtimeBody,
+		body: pathname === VIEWER_LOADER_PATH ? assets.loaderBody : assets.runtimeBody,
 		contentType: "text/javascript; charset=utf-8"
 	};
 }
@@ -69,7 +65,7 @@ function registerDiffsLanguagePackPlugin(api) {
 }
 function createDiffsLanguagePackHttpHandler() {
 	return async (req, res) => {
-		const parsed = parseRequestUrl(req.url);
+		const parsed = req.url ? URL.parse(req.url, "http://127.0.0.1") : null;
 		if (!parsed?.pathname.startsWith("/plugins/diffs-language-pack/assets/")) return false;
 		if (req.method !== "GET" && req.method !== "HEAD") {
 			respondText(res, 405, "Method not allowed");
@@ -87,14 +83,6 @@ function createDiffsLanguagePackHttpHandler() {
 		else res.end(asset.body);
 		return true;
 	};
-}
-function parseRequestUrl(rawUrl) {
-	if (!rawUrl) return null;
-	try {
-		return new URL(rawUrl, "http://127.0.0.1");
-	} catch {
-		return null;
-	}
 }
 function respondText(res, statusCode, body) {
 	res.statusCode = statusCode;

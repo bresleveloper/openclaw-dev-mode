@@ -77,7 +77,7 @@ export async function runHeartbeatOnce(opts: HeartbeatRunOptions): Promise<Heart
     const heartbeatContext = {
       Body: appendCronStyleCurrentTimeLine(prepared.prompt, cfg, startedAt),
       From: sender,
-      To: sender,
+      To: !suppressOriginatingContext ? delivery.to : undefined,
       OriginatingChannel: !suppressOriginatingContext ? channel : undefined,
       OriginatingTo: !suppressOriginatingContext ? delivery.to : undefined,
       AccountId: delivery.accountId,
@@ -112,6 +112,7 @@ export async function runHeartbeatOnce(opts: HeartbeatRunOptions): Promise<Heart
       replyOptions: withReplySystemEventContext<InternalGetReplyOptions>(
         {
           isHeartbeat: true,
+          useHeartbeatFailureCopy: prepared.useHeartbeatFailureCopy,
           // Isolated heartbeats mint a fresh session ID per run, so nothing later
           // reuses this run's bundle MCP runtime; retire it at settlement.
           ...(prepared.run.kind === "isolated" ? { cleanupBundleMcpOnRunEnd: true } : {}),
@@ -162,6 +163,9 @@ export async function runHeartbeatOnce(opts: HeartbeatRunOptions): Promise<Heart
         {
           sessionKey: prepared.inspectsRunQueue ? prepared.sessionKey : runSessionKey,
           events: prepared.inspectsRunQueue ? prepared.genericEvents : [],
+          deferredEventIds: prepared.deferredGenericEvents
+            .map((event) => event.id)
+            .filter((id): id is string => typeof id === "string"),
         },
       ),
       dispatcherOptions: {

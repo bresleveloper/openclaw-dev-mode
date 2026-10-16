@@ -1,3 +1,3 @@
-import { Sn as ChannelGatewayContext, bn as ChannelPlugin, ln as getA2aChannelRuntime, t as PluginRuntime, un as setA2aChannelRuntime } from "../../runtime-api-CkahAQr_.js";
-import { n as OpenClawConfig } from "../../types.openclaw-mR7pAsVG.js";
+import { ro as OpenClawConfig } from "../../agent-scope-Dajnzfj6.js";
+import { d as setA2aChannelRuntime, m as ChannelGatewayContext, n as PluginRuntime, p as ChannelPlugin, u as getA2aChannelRuntime } from "../../channel-core-Dw23qZdV.js";
 export { type ChannelGatewayContext, type ChannelPlugin, type OpenClawConfig, type PluginRuntime, getA2aChannelRuntime, setA2aChannelRuntime };

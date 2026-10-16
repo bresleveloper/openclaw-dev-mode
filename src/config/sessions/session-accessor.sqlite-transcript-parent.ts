@@ -1,4 +1,4 @@
-/** Resolves the effective parent for a transcript message append inside the write transaction. */
+import { isRecord } from "@openclaw/normalization-core/record-coerce";
 import { sql } from "kysely";
 import {
   executeSqliteQueryTakeFirstSync,
@@ -12,12 +12,16 @@ import type {
 } from "./session-accessor.sqlite-contract.js";
 import { getSessionKysely } from "./session-accessor.sqlite-scope.js";
 import { projectTranscriptNavigationSql } from "./session-model-context-projection.js";
+import { sessionTranscriptIndexNeedsReconcile } from "./session-transcript-index.js";
 import { transcriptEventReadBytesSql } from "./session-transcript-read-bytes.js";
 import { resolveSessionTranscriptQuestionAnswer } from "./session-transcript-read-fence.js";
 import { transcriptEventNavigationSql } from "./transcript-payload.js";
 import {
   isSessionTranscriptLeafControl,
   parseSessionTranscriptTreeEntry,
+  resolveSessionTranscriptActiveLeafEntryId,
+  scanSessionTranscriptTree,
+  selectSessionTranscriptTreePathNodes,
 } from "./transcript-tree.js";
 import {
   isTranscriptEntryOnVisiblePath,
@@ -33,7 +37,7 @@ const PREPARED_ASSISTANT_MAX_ANCESTORS = 4096;
 
 /** Validates a prepared assistant from bounded indexed message metadata. */
 export function canRebasePreparedAssistantInTransaction(
-  database: OpenClawAgentDatabase,
+  database: Pick<OpenClawAgentDatabase, "db" | "path">,
   sessionId: string,
   preparedParentId: string | null,
   admittedUserId?: string,
@@ -58,15 +62,7 @@ export function canRebasePreparedAssistantInTransaction(
   const preparedParent =
     preparedParentId === null
       ? undefined
-      : executeSqliteQueryTakeFirstSync(
-          database.db,
-          db
-            .selectFrom("transcript_event_identities")
-            .select("seq")
-            .where("session_id", "=", sessionId)
-            .where("event_id", "=", preparedParentId)
-            .limit(1),
-        );
+      : readTranscriptIdentityInTransaction(database, sessionId, preparedParentId);
   if (preparedParentId !== null && !preparedParent) {
     return false;
   }
@@ -204,18 +200,12 @@ export function canRebasePreparedAssistantInTransaction(
 }
 
 export function resolveTranscriptEventAppendParent(
-  database: OpenClawAgentDatabase,
+  database: Pick<OpenClawAgentDatabase, "db" | "path">,
   sessionId: string,
   event: TranscriptEvent,
   options: TranscriptEventAppendOptions,
 ): TranscriptEvent {
-  if (
-    options.appendIntent !== "active-branch" ||
-    !event ||
-    typeof event !== "object" ||
-    Array.isArray(event) ||
-    !("parentId" in event)
-  ) {
+  if (options.appendIntent !== "active-branch" || !isRecord(event) || !("parentId" in event)) {
     return event;
   }
   const parentId = event.parentId;
@@ -230,7 +220,7 @@ export function resolveTranscriptEventAppendParent(
 }
 
 export function resolveTranscriptMessageAppendParent<TMessage>(
-  database: OpenClawAgentDatabase,
+  database: Pick<OpenClawAgentDatabase, "db" | "path">,
   sessionId: string,
   options: Pick<TranscriptMessageAppendOptions<TMessage>, "appendIntent" | "parentId">,
 ): string | null {
@@ -250,7 +240,7 @@ export function resolveTranscriptMessageAppendParent<TMessage>(
 
 /** Checks the durable tree directly when the materialized active-path projection is dirty. */
 export function isTranscriptEntryOnActivePathInTransaction(
-  database: OpenClawAgentDatabase,
+  database: Pick<OpenClawAgentDatabase, "db" | "path">,
   sessionId: string,
   entryId: string,
 ): boolean {
@@ -261,7 +251,7 @@ export function isTranscriptEntryOnActivePathInTransaction(
 }
 
 function transcriptEntryIsAncestor(
-  database: OpenClawAgentDatabase,
+  database: Pick<OpenClawAgentDatabase, "db" | "path">,
   sessionId: string,
   leafId: string,
   candidateId: string | null,
@@ -303,8 +293,78 @@ function transcriptEntryIsAncestor(
   return ancestor?.parent_id === candidateId;
 }
 
+/** Selects visible identity inside the append transaction, independently of the raw side cursor. */
+export function readTranscriptVisibleTailEntryIdInTransaction(
+  database: Pick<OpenClawAgentDatabase, "db" | "path">,
+  sessionId: string,
+  messageId: string,
+): string | null {
+  const db = getSessionKysely(database.db);
+  const resolveFromNavigation = () => {
+    const tree = scanSessionTranscriptTree(readTranscriptNavigationEvents(database, sessionId));
+    return selectSessionTranscriptTreePathNodes(tree, tree.leafId).at(-1)?.id ?? null;
+  };
+  if (!sessionTranscriptIndexNeedsReconcile(database.db, sessionId)) {
+    const tail = executeSqliteQueryTakeFirstSync(
+      database.db,
+      db
+        .selectFrom("session_transcript_active_events as active")
+        .innerJoin("transcript_events as event", (join) =>
+          join
+            .onRef("event.session_id", "=", "active.session_id")
+            .onRef("event.seq", "=", "active.event_seq"),
+        )
+        .select(
+          projectTranscriptNavigationSql(transcriptEventNavigationSql("event")).as("event_json"),
+        )
+        .where("active.session_id", "=", sessionId)
+        .orderBy("active.active_position", "desc")
+        .limit(1),
+    );
+    return tail
+      ? (resolveSessionTranscriptActiveLeafEntryId([JSON.parse(tail.event_json)]) ?? null)
+      : null;
+  }
+
+  const message = readTranscriptIdentityInTransaction(database, sessionId, messageId);
+  if (!message) {
+    return resolveFromNavigation();
+  }
+  let leafId: string | null = null;
+  let first = true;
+  let needsPrefix = false;
+  const navigation = iterateSqliteQuerySync(
+    database.db,
+    db
+      .selectFrom("transcript_events")
+      .select(projectTranscriptNavigationSql(transcriptEventNavigationSql()).as("event_json"))
+      .where("session_id", "=", sessionId)
+      .where("seq", ">=", message.seq)
+      .orderBy("seq", "asc"),
+  );
+  for (const row of navigation) {
+    const event: unknown = JSON.parse(row.event_json);
+    // Controls can reference an earlier branch or cross a reset. Their complete
+    // prefix belongs to the canonical tree resolver, not a second control policy.
+    if (isSessionTranscriptLeafControl(event)) {
+      needsPrefix = true;
+      break;
+    }
+    const selected = resolveSessionTranscriptActiveLeafEntryId([event]);
+    if (first && selected !== messageId) {
+      needsPrefix = true;
+      break;
+    }
+    first = false;
+    if (selected !== undefined) {
+      leafId = selected;
+    }
+  }
+  return needsPrefix || first ? resolveFromNavigation() : leafId;
+}
+
 function readActiveTranscriptAppendParentId(
-  database: OpenClawAgentDatabase,
+  database: Pick<OpenClawAgentDatabase, "db" | "path">,
   sessionId: string,
 ): string | null {
   const db = getSessionKysely(database.db);
@@ -387,7 +447,7 @@ function readActiveTranscriptAppendParentId(
 }
 
 function readTranscriptNavigationEvents(
-  database: OpenClawAgentDatabase,
+  database: Pick<OpenClawAgentDatabase, "db" | "path">,
   sessionId: string,
 ): unknown[] {
   const db = getSessionKysely(database.db);
@@ -405,7 +465,7 @@ function readTranscriptNavigationEvents(
 }
 
 function readTranscriptIdentityInTransaction(
-  database: OpenClawAgentDatabase,
+  database: Pick<OpenClawAgentDatabase, "db" | "path">,
   sessionId: string,
   eventId: string,
 ): { eventId: string; parentId: string | null; seq: number } | undefined {
@@ -423,7 +483,7 @@ function readTranscriptIdentityInTransaction(
 }
 
 function transcriptTreeReferenceExists(
-  database: OpenClawAgentDatabase,
+  database: Pick<OpenClawAgentDatabase, "db" | "path">,
   sessionId: string,
   eventId: string | null,
 ): boolean {

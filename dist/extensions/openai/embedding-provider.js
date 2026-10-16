@@ -1,5 +1,5 @@
-import { n as createRemoteEmbeddingProvider, r as resolveRemoteEmbeddingClient } from "../../memory-core-host-engine-embeddings-7e_FHMpT.mjs";
-import { r as OPENAI_DEFAULT_EMBEDDING_MODEL } from "../../default-models-DOFL1mMC.mjs";
+import { a as normalizeEmbeddingModelWithPrefixes, n as createRemoteEmbeddingProvider, r as resolveRemoteEmbeddingClient } from "../../memory-core-host-engine-embeddings-D5ue0oCU.mjs";
+import { r as OPENAI_DEFAULT_EMBEDDING_MODEL } from "../../default-models-CYEf1QuY.mjs";
 //#region extensions/openai/embedding-provider.ts
 const DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1";
 const OPENAI_MAX_INPUT_TOKENS = {
@@ -8,17 +8,14 @@ const OPENAI_MAX_INPUT_TOKENS = {
 	"text-embedding-ada-002": 8191
 };
 function normalizeOpenAiModel(model) {
-	const trimmed = model.trim();
-	if (!trimmed) return OPENAI_DEFAULT_EMBEDDING_MODEL;
-	return trimmed.startsWith("openai/") ? trimmed.slice(7) : trimmed;
+	return normalizeEmbeddingModelWithPrefixes({
+		model,
+		defaultModel: OPENAI_DEFAULT_EMBEDDING_MODEL,
+		prefixes: ["openai/"]
+	});
 }
-/** Whether the embedding base URL points to the native OpenAI API endpoint. */
 function isNativeOpenAiBaseUrl(baseUrl) {
-	try {
-		return new URL(baseUrl).hostname.toLowerCase().replace(/\.+$/, "") === "api.openai.com";
-	} catch {
-		return false;
-	}
+	return URL.parse(baseUrl)?.hostname.toLowerCase().replace(/\.+$/, "") === "api.openai.com";
 }
 async function createOpenAiEmbeddingProvider(options) {
 	const client = await resolveOpenAiEmbeddingClient(options);
@@ -44,6 +41,7 @@ async function resolveOpenAiEmbeddingClient(options) {
 	const originalModel = options.model;
 	const client = await resolveRemoteEmbeddingClient({
 		provider: options.provider ?? "openai",
+		capability: "embedding",
 		options,
 		defaultBaseUrl: DEFAULT_OPENAI_BASE_URL,
 		normalizeModel: normalizeOpenAiModel

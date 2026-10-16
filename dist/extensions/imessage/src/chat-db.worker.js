@@ -1,4 +1,4 @@
-import { o as normalizeIMessageHandle } from "../.setup/targets-Cc9vthzI.mjs";
+import { o as normalizeIMessageHandle } from "../.setup/targets-BicBiYsM.mjs";
 import { executeSqliteQuerySync, executeSqliteQueryTakeFirstSync, getNodeSqliteKysely, openNodeSqliteDatabase } from "openclaw/plugin-sdk/sqlite-worker-runtime";
 //#region extensions/imessage/src/chat-db.worker.ts
 function appleMessageDateLowerBoundMs(sentAfterMs) {
@@ -19,6 +19,11 @@ function openExistingSqliteWorkerBackend(_input, context) {
 				const row = executeSqliteQueryTakeFirstSync(db, query.selectFrom("message").select("guid").where("ROWID", "=", command.input.messageId));
 				return typeof row?.guid === "string" ? row.guid : null;
 			}
+			if (command.type === "messageChats") return executeSqliteQuerySync(db, query.selectFrom("message as m").innerJoin("chat_message_join as cmj", "cmj.message_id", "m.ROWID").innerJoin("chat as c", "c.ROWID", "cmj.chat_id").select([
+				"cmj.chat_id as chatId",
+				"c.guid as chatGuid",
+				"c.chat_identifier as chatIdentifier"
+			]).where("m.guid", "=", command.input.messageGuid)).rows;
 			const { target, text, sentAfterMs } = command.input;
 			let selection = query.selectFrom("message as m").leftJoin("chat_message_join as cmj", "cmj.message_id", "m.ROWID").leftJoin("chat as c", "c.ROWID", "cmj.chat_id").leftJoin("handle as h", "h.ROWID", "m.handle_id").select("m.guid").where("m.is_from_me", "=", 1);
 			if (text) selection = selection.where("m.text", "=", text);

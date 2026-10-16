@@ -1,14 +1,14 @@
-import { i as extractErrorCode } from "../../error-coercion-C787aVxk.mjs";
-import { t as createSubsystemLogger } from "../../subsystem-DleLyu58.mjs";
-import { r as getRuntimeConfig } from "../../io.runtime-CXaC-ufL.mjs";
-import { a as createDeferred } from "../../extension-shared-N0S3ppSB.mjs";
-import { i as resolveBrowserConfig, s as resolveProfile } from "../../config-fMVye_Fl.mjs";
-import "../../errors-DFAtVw4e.mjs";
-import "../../subsystem-BJRy008q.mjs";
-import "../../config-BJPagvX2.mjs";
-import { t as readBrowserHostConfig } from "../../extension-host-config-CDXJz0PV.mjs";
-import { n as readExtensionRelayToken } from "../../relay-auth-BRLj2vAF.mjs";
-import { r as startExtensionRelayServer } from "../../relay-server-DILHF4Z2.mjs";
+import { i as extractErrorCode } from "../../error-coercion-CvJK4lmH.mjs";
+import { t as createSubsystemLogger } from "../../subsystem-I-uqdx4f.mjs";
+import { r as getRuntimeConfig } from "../../io.runtime-CPntde4x.mjs";
+import "../../security-runtime-CpTHQYW2.mjs";
+import "../../runtime-config-snapshot-DgZgcXUX.mjs";
+import "../../logging-core-LMmGpAHM.mjs";
+import { a as createDeferred } from "../../extension-shared-GoQu59iC.mjs";
+import { i as resolveBrowserConfig, s as resolveProfile } from "../../config-DQZ6ubGi.mjs";
+import { t as readBrowserHostConfig } from "../../extension-host-config-CRJsBkxu.mjs";
+import { n as readExtensionRelayToken } from "../../relay-auth-hAstP_cu.mjs";
+import { r as startExtensionRelayServer } from "../../relay-server-H4jkf0OF.mjs";
 //#region extensions/browser/src/browser/relay-daemon.ts
 const log = createSubsystemLogger("browser").child("relay-daemon");
 /** Default grace before a daemon with no extension and no CDP clients exits. */

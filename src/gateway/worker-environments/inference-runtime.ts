@@ -10,12 +10,13 @@ import { resolveAgentDir, resolveAgentWorkspaceDir } from "../../agents/agent-sc
 import { resolveSessionAuthSelection } from "../../agents/auth-profiles/session-override.js";
 import { applyExtraParamsToAgent } from "../../agents/embedded-agent-runner/extra-params.js";
 import { wrapStreamFnWithDiagnosticModelCallEvents } from "../../agents/embedded-agent-runner/run/attempt.model-diagnostic-events.js";
+import { resolveSessionBoundaryPromptCacheKey } from "../../agents/embedded-agent-runner/run/session-boundary-prompt-cache-key.js";
 import { resolveEmbeddedAgentStream } from "../../agents/embedded-agent-runner/stream-resolution.js";
 import { mapThinkingLevel } from "../../agents/embedded-agent-runner/utils.js";
+import { resolveFastModeForElapsed, resolveFastModeState } from "../../agents/fast-mode.js";
 import { resolveAgentHarnessPolicy } from "../../agents/harness/policy.js";
 import { splitTrailingAuthProfile } from "../../agents/model-ref-profile.js";
 import {
-  buildModelAliasIndex,
   normalizeProviderId,
   resolveDefaultModelForAgent,
   resolveModelRefFromString,
@@ -31,9 +32,12 @@ import {
 } from "../../agents/prepared-model-runtime.js";
 import { projectProviderModelRouteConfig } from "../../agents/provider-model-route.js";
 import { registerProviderStreamForModel } from "../../agents/provider-stream.js";
+import type { BoundAgentRunSessionTarget } from "../../agents/run-session-target.types.js";
 import { prepareSimpleCompletionModel } from "../../agents/simple-completion-runtime.js";
-import { normalizeUsage, hasObservedModelUsage } from "../../agents/usage.js";
+import { normalizeUsage, hasObservedModelUsage, toDiagnosticUsage } from "../../agents/usage.js";
 import { getRuntimeConfig } from "../../config/config.js";
+import { loadSessionEntry } from "../../config/sessions/session-accessor.js";
+import type { SessionEntry } from "../../config/sessions/types.js";
 import type { OpenClawConfig } from "../../config/types.openclaw.js";
 import { emitAgentEventForRunContext } from "../../infra/agent-events.js";
 import { getAgentRunContext } from "../../infra/agent-run-registry.js";
@@ -45,12 +49,12 @@ import {
   type DiagnosticTraceContext,
 } from "../../infra/diagnostic-trace-context.js";
 import { getModelLlmRuntime } from "../../llm/model-runtime-binding.js";
+import { createOpenAIServiceTierObservationWrapper } from "../../llm/providers/stream-wrappers/openai-service-tier-observation.js";
 import type {
   AssistantMessage,
   AssistantMessageEvent,
   Context,
   Model,
-  SimpleStreamOptions,
   Tool,
   Usage,
 } from "../../llm/types.js";
@@ -65,16 +69,17 @@ import {
   type WorkerInferenceModelIdentity,
 } from "./inference-terminal-message.js";
 import { createWorkerToolCallStream } from "./inference-tool-call-stream.js";
-import { resolveWorkerSessionTarget, type ResolvedWorkerSessionTarget } from "./session-target.js";
+import { readWorkerTurnPromptCacheContext } from "./placement-turn-claim-events.js";
 import { boundedWorkerError, formatWorkerInferenceError } from "./worker-error.js";
 
 type WorkerInferenceStreamEvent = WorkerInferenceEventParams["event"];
+type WorkerInferenceSessionTarget = BoundAgentRunSessionTarget & { sessionEntry: SessionEntry };
 export type WorkerInferenceExecutor = import("./inference.js").WorkerInferenceExecutor;
 export type WorkerInferenceExecutionParams = Parameters<WorkerInferenceExecutor>[0];
 
 type WorkerInferenceUsageParams = {
   config: OpenClawConfig;
-  target: ResolvedWorkerSessionTarget;
+  target: WorkerInferenceSessionTarget;
   request: WorkerInferenceStartParams;
   model: Model;
   usage: Usage;
@@ -82,63 +87,23 @@ type WorkerInferenceUsageParams = {
   trace: DiagnosticTraceContext;
 };
 
-function copyTool(tool: NonNullable<WorkerInferenceContext["tools"]>[number]): Tool | undefined {
-  if (!isRecord(tool.parameters) || tool.parameters.type !== "object") {
-    return undefined;
-  }
-  return {
-    name: tool.name,
-    description: tool.description,
-    parameters: structuredClone(tool.parameters) as TSchema,
-  };
-}
-
 function buildContext(context: WorkerInferenceContext): Context | undefined {
   const tools: Tool[] = [];
   for (const tool of context.tools ?? []) {
-    const copied = copyTool(tool);
-    if (!copied) {
+    if (!isRecord(tool.parameters) || tool.parameters.type !== "object") {
       return undefined;
     }
-    tools.push(copied);
+    tools.push({
+      name: tool.name,
+      description: tool.description,
+      parameters: structuredClone(tool.parameters) as TSchema,
+    });
   }
   return {
     ...(context.systemPrompt !== undefined ? { systemPrompt: context.systemPrompt } : {}),
     // Clone so provider mutation cannot touch the request.
     messages: structuredClone(context.messages) as Context["messages"],
     ...(tools.length > 0 ? { tools } : {}),
-  };
-}
-
-function optionBudgetsFitModel(
-  options: WorkerInferenceStartParams["options"],
-  model: Model,
-): boolean {
-  if (options.maxTokens !== undefined && options.maxTokens > model.maxTokens) {
-    return false;
-  }
-  for (const budget of Object.values(options.thinkingBudgets ?? {})) {
-    if (budget !== undefined && budget > model.maxTokens) {
-      return false;
-    }
-  }
-  return true;
-}
-
-function buildStreamOptions(params: {
-  request: WorkerInferenceStartParams;
-  signal: AbortSignal;
-  apiKey?: string;
-}): SimpleStreamOptions {
-  const options = params.request.options;
-  return {
-    ...(options.temperature !== undefined ? { temperature: options.temperature } : {}),
-    ...(options.maxTokens !== undefined ? { maxTokens: options.maxTokens } : {}),
-    ...(options.reasoning !== undefined ? { reasoning: mapThinkingLevel(options.reasoning) } : {}),
-    ...(options.thinkingBudgets ? { thinkingBudgets: { ...options.thinkingBudgets } } : {}),
-    signal: params.signal,
-    sessionId: params.request.sessionId,
-    ...(params.apiKey ? { apiKey: params.apiKey } : {}),
   };
 }
 
@@ -158,14 +123,17 @@ function toWorkerStreamEvent(
         timestamp: event.partial.timestamp,
       };
     case "text_start":
-    case "text_end": {
+    case "text_end":
+    case "thinking_end": {
       const content = event.partial.content[event.contentIndex];
+      const signature =
+        event.type === "thinking_end"
+          ? content?.type === "thinking" && content.thinkingSignature
+          : content?.type === "text" && content.textSignature;
       return {
         type: event.type,
         contentIndex: event.contentIndex,
-        ...(content?.type === "text" && content.textSignature
-          ? { contentSignature: content.textSignature }
-          : {}),
+        ...(signature ? { contentSignature: signature } : {}),
       };
     }
     case "thinking_start":
@@ -173,16 +141,6 @@ function toWorkerStreamEvent(
     case "text_delta":
     case "thinking_delta":
       return { type: event.type, contentIndex: event.contentIndex, delta: event.delta };
-    case "thinking_end": {
-      const content = event.partial.content[event.contentIndex];
-      return {
-        type: "thinking_end",
-        contentIndex: event.contentIndex,
-        ...(content?.type === "thinking" && content.thinkingSignature
-          ? { contentSignature: content.thinkingSignature }
-          : {}),
-      };
-    }
     case "toolcall_start":
     case "toolcall_delta":
     case "toolcall_end":
@@ -201,12 +159,6 @@ function emitWorkerInferenceUsage(params: WorkerInferenceUsageParams): void {
   if (!hasObservedModelUsage(usage)) {
     return;
   }
-  const input = usage.input ?? 0;
-  const output = usage.output ?? 0;
-  const cacheRead = usage.cacheRead ?? 0;
-  const cacheWrite = usage.cacheWrite ?? 0;
-  const promptTokens = input + cacheRead + cacheWrite;
-  const total = usage.total ?? promptTokens + output;
   const costUsd =
     usage.cost?.total ??
     estimateUsageCost({
@@ -226,14 +178,7 @@ function emitWorkerInferenceUsage(params: WorkerInferenceUsageParams): void {
     agentId: params.target.agentId,
     provider: params.model.provider,
     model: params.model.id,
-    usage: {
-      input,
-      output,
-      cacheRead,
-      cacheWrite,
-      promptTokens,
-      total,
-    },
+    usage: toDiagnosticUsage(usage),
     context: {
       limit: params.model.contextTokens ?? params.model.contextWindow,
       ...(usage.contextUsage?.state === "available"
@@ -246,49 +191,36 @@ function emitWorkerInferenceUsage(params: WorkerInferenceUsageParams): void {
 }
 
 async function resolveApprovedModel(params: {
-  target: ResolvedWorkerSessionTarget;
+  target: WorkerInferenceSessionTarget;
   request: WorkerInferenceStartParams;
   signal: AbortSignal;
   runtimeSnapshot: PreparedModelRuntimeSnapshot;
-}): Promise<
-  | {
-      provider: string;
-      model: string;
-      config: OpenClawConfig;
-      agentDir: string;
-      workspaceDir: string;
-      prepared: Awaited<ReturnType<typeof prepareSimpleCompletionModel>>;
-    }
-  | undefined
-> {
+  assertCurrent: () => void;
+}) {
   const { target, request, signal, runtimeSnapshot } = params;
   return await withPluginRuntimeGenerationScope(runtimeSnapshot, async () => {
     const lifecycleConfig = runtimeSnapshot.config;
     const agentDir = runtimeSnapshot.agentDir;
     const workspaceDir =
       runtimeSnapshot.workspaceDir ?? resolveAgentWorkspaceDir(lifecycleConfig, target.agentId);
-    const manifestSnapshot = runtimeSnapshot.metadataSnapshot;
-    const defaultModel = resolveDefaultModelForAgent({
+    const selection = {
       cfg: lifecycleConfig,
       agentId: target.agentId,
-      manifestPlugins: manifestSnapshot,
+      manifestPlugins: runtimeSnapshot.metadataSnapshot,
       ...RUNTIME_MODEL_VISIBILITY_NORMALIZATION,
-    });
-    const aliasIndex = buildModelAliasIndex({
-      cfg: lifecycleConfig,
-      agentId: target.agentId,
+    };
+    const defaultModel = resolveDefaultModelForAgent(selection);
+    const policy = createModelVisibilityPolicy({
+      ...selection,
+      catalog: runtimeSnapshot.modelCatalog.entries,
       defaultProvider: defaultModel.provider,
-      manifestPlugins: manifestSnapshot,
-      ...RUNTIME_MODEL_VISIBILITY_NORMALIZATION,
+      defaultModel,
     });
     const resolved = resolveModelRefFromString({
-      cfg: lifecycleConfig,
-      agentId: target.agentId,
+      ...selection,
       raw: `${request.modelRef.provider}/${request.modelRef.model}`,
       defaultProvider: defaultModel.provider,
-      aliasIndex,
-      manifestPlugins: manifestSnapshot,
-      ...RUNTIME_MODEL_VISIBILITY_NORMALIZATION,
+      aliasIndex: policy.selectionAliasIndex,
     });
     if (
       !resolved ||
@@ -296,15 +228,6 @@ async function resolveApprovedModel(params: {
     ) {
       return undefined;
     }
-    const policy = createModelVisibilityPolicy({
-      cfg: lifecycleConfig,
-      catalog: runtimeSnapshot.modelCatalog.entries,
-      defaultProvider: defaultModel.provider,
-      defaultModel,
-      agentId: target.agentId,
-      manifestPlugins: manifestSnapshot,
-      ...RUNTIME_MODEL_VISIBILITY_NORMALIZATION,
-    });
     const resolvedKey = resolveModelCatalogIdentityKey({
       provider: resolved.ref.provider,
       id: resolved.ref.model,
@@ -337,9 +260,10 @@ async function resolveApprovedModel(params: {
       harnessRuntime: harnessPolicy.runtime,
       agentDir,
       sessionEntry: target.sessionEntry,
-      sessionStore: target.sessionStore,
+      sessionStore: { [target.sessionKey]: target.sessionEntry },
       sessionKey: target.sessionKey,
       storePath: target.storePath,
+      assertCommitAllowed: params.assertCurrent,
       isNewSession: false,
     });
     const selectedProfileId = sessionSelection?.profileId;
@@ -370,14 +294,15 @@ async function resolveApprovedModel(params: {
     // automatic profile so generic auth fallback cannot cross to another route.
     const prepared = await prepareSimpleCompletionModel({
       cfg: modelConfig,
+      transport: "provider-stream",
       agentId: target.agentId,
       provider: resolved.ref.provider,
       modelId: resolved.ref.model,
       agentDir,
       modelIdSource: "selected",
-      ...(selectedProfileId ? { profileId: selectedProfileId } : {}),
-      ...(selectedProfileId ? { preferredProfile: selectedProfileId } : {}),
-      ...(selectedProfileId ? { bindAuthOwner: true } : {}),
+      ...(selectedProfileId
+        ? { profileId: selectedProfileId, preferredProfile: selectedProfileId, bindAuthOwner: true }
+        : {}),
       allowMissingApiKeyModes: ["aws-sdk"],
       allowBundledStaticCatalogFallback: true,
       signal,
@@ -407,11 +332,16 @@ export const executeWorkerInference: WorkerInferenceExecutor = async (params) =>
   if (signal.aborted || !params.isCurrent()) {
     return inferenceError("cancelled");
   }
-  const config = params.config ?? getRuntimeConfig();
-  const target = resolveWorkerSessionTarget(config, request.sessionId);
-  if (!target) {
+  const promptCacheContext = readWorkerTurnPromptCacheContext(identity);
+  if (!promptCacheContext) {
     return inferenceError("session-not-attached");
   }
+  const config = params.config ?? getRuntimeConfig();
+  const sessionEntry = loadSessionEntry(params.sessionTarget);
+  if (sessionEntry?.sessionId !== request.sessionId) {
+    return inferenceError("session-not-attached");
+  }
+  const target = { ...params.sessionTarget, sessionEntry };
   const runContext = getAgentRunContext(request.runId);
   const context = buildContext(request.context);
   if (!context) {
@@ -430,6 +360,12 @@ export const executeWorkerInference: WorkerInferenceExecutor = async (params) =>
     request,
     signal,
     runtimeSnapshot: runtimeLease.snapshot,
+    assertCurrent: () => {
+      signal.throwIfAborted();
+      if (!params.isCurrent()) {
+        throw new Error("Worker inference source is no longer current");
+      }
+    },
   });
   if (!approved) {
     return inferenceError("model-not-approved");
@@ -488,21 +424,65 @@ export const executeWorkerInference: WorkerInferenceExecutor = async (params) =>
         ? { thinkingBudgets: { ...request.options.thinkingBudgets } }
         : {}),
     };
+    const fastMode = resolveFastModeState({
+      cfg: approved.config,
+      provider: approved.provider,
+      model: approved.model,
+      agentId: target.agentId,
+      sessionEntry: target.sessionEntry,
+    });
+    const fastModeSetting = promptCacheContext.fastMode ?? fastMode.mode;
+    const fastModeStartedAtMs =
+      promptCacheContext.fastModeStartedAtMs ??
+      runContext?.lifecycleStartedAt ??
+      runContext?.registeredAt ??
+      Date.now();
     applyExtraParamsToAgent(
       streamAgent,
       approved.config,
       approved.provider,
       approved.model,
-      streamPolicyOptions,
+      {
+        ...structuredClone(streamPolicyOptions),
+        fastMode:
+          fastModeSetting === "auto"
+            ? () =>
+                resolveFastModeForElapsed({
+                  mode: "auto",
+                  startedAtMs: fastModeStartedAtMs,
+                  fastAutoOnSeconds:
+                    promptCacheContext.fastModeAutoOnSeconds ?? fastMode.fastAutoOnSeconds,
+                }).enabled
+            : fastModeSetting,
+      },
       streamPolicyOptions.reasoning,
       target.agentId,
       approved.workspaceDir,
       providerModel,
       approved.agentDir,
     );
-    const scopedStream = streamAgent.streamFn;
+    const recordServiceTierObservation = prepared.recordServiceTierObservation;
+    const scopedStream = recordServiceTierObservation
+      ? createOpenAIServiceTierObservationWrapper(
+          streamAgent.streamFn,
+          (model) =>
+            !signal.aborted &&
+            params.isCurrent() &&
+            recordServiceTierObservation({
+              modelId: model.id,
+              runtimeId: "openclaw",
+              api: model.api,
+              baseUrl: model.baseUrl,
+              serviceTiers: ["priority"],
+            }),
+        )
+      : streamAgent.streamFn;
     const model = providerModel;
-    if (!optionBudgetsFitModel(request.options, model)) {
+    if (
+      [request.options.maxTokens, ...Object.values(request.options.thinkingBudgets ?? {})].some(
+        (budget) => budget !== undefined && budget > model.maxTokens,
+      )
+    ) {
       return inferenceError("invalid-context");
     }
     if (signal.aborted || !params.isCurrent()) {
@@ -525,12 +505,7 @@ export const executeWorkerInference: WorkerInferenceExecutor = async (params) =>
       contentCapture: resolveDiagnosticModelContentCapturePolicy(approved.config),
       nextCallId: () => `${request.runId}:${request.turnId}:worker-model:${(modelCallSeq += 1)}`,
     });
-    let usageRecorded = false;
     const recordUsage = (usage: Usage) => {
-      if (usageRecorded) {
-        return;
-      }
-      usageRecorded = true;
       emitWorkerInferenceUsage({
         config: approved.config,
         target,
@@ -551,16 +526,20 @@ export const executeWorkerInference: WorkerInferenceExecutor = async (params) =>
     const providerSignal = AbortSignal.any([signal, providerAbort.signal]);
     let currentMessage: AssistantMessage | undefined;
     let publishedModel: string | undefined;
+    const { reasoning, ...streamOptions } = streamPolicyOptions;
     try {
-      const events = await stream(
-        model,
-        context,
-        buildStreamOptions({
-          request,
-          signal: providerSignal,
-          apiKey: authValue,
+      const events = await stream(model, context, {
+        ...streamOptions,
+        ...(reasoning !== undefined ? { reasoning: mapThinkingLevel(reasoning) } : {}),
+        signal: providerSignal,
+        sessionId: request.sessionId,
+        ...(authValue ? { apiKey: authValue } : {}),
+        promptCacheKey: resolveSessionBoundaryPromptCacheKey({
+          ...promptCacheContext,
+          api: model.api,
+          sessionId: request.sessionId,
         }),
-      );
+      });
       for await (const event of events) {
         if (event.type !== "error") {
           // Lean text deltas retain the provider's latest mutable checkpoint.

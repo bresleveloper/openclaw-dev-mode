@@ -1,18 +1,16 @@
-import { u as toErrorObject } from "../../error-coercion-C787aVxk.mjs";
-import { c as isRecord } from "../../record-coerce-DItp3I4t.mjs";
-import "../../error-runtime-Bf1fYXFh.mjs";
-import "../../string-coerce-runtime-C_MKhRVt.mjs";
-import { t as hasClaudeRawToolInvocation } from "../../cli-output-B4MqhBDE.mjs";
+import { u as toErrorObject } from "../../error-coercion-CvJK4lmH.mjs";
+import { c as isRecord } from "../../record-coerce-TIsquoVR.mjs";
+import "../../error-runtime-BmospGvZ.mjs";
+import "../../string-coerce-runtime-50qKeWeL.mjs";
+import { t as hasClaudeRawToolInvocation } from "../../cli-output-CGHp3Q7v.mjs";
 import { t as prepareClaudeCliTransportArgs } from "../../cli-runtime-args-UumcGmHy.mjs";
-import { t as createClaudeCliTransport } from "../../cli-transport-DOuvE_r9.mjs";
-import { t as createClaudeCliUserInputAuthorizer } from "../../cli-user-input-B7giNhbQ.mjs";
-import { PassThrough } from "node:stream";
+import { t as createClaudeCliTransport } from "../../cli-transport-CEP0VCj-.mjs";
+import { t as createClaudeCliUserInputAuthorizer } from "../../cli-user-input-JuwgTecH.mjs";
 import { randomUUID } from "node:crypto";
 import { once } from "node:events";
+import { PassThrough } from "node:stream";
 //#region extensions/anthropic/cli.runtime.ts
 const IDLE_TIMEOUT_MS = 6e5;
-const RESULT_HOLDING_TASK_TYPES = /* @__PURE__ */ new Set(["local_agent", "local_workflow"]);
-const TIMEOUT_BACKGROUNDED_TASK_TYPE = "local_bash";
 function readReplayedTaskId(message, inputUuid) {
 	if (message.type !== "user" || message.isReplay !== true || message.parent_tool_use_id !== null || message.uuid === inputUuid || !isRecord(message.message)) return;
 	if (message.origin !== void 0 && (!isRecord(message.origin) || message.origin.kind !== "task-notification" || message.origin.subkind !== void 0)) return;
@@ -20,10 +18,6 @@ function readReplayedTaskId(message, inputUuid) {
 	const first = Array.isArray(content) ? content[0] : void 0;
 	const text = typeof content === "string" ? content : isRecord(first) && first.type === "text" && typeof first.text === "string" ? first.text : "";
 	return /^<task-notification>\s*<task-id>([^<]+)<\/task-id>/u.exec(text)?.[1];
-}
-/** Background work whose final answer Claude Code delivers in a later result. */
-function hasResultHoldingBackgroundTasks(session, turn) {
-	return session.hasBackgroundTasks || turn.pendingBackgroundTaskIds.size > 0;
 }
 const sessions = /* @__PURE__ */ new WeakMap();
 function activeTurn(session) {
@@ -39,8 +33,7 @@ function activeTurn(session) {
 }
 async function authorizeTool(session, request, signal) {
 	const turn = activeTurn(session);
-	const input = request.input;
-	const toolName = request.tool_name;
+	const { input, tool_name: toolName } = request;
 	if (!turn || signal.aborted || typeof toolName !== "string" || !isRecord(input)) return {
 		behavior: "deny",
 		message: "The OpenClaw run or native tool input is no longer valid."
@@ -63,6 +56,7 @@ async function authorizeTool(session, request, signal) {
 			behavior: "deny",
 			message: "The OpenClaw run is no longer active."
 		};
+		if (decision.behavior === "allow" && toolName === "Bash" && toolUseId && decision.updatedInput.run_in_background !== true) turn.foregroundBashToolUseIds.add(toolUseId);
 		return decision;
 	} catch {
 		return {
@@ -118,7 +112,7 @@ function closeSession(session, _reason, error) {
 	session.transport?.close();
 }
 function completeTurn(session, turn) {
-	const holdsBackgroundTasks = hasResultHoldingBackgroundTasks(session, turn);
+	const holdsBackgroundTasks = turn.pendingBackgroundTaskIds.size > 0;
 	session.currentTurn = void 0;
 	turn.controller.abort();
 	turn.events.end();
@@ -138,25 +132,40 @@ async function acceptMessage(session, message) {
 	}
 	if (session.hasInputLifecycle && !turn.inputStarted && !(message.type === "system" && message.subtype === "init")) return;
 	if (message.type === "system" && message.subtype === "task_started") {
-		if (typeof message.task_id === "string" && message.task_id && message.is_backgrounded === false) turn.foregroundTaskIds.add(message.task_id);
-	}
-	if (message.type === "system" && message.subtype === "background_tasks_changed") {
-		session.hasBackgroundTasks = false;
-		for (const task of Array.isArray(message.tasks) ? message.tasks : []) {
-			if (!isRecord(task) || typeof task.task_id !== "string" || !task.task_id) continue;
-			if (typeof task.task_type === "string" && RESULT_HOLDING_TASK_TYPES.has(task.task_type)) session.hasBackgroundTasks = true;
-			else if (task.task_type === TIMEOUT_BACKGROUNDED_TASK_TYPE && turn.foregroundTaskIds.has(task.task_id)) turn.pendingBackgroundTaskIds.add(task.task_id);
+		if (message.owned_by_subagent === true) {
+			if (typeof message.task_id === "string" && message.task_id) turn.subagentTaskIds.add(message.task_id);
+		} else if (typeof message.task_id === "string" && message.task_id) {
+			if (message.is_backgrounded === false) turn.foregroundTaskIds.add(message.task_id);
+			if (typeof message.tool_use_id === "string" && turn.foregroundBashToolUseIds.delete(message.tool_use_id) && message.is_backgrounded === true) turn.pendingBackgroundTaskIds.add(message.task_id);
 		}
 	}
-	if (turn.pendingBackgroundTaskIds.size > 0) {
-		const taskId = readReplayedTaskId(message, turn.inputUuid);
-		if (taskId && turn.pendingBackgroundTaskIds.delete(taskId)) turn.foregroundTaskIds.delete(taskId);
+	if (message.type === "system" && message.subtype === "background_tasks_changed") for (const task of Array.isArray(message.tasks) ? message.tasks : []) {
+		if (!isRecord(task) || typeof task.task_id !== "string" || !task.task_id) continue;
+		if (task.task_type === "local_agent" || task.task_type === "local_workflow" || task.task_type === "local_bash" && turn.foregroundTaskIds.has(task.task_id)) turn.pendingBackgroundTaskIds.add(task.task_id);
 	}
+	const replayedTaskId = readReplayedTaskId(message, turn.inputUuid);
+	if (replayedTaskId) {
+		turn.pendingBackgroundTaskIds.delete(replayedTaskId);
+		turn.foregroundTaskIds.delete(replayedTaskId);
+		turn.taskNotifications.set(replayedTaskId, "replayed");
+	}
+	if (message.type === "system" && message.subtype === "task_notification" && typeof message.task_id === "string" && message.task_id && !turn.subagentTaskIds.delete(message.task_id)) turn.taskNotifications.set(message.task_id, "queued");
 	let completesTurn = false;
 	if (message.type === "result") {
-		const queuedContinuation = turn.sawTerminalResult && isRecord(message.origin) && message.origin.kind === "task-notification" && message.origin.subkind === void 0 && message.num_turns === 0 && message.result === "" && message.stop_reason === null && message.terminal_reason === void 0;
+		const failed = message.is_error === true || typeof message.subtype === "string" && message.subtype.startsWith("error") || typeof message.result === "string" && hasClaudeRawToolInvocation(message.result);
+		const taskNotification = isRecord(message.origin) && message.origin.kind === "task-notification" && message.origin.subkind === void 0;
+		if (taskNotification && message.subtype === "success" && !failed) {
+			const taskId = turn.taskNotifications.keys().next().value;
+			if (taskId) {
+				turn.taskNotifications.delete(taskId);
+				turn.pendingBackgroundTaskIds.delete(taskId);
+				turn.foregroundTaskIds.delete(taskId);
+			}
+		}
+		for (const [taskId, state] of turn.taskNotifications) if (state === "replayed") turn.taskNotifications.delete(taskId);
+		const queuedContinuation = turn.sawTerminalResult && taskNotification && message.num_turns === 0 && message.result === "" && message.stop_reason === null && message.terminal_reason === void 0;
 		turn.sawTerminalResult = true;
-		completesTurn = !hasResultHoldingBackgroundTasks(session, turn) && !queuedContinuation || message.is_error === true || typeof message.subtype === "string" && message.subtype.startsWith("error") || typeof message.result === "string" && hasClaudeRawToolInvocation(message.result);
+		completesTurn = turn.pendingBackgroundTaskIds.size === 0 && !queuedContinuation || failed;
 	}
 	const outputMessage = message.type === "result" && !completesTurn ? {
 		...message,
@@ -168,7 +177,6 @@ async function acceptMessage(session, message) {
 function createSession(capability) {
 	const session = {
 		capability,
-		hasBackgroundTasks: false,
 		hasInputLifecycle: false,
 		closed: false,
 		handle: {
@@ -204,7 +212,10 @@ async function* executeClaudeCli(context, secretInput) {
 		inputStarted: false,
 		sawTerminalResult: false,
 		foregroundTaskIds: /* @__PURE__ */ new Set(),
-		pendingBackgroundTaskIds: /* @__PURE__ */ new Set()
+		foregroundBashToolUseIds: /* @__PURE__ */ new Set(),
+		pendingBackgroundTaskIds: /* @__PURE__ */ new Set(),
+		subagentTaskIds: /* @__PURE__ */ new Set(),
+		taskNotifications: /* @__PURE__ */ new Map()
 	};
 	session.currentTurn = turn;
 	const abort = () => session.handle.close("abort", context.abortSignal?.reason);
@@ -221,6 +232,7 @@ async function* executeClaudeCli(context, secretInput) {
 				currentContext: () => session.currentTurn?.context,
 				initialize: {
 					appendSystemPrompt: context.systemPrompt,
+					systemPromptSnapshot: false,
 					excludeDynamicSections,
 					hooks: {
 						UserPromptSubmit: [{ hookCallbackIds: ["UserPromptSubmit"] }],

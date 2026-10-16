@@ -1,5 +1,5 @@
-import { r as OpenClawConfig } from "../types.openclaw-Ccmw-oTa.js";
-import "../config-Dt1SOlIN.js";
+import { r as OpenClawConfig } from "../types.openclaw-DWWUw8hA.js";
+import "../config-Dpca5-xX.js";
 //#region src/plugin-sdk/secret-ref-readonly.internal.d.ts
 /** Checks env provider selection and allowlists without resolving a credential. */
 export declare function canResolveEnvSecretRefInReadOnlyPath(params: {

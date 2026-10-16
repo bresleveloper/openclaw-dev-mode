@@ -1,11 +1,10 @@
-// Plugin synchronization and convergence after the core update.
+import { uniqueStrings } from "@openclaw/normalization-core/string-normalization";
 import { stripAnsi } from "../../../packages/terminal-core/src/ansi.js";
 import { theme } from "../../../packages/terminal-core/src/theme.js";
 import {
   prepareDoctorConfigReferenceSource,
   restoreDoctorConfigEnvRefs,
 } from "../../commands/doctor/shared/config-flow-steps.js";
-import { VERSION_BOUND_RUNTIME_PLUGIN_IDS } from "../../commands/doctor/shared/configured-runtime-plugin-installs.js";
 import { assertInstalledPluginIdRecoveryCurrent } from "../../commands/doctor/shared/installed-plugin-id-recovery.js";
 import { runPostCorePluginConvergence } from "../../commands/doctor/shared/post-core-plugin-convergence.js";
 import { resolvePostCoreConvergenceEnv } from "../../commands/doctor/shared/update-phase.js";
@@ -30,6 +29,7 @@ import {
 } from "../../plugins/installed-plugin-index-records.js";
 import { listPersistedBundledPluginLocationBridges } from "../../plugins/location-bridges.js";
 import { isTrustedOfficialPluginInstallRecord } from "../../plugins/official-external-install-records.js";
+import { VERSION_BOUND_RUNTIME_PLUGIN_IDS } from "../../plugins/official-runtime-plugins.js";
 import type { MissingPluginInstallPayload } from "../../plugins/payload-verification.js";
 import {
   withPluginLifecycleLease,
@@ -62,10 +62,6 @@ import {
 
 export type { PostCorePluginUpdateResult } from "./update-command-plugins-internals.js";
 
-function formatPluginUpdateWarning(message: string): string {
-  return message.includes("╭─") ? message : theme.warn(message);
-}
-
 function formatMissingPluginPayloadReason(entry: MissingPluginInstallPayload): string {
   if (entry.reason === "missing-install-path") {
     return "installPath is missing";
@@ -74,20 +70,6 @@ function formatMissingPluginPayloadReason(entry: MissingPluginInstallPayload): s
     return `package.json is missing under ${entry.installPath}`;
   }
   return `package directory is missing: ${entry.installPath}`;
-}
-
-function collectPluginChannelFallbackMessages(outcomes: readonly PluginUpdateOutcome[]): string[] {
-  const seen = new Set<string>();
-  const messages: string[] = [];
-  for (const outcome of outcomes) {
-    const message = outcome.channelFallback?.message;
-    if (!message || seen.has(message)) {
-      continue;
-    }
-    seen.add(message);
-    messages.push(message);
-  }
-  return messages;
 }
 
 function isDisabledAfterFailureOutcome(outcome: PluginUpdateOutcome): boolean {
@@ -136,19 +118,29 @@ async function updatePluginsAfterCoreUpdateWithLease(
   const runtime = params.runtime ?? defaultRuntime;
   const requirements = { ...params.pluginRequirements };
   if (!params.configSnapshot.valid) {
-    const invalid = buildInvalidConfigPostCoreUpdateResult();
+    const invalid = buildInvalidConfigPostCoreUpdateResult(params.configSnapshot);
     if (!params.json) {
       runtime.log(theme.error(invalid.message));
       for (const line of invalid.guidance) {
         runtime.log(theme.muted(`  ${line}`));
       }
     }
-    return { ...invalid.result, assessment: { kind: "core-critical", reason: "invalid-config" } };
+    return {
+      ...invalid.result,
+      assessment: { kind: "core-critical", reason: invalid.result.reason },
+    };
   }
 
   const referenceSource = prepareDoctorConfigReferenceSource(params.configSnapshot);
   const clawHubTrustNotices = new Set<string>();
   const loggedPluginWarnings = new Set<string>();
+  const logPluginWarning = (message: string) => {
+    const plain = stripAnsi(message);
+    if (!params.json && !loggedPluginWarnings.has(plain)) {
+      runtime.log(message.includes("╭─") ? message : theme.warn(message));
+      loggedPluginWarnings.add(plain);
+    }
+  };
   const pluginLogger = {
     ...(params.json ? { terminalLinks: false } : {}),
     info: (msg: string) => {
@@ -164,14 +156,8 @@ async function updatePluginsAfterCoreUpdateWithLease(
       ) {
         clawHubTrustNotices.add(plain);
       }
-      if (
-        !params.json &&
-        plain.includes("ClawHub") &&
-        plain.includes("╭─") &&
-        !loggedPluginWarnings.has(plain)
-      ) {
-        runtime.log(formatPluginUpdateWarning(msg));
-        loggedPluginWarnings.add(plain);
+      if (plain.includes("ClawHub") && plain.includes("╭─")) {
+        logPluginWarning(msg);
       }
     },
   };
@@ -237,7 +223,6 @@ async function updatePluginsAfterCoreUpdateWithLease(
       status: "error",
       message: warning.message,
     });
-    return warning;
   };
 
   const onPluginIntegrityDrift = async (drift: PluginUpdateIntegrityDriftParams) => {
@@ -298,10 +283,10 @@ async function updatePluginsAfterCoreUpdateWithLease(
   // sync/npm records so repair cannot overwrite them with an older disk snapshot.
   const convergenceBaselineRecords = pluginConfig.plugins?.installs ?? {};
   // Keep the observed records stable if convergence replaces them.
-  const probedNpmRecords = new Map(
+  const probedRecords = new Map(
     cohort.updateOutcomes.map(({ pluginId }) => {
       const record = convergenceBaselineRecords[pluginId];
-      return [pluginId, record?.source === "npm" ? { ...record } : undefined];
+      return [pluginId, record ? { ...record } : undefined];
     }),
   );
   const convergenceEnv = resolvePostCoreConvergenceEnv(process.env, coreVersion ?? undefined);
@@ -356,9 +341,7 @@ async function updatePluginsAfterCoreUpdateWithLease(
         : [],
     ),
   ];
-  for (const warning of [...convergenceWarnings, ...(convergence.notices ?? [])]) {
-    warnings.push(warning);
-  }
+  warnings.push(...convergenceWarnings, ...(convergence.notices ?? []));
   for (const outcome of convergenceOutcomes) {
     pluginUpdateOutcomes.push(outcome);
     if (outcome.status === "error" || isActionableSkippedPostUpdateOutcome(outcome)) {
@@ -377,12 +360,13 @@ async function updatePluginsAfterCoreUpdateWithLease(
   // Report retention only while the probed install survives convergence.
   for (const outcome of cohort.updateOutcomes) {
     const record = convergence.installRecords[outcome.pluginId];
-    const probed = probedNpmRecords.get(outcome.pluginId);
+    const probed = probedRecords.get(outcome.pluginId);
     if (
       outcome.status !== "unchanged" ||
       !outcome.currentVersion ||
-      record?.source !== "npm" ||
-      record.spec !== probed?.spec
+      !record ||
+      record.source !== probed?.source ||
+      record.spec !== probed.spec
     ) {
       continue;
     }
@@ -392,7 +376,8 @@ async function updatePluginsAfterCoreUpdateWithLease(
         ? record.installPath !== probed?.installPath ||
           record.version !== probed?.version ||
           record.resolvedVersion !== probed?.resolvedVersion
-        : !outcome.nextVersion ||
+        : record.source !== "npm" ||
+          !outcome.nextVersion ||
           comparePackageUpdateVersions(outcome.nextVersion, outcome.currentVersion) <= 0 ||
           (record.resolvedVersion ?? record.version) !== outcome.currentVersion ||
           resolveExactNpmSpecVersion(record.spec) !== outcome.currentVersion ||
@@ -598,23 +583,16 @@ async function updatePluginsAfterCoreUpdateWithLease(
     return `${list.slice(0, 6).join(", ")} +${list.length - 6} more`;
   };
 
-  if (cohort.sync.summary.switchedToBundled.length > 0) {
-    runtime.log(
-      theme.muted(
-        `Switched to bundled plugins: ${summarizeList(cohort.sync.summary.switchedToBundled)}.`,
-      ),
-    );
-  }
-  if (cohort.sync.summary.switchedToNpm.length > 0) {
-    runtime.log(
-      theme.muted(`Restored plugins: ${summarizeList(cohort.sync.summary.switchedToNpm)}.`),
-    );
+  for (const [label, plugins] of [
+    ["Switched to bundled plugins", cohort.sync.summary.switchedToBundled],
+    ["Restored plugins", cohort.sync.summary.switchedToNpm],
+  ] as const) {
+    if (plugins.length > 0) {
+      runtime.log(theme.muted(`${label}: ${summarizeList(plugins)}.`));
+    }
   }
   for (const warning of cohort.sync.summary.warnings) {
-    if (!loggedPluginWarnings.has(stripAnsi(warning))) {
-      runtime.log(formatPluginUpdateWarning(warning));
-      loggedPluginWarnings.add(stripAnsi(warning));
-    }
+    logPluginWarning(warning);
   }
   const updated = finalPluginOutcomes.filter((entry) => entry.status === "updated").length;
   const unchanged = finalPluginOutcomes.filter((entry) => entry.status === "unchanged").length;
@@ -634,16 +612,16 @@ async function updatePluginsAfterCoreUpdateWithLease(
     runtime.log(theme.muted(`Plugin updates: ${parts.join(", ")}.`));
   }
 
-  for (const message of collectPluginChannelFallbackMessages(pluginUpdateOutcomes)) {
+  for (const message of uniqueStrings(
+    pluginUpdateOutcomes.flatMap(({ channelFallback }) =>
+      channelFallback?.message ? [channelFallback.message] : [],
+    ),
+  )) {
     runtime.log(theme.warn(message));
   }
 
   for (const warning of warnings) {
-    const message = stripAnsi(warning.message);
-    if (!loggedPluginWarnings.has(message)) {
-      runtime.log(formatPluginUpdateWarning(warning.message));
-      loggedPluginWarnings.add(message);
-    }
+    logPluginWarning(warning.message);
   }
 
   return result;

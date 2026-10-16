@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";var t,n,r,i,a,o=e((()=>{t=`/control-ui-config.json`,n=`data-openclaw-control-ui-base-path`,r=`data-openclaw-terminal-enabled`,i=`data-openclaw-environment`,a=[`teal`,`amber`,`purple`,`coral`,`pink`,`blue`,`green`,`red`,`gray`]}));export{r as a,a as i,t as n,o,i as r,n as t};

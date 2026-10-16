@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function getFsSafeLockConfig(){return{...t,retry:t.retry?{...t.retry}:void 0}}var t,n=e((()=>{t={staleRecovery:`fail-closed`}}));export{n,getFsSafeLockConfig as t};

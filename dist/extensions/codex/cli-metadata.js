@@ -2,7 +2,7 @@ import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 //#region extensions/codex/cli-metadata.ts
 function registerCodexCliMetadata(api) {
 	api.registerCli(async ({ program }) => {
-		const { registerCodexSessionCli } = await import("./.setup/session-cli-irrD-uo7.mjs");
+		const { registerCodexSessionCli } = await import("./.setup/session-cli-kH4vuGod.mjs");
 		registerCodexSessionCli(program);
 	}, { descriptors: [{
 		name: "codex",

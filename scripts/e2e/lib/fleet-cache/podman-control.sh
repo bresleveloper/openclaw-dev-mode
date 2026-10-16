@@ -6,7 +6,7 @@ helper_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 node_bin="$1"
 cli_entry="$2"
 image="$3"
-for executable in podman newuidmap newgidmap; do
+for executable in sudo newuidmap newgidmap; do
   if ! command -v "$executable" >/dev/null; then
     printf '{"control":"podman","attempted":false,"missingExecutable":"%s"}\n' "$executable"
     exit 78
@@ -18,6 +18,25 @@ if [[ "${GITHUB_ACTIONS:-}" != true || -f /.dockerenv || "$uid" == 0 || ! -d "/r
   echo '{"control":"podman","attempted":false,"missingCapability":"disposable-host-nonroot-user-runtime"}'
   exit 78
 fi
+
+# The runner's static Podman/crun bundle lacks systemd support. Keep this
+# delegated-cgroup control on the complete distro-managed toolchain.
+sudo -n apt-get update
+# The static bundle also writes unmanaged config/AppArmor files; use the distro
+# versions without an interactive conffile prompt on this disposable host.
+sudo -n env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+  -o Dpkg::Options::=--force-confnew \
+  podman crun conmon catatonit netavark aardvark-dns slirp4netns
+podman_path=/usr/bin/podman
+crun_path=/usr/bin/crun
+for executable in "$podman_path" "$crun_path" /usr/bin/conmon; do
+  if [[ ! -x "$executable" ]]; then
+    printf '{"control":"podman","attempted":false,"missingExecutable":"%s"}\n' "$executable"
+    exit 78
+  fi
+done
+"$crun_path" --version | grep -q '+SYSTEMD'
+crun_toml="$("$node_bin" --input-type=module -e 'console.log(JSON.stringify(process.argv[1]))' "$crun_path")"
 
 control_root="$(mktemp -d /tmp/openclaw-fleet-podman.XXXXXX)"
 runtime_root="$(mktemp -d "/run/user/$uid/openclaw-fleet.XXXXXX")"
@@ -36,17 +55,23 @@ mkdir -p "$case_dir/home" "$case_dir/state" "$case_dir/host-cache" \
 
 cat > "$engine_root/containers.conf" <<CONFIG
 [engine]
+# This control proves delegated resource limits, not the host's Podman default.
+cgroup_manager = "systemd"
+# Match the distro Podman's OCI spec and systemd-capable runtime/helpers.
+conmon_path = ["/usr/bin/conmon"]
+helper_binaries_dir = ["/usr/libexec/podman", "/usr/lib/podman"]
+runtime = $crun_toml
 static_dir = "$engine_root/data/containers/storage/libpod"
 tmp_dir = "$runtime_root/libpod/tmp"
 volume_path = "$engine_root/data/containers/storage/volumes"
 CONFIG
-runtime_env=(env -i PATH="$PATH" HOME="$case_dir/home" OPENCLAW_HOME="$case_dir/home" \
+runtime_env=(env -i PATH="/usr/bin:/bin:$PATH" HOME="$case_dir/home" OPENCLAW_HOME="$case_dir/home" \
   OPENCLAW_STATE_DIR="$case_dir/state" XDG_CACHE_HOME="$case_dir/host-cache" \
   XDG_CONFIG_HOME="$engine_root/config" XDG_DATA_HOME="$engine_root/data" \
   XDG_RUNTIME_DIR="$runtime_root" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$uid/bus" \
   CONTAINERS_STORAGE_CONF="$engine_root/storage.conf" CONTAINERS_CONF="$engine_root/containers.conf")
 
-runtime() { timeout --foreground --kill-after=10s 180s "${runtime_env[@]}" podman "$@"; }
+runtime() { timeout --foreground --kill-after=10s 180s "${runtime_env[@]}" "$podman_path" "$@"; }
 fleet() { timeout --foreground --kill-after=10s 180s "${runtime_env[@]}" "$node_bin" "$cli_entry" fleet "$@"; }
 
 capture() {
@@ -149,15 +174,18 @@ check_cell() {
 printf '%s\n' '{"control":"podman","attempted":true}'
 initialization_attempted=true
 runtime info --format json > "$control_root/info.json"
-"$node_bin" --input-type=module - "$control_root/info.json" "$engine_root" "$runtime_root" <<'JS'
+"$node_bin" --input-type=module - "$control_root/info.json" "$engine_root" "$runtime_root" "$crun_path" <<'JS'
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-const [filename, engine, runtime] = process.argv.slice(2);
+const [filename, engine, runtime, crun] = process.argv.slice(2);
 const info = JSON.parse(fs.readFileSync(filename, 'utf8'));
 assert.equal(info.host.serviceIsRemote, false);
 assert.equal(info.host.security.rootless, true);
 assert.equal(info.host.cgroupVersion, 'v2');
 assert.equal(info.host.cgroupManager, 'systemd');
+assert.equal(info.host.ociRuntime.path, crun);
+assert.equal(info.host.conmon.path, '/usr/bin/conmon');
+assert.match(info.host.ociRuntime.version, /\+SYSTEMD/u);
 assert.equal(info.host.security.seccompEnabled, true);
 assert.equal(info.store.graphRoot, `${engine}/data/containers/storage`);
 assert.equal(info.store.runRoot, `${runtime}/containers`);
@@ -165,11 +193,11 @@ assert.equal(info.store.volumePath, `${engine}/data/containers/storage/volumes`)
 console.log(JSON.stringify({control: 'podman', version: info.version.Version,
   rootless: info.host.security.rootless, serviceIsRemote: info.host.serviceIsRemote,
   cgroupVersion: info.host.cgroupVersion, cgroupManager: info.host.cgroupManager,
-  storageDriver: info.store.graphDriverName}));
+  storageDriver: info.store.graphDriverName, ociRuntime: info.host.ociRuntime}));
 JS
 private_store_verified=true
 "$node_bin" "$helper_dir/prepare-podman-storage.mjs" "$cli_entry" "$engine_root" "$runtime_root" "$control_root/info.json"
-timeout --foreground --kill-after=10s 600s "${runtime_env[@]}" podman pull "$image"
+timeout --foreground --kill-after=10s 600s "${runtime_env[@]}" "$podman_path" pull "$image"
 runtime image inspect "$image" > "$control_root/image.json"
 cell_attempted=true
 fleet create "$tenant" --runtime podman --image "$image" \

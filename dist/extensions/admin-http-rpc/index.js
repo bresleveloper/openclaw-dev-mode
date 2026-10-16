@@ -1,12 +1,13 @@
-import { c as isRecord } from "../../record-coerce-DItp3I4t.mjs";
-import { i as getPluginRuntimeGatewayRequestScope } from "../../gateway-request-scope-BLBH-Gpf.mjs";
-import { o as sendHttpRequestRejection } from "../../http-request-lifecycle-JdoSg2uH.mjs";
-import { o as readJsonBodyWithLimit } from "../../http-body-Bl_jph25.mjs";
-import "../../string-coerce-runtime-C_MKhRVt.mjs";
-import { t as definePluginEntry } from "../../plugin-entry-BOulgRcx.mjs";
-import "../../plugin-runtime-BzN5G15j.mjs";
-import { t as dispatchGatewayMethod } from "../../gateway-method-runtime-DTHGtaj0.mjs";
-import { t as WEBHOOK_BODY_READ_DEFAULTS } from "../../webhook-request-guards-CccCHICi.mjs";
+import { l as normalizeOptionalString } from "../../string-coerce-1VuiLaaR.mjs";
+import { c as isRecord } from "../../record-coerce-TIsquoVR.mjs";
+import { o as sendHttpRequestRejection } from "../../http-request-lifecycle-DO9mb9Gu.mjs";
+import { a as readJsonBodyWithLimit } from "../../http-body-CgfQBa7S.mjs";
+import { a as getPluginRuntimeGatewayRequestScope } from "../../gateway-request-scope-BSmCVVpP.mjs";
+import "../../string-coerce-runtime-50qKeWeL.mjs";
+import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
+import "../../plugin-runtime-C3Ot0aFc.mjs";
+import { t as dispatchGatewayMethod } from "../../gateway-method-runtime-BsuF0-5n.mjs";
+import { t as WEBHOOK_BODY_READ_DEFAULTS } from "../../webhook-request-guards-o9Ex3xOU.mjs";
 import { randomUUID } from "node:crypto";
 //#region extensions/admin-http-rpc/src/methods.ts
 const ADMIN_HTTP_RPC_ALLOWED_METHODS = new Set(Object.values({
@@ -75,11 +76,6 @@ const ADMIN_HTTP_RPC_ALLOWED_METHODS = new Set(Object.values({
 		"node.pair.remove",
 		"node.rename"
 	],
-	tasks: [
-		"tasks.list",
-		"tasks.get",
-		"tasks.cancel"
-	],
 	diagnostics: ["doctor.memory.status", "update.status"]
 }).flat());
 /** Return whether an admin RPC method is exposed over HTTP. */
@@ -92,33 +88,15 @@ function listAdminHttpRpcAllowedMethods() {
 }
 //#endregion
 //#region extensions/admin-http-rpc/src/handler.ts
-/**
-* HTTP handler for the Admin RPC endpoint. It validates JSON requests, enforces
-* the method allowlist, dispatches gateway methods, and maps errors to HTTP.
-*/
-const ErrorCodes = {
-	AGENT_TIMEOUT: "AGENT_TIMEOUT",
-	APPROVAL_NOT_FOUND: "APPROVAL_NOT_FOUND",
-	INVALID_REQUEST: "INVALID_REQUEST",
-	NOT_LINKED: "NOT_LINKED",
-	NOT_PAIRED: "NOT_PAIRED",
-	UNAVAILABLE: "UNAVAILABLE"
-};
-function createError(code, message) {
-	return {
-		code,
-		message
-	};
-}
 function rpcHttpStatus(response) {
 	if (response.ok) return 200;
 	switch (response.error.code) {
-		case ErrorCodes.INVALID_REQUEST: return 400;
-		case ErrorCodes.APPROVAL_NOT_FOUND: return 404;
-		case ErrorCodes.UNAVAILABLE: return 503;
-		case ErrorCodes.AGENT_TIMEOUT: return 504;
-		case ErrorCodes.NOT_LINKED:
-		case ErrorCodes.NOT_PAIRED: return 409;
+		case "INVALID_REQUEST": return 400;
+		case "APPROVAL_NOT_FOUND": return 404;
+		case "UNAVAILABLE": return 503;
+		case "AGENT_TIMEOUT": return 504;
+		case "NOT_LINKED":
+		case "NOT_PAIRED": return 409;
 		default: return 500;
 	}
 }
@@ -134,14 +112,6 @@ function sendError(res, status, error) {
 		error
 	});
 }
-function statusForBodyErrorCode(code) {
-	switch (code) {
-		case "PAYLOAD_TOO_LARGE": return 413;
-		case "REQUEST_BODY_TIMEOUT": return 408;
-		case "CONNECTION_CLOSED": return 400;
-	}
-	return 400;
-}
 async function readAdminJsonBody(req) {
 	const body = await readJsonBodyWithLimit(req, {
 		...WEBHOOK_BODY_READ_DEFAULTS.postAuthResponseFirst,
@@ -155,7 +125,7 @@ async function readAdminJsonBody(req) {
 	};
 	return {
 		ok: false,
-		status: statusForBodyErrorCode(body.code),
+		status: body.code === "PAYLOAD_TOO_LARGE" ? 413 : body.code === "REQUEST_BODY_TIMEOUT" ? 408 : 400,
 		message: body.error,
 		closeAfterResponse: body.code !== "CONNECTION_CLOSED"
 	};
@@ -165,35 +135,25 @@ function readRpcRequestBody(body) {
 		ok: false,
 		message: "request body must be an object"
 	};
-	const rpcBody = body;
-	if (typeof rpcBody.method !== "string" || rpcBody.method.trim().length === 0) return {
+	const method = normalizeOptionalString(body.method);
+	if (!method) return {
 		ok: false,
 		message: "method must be a non-empty string"
 	};
 	return {
 		ok: true,
 		request: {
-			id: typeof rpcBody.id === "string" && rpcBody.id.trim().length > 0 ? rpcBody.id.trim() : randomUUID(),
-			method: rpcBody.method.trim(),
-			...Object.hasOwn(rpcBody, "params") ? { params: rpcBody.params } : {}
+			id: normalizeOptionalString(body.id) ?? randomUUID(),
+			method,
+			...Object.hasOwn(body, "params") ? { params: body.params } : {}
 		}
 	};
 }
-function methodNotAllowed(id, method) {
-	return {
-		id,
-		ok: false,
-		error: createError(ErrorCodes.INVALID_REQUEST, `admin HTTP RPC method is not supported: ${method}`)
-	};
-}
-function commandsList(id) {
-	return {
-		id,
-		ok: true,
-		payload: { methods: listAdminHttpRpcAllowedMethods() }
-	};
-}
 async function dispatchAdminRpc(request) {
+	const unavailable = {
+		code: "UNAVAILABLE",
+		message: "gateway method failed before returning a response"
+	};
 	try {
 		const response = await dispatchGatewayMethod(request.method, request.params);
 		if (response.ok) return {
@@ -205,14 +165,14 @@ async function dispatchAdminRpc(request) {
 		return {
 			id: request.id,
 			ok: false,
-			error: response.error ?? createError(ErrorCodes.UNAVAILABLE, "gateway method failed before returning a response"),
+			error: response.error ?? unavailable,
 			...response.meta ? { meta: response.meta } : {}
 		};
 	} catch {
 		return {
 			id: request.id,
 			ok: false,
-			error: createError(ErrorCodes.UNAVAILABLE, "gateway method failed before returning a response")
+			error: unavailable
 		};
 	}
 }
@@ -252,12 +212,22 @@ async function handleAdminHttpRpcRequest(req, res) {
 		return true;
 	}
 	if (!isAdminHttpRpcAllowedMethod(parsed.request.method)) {
-		const response = methodNotAllowed(parsed.request.id, parsed.request.method);
-		sendJson(res, rpcHttpStatus(response), response);
+		sendJson(res, 400, {
+			id: parsed.request.id,
+			ok: false,
+			error: {
+				code: "INVALID_REQUEST",
+				message: `admin HTTP RPC method is not supported: ${parsed.request.method}`
+			}
+		});
 		return true;
 	}
 	if (parsed.request.method === "commands.list") {
-		sendJson(res, 200, commandsList(parsed.request.id));
+		sendJson(res, 200, {
+			id: parsed.request.id,
+			ok: true,
+			payload: { methods: listAdminHttpRpcAllowedMethods() }
+		});
 		return true;
 	}
 	await getPluginRuntimeGatewayRequestScope()?.revalidate?.();

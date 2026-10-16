@@ -1,6 +1,5 @@
 import { t as avoidTrailingHighSurrogateBreak } from "../utf16-slice-C5Uh1nl-.js";
 import { n as MarkdownTableMode, t as convertMarkdownTables } from "../tables-BAppoNmX.js";
-import { n as hasSystemMark, r as prefixSystemMessage, t as SYSTEM_MARK } from "../system-message-CItK8lzT.js";
 //#region packages/markdown-core/src/reasoning-tag-parser.d.ts
 type MarkdownCodeRegion = {
   start: number;
@@ -46,6 +45,25 @@ interface CodeRegion {
 export declare function findCodeRegions(text: string, options?: Parameters<typeof findMarkdownCodeRegions>[1]): ReturnType<typeof findMarkdownCodeRegions>;
 /** Returns true when a character offset falls inside one of the discovered code regions. */
 export declare function isInsideCode(pos: number, regions: CodeRegion[]): boolean;
+//#endregion
+//#region src/utils/directive-tags.d.ts
+type InlineDirectiveParseResult = {
+  text: string;
+  audioAsVoice: boolean;
+  replyToId?: string;
+  replyToExplicitId?: string;
+  replyToCurrent: boolean;
+  hasAudioTag: boolean;
+  hasReplyTag: boolean;
+};
+type StripInlineDirectiveTagsResult = {
+  text: string;
+  changed: boolean;
+};
+export declare function stripInlineDirectiveTagsForDisplay(text: string): StripInlineDirectiveTagsResult;
+export declare function stripInlineDirectiveTagsForDelivery(text: string, options?: {
+  preserveTrailingWhitespace?: boolean;
+}): StripInlineDirectiveTagsResult;
 //#endregion
 //#region packages/markdown-core/src/chunk-text.d.ts
 type TextChunkRange = {
@@ -206,6 +224,12 @@ type MarkdownParseOptions = {
    * instead of emphasis delimiters. Disabled by default.
    */
   preserveDunderIdentifiers?: boolean;
+  /**
+   * Let links with any scheme (file:, data:, javascript:, ...) tokenize instead
+   * of being dropped by markdown-it's built-in denylist. Only set this when the
+   * caller's own `buildLink` already applies a scheme allowlist downstream.
+   */
+  allowAllLinkSchemes?: boolean;
 };
 export declare function markdownToIR(markdown: string, options?: MarkdownParseOptions): MarkdownIR;
 export declare function markdownToIRWithMeta(markdown: string, options?: MarkdownParseOptions): {
@@ -297,11 +321,14 @@ type RenderOptions = {
 /** Renders Markdown IR by nesting configured style markers and optional link markers. */
 export declare function renderMarkdownWithMarkers(ir: MarkdownIR, options: RenderOptions, profile?: FormatCapabilityProfile): string;
 //#endregion
-//#region src/shared/text/assistant-visible-text.d.ts
-export declare function stripToolCallXmlTags(input: string, options?: {
+//#region src/shared/text/tool-call-xml.d.ts
+type StripToolCallXmlOptions = {
   stripFunctionCallsXmlPayloads?: boolean;
   stripFunctionResponseAfterPluralToolCalls?: boolean;
-}): string;
+};
+export declare function stripToolCallXmlTags(input: string, options?: StripToolCallXmlOptions): string;
+//#endregion
+//#region src/shared/text/assistant-visible-text.d.ts
 type AssistantVisibleTextSanitizerProfile = "delivery" | "final-answer-delivery" | "history" | "internal-scaffolding" | "tool-progress";
 export declare function sanitizeAssistantVisibleTextWithProfile(text: string, profile?: AssistantVisibleTextSanitizerProfile, streaming?: boolean): string;
 export declare function stripAssistantInternalScaffolding(text: string): string;
@@ -356,24 +383,12 @@ export declare function stripMarkdown(text: string, options?: StripMarkdownOptio
  */
 export declare function sanitizeTerminalText(input: string): string;
 //#endregion
-//#region src/utils/directive-tags.d.ts
-type InlineDirectiveParseResult = {
-  text: string;
-  audioAsVoice: boolean;
-  replyToId?: string;
-  replyToExplicitId?: string;
-  replyToCurrent: boolean;
-  hasAudioTag: boolean;
-  hasReplyTag: boolean;
-};
-type StripInlineDirectiveTagsResult = {
-  text: string;
-  changed: boolean;
-};
-export declare function stripInlineDirectiveTagsForDisplay(text: string): StripInlineDirectiveTagsResult;
-export declare function stripInlineDirectiveTagsForDelivery(text: string, options?: {
-  preserveTrailingWhitespace?: boolean;
-}): StripInlineDirectiveTagsResult;
+//#region src/infra/system-message.d.ts
+export declare const SYSTEM_MARK = "⚙️";
+/** Return true when text already carries the system-message prefix. */
+export declare function hasSystemMark(text: string): boolean;
+/** Prefix non-empty text as a system message without double-prefixing. */
+export declare function prefixSystemMessage(text: string): string;
 //#endregion
 //#region src/utils/chunk-items.d.ts
 /** Splits items into fixed-size chunks, preserving order and returning one row for non-positive sizes. */
@@ -390,4 +405,4 @@ export declare function chunkTextForOutbound(text: string, limit: number, option
   formatting?: unknown;
 }): string[];
 //#endregion
-export { type AssistantVisibleTextSanitizerProfile, type AttributedRenderOptions, type ChunkTextRangesOptions, type CodeRegion, type InlineDirectiveParseResult, type MarkdownIR, type MarkdownLinkSpan, type MarkdownParseOptions, type MarkdownStyle, type MarkdownStyleSpan, type MarkdownTableCell, type MarkdownTableMeta, type ReasoningTagMode, type ReasoningTagTrim, type RenderLink, type RenderMarkdownIRChunksWithinLimitOptions, type RenderOptions, type RenderStyleMap, type RenderStyleMarker, SYSTEM_MARK, type TextChunkRange, avoidTrailingHighSurrogateBreak, convertMarkdownTables, hasSystemMark, prefixSystemMessage };
+export { type AssistantVisibleTextSanitizerProfile, type AttributedRenderOptions, type ChunkTextRangesOptions, type CodeRegion, type InlineDirectiveParseResult, type MarkdownIR, type MarkdownLinkSpan, type MarkdownParseOptions, type MarkdownStyle, type MarkdownStyleSpan, type MarkdownTableCell, type MarkdownTableMeta, type ReasoningTagMode, type ReasoningTagTrim, type RenderLink, type RenderMarkdownIRChunksWithinLimitOptions, type RenderOptions, type RenderStyleMap, type RenderStyleMarker, type TextChunkRange, avoidTrailingHighSurrogateBreak, convertMarkdownTables };

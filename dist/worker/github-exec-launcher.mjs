@@ -1,12 +1,12 @@
 import { createRequire } from "node:module";
 import fs from "node:fs/promises";
 import path from "node:path";
-import fs$1, { closeSync, openSync, readSync, readdirSync } from "node:fs";
-import { AsyncLocalStorage } from "node:async_hooks";
+import fsSync, { closeSync, openSync, readSync, readdirSync } from "node:fs";
 import os, { platform } from "node:os";
+import { AsyncLocalStorage } from "node:async_hooks";
+import { execFile, spawn } from "node:child_process";
 import { getSystemErrorName, promisify, types } from "node:util";
 import { URL as URL$1, fileURLToPath } from "node:url";
-import { execFile, spawn } from "node:child_process";
 //#region \0rolldown/runtime.js
 var __esmMin = (fn, res, err) => () => {
 	if (err) throw err[0];
@@ -19,13 +19,1319 @@ var __esmMin = (fn, res, err) => () => {
 var __commonJSMin = (cb, mod) => () => (mod || (cb((mod = { exports: {} }).exports, mod), cb = null), mod.exports);
 var __require = /* #__PURE__ */ (() => createRequire(import.meta.url))();
 //#endregion
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/errors.js
+function categorizeFsSafeError(code) {
+	return OPERATIONAL_CODES.has(code) ? "operational" : "policy";
+}
+var OPERATIONAL_CODES, FsSafeError;
+var init_errors = __esmMin((() => {
+	OPERATIONAL_CODES = /* @__PURE__ */ new Set([
+		"helper-failed",
+		"helper-unavailable",
+		"not-empty",
+		"not-found",
+		"not-removable",
+		"permission-unverified",
+		"read-failed",
+		"timeout",
+		"unsupported-platform"
+	]);
+	FsSafeError = class extends Error {
+		code;
+		category;
+		details;
+		constructor(code, message, options = {}) {
+			super(message, options);
+			this.name = "FsSafeError";
+			this.code = code;
+			this.category = categorizeFsSafeError(code);
+			this.details = options.details;
+		}
+	};
+}));
+//#endregion
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/native-binding.js
+function captureNativeFdClose(binding) {
+	if (typeof binding.closeOwnedFd !== "function") throw new FsSafeError("helper-unavailable", "native descriptor ownership is unavailable");
+	return binding.closeOwnedFd.bind(binding);
+}
+var init_native_binding = __esmMin((() => {
+	init_errors();
+}));
+//#endregion
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/native-config.js
+function parseMode(value) {
+	if (!value) return;
+	const normalized = value.trim().toLowerCase();
+	if (normalized === "0" || normalized === "false" || normalized === "off" || normalized === "never") return "off";
+	if (normalized === "1" || normalized === "true" || normalized === "on" || normalized === "auto") return "auto";
+	if (normalized === "required" || normalized === "require") return "require";
+}
+function getFsSafeNativeConfig() {
+	return { mode: overrideConfig.mode ?? parseMode(process.env.FS_SAFE_NATIVE_MODE) ?? parseMode(process.env.OPENCLAW_FS_SAFE_NATIVE_MODE) ?? "auto" };
+}
+var overrideConfig;
+var init_native_config = __esmMin((() => {
+	overrideConfig = {};
+}));
+//#endregion
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/native.js
+function isMuslFilename(file) {
+	return file.includes("libc.musl-") || file.includes("ld-musl-");
+}
+function isMuslFromReport() {
+	try {
+		if (!process.report || typeof process.report.getReport !== "function") return void 0;
+		const report = process.report.getReport();
+		if (report.header?.glibcVersionRuntime) return false;
+		if (report.sharedObjects?.some(isMuslFilename)) return true;
+	} catch {}
+}
+function isMuslFromFilesystem() {
+	for (const directory of ["/lib", "/usr/lib"]) try {
+		if (readdirSync(directory).some(isMuslFilename)) return true;
+	} catch {}
+}
+function readUInt(buffer, offset, bytes, littleEndian) {
+	if (offset < 0 || offset + bytes > buffer.length) return void 0;
+	if (bytes === 2) return littleEndian ? buffer.readUInt16LE(offset) : buffer.readUInt16BE(offset);
+	if (bytes === 4) return littleEndian ? buffer.readUInt32LE(offset) : buffer.readUInt32BE(offset);
+	const value = littleEndian ? buffer.readBigUInt64LE(offset) : buffer.readBigUInt64BE(offset);
+	return value <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(value) : void 0;
+}
+function isMuslFromElfInterpreter() {
+	let fd;
+	try {
+		fd = openSync(process.execPath, "r");
+		const header = Buffer.alloc(64);
+		if (readSync(fd, header, 0, header.length, 0) < 52) return void 0;
+		if (!header.subarray(0, 4).equals(Buffer.from([
+			127,
+			69,
+			76,
+			70
+		]))) return void 0;
+		const elfClass = header[4];
+		const dataEncoding = header[5];
+		if (elfClass !== 1 && elfClass !== 2 || dataEncoding !== 1 && dataEncoding !== 2) return;
+		const littleEndian = dataEncoding === 1;
+		const is64Bit = elfClass === 2;
+		const tableOffset = readUInt(header, is64Bit ? 32 : 28, is64Bit ? 8 : 4, littleEndian);
+		const entrySize = readUInt(header, is64Bit ? 54 : 42, 2, littleEndian);
+		const entryCount = readUInt(header, is64Bit ? 56 : 44, 2, littleEndian);
+		if (tableOffset === void 0 || entrySize === void 0 || entryCount === void 0 || entrySize < (is64Bit ? 56 : 32) || entryCount > 1024) return;
+		const programHeader = Buffer.alloc(entrySize);
+		for (let index = 0; index < entryCount; index += 1) {
+			const offset = tableOffset + index * entrySize;
+			if (readSync(fd, programHeader, 0, entrySize, offset) !== entrySize) return void 0;
+			if (readUInt(programHeader, 0, 4, littleEndian) !== 3) continue;
+			const interpreterOffset = readUInt(programHeader, is64Bit ? 8 : 4, is64Bit ? 8 : 4, littleEndian);
+			const interpreterSize = readUInt(programHeader, is64Bit ? 32 : 16, is64Bit ? 8 : 4, littleEndian);
+			if (interpreterOffset === void 0 || interpreterSize === void 0 || interpreterSize < 1 || interpreterSize > 4096) return;
+			const interpreter = Buffer.alloc(interpreterSize);
+			if (readSync(fd, interpreter, 0, interpreterSize, interpreterOffset) !== interpreterSize) return;
+			return isMuslFilename(interpreter.toString("utf8"));
+		}
+	} catch {
+		return;
+	} finally {
+		if (fd !== void 0) try {
+			closeSync(fd);
+		} catch {}
+	}
+}
+function isMusl() {
+	if (process.platform !== "linux") return false;
+	for (const detector of [
+		isMuslFromReport,
+		isMuslFromElfInterpreter,
+		isMuslFromFilesystem
+	]) {
+		const result = detector();
+		if (result !== void 0) return result;
+	}
+	return false;
+}
+function targetFor(platform, arch, musl) {
+	if (platform === "win32" && arch === "x64") return "win32-x64-msvc";
+	if (platform === "darwin" && arch === "x64") return "darwin-x64";
+	if (platform === "darwin" && arch === "arm64") return "darwin-arm64";
+	if (platform === "linux" && (arch === "x64" || arch === "arm64")) return `linux-${arch}-${musl ? "musl" : "gnu"}`;
+}
+function bundledTarget() {
+	return targetFor(process.platform, process.arch, isMusl());
+}
+function nativePackageForTarget(target) {
+	return `@openclaw/fs-safe-${target}`;
+}
+function loadBundledBinding() {
+	const target = bundledTarget();
+	if (!target) throw new Error(`Unsupported OS or architecture: ${process.platform}-${process.arch}`);
+	const loaded = runNativeInitialization(() => require$1(nativePackageForTarget(target)));
+	captureNativeFdClose(loaded);
+	return loaded;
+}
+function getNativeBinding() {
+	const { mode } = getFsSafeNativeConfig();
+	if (mode === "off") return void 0;
+	if (!attempted) {
+		attempted = true;
+		try {
+			const loaded = loadBinding();
+			captureNativeFdClose(loaded);
+			binding = loaded;
+		} catch (error) {
+			loadError = error;
+		}
+	}
+	if (binding) return binding;
+	if (mode === "require") throw new FsSafeError("helper-unavailable", "native fs-safe helper is unavailable", { cause: loadError });
+}
+var require$1, runNativeInitialization, binding, loadError, attempted, loadBinding;
+var init_native = __esmMin((() => {
+	init_errors();
+	init_native_binding();
+	init_native_config();
+	require$1 = createRequire(import.meta.url);
+	runNativeInitialization = AsyncLocalStorage.snapshot();
+	attempted = false;
+	loadBinding = loadBundledBinding;
+}));
+//#endregion
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/error-detail.js
+const UNSAFE_ERROR_DETAIL_CHARACTERS = /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/gu;
+function formatErrorDetail(value) {
+	return value.replace(UNSAFE_ERROR_DETAIL_CHARACTERS, (character) => `\\u${character.charCodeAt(0).toString(16).padStart(4, "0")}`);
+}
+//#endregion
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/permission-exec.js
+const execFileAsync = promisify(execFile);
+const DEFAULT_PERMISSION_EXEC_TIMEOUT_MS = 3e4;
+function formatPermissionErrorDetail(value) {
+	const formatted = formatErrorDetail(value);
+	return formatted.length > 400 ? `${formatted.slice(0, 399)}…` : formatted;
+}
+const MAX_CAUGHT_FAILURE_PROTOTYPES = 4;
+const primitiveString = String;
+const isUint8Array = types.isUint8Array;
+const Uint8ArrayIntrinsic = Uint8Array;
+const typedArrayPrototype = Object.getPrototypeOf(Uint8ArrayIntrinsic.prototype);
+const typedArrayBufferGetter = Object.getOwnPropertyDescriptor(typedArrayPrototype, "buffer").get;
+const typedArrayByteOffsetGetter = Object.getOwnPropertyDescriptor(typedArrayPrototype, "byteOffset").get;
+const typedArrayByteLengthGetter = Object.getOwnPropertyDescriptor(typedArrayPrototype, "byteLength").get;
+const typedArraySet = Object.getOwnPropertyDescriptor(typedArrayPrototype, "set").value;
+const textDecoderDecode = TextDecoder.prototype.decode;
+const stderrDecoder = new TextDecoder("utf-8", {
+	fatal: false,
+	ignoreBOM: true
+});
+const MAX_STDERR_BYTES = 1600;
+function isInspectableCaughtObject(value) {
+	if ((typeof value !== "object" || value === null) && typeof value !== "function") return false;
+	try {
+		return !types.isProxy(value);
+	} catch {
+		return false;
+	}
+}
+function dataProperty(value, name) {
+	let current = value;
+	for (let depth = 0; current !== null && depth < MAX_CAUGHT_FAILURE_PROTOTYPES; depth += 1) {
+		if (!isInspectableCaughtObject(current)) return void 0;
+		let descriptor;
+		try {
+			descriptor = Object.getOwnPropertyDescriptor(current, name);
+		} catch {
+			return;
+		}
+		if (descriptor) return Object.hasOwn(descriptor, "value") ? descriptor : void 0;
+		try {
+			current = Object.getPrototypeOf(current);
+		} catch {
+			return;
+		}
+	}
+}
+/** Formats only caught permission-query failures without invoking user code. */
+function formatCaughtPermissionFailure(error) {
+	const primitive = error !== null && (typeof error === "object" || typeof error === "function") ? void 0 : primitiveString(error);
+	if (primitive !== void 0) return formatBoundedCaughtDetail(primitive);
+	if (!isInspectableCaughtObject(error)) return "Uninspectable proxy failure";
+	const message = dataProperty(error, "message");
+	const name = dataProperty(error, "name");
+	const rawMessage = typeof message?.value === "string" ? message.value : "";
+	const rawName = typeof name?.value === "string" ? name.value : "";
+	const messageText = rawMessage.slice(0, 400);
+	const nameText = rawName.slice(0, 400);
+	return formatBoundedCaughtDetail(messageText ? nameText ? `${nameText}: ${messageText}` : messageText : nameText || (typeof error === "function" ? "Unknown function failure" : "Unknown object failure"), rawMessage.length > messageText.length || rawName.length > nameText.length);
+}
+function formatBoundedCaughtDetail(value, alreadyTruncated = false) {
+	const inputWasTruncated = alreadyTruncated || value.length > 400;
+	const formatted = formatPermissionErrorDetail(value.slice(0, 400));
+	if (!inputWasTruncated || formatted.endsWith("…")) return formatted;
+	return `${formatted.slice(0, 399)}…`;
+}
+function safeStderr(value) {
+	if (typeof value === "string") return formatBoundedCaughtDetail(value);
+	try {
+		if (!isUint8Array(value)) return "";
+		const backing = Reflect.apply(typedArrayBufferGetter, value, []);
+		const byteOffset = Reflect.apply(typedArrayByteOffsetGetter, value, []);
+		const byteLength = Reflect.apply(typedArrayByteLengthGetter, value, []);
+		const copiedByteLength = byteLength < MAX_STDERR_BYTES ? byteLength : MAX_STDERR_BYTES;
+		const source = new Uint8ArrayIntrinsic(backing, byteOffset, copiedByteLength);
+		const copy = new Uint8ArrayIntrinsic(copiedByteLength);
+		Reflect.apply(typedArraySet, copy, [source, 0]);
+		return formatBoundedCaughtDetail(Reflect.apply(textDecoderDecode, stderrDecoder, [copy]), byteLength > copiedByteLength);
+	} catch {
+		return "";
+	}
+}
+function commandFailureFields(error) {
+	const killed = dataProperty(error, "killed");
+	const code = dataProperty(error, "code");
+	const signal = dataProperty(error, "signal");
+	const stderr = dataProperty(error, "stderr");
+	return {
+		found: !!(killed || code || signal || stderr),
+		timedOut: killed?.value === true && signal?.value === "SIGKILL",
+		exitCode: typeof code?.value === "number" ? code.value : null,
+		signal: typeof signal?.value === "string" ? signal.value : null,
+		stderr: stderr ? safeStderr(stderr.value) : ""
+	};
+}
+var PermissionCommandError = class extends Error {
+	command;
+	durationMs;
+	timedOut;
+	exitCode;
+	signal;
+	stderr;
+	constructor(command, durationMs, cause, timeoutMs = DEFAULT_PERMISSION_EXEC_TIMEOUT_MS) {
+		const fields = commandFailureFields(cause);
+		super(fields.timedOut ? `Windows permission inspection timed out after ${timeoutMs}ms` : `Windows permission command ${formatPermissionErrorDetail(path.win32.basename(command))} failed (exit code ${fields.exitCode}, signal ${formatPermissionErrorDetail(fields.signal ?? "none")})`, { cause });
+		this.name = "PermissionCommandError";
+		this.command = command;
+		this.durationMs = Math.round(durationMs);
+		this.timedOut = fields.timedOut;
+		this.exitCode = fields.exitCode;
+		this.signal = fields.signal;
+		this.stderr = fields.stderr;
+	}
+};
+function getPermissionCommandFailure(error, command, durationMs) {
+	if (isInspectableCaughtObject(error) && types.isNativeError(error)) {
+		if (dataProperty(error, "name")?.value === "PermissionCommandError") {
+			const wrappedCommand = dataProperty(error, "command");
+			const wrappedDuration = dataProperty(error, "durationMs");
+			const wrappedTimedOut = dataProperty(error, "timedOut");
+			const wrappedExitCode = dataProperty(error, "exitCode");
+			const wrappedSignal = dataProperty(error, "signal");
+			const wrappedStderr = dataProperty(error, "stderr");
+			if (typeof wrappedCommand?.value === "string" && typeof wrappedDuration?.value === "number" && Number.isSafeInteger(wrappedDuration.value) && wrappedDuration.value >= 0 && typeof wrappedTimedOut?.value === "boolean" && wrappedExitCode && (wrappedExitCode.value === null || typeof wrappedExitCode.value === "number") && wrappedSignal && (wrappedSignal.value === null || typeof wrappedSignal.value === "string") && wrappedStderr) return {
+				command: wrappedCommand.value,
+				durationMs: wrappedDuration.value,
+				timedOut: wrappedTimedOut.value,
+				exitCode: wrappedExitCode.value,
+				signal: wrappedSignal.value,
+				stderr: safeStderr(wrappedStderr.value)
+			};
+		}
+	}
+	const fields = commandFailureFields(error);
+	if (!fields.found) return void 0;
+	const { found: _found, ...detail } = fields;
+	return {
+		command,
+		durationMs: Math.round(durationMs),
+		...detail
+	};
+}
+async function executePermissionCommand(command, args, timeoutMs = DEFAULT_PERMISSION_EXEC_TIMEOUT_MS) {
+	const startedAt = performance.now();
+	try {
+		return await execFileAsync(command, args, {
+			encoding: "utf8",
+			windowsHide: true,
+			maxBuffer: 1048576,
+			timeout: timeoutMs,
+			killSignal: "SIGKILL"
+		});
+	} catch (err) {
+		throw new PermissionCommandError(command, performance.now() - startedAt, err, timeoutMs);
+	}
+}
+//#endregion
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/string-coerce.js
+function normalizeNullableString(value) {
+	if (typeof value !== "string") return null;
+	const trimmed = value.trim();
+	return trimmed ? trimmed : null;
+}
+function normalizeOptionalString(value) {
+	return normalizeNullableString(value) ?? void 0;
+}
+function normalizeOptionalLowercaseString(value) {
+	return normalizeOptionalString(value)?.toLowerCase();
+}
+function normalizeLowercaseStringOrEmpty(value) {
+	return normalizeOptionalLowercaseString(value) ?? "";
+}
+var init_string_coerce = __esmMin((() => {}));
+//#endregion
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/windows-command.js
+function getEnvValueCaseInsensitive(env, name) {
+	const direct = env[name];
+	if (direct !== void 0) return direct;
+	const lower = name.toLowerCase();
+	for (const [key, value] of Object.entries(env)) if (key.toLowerCase() === lower) return value;
+}
+function normalizeWindowsInstallRoot(value) {
+	const trimmed = value?.trim();
+	if (!trimmed || !path.win32.isAbsolute(trimmed)) return null;
+	let end = trimmed.length;
+	while (end > 0 && (trimmed[end - 1] === "\\" || trimmed[end - 1] === "/")) end -= 1;
+	return trimmed.slice(0, end);
+}
+function resolveWindowsSystemRoot(env) {
+	const source = env ?? process.env;
+	return normalizeWindowsInstallRoot(getEnvValueCaseInsensitive(source, "SystemRoot")) ?? normalizeWindowsInstallRoot(getEnvValueCaseInsensitive(source, "WINDIR")) ?? "C:\\Windows";
+}
+function resolveWindowsSystemCommand(command, env) {
+	return path.win32.join(resolveWindowsSystemRoot(env), "System32", command);
+}
+//#endregion
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/windows-path-syntax.js
+function isWindowsSeparator(value, offset) {
+	const code = value.charCodeAt(offset);
+	return code === 47 || code === 92;
+}
+function hasWindowsDrivePrefix(value, offset = 0) {
+	const letter = value.charCodeAt(offset) | 32;
+	return letter >= 97 && letter <= 122 && value.charCodeAt(offset + 1) === 58;
+}
+/** Classify a raw prefix without normalizing any path components. */
+function windowsNamespaceMarker(value) {
+	const marker = value[2];
+	return (marker === "." || marker === "?") && isWindowsSeparator(value, 0) && isWindowsSeparator(value, 1) && isWindowsSeparator(value, 3) ? marker : void 0;
+}
+function rootedWindowsDriveColonIndex(value) {
+	const colon = hasWindowsDrivePrefix(value) ? 1 : windowsNamespaceMarker(value) !== void 0 && hasWindowsDrivePrefix(value, 4) ? 5 : -1;
+	return colon >= 0 && isWindowsSeparator(value, colon + 1) ? colon : -1;
+}
+function asciiLowercase(value) {
+	return value.replace(/[A-Z]/g, (letter) => String.fromCharCode(letter.charCodeAt(0) + 32));
+}
+/**
+* True when dot-like components climb above the start of `segments`. Win32
+* trims trailing dots and spaces, so any all-dot or all-space component other
+* than `.` is counted as a parent step.
+*/
+function windowsSegmentsClimbAbove(segments) {
+	let depth = 0;
+	for (const segment of segments) {
+		if (segment === "" || segment === ".") continue;
+		depth += /^[. ]+$/.test(segment) ? -1 : 1;
+		if (depth < 0) return true;
+	}
+	return false;
+}
+/**
+* Comparable share or device root of a path spelled with two leading
+* separators, excluding namespaced drive roots such as `\\?\C:\`.
+* Returns undefined for drive, rooted, and relative spellings, and null when
+* the spelling alone cannot establish which share or device it reaches.
+*/
+function windowsShareOrDeviceRoot(value) {
+	if (!isWindowsSeparator(value, 0) || !isWindowsSeparator(value, 1)) return void 0;
+	const spelled = value.replaceAll("/", "\\");
+	if (windowsNamespaceMarker(spelled) === void 0) return asciiLowercase(path.win32.parse(spelled).root.replace(/\\+$/, ""));
+	const segments = spelled.slice(4).split("\\");
+	const head = asciiLowercase(segments[0] ?? "");
+	const authority = head === "unc" ? segments.slice(0, 3) : segments.slice(0, 1);
+	if (head === "globalroot" || head === "global" || authority.length < (head === "unc" ? 3 : 1) || authority.some((segment) => segment === "" || /[. ]$/.test(segment)) || windowsSegmentsClimbAbove(segments.slice(authority.length))) return null;
+	if (rootedWindowsDriveColonIndex(value) === 5) return void 0;
+	return asciiLowercase(head === "unc" ? `\\\\${authority[1]}\\${authority[2]}` : `${spelled.slice(0, 4)}${authority[0]}`);
+}
+var init_windows_path_syntax = __esmMin((() => {}));
+//#endregion
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/windows-path-alias.js
+function isExactlyUnderWindowsPath(trusted, value) {
+	const root = trusted.replaceAll("/", "\\").replace(/(?<=.)\\+$/, "");
+	const candidate = value.replaceAll("/", "\\");
+	if (candidate !== root && !candidate.startsWith(root.endsWith("\\") ? root : `${root}\\`)) return false;
+	return !windowsSegmentsClimbAbove(candidate.slice(root.length).split("\\"));
+}
+/**
+* True when a Windows path could reach a UNC share or device namespace that
+* none of the trusted boundary paths live on: its share or device differs from
+* theirs or cannot be identified from its spelling, and it is not spelled
+* exactly under one of them. Reject such input before any filesystem call:
+* even lstat on `\\host\share\x` makes Windows contact host.
+*/
+function isForeignWindowsShareOrDevicePath(value, trustedPaths, platform = process.platform) {
+	if (platform !== "win32") return false;
+	const key = windowsShareOrDeviceRoot(value);
+	if (key === void 0) return false;
+	return !trustedPaths.some((trusted) => trusted !== void 0 && (key !== null && windowsShareOrDeviceRoot(trusted) === key || isExactlyUnderWindowsPath(trusted, value)));
+}
+function isBareWindowsNamespaceDrive(value) {
+	return value.length === 6 && windowsNamespaceMarker(value) !== void 0 && hasWindowsDrivePrefix(value, 4);
+}
+/**
+* Capture an ordinary Windows drive-relative path without normalizing its raw
+* suffix. This is only for public APIs whose existing contract accepts such
+* paths; callers must still run namespace-alias admission on the result.
+*/
+function anchorWindowsDriveRelativePath(value) {
+	if (process.platform !== "win32" || path.isAbsolute(value)) return value;
+	if (!hasWindowsDrivePrefix(value)) return value;
+	const drive = value.slice(0, 2);
+	return `${path.resolve(drive)}${path.sep}${value.slice(2)}`;
+}
+/**
+* Resolve a path without letting Node erase the separator from an exact
+* extended-length drive root such as `\\?\C:\`. Bare `\\?\C:` input remains
+* unchanged so the surrounding alias admission rejects it.
+*/
+function resolvePathPreservingWindowsRoot(value) {
+	if (value.length === 7 && process.platform === "win32" && rootedWindowsDriveColonIndex(value) === 5) return value.includes("/") ? value.replaceAll("/", "\\") : value;
+	return repairResolvedWindowsRoot(value, path.resolve(value));
+}
+/**
+* Preserve a namespaced drive root after a caller has already resolved the
+* input. This lets admission fast paths keep exactly one live path.resolve
+* call while retaining the same root-repair behavior as the general helper.
+*/
+function repairResolvedWindowsRoot(value, resolved) {
+	if (resolved.length === 6 && process.platform === "win32" && isBareWindowsNamespaceDrive(resolved) && !hasWindowsPathAlias(value, "filesystem")) return `${resolved}\\`;
+	return resolved;
+}
+/**
+* Adapt an admitted namespaced drive root for Node's Windows filesystem layer.
+* Node removes the root separator from these paths during filesystem dispatch,
+* so use the equivalent ordinary drive root for the operation. This is not an
+* admission check: callers must validate attacker-controlled input first.
+*/
+function pathForWindowsFilesystem(value) {
+	if (process.platform !== "win32" || rootedWindowsDriveColonIndex(value) !== 5) return value;
+	if (value.length === 7) return `${value[4]}:\\`;
+	const resolved = path.resolve(value);
+	if (isBareWindowsNamespaceDrive(resolved) && !hasWindowsPathAlias(value, "filesystem")) return `${resolved[4]}:\\`;
+	return value;
+}
+/** Returns true when a Windows pathname can address an alternate filesystem namespace. */
+function hasWindowsPathAlias(value, kind, platform = process.platform) {
+	if (platform !== "win32") return false;
+	const firstColon = value.indexOf(":");
+	if (firstColon === -1) return false;
+	if (kind === "relative") return true;
+	return firstColon !== rootedWindowsDriveColonIndex(value) || value.indexOf(":", firstColon + 1) !== -1;
+}
+function assertNoWindowsPathAliasForPlatform(value, kind, message, platform) {
+	if (hasWindowsPathAlias(value, kind, platform)) throw new FsSafeError("invalid-path", message, { details: { reason: "windows-path-alias" } });
+}
+function assertNoWindowsPathAlias(value, kind = "filesystem", message = "path uses a Windows filesystem namespace alias", platform = process.platform) {
+	assertNoWindowsPathAliasForPlatform(value, kind, message, platform);
+}
+var init_windows_path_alias = __esmMin((() => {
+	init_errors();
+	init_windows_path_syntax();
+}));
+//#endregion
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/windows-owner.js
+init_windows_path_alias();
+const SID_RE$2 = /^\*?s-\d+-\d+(-\d+)+$/i;
+const TRUSTED_OWNER_SIDS = /* @__PURE__ */ new Set(["s-1-5-18", "s-1-5-32-544"]);
+function normalizeSid$1(value) {
+	const normalized = value.trim().toLowerCase();
+	return normalized.startsWith("*") ? normalized.slice(1) : normalized;
+}
+function encodePowerShellCommand(source) {
+	return Buffer.from(source, "utf16le").toString("base64");
+}
+function windowsOwnerQueryCommand(targetPath) {
+	return [
+		"$ErrorActionPreference='Stop'",
+		"$env:PSModulePath=[IO.Path]::Combine($PSHOME,'Modules')",
+		`$p=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${Buffer.from(targetPath, "utf8").toString("base64")}'))`,
+		"$sections=[System.Security.AccessControl.AccessControlSections]::Access -bor [System.Security.AccessControl.AccessControlSections]::Owner",
+		"$acl=if([IO.Directory]::Exists($p)){[IO.Directory]::GetAccessControl($p,$sections)}else{[IO.File]::GetAccessControl($p,$sections)}",
+		"$ownerSid=$acl.GetOwner([System.Security.Principal.SecurityIdentifier]).Value",
+		"$currentSid=[System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value",
+		"$root=[IO.Path]::GetPathRoot($p)",
+		"$extendedDrive=$p.Length -ge 7 -and $p.StartsWith('\\\\?\\') -and [char]::IsLetter($p[4]) -and $p[5] -eq ':' -and $p[6] -eq '\\'",
+		"$driveRoot=if($extendedDrive){$p.Substring(4,3)}else{$root}",
+		"$namespacePath=$p.StartsWith('\\\\')",
+		"$remote=($namespacePath -and -not $extendedDrive) -or ([IO.DriveInfo]::new($driveRoot).DriveType -eq [IO.DriveType]::Network)",
+		"$raw=[System.Security.AccessControl.RawSecurityDescriptor]::new($acl.GetSecurityDescriptorBinaryForm(),0)",
+		"$dacl=$raw.DiscretionaryAcl;$complete=$true",
+		"$aces=@(foreach($ace in $dacl){if($ace -isnot [System.Security.AccessControl.CommonAce] -or $ace.IsCallback -or [int]$ace.AceType -notin @(0,1)){$complete=$false;continue};@{sid=$ace.SecurityIdentifier.Value;mask=([long]$ace.AccessMask -band 4294967295);deny=([int]$ace.AceType -eq 1);inheritOnly=([int]$ace.AceFlags -band 8) -ne 0}})",
+		"@{ownerSid=$ownerSid;currentUserSid=$currentSid;daclPresent=($null -ne $dacl);aces=$aces;complete=$complete;remote=$remote}|Microsoft.PowerShell.Utility\\ConvertTo-Json -Depth 4 -Compress"
+	].join(";");
+}
+function parseWindowsAclFacts(parsed) {
+	if (parsed.complete !== true || typeof parsed.daclPresent !== "boolean" || !Array.isArray(parsed.aces)) return { aclError: "Windows ACL query returned incomplete descriptor data" };
+	const aces = [];
+	for (const row of parsed.aces) {
+		if (!row || typeof row !== "object" || typeof row.sid !== "string" || !SID_RE$2.test(row.sid) || typeof row.mask !== "number" || !Number.isInteger(row.mask) || row.mask < 0 || row.mask > 4294967295 || typeof row.deny !== "boolean" || typeof row.inheritOnly !== "boolean") return { aclError: "Windows ACL query returned invalid access-rule data" };
+		aces.push({
+			sid: normalizeSid$1(row.sid),
+			mask: row.mask,
+			deny: row.deny,
+			inheritOnly: row.inheritOnly
+		});
+	}
+	return {
+		daclPresent: parsed.daclPresent,
+		aces
+	};
+}
+async function inspectWindowsOwner(params) {
+	if (hasWindowsPathAlias(params.targetPath, "filesystem", "win32")) {
+		const error = /* @__PURE__ */ new Error("Path uses a Windows filesystem namespace alias");
+		return {
+			error: String(error),
+			errorCause: error
+		};
+	}
+	let command = "";
+	let startedAt = performance.now();
+	try {
+		command = resolveWindowsSystemCommand(String.raw`WindowsPowerShell\v1.0\powershell.exe`, params.env);
+		startedAt = performance.now();
+		const { stdout } = await params.exec(command, [
+			"-NoLogo",
+			"-NoProfile",
+			"-NonInteractive",
+			"-EncodedCommand",
+			encodePowerShellCommand(windowsOwnerQueryCommand(params.targetPath))
+		]);
+		const value = JSON.parse(stdout.trim());
+		if (!value || typeof value !== "object" || Array.isArray(value)) return { error: "Windows owner query returned invalid SID data" };
+		const parsed = value;
+		const ownerSid = typeof parsed.ownerSid === "string" && SID_RE$2.test(parsed.ownerSid) ? normalizeSid$1(parsed.ownerSid) : void 0;
+		const currentUserSid = typeof parsed.currentUserSid === "string" && SID_RE$2.test(parsed.currentUserSid) ? normalizeSid$1(parsed.currentUserSid) : void 0;
+		if (!ownerSid || !currentUserSid) return { error: "Windows owner query returned invalid SID data" };
+		const remote = parsed.remote;
+		if (typeof remote !== "boolean") return { error: "Windows owner query returned invalid locality data" };
+		return {
+			sid: ownerSid,
+			currentUserSid,
+			...parseWindowsAclFacts(parsed),
+			trusted: !remote && (ownerSid === currentUserSid || TRUSTED_OWNER_SIDS.has(ownerSid))
+		};
+	} catch (err) {
+		return {
+			error: formatCaughtPermissionFailure(err),
+			errorDetail: getPermissionCommandFailure(err, command, performance.now() - startedAt),
+			errorCause: err
+		};
+	}
+}
+//#endregion
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/permissions-windows.js
+init_native();
+init_string_coerce();
+init_windows_path_alias();
+const WORLD_PRINCIPALS = /* @__PURE__ */ new Set([
+	"everyone",
+	"users",
+	"builtin\\users",
+	"authenticated users",
+	"nt authority\\authenticated users",
+	"anonymous logon",
+	"nt authority\\anonymous logon",
+	"guests",
+	"builtin\\guests",
+	"interactive",
+	"nt authority\\interactive",
+	"network",
+	"nt authority\\network",
+	"local"
+]);
+const TRUSTED_BASE = /* @__PURE__ */ new Set([
+	"nt authority\\system",
+	"system",
+	"builtin\\administrators",
+	"creator owner",
+	"autorite nt\\système",
+	"nt-autorität\\system",
+	"autoridad nt\\system",
+	"autoridade nt\\system"
+]);
+const WORLD_SUFFIXES = ["\\users", "\\authenticated users"];
+const SID_RE$1 = /^\*?s-\d+-\d+(-\d+)+$/i;
+const TRUSTED_SIDS = /* @__PURE__ */ new Set([
+	"s-1-5-18",
+	"s-1-5-32-544",
+	"s-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464"
+]);
+const WORLD_SIDS$1 = /* @__PURE__ */ new Set([
+	"s-1-1-0",
+	"s-1-5-11",
+	"s-1-5-32-545",
+	"s-1-5-7",
+	"s-1-5-32-546",
+	"s-1-5-4",
+	"s-1-2-0",
+	"s-1-5-2"
+]);
+function stripDiacritics(value) {
+	return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+const TRUSTED_BASE_ASCII = new Set([...TRUSTED_BASE].map(stripDiacritics));
+const normalize = (value) => normalizeLowercaseStringOrEmpty(value);
+const defaultWindowsUserInfo = () => os.userInfo();
+const defaultPermissionExec = executePermissionCommand;
+function inspectWindowsPermissionsNative(targetPath, unverified) {
+	const native = getNativeBinding();
+	if (!native) return void 0;
+	try {
+		const facts = native.readOwnerAndDacl(targetPath);
+		if (facts.fallbackRequired) return void 0;
+		return {
+			...unverified,
+			source: "windows-acl",
+			worldWritable: facts.worldWritable,
+			groupWritable: facts.groupWritable,
+			worldReadable: facts.worldReadable,
+			groupReadable: facts.groupReadable,
+			ownerSid: facts.ownerSid,
+			ownerTrusted: facts.ownerClass !== "foreign",
+			aclSummary: `native owner=${facts.ownerClass} world=${facts.worldReadable ? "r" : "-"}${facts.worldWritable ? "w" : "-"} group=${facts.groupReadable ? "r" : "-"}${facts.groupWritable ? "w" : "-"}`
+		};
+	} catch {
+		return;
+	}
+}
+async function inspectWindowsPermissions(targetPath, unverified, opts) {
+	if (hasWindowsPathAlias(targetPath, "filesystem", "win32")) return {
+		...unverified,
+		error: "Path uses a Windows filesystem namespace alias"
+	};
+	const native = inspectWindowsPermissionsNative(targetPath, unverified);
+	if (native) return native;
+	const owner = await inspectWindowsOwner({
+		targetPath,
+		env: opts?.env,
+		exec: opts?.exec ?? defaultPermissionExec
+	});
+	if (owner.error !== void 0) {
+		const error = `Windows owner inspection failed: ${owner.error}`;
+		return {
+			...unverified,
+			ownerError: owner.error,
+			error,
+			errorDetail: owner.errorDetail,
+			errorCause: owner.errorCause
+		};
+	}
+	const acl = summarizeWindowsOwnerAcl(owner);
+	const ownerFields = {
+		...owner.sid ? { ownerSid: owner.sid } : {},
+		...owner.trusted !== void 0 ? { ownerTrusted: owner.trusted } : {},
+		...owner.error ? { ownerError: owner.error } : {}
+	};
+	if (!acl.ok) return {
+		...unverified,
+		...ownerFields,
+		error: acl.error,
+		errorDetail: acl.errorDetail,
+		errorCause: acl.errorCause
+	};
+	return {
+		...unverified,
+		source: "windows-acl",
+		worldWritable: acl.untrustedWorld.some((entry) => entry.canWrite),
+		groupWritable: acl.untrustedGroup.some((entry) => entry.canWrite),
+		worldReadable: acl.untrustedWorld.some((entry) => entry.canRead),
+		groupReadable: acl.untrustedGroup.some((entry) => entry.canRead),
+		...ownerFields,
+		aclSummary: formatWindowsAclSummary(acl)
+	};
+}
+function normalizeSid(value) {
+	const normalized = normalize(value);
+	return normalized.startsWith("*") ? normalized.slice(1) : normalized;
+}
+function resolveWindowsUserPrincipal(env, userInfo = defaultWindowsUserInfo) {
+	const username = env?.USERNAME?.trim() || userInfo().username?.trim();
+	if (!username) return null;
+	const domain = env?.USERDOMAIN?.trim();
+	return domain ? `${domain}\\${username}` : username;
+}
+function buildTrustedSidPrincipals(env) {
+	const trusted = /* @__PURE__ */ new Set();
+	const userSid = normalizeSid(env?.USERSID ?? "");
+	if (userSid && SID_RE$1.test(userSid) && !WORLD_SIDS$1.has(userSid)) trusted.add(userSid);
+	return trusted;
+}
+function buildTrustedPrincipals(env) {
+	const trusted = /* @__PURE__ */ new Set([...TRUSTED_BASE, ...buildTrustedSidPrincipals(env)]);
+	const principal = resolveWindowsUserPrincipal(env);
+	if (principal) {
+		trusted.add(normalize(principal));
+		const userOnly = principal.split("\\").at(-1);
+		if (userOnly) trusted.add(normalize(userOnly));
+	}
+	return trusted;
+}
+function classifyPrincipal(principal, trustedPrincipals) {
+	const normalized = normalize(principal);
+	if (SID_RE$1.test(normalized)) {
+		const sid = normalizeSid(normalized);
+		if (WORLD_SIDS$1.has(sid)) return "world";
+		if (TRUSTED_SIDS.has(sid) || trustedPrincipals.has(sid)) return "trusted";
+		return "group";
+	}
+	if (trustedPrincipals.has(normalized) || TRUSTED_BASE.has(normalized)) return "trusted";
+	if (WORLD_PRINCIPALS.has(normalized) || WORLD_SUFFIXES.some((suffix) => normalized.endsWith(suffix))) return "world";
+	const stripped = stripDiacritics(normalized);
+	return stripped !== normalized && TRUSTED_BASE_ASCII.has(stripped) ? "trusted" : "group";
+}
+function summarizeWindowsAcl(entries, env) {
+	const trustedPrincipals = entries.every((entry) => SID_RE$1.test(normalize(entry.sid ?? entry.principal))) ? buildTrustedSidPrincipals(env) : buildTrustedPrincipals(env);
+	const trusted = [];
+	const untrustedWorld = [];
+	const untrustedGroup = [];
+	for (const entry of entries) {
+		const classification = classifyPrincipal(entry.sid ?? entry.principal, trustedPrincipals);
+		if (classification === "trusted") trusted.push(entry);
+		else if (classification === "world") untrustedWorld.push(entry);
+		else untrustedGroup.push(entry);
+	}
+	return {
+		trusted,
+		untrustedWorld,
+		untrustedGroup
+	};
+}
+const MASK_RIGHTS = [
+	[268435456, "GA"],
+	[2147483648, "GR"],
+	[1073741824, "GW"],
+	[536870912, "GE"],
+	[65536, "D"],
+	[131072, "RC"],
+	[262144, "WDAC"],
+	[524288, "WO"],
+	[1048576, "S"],
+	[1, "RD"],
+	[2, "WD"],
+	[4, "AD"],
+	[8, "REA"],
+	[16, "WEA"],
+	[32, "X"],
+	[64, "DC"],
+	[128, "RA"],
+	[256, "WA"]
+];
+function summarizeWindowsOwnerAcl(owner) {
+	const error = owner.error ?? owner.aclError;
+	if (error || owner.daclPresent === void 0 || !owner.aces || !owner.currentUserSid) return {
+		ok: false,
+		entries: [],
+		trusted: [],
+		untrustedWorld: [],
+		untrustedGroup: [],
+		error: error ?? "Windows ACL query returned incomplete descriptor data",
+		errorDetail: owner.errorDetail,
+		errorCause: owner.errorCause
+	};
+	const entries = (owner.daclPresent ? owner.aces : [{
+		sid: "s-1-1-0",
+		mask: 2032127,
+		deny: false,
+		inheritOnly: false
+	}]).filter((ace) => !ace.deny && !ace.inheritOnly).map((ace) => {
+		const rights = ace.mask === 2032127 ? ["F"] : MASK_RIGHTS.filter(([mask]) => (ace.mask & mask) !== 0).map(([, name]) => name);
+		return {
+			principal: ace.sid,
+			sid: ace.sid,
+			rights,
+			rawRights: "(" + rights.join(",") + ")",
+			canRead: (ace.mask & 2416050313) !== 0,
+			canWrite: (ace.mask & 1343029590) !== 0
+		};
+	});
+	return {
+		ok: true,
+		entries,
+		...summarizeWindowsAcl(entries, { USERSID: owner.currentUserSid })
+	};
+}
+function formatWindowsAclSummary(summary) {
+	if (!summary.ok) return "unknown";
+	const untrusted = [...summary.untrustedWorld, ...summary.untrustedGroup];
+	return untrusted.length === 0 ? "trusted-only" : untrusted.map((entry) => `${entry.principal}:${entry.rawRights}`).join(", ");
+}
+//#endregion
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/permissions.js
+init_windows_path_alias();
+function failedSafeStat(error) {
+	return {
+		ok: false,
+		isSymlink: false,
+		isDir: false,
+		mode: null,
+		uid: null,
+		gid: null,
+		error
+	};
+}
+async function safeStatAdmitted(targetPath) {
+	try {
+		const lst = fsSync.lstatSync(pathForWindowsFilesystem(targetPath));
+		return {
+			ok: true,
+			isSymlink: lst.isSymbolicLink(),
+			isDir: lst.isDirectory(),
+			mode: typeof lst.mode === "number" ? lst.mode : null,
+			uid: typeof lst.uid === "number" ? lst.uid : null,
+			gid: typeof lst.gid === "number" ? lst.gid : null
+		};
+	} catch (err) {
+		return failedSafeStat(String(err));
+	}
+}
+async function inspectPathPermissions(targetPath, opts) {
+	const st = hasWindowsPathAlias(targetPath, "filesystem", process.platform === "win32" ? process.platform : opts?.platform ?? process.platform) ? failedSafeStat("Path uses a Windows filesystem namespace alias") : await safeStatAdmitted(targetPath);
+	if (!st.ok) return {
+		ok: false,
+		isSymlink: false,
+		isDir: false,
+		mode: null,
+		bits: null,
+		source: "unknown",
+		worldWritable: false,
+		groupWritable: false,
+		worldReadable: false,
+		groupReadable: false,
+		error: st.error
+	};
+	let effectiveMode = st.mode;
+	let effectiveIsDir = st.isDir;
+	if (st.isSymlink) try {
+		const target = fsSync.statSync(targetPath);
+		effectiveMode = typeof target.mode === "number" ? target.mode : st.mode;
+		effectiveIsDir = target.isDirectory();
+	} catch {}
+	const bits = modeBits(effectiveMode);
+	const windows = (opts?.platform ?? process.platform) === "win32";
+	const permissions = {
+		ok: true,
+		isSymlink: st.isSymlink,
+		isDir: effectiveIsDir,
+		mode: effectiveMode,
+		bits,
+		source: windows ? "unknown" : "posix",
+		worldWritable: !windows && isWorldWritable(bits),
+		groupWritable: !windows && isGroupWritable(bits),
+		worldReadable: !windows && isWorldReadable(bits),
+		groupReadable: !windows && isGroupReadable(bits)
+	};
+	return windows ? await inspectWindowsPermissions(targetPath, permissions, opts) : permissions;
+}
+function modeBits(mode) {
+	return mode == null ? null : mode & 511;
+}
+function isWorldWritable(bits) {
+	return bits != null && (bits & 2) !== 0;
+}
+function isGroupWritable(bits) {
+	return bits != null && (bits & 16) !== 0;
+}
+function isWorldReadable(bits) {
+	return bits != null && (bits & 4) !== 0;
+}
+function isGroupReadable(bits) {
+	return bits != null && (bits & 32) !== 0;
+}
+//#endregion
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/native-fallback-warning.js
+const warnedFeatures = /* @__PURE__ */ new Set();
+/** Warn once per capability, without including caller paths or native error text. */
+function warnNativeFallback(feature, limitation) {
+	if (warnedFeatures.has(feature)) return;
+	warnedFeatures.add(feature);
+	process.emitWarning(`${feature} is using its portable fallback because native support is unavailable or disabled. ${limitation}`, {
+		code: "FS_SAFE_NATIVE_FALLBACK",
+		type: "FsSafeWarning"
+	});
+}
+//#endregion
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/windows-security-facts.js
+init_errors();
+const SID_RE = /^s-\d+-\d+(?:-\d+)+$/;
+const SYSTEM_SID = "s-1-5-18";
+const ADMINISTRATORS_SID = "s-1-5-32-544";
+const WORLD_SIDS = /* @__PURE__ */ new Set([
+	"s-1-1-0",
+	"s-1-5-11",
+	"s-1-5-32-545",
+	"s-1-5-7",
+	"s-1-5-32-546",
+	"s-1-5-4",
+	"s-1-5-2"
+]);
+function unverified(message, cause) {
+	throw new FsSafeError("permission-unverified", message, cause === void 0 ? {} : { cause });
+}
+function record$1(value) {
+	return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+function uint32(value) {
+	return typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 4294967295;
+}
+function validateAce(value, allowUnknownFlags) {
+	if (!record$1(value) || typeof value.sid !== "string" || !SID_RE.test(value.sid) || !uint32(value.mask) || value.aceType !== "allow" && value.aceType !== "deny" || !record$1(value.flags)) return false;
+	const { raw } = value.flags;
+	if (!uint32(raw) || (raw & ~(allowUnknownFlags ? 255 : 223)) !== 0) return false;
+	const fields = [
+		["objectInherit", 1],
+		["containerInherit", 2],
+		["noPropagateInherit", 4],
+		["inheritOnly", 8],
+		["inherited", 16],
+		["successfulAccess", 64],
+		["failedAccess", 128]
+	];
+	const flags = value.flags;
+	return fields.every(([field, bit]) => typeof flags[field] === "boolean" && flags[field] === ((raw & bit) !== 0));
+}
+function validateDescriptor(value, allowUnknownFlags) {
+	if (!record$1(value) || typeof value.ownerSid !== "string" || !SID_RE.test(value.ownerSid) || typeof value.currentUserSid !== "string" || !SID_RE.test(value.currentUserSid) || typeof value.daclPresent !== "boolean" || typeof value.isLocal !== "boolean" || typeof value.aceListComplete !== "boolean" || !Array.isArray(value.unsupportedAceTypes) || !value.unsupportedAceTypes.every(uint32) || !Array.isArray(value.aces) || !value.aces.every((ace) => validateAce(ace, allowUnknownFlags))) unverified("Windows descriptor ACL facts were malformed");
+	if (!value.daclPresent && value.aces.length !== 0 || value.aceListComplete && value.unsupportedAceTypes.length !== 0) unverified("Windows descriptor DACL facts were inconsistent");
+	return value;
+}
+function summarize(facts) {
+	const ownerClass = facts.ownerSid === facts.currentUserSid ? "current-user" : facts.ownerSid === SYSTEM_SID ? "system" : facts.ownerSid === ADMINISTRATORS_SID ? "administrators" : "foreign";
+	let worldReadable = !facts.daclPresent;
+	let worldWritable = !facts.daclPresent;
+	let groupReadable = false;
+	let groupWritable = false;
+	const trusted = /* @__PURE__ */ new Set([
+		facts.currentUserSid,
+		SYSTEM_SID,
+		ADMINISTRATORS_SID
+	]);
+	for (const ace of facts.aces) {
+		if (ace.aceType !== "allow" || ace.flags.inheritOnly || trusted.has(ace.sid)) continue;
+		const canRead = (ace.mask & 2415919241) !== 0;
+		const canWrite = (ace.mask & 1343029590) !== 0;
+		if (WORLD_SIDS.has(ace.sid)) {
+			worldReadable ||= canRead;
+			worldWritable ||= canWrite;
+		} else {
+			groupReadable ||= canRead;
+			groupWritable ||= canWrite;
+		}
+	}
+	return {
+		ownerClass,
+		worldReadable,
+		worldWritable,
+		groupReadable,
+		groupWritable
+	};
+}
+/** Raw reporting retains unknown flag bits; secure admission validates them below. */
+function parseWindowsSecurityCommandFacts(value) {
+	const facts = validateDescriptor(value, true);
+	if (!record$1(value) || typeof value.daclProtected !== "boolean") unverified("Windows security command returned malformed descriptor facts");
+	return {
+		...facts,
+		...summarize(facts),
+		fallbackRequired: !facts.isLocal || !facts.aceListComplete
+	};
+}
+/** Native and command observations share the same fail-closed admission policy. */
+function validateSecureWindowsSecurityFacts(value) {
+	const descriptor = validateDescriptor(value, false);
+	const facts = value;
+	const summary = summarize(descriptor);
+	if (![
+		"worldWritable",
+		"groupWritable",
+		"worldReadable",
+		"groupReadable",
+		"fallbackRequired"
+	].every((field) => typeof facts[field] === "boolean") || typeof facts.ownerClass !== "string") unverified("Windows descriptor ACL facts were malformed");
+	if (facts.ownerClass !== summary.ownerClass) unverified("Windows descriptor owner facts were inconsistent");
+	if (facts.fallbackRequired || !facts.isLocal || !facts.aceListComplete || facts.unsupportedAceTypes.length !== 0) unverified("Windows descriptor ACL facts were incomplete or unsupported");
+	if (facts.worldReadable !== summary.worldReadable || facts.worldWritable !== summary.worldWritable || facts.groupReadable !== summary.groupReadable || facts.groupWritable !== summary.groupWritable) unverified("Windows descriptor ACL summary was inconsistent");
+	return facts;
+}
+//#endregion
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/windows-security-command.js
+init_errors();
+const MAX_OUTPUT_BYTES = 1048576;
+const TERMINATION_GRACE_MS = 1e3;
+const FULL_IDENTITY = /^[0-9a-f]{16}:[0-9a-f]{32}$/;
+function isFullIdentity(identity) {
+	return typeof identity === "string" && identity.length === 49 && FULL_IDENTITY.test(identity);
+}
+function assertIdentity(identity) {
+	if (!isFullIdentity(identity)) throw new TypeError("Windows security operation requires a complete file identity");
+}
+function command(operation, params) {
+	const targetPath = params.targetPath ?? "";
+	if (targetPath.includes("\0")) throw Object.assign(/* @__PURE__ */ new Error("Windows path contains a NUL byte"), { code: "EINVAL" });
+	if (params.fd !== void 0 || operation === "descriptor" || operation === "protect-file" || operation === "verify-file") {
+		if (typeof params.fd !== "number" || !Number.isInteger(params.fd) || params.fd < 0 || params.fd > 2147483647) unverified("Windows security inspection requires a valid descriptor");
+	}
+	if (params.expectedParentIdentity !== void 0) assertIdentity(params.expectedParentIdentity);
+	if (params.expectedFileIdentity !== void 0) assertIdentity(params.expectedFileIdentity);
+	if (params.expectedLinks !== void 0 && (!Number.isInteger(params.expectedLinks) || params.expectedLinks < 1 || params.expectedLinks > 4294967295)) throw new TypeError("Windows security operation requires a positive uint32 link count");
+	const script = fileURLToPath(new URL("./windows-security-bridge.ps1", import.meta.url));
+	return {
+		file: resolveWindowsSystemCommand(String.raw`WindowsPowerShell\v1.0\powershell.exe`),
+		args: [
+			"-NoLogo",
+			"-NoProfile",
+			"-NonInteractive",
+			"-File",
+			script,
+			"-Operation",
+			operation
+		],
+		env: {
+			...process.env,
+			FS_SAFE_WINDOWS_SECURITY_PATH: targetPath,
+			FS_SAFE_WINDOWS_SECURITY_REQUIRE_PRIVATE: params.requirePrivate ? "1" : "0",
+			FS_SAFE_WINDOWS_SECURITY_PARENT_IDENTITY: params.expectedParentIdentity ?? "",
+			FS_SAFE_WINDOWS_SECURITY_FILE_IDENTITY: params.expectedFileIdentity ?? "",
+			FS_SAFE_WINDOWS_SECURITY_EXPECTED_LINKS: String(params.expectedLinks ?? 1)
+		}
+	};
+}
+function record(value) {
+	return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+function parseReply(stdout, operation) {
+	try {
+		return parseReplyValue(stdout, operation);
+	} catch (error) {
+		if (operation === "create" && error instanceof Error && error.code !== "EEXIST") Object.assign(error, { creationOutcome: "unconfirmed" });
+		throw error;
+	}
+}
+function parseReplyValue(stdout, operation) {
+	let response;
+	try {
+		response = JSON.parse(stdout.trim());
+	} catch (cause) {
+		unverified("Windows security command returned invalid data", cause);
+	}
+	if (!record(response) || typeof response.ok !== "boolean") unverified("Windows security command returned an incomplete response");
+	if (!response.ok) {
+		if (operation === "paths" && (response.code === "helper-unavailable" || response.code === "too-large") && typeof response.message === "string") throw new FsSafeError(response.code, response.message);
+		const codes = /* @__PURE__ */ new Set([
+			"EACCES",
+			"EPERM",
+			"EEXIST",
+			"ENOENT",
+			"ENOTSUP",
+			"EIO",
+			"EBADF",
+			"ELOOP",
+			"ENOTDIR",
+			"EINVAL",
+			"ENOSPC",
+			"EBUSY"
+		]);
+		if (typeof response.code !== "string" || !codes.has(response.code) || typeof response.message !== "string") unverified("Windows security command returned an invalid failure");
+		throw Object.assign(new Error(response.message), { code: response.code });
+	}
+	if (operation === "create" && (!record(response.result) || response.result.created !== true || !isFullIdentity(response.result.identity))) unverified("Windows security command did not verify private-directory creation");
+	return response.result;
+}
+var WindowsSecurityCommandError = class extends PermissionCommandError {
+	timedOut;
+	creationOutcome;
+	processExitConfirmed;
+	constructor(file, durationMs, receipt, timedOut, timeoutMs = DEFAULT_PERMISSION_EXEC_TIMEOUT_MS) {
+		super(file, durationMs, receipt, timeoutMs);
+		this.timedOut = timedOut;
+		this.creationOutcome = receipt.creationOutcome;
+		this.processExitConfirmed = receipt.processExitConfirmed;
+		if (timedOut) this.message = `Windows permission inspection timed out after ${timeoutMs}ms`;
+		if (!receipt.processExitConfirmed) this.message += "; process exit was not confirmed";
+		else if (!receipt.outputClosed) this.message += "; command output did not close";
+		if (receipt.creationOutcome) this.message += "; private-directory creation outcome is unconfirmed";
+	}
+};
+function ignoreLateError() {}
+async function execute(operation, params, request) {
+	const { file, args, env, input, timeoutMs = DEFAULT_PERMISSION_EXEC_TIMEOUT_MS, maxOutputBytes = MAX_OUTPUT_BYTES } = request ?? command(operation, params);
+	const startedAt = performance.now();
+	return await new Promise((resolve, reject) => {
+		const child = spawn(file, args, {
+			windowsHide: true,
+			env,
+			stdio: [
+				input === void 0 ? params.fd ?? "ignore" : "pipe",
+				"pipe",
+				"pipe"
+			]
+		});
+		const output = [];
+		const errors = [];
+		let bytes = 0;
+		let failure;
+		let failed = false;
+		let timedOut = false;
+		let stopping = false;
+		let settled = false;
+		let processExitConfirmed = false;
+		let exitCode = null;
+		let exitSignal = null;
+		let terminationSignalSent;
+		let terminationError;
+		let grace;
+		let missingPipes;
+		const deadlineError = () => /* @__PURE__ */ new Error("Windows security command exceeded its inspection deadline");
+		const timeout = setTimeout(() => {
+			timedOut = true;
+			fail(deadlineError());
+		}, timeoutMs);
+		const finish = (outputClosed) => {
+			if (settled) return;
+			settled = true;
+			clearTimeout(timeout);
+			clearTimeout(grace);
+			clearImmediate(missingPipes);
+			child.removeListener("exit", onExit);
+			child.removeListener("close", onClose);
+			child.removeListener("error", onChildError);
+			child.on("error", ignoreLateError);
+			const cleanupErrors = [];
+			if (input !== void 0 && child.stdin) {
+				child.stdin.removeListener("error", fail);
+				child.stdin.on("error", ignoreLateError);
+				if (!outputClosed) try {
+					child.stdin.destroy();
+				} catch (error) {
+					cleanupErrors.push(error);
+				}
+			}
+			for (const [stream, collect] of [[child.stdout, collectOutput], [child.stderr, collectErrors]]) {
+				if (!stream) continue;
+				stream.removeListener("data", collect);
+				stream.removeListener("error", fail);
+				stream.on("error", ignoreLateError);
+				if (!outputClosed) try {
+					stream.destroy();
+				} catch (error) {
+					cleanupErrors.push(error);
+				}
+			}
+			if (!outputClosed && !processExitConfirmed) try {
+				child.unref();
+			} catch (error) {
+				cleanupErrors.push(error);
+			}
+			if (failed || exitCode !== 0 || !outputClosed) reject(new WindowsSecurityCommandError(file, performance.now() - startedAt, {
+				cause: failure,
+				pid: child.pid ?? null,
+				code: exitCode,
+				signal: exitSignal,
+				stderr: Buffer.concat(errors),
+				processExitConfirmed,
+				outputClosed,
+				terminationSignalSent,
+				terminationError,
+				cleanupErrors,
+				...operation === "create" ? { creationOutcome: "unconfirmed" } : {}
+			}, timedOut, timeoutMs));
+			else try {
+				resolve(parseReply(Buffer.concat(output).toString("utf8"), operation));
+			} catch (error) {
+				reject(error);
+			}
+			output.length = 0;
+			errors.length = 0;
+		};
+		const fail = (error) => {
+			if (settled) return;
+			if (!failed) {
+				failed = true;
+				failure = error;
+			}
+			if (stopping) return;
+			stopping = true;
+			clearTimeout(timeout);
+			grace = setTimeout(() => finish(false), TERMINATION_GRACE_MS);
+			if (!processExitConfirmed) try {
+				terminationSignalSent = child.kill("SIGKILL");
+			} catch (error) {
+				terminationError ??= error;
+			}
+		};
+		const collect = (chunks) => (chunk) => {
+			if (failed || settled) return;
+			bytes += chunk.length;
+			if (bytes <= maxOutputBytes) chunks.push(chunk);
+			else fail(/* @__PURE__ */ new Error("Windows security command exceeded its output budget"));
+		};
+		const collectOutput = collect(output);
+		const collectErrors = collect(errors);
+		const onChildError = (error) => {
+			if (settled) return;
+			if (stopping) terminationError ??= error;
+			else fail(error);
+		};
+		const onExit = (code, signal) => {
+			processExitConfirmed = true;
+			exitCode = code;
+			exitSignal = signal;
+		};
+		const onClose = (code, signal) => {
+			onExit(code, signal);
+			if (!failed && performance.now() - startedAt >= timeoutMs) {
+				timedOut = true;
+				failed = true;
+				failure = deadlineError();
+			}
+			finish(true);
+		};
+		child.on("error", onChildError);
+		child.once("exit", onExit);
+		child.once("close", onClose);
+		child.stdout?.on("error", fail);
+		child.stderr?.on("error", fail);
+		child.stdout?.on("data", collectOutput);
+		child.stderr?.on("data", collectErrors);
+		if (!child.stdout || !child.stderr || input !== void 0 && !child.stdin) missingPipes = setImmediate(() => {
+			if (!failed && !settled) fail(/* @__PURE__ */ new Error("Windows security command output pipes are unavailable"));
+		});
+		if (input !== void 0 && child.stdin) {
+			child.stdin.on("error", fail);
+			try {
+				child.stdin.end(input, "utf8");
+			} catch (error) {
+				fail(error);
+			}
+		}
+	});
+}
+async function inspectWindowsDescriptorCommand(fd) {
+	const response = await execute("descriptor", { fd });
+	if (!record(response) || typeof response.identity !== "string") unverified("Windows security command returned incomplete handle facts");
+	return {
+		identity: response.identity,
+		security: parseWindowsSecurityCommandFacts(response.security)
+	};
+}
+//#endregion
 //#region packages/normalization-core/src/record-coerce.ts
 /** Type guard for non-array object records at browser-safe boundaries. */
 function isRecord$1(value) {
 	return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/identity.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/identity.js
 var require_identity = /* @__PURE__ */ __commonJSMin(((exports) => {
 	const ALIAS = Symbol.for("yaml.alias");
 	const DOC = Symbol.for("yaml.document");
@@ -75,7 +1381,7 @@ var require_identity = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.isSeq = isSeq;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/visit.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/visit.js
 var require_visit = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var identity = require_identity();
 	const BREAK = Symbol("break visit");
@@ -266,7 +1572,7 @@ var require_visit = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.visitAsync = visitAsync;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/directives.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/directives.js
 var require_directives = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var identity = require_identity();
 	var visit = require_visit();
@@ -430,7 +1736,7 @@ var require_directives = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.Directives = Directives;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/anchors.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/anchors.js
 var require_anchors = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var identity = require_identity();
 	var visit = require_visit();
@@ -497,7 +1803,7 @@ var require_anchors = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.findNewAnchor = findNewAnchor;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/applyReviver.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/applyReviver.js
 var require_applyReviver = /* @__PURE__ */ __commonJSMin(((exports) => {
 	/**
 	* Applies the JSON.parse reviver algorithm as defined in the ECMA-262 spec,
@@ -539,7 +1845,7 @@ var require_applyReviver = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.applyReviver = applyReviver;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/toJS.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/toJS.js
 var require_toJS = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var identity = require_identity();
 	/**
@@ -576,7 +1882,7 @@ var require_toJS = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.toJS = toJS;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Node.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Node.js
 var require_Node = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var applyReviver = require_applyReviver();
 	var identity = require_identity();
@@ -610,7 +1916,7 @@ var require_Node = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.NodeBase = NodeBase;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Alias.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Alias.js
 var require_Alias = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var anchors = require_anchors();
 	var visit = require_visit();
@@ -645,29 +1951,31 @@ var require_Alias = /* @__PURE__ */ __commonJSMin(((exports) => {
 				if (node === this) break;
 				if (node.anchor === this.source) found = node;
 			}
+			if (found && ctx) {
+				const { anchors, doc, maxAliasCount } = ctx;
+				let data = anchors.get(found);
+				if (!data) {
+					toJS.toJS(found, null, ctx);
+					data = anchors.get(found);
+				}
+				/* istanbul ignore if */
+				if (data?.res === void 0) throw new ReferenceError("This should not happen: Alias anchor was not resolved?");
+				if (maxAliasCount >= 0) {
+					data.count += 1;
+					if (data.aliasCount === 0) data.aliasCount = getAliasCount(doc, found, anchors);
+					if (data.count * data.aliasCount > maxAliasCount) throw new ReferenceError("Excessive alias count indicates a resource exhaustion attack");
+				}
+			}
 			return found;
 		}
 		toJSON(_arg, ctx) {
 			if (!ctx) return { source: this.source };
-			const { anchors, doc, maxAliasCount } = ctx;
-			const source = this.resolve(doc, ctx);
+			const source = this.resolve(ctx.doc, ctx);
 			if (!source) {
 				const msg = `Unresolved alias (the anchor must be set before the alias): ${this.source}`;
 				throw new ReferenceError(msg);
 			}
-			let data = anchors.get(source);
-			if (!data) {
-				toJS.toJS(source, null, ctx);
-				data = anchors.get(source);
-			}
-			/* istanbul ignore if */
-			if (data?.res === void 0) throw new ReferenceError("This should not happen: Alias anchor was not resolved?");
-			if (maxAliasCount >= 0) {
-				data.count += 1;
-				if (data.aliasCount === 0) data.aliasCount = getAliasCount(doc, source, anchors);
-				if (data.count * data.aliasCount > maxAliasCount) throw new ReferenceError("Excessive alias count indicates a resource exhaustion attack");
-			}
-			return data.res;
+			return ctx.anchors.get(source).res;
 		}
 		toString(ctx, _onComment, _onChompKeep) {
 			const src = `*${this.source}`;
@@ -704,7 +2012,7 @@ var require_Alias = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.Alias = Alias;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Scalar.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Scalar.js
 var require_Scalar = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var identity = require_identity();
 	var Node = require_Node();
@@ -731,7 +2039,7 @@ var require_Scalar = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.isScalarValue = isScalarValue;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/createNode.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/createNode.js
 var require_createNode = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var Alias = require_Alias();
 	var identity = require_identity();
@@ -794,7 +2102,7 @@ var require_createNode = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.createNode = createNode;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Collection.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Collection.js
 var require_Collection = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var createNode = require_createNode();
 	var identity = require_identity();
@@ -915,7 +2223,7 @@ var require_Collection = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.isEmptyPath = isEmptyPath;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyComment.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyComment.js
 var require_stringifyComment = /* @__PURE__ */ __commonJSMin(((exports) => {
 	/**
 	* Stringifies a comment.
@@ -935,7 +2243,7 @@ var require_stringifyComment = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.stringifyComment = stringifyComment;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/foldFlowLines.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/foldFlowLines.js
 var require_foldFlowLines = /* @__PURE__ */ __commonJSMin(((exports) => {
 	const FOLD_FLOW = "flow";
 	const FOLD_BLOCK = "block";
@@ -1055,7 +2363,7 @@ var require_foldFlowLines = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.foldFlowLines = foldFlowLines;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyString.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyString.js
 var require_stringifyString = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var Scalar = require_Scalar();
 	var foldFlowLines = require_foldFlowLines();
@@ -1279,7 +2587,7 @@ var require_stringifyString = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.stringifyString = stringifyString;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringify.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringify.js
 var require_stringify = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var anchors = require_anchors();
 	var identity = require_identity();
@@ -1387,7 +2695,7 @@ var require_stringify = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.stringify = stringify;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyPair.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyPair.js
 var require_stringifyPair = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var identity = require_identity();
 	var Scalar = require_Scalar();
@@ -1484,7 +2792,7 @@ var require_stringifyPair = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.stringifyPair = stringifyPair;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/log.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/log.js
 var require_log = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var node_process$2 = __require("process");
 	function debug(logLevel, ...messages) {
@@ -1500,7 +2808,7 @@ var require_log = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.warn = warn;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/merge.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/merge.js
 var require_merge = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var identity = require_identity();
 	var Scalar = require_Scalar();
@@ -1543,7 +2851,7 @@ var require_merge = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.merge = merge;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/addPairToJSMap.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/addPairToJSMap.js
 var require_addPairToJSMap = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var log = require_log();
 	var merge = require_merge();
@@ -1594,7 +2902,7 @@ var require_addPairToJSMap = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.addPairToJSMap = addPairToJSMap;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/Pair.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/Pair.js
 var require_Pair = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var createNode = require_createNode();
 	var stringifyPair = require_stringifyPair();
@@ -1627,7 +2935,7 @@ var require_Pair = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.createPair = createPair;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyCollection.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyCollection.js
 var require_stringifyCollection = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var identity = require_identity();
 	var stringify = require_stringify();
@@ -1745,7 +3053,7 @@ var require_stringifyCollection = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.stringifyCollection = stringifyCollection;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/YAMLMap.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/YAMLMap.js
 var require_YAMLMap = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var stringifyCollection = require_stringifyCollection();
 	var addPairToJSMap = require_addPairToJSMap();
@@ -1854,7 +3162,7 @@ var require_YAMLMap = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.findPair = findPair;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/common/map.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/common/map.js
 var require_map = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var identity = require_identity();
 	var YAMLMap = require_YAMLMap();
@@ -1871,7 +3179,7 @@ var require_map = /* @__PURE__ */ __commonJSMin(((exports) => {
 	};
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/nodes/YAMLSeq.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/nodes/YAMLSeq.js
 var require_YAMLSeq = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var createNode = require_createNode();
 	var stringifyCollection = require_stringifyCollection();
@@ -1977,7 +3285,7 @@ var require_YAMLSeq = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.YAMLSeq = YAMLSeq;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/common/seq.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/common/seq.js
 var require_seq = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var identity = require_identity();
 	var YAMLSeq = require_YAMLSeq();
@@ -1994,7 +3302,7 @@ var require_seq = /* @__PURE__ */ __commonJSMin(((exports) => {
 	};
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/common/string.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/common/string.js
 var require_string = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var stringifyString = require_stringifyString();
 	exports.string = {
@@ -2009,7 +3317,7 @@ var require_string = /* @__PURE__ */ __commonJSMin(((exports) => {
 	};
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/common/null.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/common/null.js
 var require_null = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var Scalar = require_Scalar();
 	const nullTag = {
@@ -2024,7 +3332,7 @@ var require_null = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.nullTag = nullTag;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/core/bool.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/core/bool.js
 var require_bool$1 = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var Scalar = require_Scalar();
 	const boolTag = {
@@ -2043,7 +3351,7 @@ var require_bool$1 = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.boolTag = boolTag;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyNumber.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyNumber.js
 var require_stringifyNumber = /* @__PURE__ */ __commonJSMin(((exports) => {
 	function stringifyNumber({ format, minFractionDigits, tag, value }) {
 		if (typeof value === "bigint") return String(value);
@@ -2064,7 +3372,7 @@ var require_stringifyNumber = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.stringifyNumber = stringifyNumber;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/core/float.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/core/float.js
 var require_float$1 = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var Scalar = require_Scalar();
 	var stringifyNumber = require_stringifyNumber();
@@ -2105,7 +3413,7 @@ var require_float$1 = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.floatNaN = floatNaN;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/core/int.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/core/int.js
 var require_int$1 = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var stringifyNumber = require_stringifyNumber();
 	const intIdentify = (value) => typeof value === "bigint" || Number.isInteger(value);
@@ -2146,7 +3454,7 @@ var require_int$1 = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.intOct = intOct;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/core/schema.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/core/schema.js
 var require_schema$2 = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var map = require_map();
 	var _null = require_null();
@@ -2170,7 +3478,7 @@ var require_schema$2 = /* @__PURE__ */ __commonJSMin(((exports) => {
 	];
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/json/schema.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/json/schema.js
 var require_schema$1 = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var Scalar = require_Scalar();
 	var map = require_map();
@@ -2232,7 +3540,7 @@ var require_schema$1 = /* @__PURE__ */ __commonJSMin(((exports) => {
 	});
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/binary.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/binary.js
 var require_binary = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var node_buffer = __require("buffer");
 	var Scalar = require_Scalar();
@@ -2288,7 +3596,7 @@ var require_binary = /* @__PURE__ */ __commonJSMin(((exports) => {
 	};
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/pairs.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/pairs.js
 var require_pairs = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var identity = require_identity();
 	var Pair = require_Pair();
@@ -2349,7 +3657,7 @@ var require_pairs = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.resolvePairs = resolvePairs;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/omap.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/omap.js
 var require_omap = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var identity = require_identity();
 	var toJS = require_toJS();
@@ -2414,7 +3722,7 @@ var require_omap = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.omap = omap;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/bool.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/bool.js
 var require_bool = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var Scalar = require_Scalar();
 	function boolStringify({ value, source }, ctx) {
@@ -2441,7 +3749,7 @@ var require_bool = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.trueTag = trueTag;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/float.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/float.js
 var require_float = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var Scalar = require_Scalar();
 	var stringifyNumber = require_stringifyNumber();
@@ -2485,7 +3793,7 @@ var require_float = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.floatNaN = floatNaN;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/int.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/int.js
 var require_int = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var stringifyNumber = require_stringifyNumber();
 	const intIdentify = (value) => typeof value === "bigint" || Number.isInteger(value);
@@ -2558,7 +3866,7 @@ var require_int = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.intOct = intOct;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/set.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/set.js
 var require_set = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var identity = require_identity();
 	var Pair = require_Pair();
@@ -2627,7 +3935,7 @@ var require_set = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.set = set;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/timestamp.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/timestamp.js
 var require_timestamp = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var stringifyNumber = require_stringifyNumber();
 	/** Internal types handle bigint as number, because TS can't figure it out. */
@@ -2710,7 +4018,7 @@ var require_timestamp = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.timestamp = timestamp;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/yaml-1.1/schema.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/yaml-1.1/schema.js
 var require_schema = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var map = require_map();
 	var _null = require_null();
@@ -2750,7 +4058,7 @@ var require_schema = /* @__PURE__ */ __commonJSMin(((exports) => {
 	];
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/tags.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/tags.js
 var require_tags = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var map = require_map();
 	var _null = require_null();
@@ -2836,7 +4144,7 @@ var require_tags = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.getTags = getTags;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/schema/Schema.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/schema/Schema.js
 var require_Schema = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var identity = require_identity();
 	var map = require_map();
@@ -2864,7 +4172,7 @@ var require_Schema = /* @__PURE__ */ __commonJSMin(((exports) => {
 	};
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/stringify/stringifyDocument.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/stringify/stringifyDocument.js
 var require_stringifyDocument = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var identity = require_identity();
 	var stringify = require_stringify();
@@ -2926,7 +4234,7 @@ var require_stringifyDocument = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.stringifyDocument = stringifyDocument;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/doc/Document.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/doc/Document.js
 var require_Document = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var Alias = require_Alias();
 	var Collection = require_Collection();
@@ -3207,7 +4515,7 @@ var require_Document = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.Document = Document;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/errors.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/errors.js
 var require_errors = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var YAMLError = class extends Error {
 		constructor(name, pos, code, message) {
@@ -3260,7 +4568,7 @@ var require_errors = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.prettifyError = prettifyError;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-props.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-props.js
 var require_resolve_props = /* @__PURE__ */ __commonJSMin(((exports) => {
 	function resolveProps(tokens, { flow, indicator, next, offset, onError, parentIndent, startOnNewline }) {
 		let spaceBefore = false;
@@ -3367,7 +4675,7 @@ var require_resolve_props = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.resolveProps = resolveProps;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/util-contains-newline.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/util-contains-newline.js
 var require_util_contains_newline = /* @__PURE__ */ __commonJSMin(((exports) => {
 	function containsNewline(key) {
 		if (!key) return null;
@@ -3396,7 +4704,7 @@ var require_util_contains_newline = /* @__PURE__ */ __commonJSMin(((exports) => 
 	exports.containsNewline = containsNewline;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/util-flow-indent-check.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/util-flow-indent-check.js
 var require_util_flow_indent_check = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var utilContainsNewline = require_util_contains_newline();
 	function flowIndentCheck(indent, fc, onError) {
@@ -3408,7 +4716,7 @@ var require_util_flow_indent_check = /* @__PURE__ */ __commonJSMin(((exports) =>
 	exports.flowIndentCheck = flowIndentCheck;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/util-map-includes.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/util-map-includes.js
 var require_util_map_includes = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var identity = require_identity();
 	function mapIncludes(ctx, items, search) {
@@ -3420,7 +4728,7 @@ var require_util_map_includes = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.mapIncludes = mapIncludes;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-block-map.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-block-map.js
 var require_resolve_block_map = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var Pair = require_Pair();
 	var YAMLMap = require_YAMLMap();
@@ -3508,7 +4816,7 @@ var require_resolve_block_map = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.resolveBlockMap = resolveBlockMap;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-block-seq.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-block-seq.js
 var require_resolve_block_seq = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var YAMLSeq = require_YAMLSeq();
 	var resolveProps = require_resolve_props();
@@ -3553,7 +4861,7 @@ var require_resolve_block_seq = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.resolveBlockSeq = resolveBlockSeq;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-end.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-end.js
 var require_resolve_end = /* @__PURE__ */ __commonJSMin(((exports) => {
 	function resolveEnd(end, offset, reqSpace, onError) {
 		let comment = "";
@@ -3591,7 +4899,7 @@ var require_resolve_end = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.resolveEnd = resolveEnd;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-flow-collection.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-flow-collection.js
 var require_resolve_flow_collection = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var identity = require_identity();
 	var Pair = require_Pair();
@@ -3754,7 +5062,7 @@ var require_resolve_flow_collection = /* @__PURE__ */ __commonJSMin(((exports) =
 	exports.resolveFlowCollection = resolveFlowCollection;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/compose-collection.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/compose-collection.js
 var require_compose_collection = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var identity = require_identity();
 	var Scalar = require_Scalar();
@@ -3806,7 +5114,7 @@ var require_compose_collection = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.composeCollection = composeCollection;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-block-scalar.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-block-scalar.js
 var require_resolve_block_scalar = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var Scalar = require_Scalar();
 	function resolveBlockScalar(ctx, scalar, onError) {
@@ -3983,7 +5291,7 @@ var require_resolve_block_scalar = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.resolveBlockScalar = resolveBlockScalar;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/resolve-flow-scalar.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/resolve-flow-scalar.js
 var require_resolve_flow_scalar = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var Scalar = require_Scalar();
 	var resolveEnd = require_resolve_end();
@@ -4053,40 +5361,41 @@ var require_resolve_flow_scalar = /* @__PURE__ */ __commonJSMin(((exports) => {
 			case "`": badChar = `reserved character ${source[0]}`;
 		}
 		if (badChar) onError(0, "BAD_SCALAR_START", `Plain value cannot start with ${badChar}`);
-		return foldLines(source);
+		return unfoldLines(source);
 	}
 	function singleQuotedValue(source, onError) {
 		if (source[source.length - 1] !== "'" || source.length === 1) onError(source.length, "MISSING_CHAR", "Missing closing 'quote");
-		return foldLines(source.slice(1, -1)).replace(/''/g, "'");
+		return unfoldLines(source.slice(1, -1)).replace(/''/g, "'");
 	}
-	function foldLines(source) {
+	function unfoldLines(source) {
+		const line = /(.*?)\r?\n/sy;
+		let match = line.exec(source);
+		if (!match) return source;
 		/**
-		* The negative lookbehind here and in the `re` RegExp is to
+		* The negative lookbehinds in these RegExps are to
 		* prevent causing a polynomial search time in certain cases.
 		*
-		* The try-catch is for Safari, which doesn't support this yet:
+		* The try-catch is for Safari < 16.4 and other old browsers:
 		* https://caniuse.com/js-regexp-lookbehind
 		*/
-		let first, line;
+		let trimEnd, trimBoth;
 		try {
-			first = /* @__PURE__ */ new RegExp("(.*?)(?<![ 	])[ 	]*\r?\n", "sy");
-			line = /* @__PURE__ */ new RegExp("[ 	]*(.*?)(?:(?<![ 	])[ 	]*)?\r?\n", "sy");
+			trimEnd = /* @__PURE__ */ new RegExp("(?<![ 	])[ 	]+$");
+			trimBoth = /* @__PURE__ */ new RegExp("^[ 	]+|(?<![ 	])[ 	]+$", "g");
 		} catch {
-			first = /(.*?)[ \t]*\r?\n/sy;
-			line = /[ \t]*(.*?)[ \t]*\r?\n/sy;
+			trimEnd = /[ \t]+$/;
+			trimBoth = /^[ \t]+|[ \t]+$/g;
 		}
-		let match = first.exec(source);
-		if (!match) return source;
-		let res = match[1];
+		let res = match[1].replace(trimEnd, "");
 		let sep = " ";
-		let pos = first.lastIndex;
-		line.lastIndex = pos;
+		let pos = line.lastIndex;
 		while (match = line.exec(source)) {
-			if (match[1] === "") {
+			const lm = match[1].replace(trimBoth, "");
+			if (lm === "") {
 				if (sep === "\n") res += sep;
 				else sep = "\n";
 			} else {
-				res += sep + match[1];
+				res += sep + lm;
 				sep = " ";
 			}
 			pos = line.lastIndex;
@@ -4187,7 +5496,7 @@ var require_resolve_flow_scalar = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.resolveFlowScalar = resolveFlowScalar;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/compose-scalar.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/compose-scalar.js
 var require_compose_scalar = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var identity = require_identity();
 	var Scalar = require_Scalar();
@@ -4248,7 +5557,7 @@ var require_compose_scalar = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.composeScalar = composeScalar;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/util-empty-scalar-position.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/util-empty-scalar-position.js
 var require_util_empty_scalar_position = /* @__PURE__ */ __commonJSMin(((exports) => {
 	function emptyScalarPosition(offset, before, pos) {
 		if (before) {
@@ -4275,7 +5584,7 @@ var require_util_empty_scalar_position = /* @__PURE__ */ __commonJSMin(((exports
 	exports.emptyScalarPosition = emptyScalarPosition;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/compose-node.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/compose-node.js
 var require_compose_node = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var Alias = require_Alias();
 	var identity = require_identity();
@@ -4366,7 +5675,7 @@ var require_compose_node = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.composeNode = composeNode;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/compose-doc.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/compose-doc.js
 var require_compose_doc = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var Document = require_Document();
 	var composeNode = require_compose_node();
@@ -4408,7 +5717,7 @@ var require_compose_doc = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.composeDoc = composeDoc;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/compose/composer.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/compose/composer.js
 var require_composer = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var node_process$1 = __require("process");
 	var directives = require_directives();
@@ -4606,7 +5915,7 @@ var require_composer = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.Composer = Composer;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/cst-scalar.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/cst-scalar.js
 var require_cst_scalar = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var resolveBlockScalar = require_resolve_block_scalar();
 	var resolveFlowScalar = require_resolve_flow_scalar();
@@ -4873,7 +6182,7 @@ var require_cst_scalar = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.setScalarValue = setScalarValue;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/cst-stringify.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/cst-stringify.js
 var require_cst_stringify = /* @__PURE__ */ __commonJSMin(((exports) => {
 	/**
 	* Stringify a CST document, token, or collection item
@@ -4924,7 +6233,7 @@ var require_cst_stringify = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.stringify = stringify;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/cst-visit.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/cst-visit.js
 var require_cst_visit = /* @__PURE__ */ __commonJSMin(((exports) => {
 	const BREAK = Symbol("break visit");
 	const SKIP = Symbol("skip children");
@@ -5015,7 +6324,7 @@ var require_cst_visit = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.visit = visit;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/cst.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/cst.js
 var require_cst = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var cstScalar = require_cst_scalar();
 	var cstStringify = require_cst_stringify();
@@ -5094,7 +6403,7 @@ var require_cst = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.tokenType = tokenType;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/lexer.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/lexer.js
 var require_lexer = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var cst = require_cst();
 	function isEmpty(ch) {
@@ -5627,7 +6936,7 @@ var require_lexer = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.Lexer = Lexer;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/line-counter.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/line-counter.js
 var require_line_counter = /* @__PURE__ */ __commonJSMin(((exports) => {
 	/**
 	* Tracks newlines during parsing in order to provide an efficient API for
@@ -5674,7 +6983,7 @@ var require_line_counter = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.LineCounter = LineCounter;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/parse/parser.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/parse/parser.js
 var require_parser = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var node_process = __require("process");
 	var cst = require_cst();
@@ -6540,7 +7849,7 @@ var require_parser = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.Parser = Parser;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/public-api.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/public-api.js
 var require_public_api = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var composer = require_composer();
 	var Document = require_Document();
@@ -6629,7 +7938,7 @@ var require_public_api = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.stringify = stringify;
 }));
 //#endregion
-//#region node_modules/.pnpm/yaml@2.9.0/node_modules/yaml/dist/index.js
+//#region node_modules/.pnpm/yaml@2.9.1/node_modules/yaml/dist/index.js
 var require_dist = /* @__PURE__ */ __commonJSMin(((exports) => {
 	var composer = require_composer();
 	var Document = require_Document();
@@ -6677,264 +7986,15 @@ var require_dist = /* @__PURE__ */ __commonJSMin(((exports) => {
 	exports.visitAsync = visit.visitAsync;
 }));
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.18.1/node_modules/@openclaw/fs-safe/dist/native-config.js
-function parseMode(value) {
-	if (!value) return;
-	const normalized = value.trim().toLowerCase();
-	if (normalized === "0" || normalized === "false" || normalized === "off" || normalized === "never") return "off";
-	if (normalized === "1" || normalized === "true" || normalized === "on" || normalized === "auto") return "auto";
-	if (normalized === "required" || normalized === "require") return "require";
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/byte-budget.js
+function normalizeMaxBytes(value, options = {}) {
+	const selected = value === void 0 ? options.defaultValue : value;
+	if (selected === void 0 || selected === Number.POSITIVE_INFINITY) return selected;
+	if (!Number.isSafeInteger(selected) || selected < 0) throw new RangeError("maxBytes must be a non-negative safe integer or Infinity");
+	return selected;
 }
-function warnLegacyPythonConfiguration(source, mappedMode) {
-	if (legacyWarningEmitted) return;
-	legacyWarningEmitted = true;
-	process.emitWarning(`${source} is a deprecated 0.4 compatibility bridge; mapped to native mode "${mappedMode}". Use configureFsSafeNative({ mode: "${mappedMode}" }) or FS_SAFE_NATIVE_MODE=${mappedMode}. Python interpreter paths are no longer used.`, {
-		code: "FS_SAFE_PYTHON_DEPRECATED",
-		type: "DeprecationWarning"
-	});
-}
-function readLegacyPythonMode() {
-	const configuredKeys = [...legacyModeEnvKeys, ...legacyPathEnvKeys].filter((key) => process.env[key] !== void 0);
-	if (configuredKeys.length === 0) return;
-	const mappedMode = parseMode(legacyModeEnvKeys.map((key) => process.env[key]).find((value) => value !== void 0)) ?? "auto";
-	warnLegacyPythonConfiguration(`Legacy ${configuredKeys.join(", ")}`, mappedMode);
-	return mappedMode;
-}
-function getFsSafeNativeConfig() {
-	const legacyMode = readLegacyPythonMode();
-	return { mode: overrideConfig.mode ?? parseMode(process.env.FS_SAFE_NATIVE_MODE) ?? parseMode(process.env.OPENCLAW_FS_SAFE_NATIVE_MODE) ?? legacyMode ?? "auto" };
-}
-var overrideConfig, legacyWarningEmitted, legacyModeEnvKeys, legacyPathEnvKeys;
-var init_native_config = __esmMin((() => {
-	overrideConfig = {};
-	legacyWarningEmitted = false;
-	legacyModeEnvKeys = ["FS_SAFE_PYTHON_MODE", "OPENCLAW_FS_SAFE_PYTHON_MODE"];
-	legacyPathEnvKeys = [
-		"FS_SAFE_PYTHON",
-		"OPENCLAW_FS_SAFE_PYTHON",
-		"OPENCLAW_PINNED_PYTHON",
-		"OPENCLAW_PINNED_WRITE_PYTHON"
-	];
-}));
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.18.1/node_modules/@openclaw/fs-safe/dist/errors.js
-function categorizeFsSafeError(code) {
-	return OPERATIONAL_CODES.has(code) ? "operational" : "policy";
-}
-var OPERATIONAL_CODES, FsSafeError;
-var init_errors = __esmMin((() => {
-	OPERATIONAL_CODES = /* @__PURE__ */ new Set([
-		"helper-failed",
-		"helper-unavailable",
-		"not-empty",
-		"not-found",
-		"not-removable",
-		"permission-unverified",
-		"read-failed",
-		"timeout",
-		"unsupported-platform"
-	]);
-	FsSafeError = class extends Error {
-		code;
-		category;
-		details;
-		constructor(code, message, options = {}) {
-			super(message, options);
-			this.name = "FsSafeError";
-			this.code = code;
-			this.category = categorizeFsSafeError(code);
-			this.details = options.details;
-		}
-	};
-}));
-//#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.18.1/node_modules/@openclaw/fs-safe/dist/file-observation.js
-function recordFileObservationFailure(error, kind) {
-	const failures = active.getStore();
-	if (!failures) return;
-	let kinds = failures.get(error);
-	if (!kinds) failures.set(error, kinds = /* @__PURE__ */ new Set());
-	kinds.add(kind);
-}
-var active;
-var init_file_observation = __esmMin((() => {
-	active = new AsyncLocalStorage();
-}));
-//#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.18.1/node_modules/@openclaw/fs-safe/dist/strict-file-identity.js
-function identityMismatch$1() {
-	const error = new FsSafeError("path-mismatch", "file identity changed or could not be verified");
-	recordFileObservationFailure(error, "identity");
-	return error;
-}
-function inspectFileIdentitySync(inspect, expected, platform = process.platform, mismatch = identityMismatch$1) {
-	let knownDev;
-	let knownIno;
-	if (expected) {
-		knownDev = expected.dev;
-		if (typeof knownDev !== "bigint") throw mismatch();
-		knownIno = expected.ino;
-		if (typeof knownIno !== "bigint") throw mismatch();
-		if (platform === "win32" && (knownDev === 0n || knownIno === 0n)) throw mismatch();
-	}
-	for (let attempt = 0; attempt < 2; attempt++) {
-		const stat = inspect();
-		let complete = true;
-		const dev = stat.dev;
-		if (typeof dev !== "bigint") throw mismatch();
-		if (platform === "win32" && dev === 0n) complete = false;
-		else {
-			if (knownDev !== void 0 && knownDev !== dev) throw mismatch();
-			knownDev = dev;
-		}
-		const ino = stat.ino;
-		if (typeof ino !== "bigint") throw mismatch();
-		if (platform === "win32" && ino === 0n) complete = false;
-		else {
-			if (knownIno !== void 0 && knownIno !== ino) throw mismatch();
-			knownIno = ino;
-		}
-		if (complete) return stat;
-	}
-	throw mismatch();
-}
-var init_strict_file_identity = __esmMin((() => {
-	init_errors();
-	init_file_observation();
-}));
-//#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.18.1/node_modules/@openclaw/fs-safe/dist/native-binding.js
-function captureNativeFdClose(binding) {
-	if (typeof binding.closeOwnedFd !== "function") throw new FsSafeError("helper-unavailable", "native descriptor ownership is unavailable");
-	return binding.closeOwnedFd.bind(binding);
-}
-var init_native_binding = __esmMin((() => {
-	init_errors();
-}));
-//#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.18.1/node_modules/@openclaw/fs-safe/dist/native.js
-function isMuslFilename(file) {
-	return file.includes("libc.musl-") || file.includes("ld-musl-");
-}
-function isMuslFromReport() {
-	try {
-		if (!process.report || typeof process.report.getReport !== "function") return void 0;
-		const report = process.report.getReport();
-		if (report.header?.glibcVersionRuntime) return false;
-		if (report.sharedObjects?.some(isMuslFilename)) return true;
-	} catch {}
-}
-function isMuslFromFilesystem() {
-	for (const directory of ["/lib", "/usr/lib"]) try {
-		if (readdirSync(directory).some(isMuslFilename)) return true;
-	} catch {}
-}
-function readUInt(buffer, offset, bytes, littleEndian) {
-	if (offset < 0 || offset + bytes > buffer.length) return void 0;
-	if (bytes === 2) return littleEndian ? buffer.readUInt16LE(offset) : buffer.readUInt16BE(offset);
-	if (bytes === 4) return littleEndian ? buffer.readUInt32LE(offset) : buffer.readUInt32BE(offset);
-	const value = littleEndian ? buffer.readBigUInt64LE(offset) : buffer.readBigUInt64BE(offset);
-	return value <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(value) : void 0;
-}
-function isMuslFromElfInterpreter() {
-	let fd;
-	try {
-		fd = openSync(process.execPath, "r");
-		const header = Buffer.alloc(64);
-		if (readSync(fd, header, 0, header.length, 0) < 52) return void 0;
-		if (!header.subarray(0, 4).equals(Buffer.from([
-			127,
-			69,
-			76,
-			70
-		]))) return void 0;
-		const elfClass = header[4];
-		const dataEncoding = header[5];
-		if (elfClass !== 1 && elfClass !== 2 || dataEncoding !== 1 && dataEncoding !== 2) return;
-		const littleEndian = dataEncoding === 1;
-		const is64Bit = elfClass === 2;
-		const tableOffset = readUInt(header, is64Bit ? 32 : 28, is64Bit ? 8 : 4, littleEndian);
-		const entrySize = readUInt(header, is64Bit ? 54 : 42, 2, littleEndian);
-		const entryCount = readUInt(header, is64Bit ? 56 : 44, 2, littleEndian);
-		if (tableOffset === void 0 || entrySize === void 0 || entryCount === void 0 || entrySize < (is64Bit ? 56 : 32) || entryCount > 1024) return;
-		const programHeader = Buffer.alloc(entrySize);
-		for (let index = 0; index < entryCount; index += 1) {
-			const offset = tableOffset + index * entrySize;
-			if (readSync(fd, programHeader, 0, entrySize, offset) !== entrySize) return void 0;
-			if (readUInt(programHeader, 0, 4, littleEndian) !== 3) continue;
-			const interpreterOffset = readUInt(programHeader, is64Bit ? 8 : 4, is64Bit ? 8 : 4, littleEndian);
-			const interpreterSize = readUInt(programHeader, is64Bit ? 32 : 16, is64Bit ? 8 : 4, littleEndian);
-			if (interpreterOffset === void 0 || interpreterSize === void 0 || interpreterSize < 1 || interpreterSize > 4096) return;
-			const interpreter = Buffer.alloc(interpreterSize);
-			if (readSync(fd, interpreter, 0, interpreterSize, interpreterOffset) !== interpreterSize) return;
-			return isMuslFilename(interpreter.toString("utf8"));
-		}
-	} catch {
-		return;
-	} finally {
-		if (fd !== void 0) try {
-			closeSync(fd);
-		} catch {}
-	}
-}
-function isMusl() {
-	if (process.platform !== "linux") return false;
-	for (const detector of [
-		isMuslFromReport,
-		isMuslFromElfInterpreter,
-		isMuslFromFilesystem
-	]) {
-		const result = detector();
-		if (result !== void 0) return result;
-	}
-	return false;
-}
-function targetFor(platform, arch, musl) {
-	if (platform === "win32" && arch === "x64") return "win32-x64-msvc";
-	if (platform === "darwin" && arch === "x64") return "darwin-x64";
-	if (platform === "darwin" && arch === "arm64") return "darwin-arm64";
-	if (platform === "linux" && (arch === "x64" || arch === "arm64")) return `linux-${arch}-${musl ? "musl" : "gnu"}`;
-}
-function bundledTarget() {
-	return targetFor(process.platform, process.arch, isMusl());
-}
-function nativePackageForTarget(target) {
-	return `@openclaw/fs-safe-${target}`;
-}
-function loadBundledBinding() {
-	const target = bundledTarget();
-	if (!target) throw new Error(`Unsupported OS or architecture: ${process.platform}-${process.arch}`);
-	const loaded = require$1(nativePackageForTarget(target));
-	captureNativeFdClose(loaded);
-	return loaded;
-}
-function getNativeBinding() {
-	const { mode } = getFsSafeNativeConfig();
-	if (mode === "off") return void 0;
-	if (!attempted) {
-		attempted = true;
-		try {
-			const loaded = loadBinding();
-			captureNativeFdClose(loaded);
-			binding = loaded;
-		} catch (error) {
-			loadError = error;
-		}
-	}
-	if (binding) return binding;
-	if (mode === "require") throw new FsSafeError("helper-unavailable", "native fs-safe helper is unavailable", { cause: loadError });
-}
-var require$1, binding, loadError, attempted, loadBinding;
-var init_native = __esmMin((() => {
-	init_errors();
-	init_native_binding();
-	init_native_config();
-	require$1 = createRequire(import.meta.url);
-	attempted = false;
-	loadBinding = loadBundledBinding;
-}));
-//#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.18.1/node_modules/@openclaw/fs-safe/dist/realpath.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/realpath.js
 function resolve(input, native) {
 	if (bunPosix) {
 		if (input.includes("\0")) throw Object.assign(/* @__PURE__ */ new TypeError("realpath input must not contain null bytes"), { code: "ERR_INVALID_ARG_VALUE" });
@@ -6953,7 +8013,7 @@ function resolve(input, native) {
 		}
 		if (getFsSafeNativeConfig().mode === "require") throw new FsSafeError("helper-unavailable", "native fs-safe canonicalization is unavailable");
 	}
-	return native ? fs$1.realpathSync.native(input) : fs$1.realpathSync(input);
+	return native ? fsSync.realpathSync.native(input) : fsSync.realpathSync(input);
 }
 var runtimePlatform, bunPosix, realpathSync;
 var init_realpath = __esmMin((() => {
@@ -6965,112 +8025,9 @@ var init_realpath = __esmMin((() => {
 	realpathSync = Object.assign((input) => resolve(input, false), { native: (input) => resolve(input, true) });
 }));
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.18.1/node_modules/@openclaw/fs-safe/dist/windows-path-syntax.js
-function isWindowsSeparator(value, offset) {
-	const code = value.charCodeAt(offset);
-	return code === 47 || code === 92;
-}
-function hasWindowsDrivePrefix(value, offset = 0) {
-	const letter = value.charCodeAt(offset) | 32;
-	return letter >= 97 && letter <= 122 && value.charCodeAt(offset + 1) === 58;
-}
-/** Classify a raw prefix without normalizing any path components. */
-function windowsNamespaceMarker(value) {
-	const marker = value[2];
-	return (marker === "." || marker === "?") && isWindowsSeparator(value, 0) && isWindowsSeparator(value, 1) && isWindowsSeparator(value, 3) ? marker : void 0;
-}
-function rootedWindowsDriveColonIndex(value) {
-	const colon = hasWindowsDrivePrefix(value) ? 1 : windowsNamespaceMarker(value) !== void 0 && hasWindowsDrivePrefix(value, 4) ? 5 : -1;
-	return colon >= 0 && isWindowsSeparator(value, colon + 1) ? colon : -1;
-}
-var init_windows_path_syntax = __esmMin((() => {}));
-//#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.18.1/node_modules/@openclaw/fs-safe/dist/windows-path-alias.js
-function isBareWindowsNamespaceDrive(value) {
-	return value.length === 6 && windowsNamespaceMarker(value) !== void 0 && hasWindowsDrivePrefix(value, 4);
-}
-/**
-* Capture an ordinary Windows drive-relative path without normalizing its raw
-* suffix. This is only for public APIs whose existing contract accepts such
-* paths; callers must still run namespace-alias admission on the result.
-*/
-function anchorWindowsDriveRelativePath(value) {
-	if (process.platform !== "win32" || path.isAbsolute(value)) return value;
-	if (!hasWindowsDrivePrefix(value)) return value;
-	const drive = value.slice(0, 2);
-	return `${path.resolve(drive)}${path.sep}${value.slice(2)}`;
-}
-/**
-* Resolve a path without letting Node erase the separator from an exact
-* extended-length drive root such as `\\?\C:\`. Bare `\\?\C:` input remains
-* unchanged so the surrounding alias admission rejects it.
-*/
-function resolvePathPreservingWindowsRoot(value) {
-	if (value.length === 7 && process.platform === "win32" && rootedWindowsDriveColonIndex(value) === 5) return value.includes("/") ? value.replaceAll("/", "\\") : value;
-	return repairResolvedWindowsRoot(value, path.resolve(value));
-}
-/**
-* Preserve a namespaced drive root after a caller has already resolved the
-* input. This lets admission fast paths keep exactly one live path.resolve
-* call while retaining the same root-repair behavior as the general helper.
-*/
-function repairResolvedWindowsRoot(value, resolved) {
-	if (resolved.length === 6 && process.platform === "win32" && isBareWindowsNamespaceDrive(resolved) && !hasWindowsPathAlias(value, "filesystem")) return `${resolved}\\`;
-	return resolved;
-}
-/**
-* Adapt an admitted namespaced drive root for Node's Windows filesystem layer.
-* Node removes the root separator from these paths during filesystem dispatch,
-* so use the equivalent ordinary drive root for the operation. This is not an
-* admission check: callers must validate attacker-controlled input first.
-*/
-function pathForWindowsFilesystem(value) {
-	if (process.platform !== "win32" || rootedWindowsDriveColonIndex(value) !== 5) return value;
-	if (value.length === 7) return `${value[4]}:\\`;
-	const resolved = path.resolve(value);
-	if (isBareWindowsNamespaceDrive(resolved) && !hasWindowsPathAlias(value, "filesystem")) return `${resolved[4]}:\\`;
-	return value;
-}
-/** Returns true when a Windows pathname can address an alternate filesystem namespace. */
-function hasWindowsPathAlias(value, kind, platform = process.platform) {
-	if (platform !== "win32") return false;
-	const firstColon = value.indexOf(":");
-	if (firstColon === -1) return false;
-	if (kind === "relative") return true;
-	return firstColon !== rootedWindowsDriveColonIndex(value) || value.indexOf(":", firstColon + 1) !== -1;
-}
-function assertNoWindowsPathAlias(value, kind = "filesystem", message = "path uses a Windows filesystem namespace alias", platform = process.platform) {
-	if (hasWindowsPathAlias(value, kind, platform)) throw new FsSafeError("invalid-path", message, { details: { reason: "windows-path-alias" } });
-}
-var init_windows_path_alias = __esmMin((() => {
-	init_errors();
-	init_windows_path_syntax();
-}));
-//#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.18.1/node_modules/@openclaw/fs-safe/dist/string-coerce.js
-function normalizeNullableString(value) {
-	if (typeof value !== "string") return null;
-	const trimmed = value.trim();
-	return trimmed ? trimmed : null;
-}
-function normalizeOptionalString(value) {
-	return normalizeNullableString(value) ?? void 0;
-}
-function normalizeOptionalLowercaseString(value) {
-	return normalizeOptionalString(value)?.toLowerCase();
-}
-function normalizeLowercaseStringOrEmpty(value) {
-	return normalizeOptionalLowercaseString(value) ?? "";
-}
-var init_string_coerce = __esmMin((() => {}));
-//#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.18.1/node_modules/@openclaw/fs-safe/dist/local-file-access.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/local-file-access.js
 function isFileUrl(input) {
 	return FILE_URL_PREFIX_RE.test(input);
-}
-function isLocalFileUrlHost(hostname) {
-	const normalized = normalizeLowercaseStringOrEmpty(hostname);
-	return normalized === "" || normalized === "localhost";
 }
 function hasEncodedFileUrlSeparator(pathname) {
 	return ENCODED_FILE_URL_SEPARATOR_RE.test(pathname);
@@ -7090,7 +8047,8 @@ function safeFileURLToPath(fileUrl, platform = process.platform) {
 		throw new Error(`Invalid file:// URL: ${fileUrl}`);
 	}
 	if (parsed.protocol !== "file:") throw new Error(`Invalid file:// URL: ${fileUrl}`);
-	if (!isLocalFileUrlHost(parsed.hostname)) throw new Error(`file:// URLs with remote hosts are not allowed: ${fileUrl}`);
+	const normalizedHost = normalizeLowercaseStringOrEmpty(parsed.hostname);
+	if (!(normalizedHost === "" || normalizedHost === "localhost")) throw new Error(`file:// URLs with remote hosts are not allowed: ${fileUrl}`);
 	if (hasEncodedFileUrlSeparator(parsed.pathname)) throw new Error(`file:// URLs cannot encode path separators: ${fileUrl}`);
 	const filePath = fileURLToPath(parsed, { windows: platform === "win32" });
 	if (hasWindowsPathAlias(filePath, "filesystem", platform)) throw new Error(`Local file URL cannot use Windows filesystem namespace aliases: ${filePath}`);
@@ -7113,7 +8071,7 @@ var init_local_file_access = __esmMin((() => {
 	FILE_URL_PREFIX_RE = /^file:\/\//i;
 }));
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.18.1/node_modules/@openclaw/fs-safe/dist/device-path.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/device-path.js
 function trimTrailingWindowsSeparators(value) {
 	let end = value.length;
 	while (end > 0 && value.charCodeAt(end - 1) === WINDOWS_SEPARATOR_CHAR_CODE) end -= 1;
@@ -7236,7 +8194,7 @@ var init_device_path = __esmMin((() => {
 	WINDOWS_IGNORED_DOT_CHAR_CODE = 46;
 }));
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.18.1/node_modules/@openclaw/fs-safe/dist/path.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/path.js
 function normalizeWindowsPathForComparison(input) {
 	let normalized = path.win32.normalize(input);
 	if (normalized.startsWith("\\\\?\\")) {
@@ -7257,6 +8215,7 @@ function isSymlinkOpenError(value) {
 }
 function isPathInside(root, target) {
 	if (process.platform === "win32") {
+		if (isForeignWindowsShareOrDevicePath(target, [root])) return false;
 		const rootForCompare = resolveWindowsPathForComparison(root);
 		const targetForCompare = resolveWindowsPathForComparison(target);
 		if (rootForCompare[1] === ":" && path.win32.isAbsolute(rootForCompare) && !targetForCompare.includes(":", 2) && (targetForCompare === rootForCompare || targetForCompare.startsWith(rootForCompare) && (rootForCompare.endsWith("\\") || targetForCompare[rootForCompare.length] === "\\"))) return true;
@@ -7283,574 +8242,70 @@ var init_path = __esmMin((() => {
 	POSIX_SEPARATOR_CHAR_CODE = 47;
 }));
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.18.1/node_modules/@openclaw/fs-safe/dist/native-fallback-warning.js
-const warnedFeatures = /* @__PURE__ */ new Set();
-/** Warn once per capability, without including caller paths or native error text. */
-function warnNativeFallback(feature, limitation) {
-	if (warnedFeatures.has(feature)) return;
-	warnedFeatures.add(feature);
-	process.emitWarning(`${feature} is using its portable fallback because native support is unavailable or disabled. ${limitation}`, {
-		code: "FS_SAFE_NATIVE_FALLBACK",
-		type: "FsSafeWarning"
-	});
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/file-observation.js
+function recordFileObservationFailure(error, kind) {
+	const failures = active.getStore();
+	if (!failures) return;
+	let kinds = failures.get(error);
+	if (!kinds) failures.set(error, kinds = /* @__PURE__ */ new Set());
+	kinds.add(kind);
 }
+var active;
+var init_file_observation = __esmMin((() => {
+	active = new AsyncLocalStorage();
+}));
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.18.1/node_modules/@openclaw/fs-safe/dist/error-detail.js
-const UNSAFE_ERROR_DETAIL_CHARACTERS = /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/gu;
-function formatErrorDetail(value) {
-	return value.replace(UNSAFE_ERROR_DETAIL_CHARACTERS, (character) => `\\u${character.charCodeAt(0).toString(16).padStart(4, "0")}`);
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/strict-file-identity.js
+function fileIdentityMismatchError() {
+	const error = new FsSafeError("path-mismatch", "file identity changed or could not be verified");
+	recordFileObservationFailure(error, "identity");
+	return error;
 }
-//#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.18.1/node_modules/@openclaw/fs-safe/dist/permission-exec.js
-const execFileAsync = promisify(execFile);
-const DEFAULT_PERMISSION_EXEC_TIMEOUT_MS = 3e4;
-function formatPermissionErrorDetail(value) {
-	const formatted = formatErrorDetail(value);
-	return formatted.length > 400 ? `${formatted.slice(0, 399)}…` : formatted;
-}
-const MAX_CAUGHT_FAILURE_PROTOTYPES = 4;
-const primitiveString = String;
-const isUint8Array = types.isUint8Array;
-const Uint8ArrayIntrinsic = Uint8Array;
-const typedArrayPrototype = Object.getPrototypeOf(Uint8ArrayIntrinsic.prototype);
-const typedArrayBufferGetter = Object.getOwnPropertyDescriptor(typedArrayPrototype, "buffer").get;
-const typedArrayByteOffsetGetter = Object.getOwnPropertyDescriptor(typedArrayPrototype, "byteOffset").get;
-const typedArrayByteLengthGetter = Object.getOwnPropertyDescriptor(typedArrayPrototype, "byteLength").get;
-const typedArraySet = Object.getOwnPropertyDescriptor(typedArrayPrototype, "set").value;
-const textDecoderDecode = TextDecoder.prototype.decode;
-const stderrDecoder = new TextDecoder("utf-8", {
-	fatal: false,
-	ignoreBOM: true
-});
-const MAX_STDERR_BYTES = 1600;
-function isInspectableCaughtObject(value) {
-	if ((typeof value !== "object" || value === null) && typeof value !== "function") return false;
-	try {
-		return !types.isProxy(value);
-	} catch {
-		return false;
+function inspectFileIdentitySync(inspect, expected, platform = process.platform, mismatch = fileIdentityMismatchError) {
+	let knownDev;
+	let knownIno;
+	if (expected) {
+		knownDev = expected.dev;
+		if (typeof knownDev !== "bigint") throw mismatch();
+		knownIno = expected.ino;
+		if (typeof knownIno !== "bigint") throw mismatch();
+		if (platform === "win32" && (knownDev === 0n || knownIno === 0n)) throw mismatch();
 	}
-}
-function dataProperty(value, name) {
-	let current = value;
-	for (let depth = 0; current !== null && depth < MAX_CAUGHT_FAILURE_PROTOTYPES; depth += 1) {
-		if (!isInspectableCaughtObject(current)) return void 0;
-		let descriptor;
-		try {
-			descriptor = Object.getOwnPropertyDescriptor(current, name);
-		} catch {
-			return;
+	for (let attempt = 0; attempt < 2; attempt++) {
+		const stat = inspect();
+		let complete = true;
+		const dev = stat.dev;
+		if (typeof dev !== "bigint") throw mismatch();
+		if (platform === "win32" && dev === 0n) complete = false;
+		else {
+			if (knownDev !== void 0 && knownDev !== dev) throw mismatch();
+			knownDev = dev;
 		}
-		if (descriptor) return Object.hasOwn(descriptor, "value") ? descriptor : void 0;
-		try {
-			current = Object.getPrototypeOf(current);
-		} catch {
-			return;
+		const ino = stat.ino;
+		if (typeof ino !== "bigint") throw mismatch();
+		if (platform === "win32" && ino === 0n) complete = false;
+		else {
+			if (knownIno !== void 0 && knownIno !== ino) throw mismatch();
+			knownIno = ino;
 		}
+		if (complete) return stat;
 	}
+	throw mismatch();
 }
-function caughtPrimitiveDisplay(value) {
-	if (value !== null && (typeof value === "object" || typeof value === "function")) return void 0;
-	return primitiveString(value);
-}
-/** Formats only caught permission-query failures without invoking user code. */
-function formatCaughtPermissionFailure(error) {
-	const primitive = caughtPrimitiveDisplay(error);
-	if (primitive !== void 0) return formatBoundedCaughtDetail(primitive);
-	if (!isInspectableCaughtObject(error)) return "Uninspectable proxy failure";
-	const message = dataProperty(error, "message");
-	const name = dataProperty(error, "name");
-	const rawMessage = typeof message?.value === "string" ? message.value : "";
-	const rawName = typeof name?.value === "string" ? name.value : "";
-	const messageText = rawMessage.slice(0, 400);
-	const nameText = rawName.slice(0, 400);
-	return formatBoundedCaughtDetail(messageText ? nameText ? `${nameText}: ${messageText}` : messageText : nameText || (typeof error === "function" ? "Unknown function failure" : "Unknown object failure"), rawMessage.length > messageText.length || rawName.length > nameText.length);
-}
-function formatBoundedCaughtDetail(value, alreadyTruncated = false) {
-	const inputWasTruncated = alreadyTruncated || value.length > 400;
-	const formatted = formatPermissionErrorDetail(value.slice(0, 400));
-	if (!inputWasTruncated || formatted.endsWith("…")) return formatted;
-	return `${formatted.slice(0, 399)}…`;
-}
-function safeStderr(value) {
-	if (typeof value === "string") return formatBoundedCaughtDetail(value);
-	try {
-		if (!isUint8Array(value)) return "";
-		const backing = Reflect.apply(typedArrayBufferGetter, value, []);
-		const byteOffset = Reflect.apply(typedArrayByteOffsetGetter, value, []);
-		const byteLength = Reflect.apply(typedArrayByteLengthGetter, value, []);
-		const copiedByteLength = byteLength < MAX_STDERR_BYTES ? byteLength : MAX_STDERR_BYTES;
-		const source = new Uint8ArrayIntrinsic(backing, byteOffset, copiedByteLength);
-		const copy = new Uint8ArrayIntrinsic(copiedByteLength);
-		Reflect.apply(typedArraySet, copy, [source, 0]);
-		return formatBoundedCaughtDetail(Reflect.apply(textDecoderDecode, stderrDecoder, [copy]), byteLength > copiedByteLength);
-	} catch {
-		return "";
-	}
-}
-function commandFailureFields(error) {
-	const killed = dataProperty(error, "killed");
-	const code = dataProperty(error, "code");
-	const signal = dataProperty(error, "signal");
-	const stderr = dataProperty(error, "stderr");
-	return {
-		found: !!(killed || code || signal || stderr),
-		timedOut: killed?.value === true && signal?.value === "SIGKILL",
-		exitCode: typeof code?.value === "number" ? code.value : null,
-		signal: typeof signal?.value === "string" ? signal.value : null,
-		stderr: stderr ? safeStderr(stderr.value) : ""
-	};
-}
-var PermissionCommandError = class extends Error {
-	command;
-	durationMs;
-	timedOut;
-	exitCode;
-	signal;
-	stderr;
-	constructor(command, durationMs, cause, timeoutMs = DEFAULT_PERMISSION_EXEC_TIMEOUT_MS) {
-		const fields = commandFailureFields(cause);
-		super(fields.timedOut ? `Windows permission inspection timed out after ${timeoutMs}ms` : `Windows permission command ${formatPermissionErrorDetail(path.win32.basename(command))} failed (exit code ${fields.exitCode}, signal ${formatPermissionErrorDetail(fields.signal ?? "none")})`, { cause });
-		this.name = "PermissionCommandError";
-		this.command = command;
-		this.durationMs = Math.round(durationMs);
-		this.timedOut = fields.timedOut;
-		this.exitCode = fields.exitCode;
-		this.signal = fields.signal;
-		this.stderr = fields.stderr;
-	}
-};
-function getPermissionCommandFailure(error, command, durationMs) {
-	if (isInspectableCaughtObject(error) && types.isNativeError(error)) {
-		if (dataProperty(error, "name")?.value === "PermissionCommandError") {
-			const wrappedCommand = dataProperty(error, "command");
-			const wrappedDuration = dataProperty(error, "durationMs");
-			const wrappedTimedOut = dataProperty(error, "timedOut");
-			const wrappedExitCode = dataProperty(error, "exitCode");
-			const wrappedSignal = dataProperty(error, "signal");
-			const wrappedStderr = dataProperty(error, "stderr");
-			if (typeof wrappedCommand?.value === "string" && typeof wrappedDuration?.value === "number" && Number.isSafeInteger(wrappedDuration.value) && wrappedDuration.value >= 0 && typeof wrappedTimedOut?.value === "boolean" && wrappedExitCode && (wrappedExitCode.value === null || typeof wrappedExitCode.value === "number") && wrappedSignal && (wrappedSignal.value === null || typeof wrappedSignal.value === "string") && wrappedStderr) return {
-				command: wrappedCommand.value,
-				durationMs: wrappedDuration.value,
-				timedOut: wrappedTimedOut.value,
-				exitCode: wrappedExitCode.value,
-				signal: wrappedSignal.value,
-				stderr: safeStderr(wrappedStderr.value)
-			};
-		}
-	}
-	const fields = commandFailureFields(error);
-	if (!fields.found) return void 0;
-	const { found: _found, ...detail } = fields;
-	return {
-		command,
-		durationMs: Math.round(durationMs),
-		...detail
-	};
-}
-async function executePermissionCommand(command, args, timeoutMs = DEFAULT_PERMISSION_EXEC_TIMEOUT_MS) {
-	const startedAt = performance.now();
-	try {
-		return await execFileAsync(command, args, {
-			encoding: "utf8",
-			windowsHide: true,
-			maxBuffer: 1048576,
-			timeout: timeoutMs,
-			killSignal: "SIGKILL"
-		});
-	} catch (err) {
-		throw new PermissionCommandError(command, performance.now() - startedAt, err, timeoutMs);
-	}
-}
+var init_strict_file_identity = __esmMin((() => {
+	init_errors();
+	init_file_observation();
+}));
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.18.1/node_modules/@openclaw/fs-safe/dist/windows-command.js
-function getEnvValueCaseInsensitive(env, name) {
-	const direct = env[name];
-	if (direct !== void 0) return direct;
-	const lower = name.toLowerCase();
-	for (const [key, value] of Object.entries(env)) if (key.toLowerCase() === lower) return value;
-}
-function normalizeWindowsInstallRoot(value) {
-	const trimmed = value?.trim();
-	if (!trimmed || !path.win32.isAbsolute(trimmed)) return null;
-	let end = trimmed.length;
-	while (end > 0 && (trimmed[end - 1] === "\\" || trimmed[end - 1] === "/")) end -= 1;
-	return trimmed.slice(0, end);
-}
-function resolveWindowsSystemRoot(env) {
-	const source = env ?? process.env;
-	return normalizeWindowsInstallRoot(getEnvValueCaseInsensitive(source, "SystemRoot")) ?? normalizeWindowsInstallRoot(getEnvValueCaseInsensitive(source, "WINDIR")) ?? "C:\\Windows";
-}
-function resolveWindowsSystemCommand(command, env) {
-	return path.win32.join(resolveWindowsSystemRoot(env), "System32", command);
-}
-//#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.18.1/node_modules/@openclaw/fs-safe/dist/windows-security-facts.js
-init_errors();
-const SID_RE$2 = /^s-\d+-\d+(?:-\d+)+$/;
-const SYSTEM_SID = "s-1-5-18";
-const ADMINISTRATORS_SID = "s-1-5-32-544";
-const WORLD_SIDS$1 = /* @__PURE__ */ new Set([
-	"s-1-1-0",
-	"s-1-5-11",
-	"s-1-5-32-545",
-	"s-1-5-7",
-	"s-1-5-32-546",
-	"s-1-5-4",
-	"s-1-5-2"
-]);
-function unverified$1(message) {
-	throw new FsSafeError("permission-unverified", message);
-}
-function record$1(value) {
-	return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-function uint32(value) {
-	return typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 4294967295;
-}
-function validateAce(value, allowUnknownFlags) {
-	if (!record$1(value) || typeof value.sid !== "string" || !SID_RE$2.test(value.sid) || !uint32(value.mask) || value.aceType !== "allow" && value.aceType !== "deny" || !record$1(value.flags)) return false;
-	const { raw } = value.flags;
-	if (!uint32(raw) || (raw & ~(allowUnknownFlags ? 255 : 223)) !== 0) return false;
-	const fields = [
-		["objectInherit", 1],
-		["containerInherit", 2],
-		["noPropagateInherit", 4],
-		["inheritOnly", 8],
-		["inherited", 16],
-		["successfulAccess", 64],
-		["failedAccess", 128]
-	];
-	const flags = value.flags;
-	return fields.every(([field, bit]) => typeof flags[field] === "boolean" && flags[field] === ((raw & bit) !== 0));
-}
-function validateDescriptor(value, allowUnknownFlags) {
-	if (!record$1(value) || typeof value.ownerSid !== "string" || !SID_RE$2.test(value.ownerSid) || typeof value.currentUserSid !== "string" || !SID_RE$2.test(value.currentUserSid) || typeof value.daclPresent !== "boolean" || typeof value.isLocal !== "boolean" || typeof value.aceListComplete !== "boolean" || !Array.isArray(value.unsupportedAceTypes) || !value.unsupportedAceTypes.every(uint32) || !Array.isArray(value.aces) || !value.aces.every((ace) => validateAce(ace, allowUnknownFlags))) unverified$1("Windows descriptor ACL facts were malformed");
-	if (!value.daclPresent && value.aces.length !== 0 || value.aceListComplete && value.unsupportedAceTypes.length !== 0) unverified$1("Windows descriptor DACL facts were inconsistent");
-	return value;
-}
-function summarize(facts) {
-	const ownerClass = facts.ownerSid === facts.currentUserSid ? "current-user" : facts.ownerSid === SYSTEM_SID ? "system" : facts.ownerSid === ADMINISTRATORS_SID ? "administrators" : "foreign";
-	let worldReadable = !facts.daclPresent;
-	let worldWritable = !facts.daclPresent;
-	let groupReadable = false;
-	let groupWritable = false;
-	const trusted = /* @__PURE__ */ new Set([
-		facts.currentUserSid,
-		SYSTEM_SID,
-		ADMINISTRATORS_SID
-	]);
-	for (const ace of facts.aces) {
-		if (ace.aceType !== "allow" || ace.flags.inheritOnly || trusted.has(ace.sid)) continue;
-		const canRead = (ace.mask & 2415919241) !== 0;
-		const canWrite = (ace.mask & 1343029590) !== 0;
-		if (WORLD_SIDS$1.has(ace.sid)) {
-			worldReadable ||= canRead;
-			worldWritable ||= canWrite;
-		} else {
-			groupReadable ||= canRead;
-			groupWritable ||= canWrite;
-		}
-	}
-	return {
-		ownerClass,
-		worldReadable,
-		worldWritable,
-		groupReadable,
-		groupWritable
-	};
-}
-/** Raw reporting retains unknown flag bits; secure admission validates them below. */
-function parseWindowsSecurityCommandFacts(value) {
-	const facts = validateDescriptor(value, true);
-	if (!record$1(value) || typeof value.daclProtected !== "boolean") unverified$1("Windows security command returned malformed descriptor facts");
-	return {
-		...facts,
-		...summarize(facts),
-		fallbackRequired: !facts.isLocal || !facts.aceListComplete
-	};
-}
-/** Native and command observations share the same fail-closed admission policy. */
-function validateSecureWindowsSecurityFacts(value) {
-	const descriptor = validateDescriptor(value, false);
-	const facts = value;
-	const summary = summarize(descriptor);
-	if (![
-		"worldWritable",
-		"groupWritable",
-		"worldReadable",
-		"groupReadable",
-		"fallbackRequired"
-	].every((field) => typeof facts[field] === "boolean") || typeof facts.ownerClass !== "string") unverified$1("Windows descriptor ACL facts were malformed");
-	if (facts.ownerClass !== summary.ownerClass) unverified$1("Windows descriptor owner facts were inconsistent");
-	if (facts.fallbackRequired || !facts.isLocal || !facts.aceListComplete || facts.unsupportedAceTypes.length !== 0) unverified$1("Windows descriptor ACL facts were incomplete or unsupported");
-	if (facts.worldReadable !== summary.worldReadable || facts.worldWritable !== summary.worldWritable || facts.groupReadable !== summary.groupReadable || facts.groupWritable !== summary.groupWritable) unverified$1("Windows descriptor ACL summary was inconsistent");
-	return facts;
-}
-//#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.18.1/node_modules/@openclaw/fs-safe/dist/windows-security-command.js
-init_errors();
-const MAX_OUTPUT_BYTES = 1048576;
-const TERMINATION_GRACE_MS = 1e3;
-const FULL_IDENTITY = /^[0-9a-f]{16}:[0-9a-f]{32}$/;
-function isFullIdentity(identity) {
-	return typeof identity === "string" && identity.length === 49 && FULL_IDENTITY.test(identity);
-}
-function assertIdentity(identity) {
-	if (!isFullIdentity(identity)) throw new TypeError("Windows security operation requires a complete file identity");
-}
-function command(operation, params) {
-	const targetPath = params.targetPath ?? "";
-	if (targetPath.includes("\0")) throw Object.assign(/* @__PURE__ */ new Error("Windows path contains a NUL byte"), { code: "EINVAL" });
-	if (params.fd !== void 0 || operation === "descriptor" || operation === "protect-file" || operation === "verify-file") {
-		if (typeof params.fd !== "number" || !Number.isInteger(params.fd) || params.fd < 0 || params.fd > 2147483647) unverified("Windows security inspection requires a valid descriptor");
-	}
-	if (params.expectedParentIdentity !== void 0) assertIdentity(params.expectedParentIdentity);
-	if (params.expectedFileIdentity !== void 0) assertIdentity(params.expectedFileIdentity);
-	if (params.expectedLinks !== void 0 && (!Number.isInteger(params.expectedLinks) || params.expectedLinks < 1 || params.expectedLinks > 4294967295)) throw new TypeError("Windows security operation requires a positive uint32 link count");
-	const script = fileURLToPath(new URL("./windows-security-bridge.ps1", import.meta.url));
-	return {
-		file: resolveWindowsSystemCommand(String.raw`WindowsPowerShell\v1.0\powershell.exe`),
-		args: [
-			"-NoLogo",
-			"-NoProfile",
-			"-NonInteractive",
-			"-File",
-			script,
-			"-Operation",
-			operation
-		],
-		env: {
-			...process.env,
-			FS_SAFE_WINDOWS_SECURITY_PATH: targetPath,
-			FS_SAFE_WINDOWS_SECURITY_REQUIRE_PRIVATE: params.requirePrivate ? "1" : "0",
-			FS_SAFE_WINDOWS_SECURITY_PARENT_IDENTITY: params.expectedParentIdentity ?? "",
-			FS_SAFE_WINDOWS_SECURITY_FILE_IDENTITY: params.expectedFileIdentity ?? "",
-			FS_SAFE_WINDOWS_SECURITY_EXPECTED_LINKS: String(params.expectedLinks ?? 1)
-		}
-	};
-}
-function unverified(message, cause) {
-	throw new FsSafeError("permission-unverified", message, cause === void 0 ? {} : { cause });
-}
-function record(value) {
-	return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-function parseReply(stdout, operation) {
-	try {
-		return parseReplyValue(stdout, operation);
-	} catch (error) {
-		if (operation === "create" && error instanceof Error && error.code !== "EEXIST") Object.assign(error, { creationOutcome: "unconfirmed" });
-		throw error;
-	}
-}
-function parseReplyValue(stdout, operation) {
-	let response;
-	try {
-		response = JSON.parse(stdout.trim());
-	} catch (cause) {
-		unverified("Windows security command returned invalid data", cause);
-	}
-	if (!record(response) || typeof response.ok !== "boolean") unverified("Windows security command returned an incomplete response");
-	if (!response.ok) {
-		const codes = /* @__PURE__ */ new Set([
-			"EACCES",
-			"EPERM",
-			"EEXIST",
-			"ENOENT",
-			"ENOTSUP",
-			"EIO",
-			"EBADF",
-			"ELOOP",
-			"ENOTDIR",
-			"EINVAL",
-			"ENOSPC",
-			"EBUSY"
-		]);
-		if (typeof response.code !== "string" || !codes.has(response.code) || typeof response.message !== "string") unverified("Windows security command returned an invalid failure");
-		throw Object.assign(new Error(response.message), { code: response.code });
-	}
-	if (operation === "create" && (!record(response.result) || response.result.created !== true || !isFullIdentity(response.result.identity))) unverified("Windows security command did not verify private-directory creation");
-	return response.result;
-}
-var WindowsSecurityCommandError = class extends PermissionCommandError {
-	timedOut;
-	creationOutcome;
-	processExitConfirmed;
-	constructor(file, durationMs, receipt, timedOut) {
-		super(file, durationMs, receipt);
-		this.timedOut = timedOut;
-		this.creationOutcome = receipt.creationOutcome;
-		this.processExitConfirmed = receipt.processExitConfirmed;
-		if (timedOut) this.message = `Windows permission inspection timed out after ${DEFAULT_PERMISSION_EXEC_TIMEOUT_MS}ms`;
-		if (!receipt.processExitConfirmed) this.message += "; process exit was not confirmed";
-		else if (!receipt.outputClosed) this.message += "; command output did not close";
-		if (receipt.creationOutcome) this.message += "; private-directory creation outcome is unconfirmed";
-	}
-};
-function ignoreLateError() {}
-async function execute(operation, params) {
-	const { file, args, env } = command(operation, params);
-	const startedAt = performance.now();
-	return await new Promise((resolve, reject) => {
-		const child = spawn(file, args, {
-			windowsHide: true,
-			env,
-			stdio: [
-				params.fd ?? "ignore",
-				"pipe",
-				"pipe"
-			]
-		});
-		const output = [];
-		const errors = [];
-		let bytes = 0;
-		let failure;
-		let failed = false;
-		let timedOut = false;
-		let stopping = false;
-		let settled = false;
-		let processExitConfirmed = false;
-		let exitCode = null;
-		let exitSignal = null;
-		let terminationSignalSent;
-		let terminationError;
-		let grace;
-		let missingPipes;
-		const deadlineError = () => /* @__PURE__ */ new Error("Windows security command exceeded its inspection deadline");
-		const timeout = setTimeout(() => {
-			timedOut = true;
-			fail(deadlineError());
-		}, DEFAULT_PERMISSION_EXEC_TIMEOUT_MS);
-		const finish = (outputClosed) => {
-			if (settled) return;
-			settled = true;
-			clearTimeout(timeout);
-			clearTimeout(grace);
-			clearImmediate(missingPipes);
-			child.removeListener("exit", onExit);
-			child.removeListener("close", onClose);
-			child.removeListener("error", onChildError);
-			child.on("error", ignoreLateError);
-			const cleanupErrors = [];
-			for (const [stream, collect] of [[child.stdout, collectOutput], [child.stderr, collectErrors]]) {
-				if (!stream) continue;
-				stream.removeListener("data", collect);
-				stream.removeListener("error", fail);
-				stream.on("error", ignoreLateError);
-				if (!outputClosed) try {
-					stream.destroy();
-				} catch (error) {
-					cleanupErrors.push(error);
-				}
-			}
-			if (!outputClosed && !processExitConfirmed) try {
-				child.unref();
-			} catch (error) {
-				cleanupErrors.push(error);
-			}
-			if (failed || exitCode !== 0 || !outputClosed) reject(new WindowsSecurityCommandError(file, performance.now() - startedAt, {
-				cause: failure,
-				pid: child.pid ?? null,
-				code: exitCode,
-				signal: exitSignal,
-				stderr: Buffer.concat(errors),
-				processExitConfirmed,
-				outputClosed,
-				terminationSignalSent,
-				terminationError,
-				cleanupErrors,
-				...operation === "create" ? { creationOutcome: "unconfirmed" } : {}
-			}, timedOut));
-			else try {
-				resolve(parseReply(Buffer.concat(output).toString("utf8"), operation));
-			} catch (error) {
-				reject(error);
-			}
-			output.length = 0;
-			errors.length = 0;
-		};
-		const fail = (error) => {
-			if (settled) return;
-			if (!failed) {
-				failed = true;
-				failure = error;
-			}
-			if (stopping) return;
-			stopping = true;
-			clearTimeout(timeout);
-			grace = setTimeout(() => finish(false), TERMINATION_GRACE_MS);
-			if (!processExitConfirmed) try {
-				terminationSignalSent = child.kill("SIGKILL");
-			} catch (error) {
-				terminationError ??= error;
-			}
-		};
-		const collect = (chunks) => (chunk) => {
-			if (failed || settled) return;
-			bytes += chunk.length;
-			if (bytes <= MAX_OUTPUT_BYTES) chunks.push(chunk);
-			else fail(/* @__PURE__ */ new Error("Windows security command exceeded its output budget"));
-		};
-		const collectOutput = collect(output);
-		const collectErrors = collect(errors);
-		const onChildError = (error) => {
-			if (settled) return;
-			if (stopping) terminationError ??= error;
-			else fail(error);
-		};
-		const onExit = (code, signal) => {
-			processExitConfirmed = true;
-			exitCode = code;
-			exitSignal = signal;
-		};
-		const onClose = (code, signal) => {
-			onExit(code, signal);
-			if (!failed && performance.now() - startedAt >= 3e4) {
-				timedOut = true;
-				failed = true;
-				failure = deadlineError();
-			}
-			finish(true);
-		};
-		child.on("error", onChildError);
-		child.once("exit", onExit);
-		child.once("close", onClose);
-		child.stdout?.on("error", fail);
-		child.stderr?.on("error", fail);
-		child.stdout?.on("data", collectOutput);
-		child.stderr?.on("data", collectErrors);
-		if (!child.stdout || !child.stderr) missingPipes = setImmediate(() => {
-			if (!failed && !settled) fail(/* @__PURE__ */ new Error("Windows security command output pipes are unavailable"));
-		});
-	});
-}
-async function inspectWindowsDescriptorCommand(fd) {
-	const response = await execute("descriptor", { fd });
-	if (!record(response) || typeof response.identity !== "string") unverified("Windows security command returned incomplete handle facts");
-	return {
-		identity: response.identity,
-		security: parseWindowsSecurityCommandFacts(response.security)
-	};
-}
-//#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.18.1/node_modules/@openclaw/fs-safe/dist/read-open-flags.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/read-open-flags.js
 function resolveReadOpenFlags(options) {
-	const constants = options?.constants ?? fs$1.constants;
+	const constants = options?.constants ?? fsSync.constants;
 	const noFollow = process.platform !== "win32" && options?.followSymlinks !== true && typeof constants.O_NOFOLLOW === "number" ? constants.O_NOFOLLOW : 0;
 	const nonBlocking = process.platform !== "win32" && typeof constants.O_NONBLOCK === "number" ? constants.O_NONBLOCK : 0;
 	return constants.O_RDONLY | noFollow | nonBlocking;
 }
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.18.1/node_modules/@openclaw/fs-safe/dist/byte-budget.js
-function normalizeMaxBytes(value, options = {}) {
-	const selected = value === void 0 ? options.defaultValue : value;
-	if (selected === void 0 || selected === Number.POSITIVE_INFINITY) return selected;
-	if (!Number.isSafeInteger(selected) || selected < 0) throw new RangeError("maxBytes must be a non-negative safe integer or Infinity");
-	return selected;
-}
-//#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.18.1/node_modules/@openclaw/fs-safe/dist/bounded-read.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/bounded-read.js
 init_errors();
 const READ_CHUNK_BYTES = 65536;
 const MAX_INITIAL_READ_BYTES = 16777216;
@@ -7918,14 +8373,14 @@ async function readFileHandleBounded(handle, maxBytes) {
 }
 function regularFileSize(fd) {
 	try {
-		const stat = fs$1.fstatSync(fd);
+		const stat = fsSync.fstatSync(fd);
 		return stat.isFile() && Number.isSafeInteger(stat.size) && stat.size >= 0 ? stat.size : void 0;
 	} catch {
 		return;
 	}
 }
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.18.1/node_modules/@openclaw/fs-safe/dist/timing.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/timing.js
 const MAX_TIMER_DELAY_MS = 2 ** 31 - 1;
 function scheduleTimeout(callback, ms) {
 	let timer;
@@ -7941,421 +8396,7 @@ function scheduleTimeout(callback, ms) {
 	return () => clearTimeout(timer);
 }
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.18.1/node_modules/@openclaw/fs-safe/dist/windows-owner.js
-init_windows_path_alias();
-const SID_RE$1 = /^\*?s-\d+-\d+(-\d+)+$/i;
-const TRUSTED_OWNER_SIDS = /* @__PURE__ */ new Set(["s-1-5-18", "s-1-5-32-544"]);
-function normalizeSid$1(value) {
-	const normalized = value.trim().toLowerCase();
-	return normalized.startsWith("*") ? normalized.slice(1) : normalized;
-}
-function encodePowerShellCommand(source) {
-	return Buffer.from(source, "utf16le").toString("base64");
-}
-function windowsOwnerQueryCommand(targetPath) {
-	return [
-		"$ErrorActionPreference='Stop'",
-		"$env:PSModulePath=[IO.Path]::Combine($PSHOME,'Modules')",
-		`$p=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${Buffer.from(targetPath, "utf8").toString("base64")}'))`,
-		"$sections=[System.Security.AccessControl.AccessControlSections]::Access -bor [System.Security.AccessControl.AccessControlSections]::Owner",
-		"$acl=if([IO.Directory]::Exists($p)){[IO.Directory]::GetAccessControl($p,$sections)}else{[IO.File]::GetAccessControl($p,$sections)}",
-		"$ownerSid=$acl.GetOwner([System.Security.Principal.SecurityIdentifier]).Value",
-		"$currentSid=[System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value",
-		"$root=[IO.Path]::GetPathRoot($p)",
-		"$extendedDrive=$p.Length -ge 7 -and $p.StartsWith('\\\\?\\') -and [char]::IsLetter($p[4]) -and $p[5] -eq ':' -and $p[6] -eq '\\'",
-		"$driveRoot=if($extendedDrive){$p.Substring(4,3)}else{$root}",
-		"$namespacePath=$p.StartsWith('\\\\')",
-		"$remote=($namespacePath -and -not $extendedDrive) -or ([IO.DriveInfo]::new($driveRoot).DriveType -eq [IO.DriveType]::Network)",
-		"$raw=[System.Security.AccessControl.RawSecurityDescriptor]::new($acl.GetSecurityDescriptorBinaryForm(),0)",
-		"$dacl=$raw.DiscretionaryAcl;$complete=$true",
-		"$aces=@(foreach($ace in $dacl){if($ace -isnot [System.Security.AccessControl.CommonAce] -or $ace.IsCallback -or [int]$ace.AceType -notin @(0,1)){$complete=$false;continue};@{sid=$ace.SecurityIdentifier.Value;mask=([long]$ace.AccessMask -band 4294967295);deny=([int]$ace.AceType -eq 1);inheritOnly=([int]$ace.AceFlags -band 8) -ne 0}})",
-		"@{ownerSid=$ownerSid;currentUserSid=$currentSid;daclPresent=($null -ne $dacl);aces=$aces;complete=$complete;remote=$remote}|Microsoft.PowerShell.Utility\\ConvertTo-Json -Depth 4 -Compress"
-	].join(";");
-}
-function parseWindowsAclFacts(parsed) {
-	if (parsed.complete !== true || typeof parsed.daclPresent !== "boolean" || !Array.isArray(parsed.aces)) return { aclError: "Windows ACL query returned incomplete descriptor data" };
-	const aces = [];
-	for (const row of parsed.aces) {
-		if (!row || typeof row !== "object" || typeof row.sid !== "string" || !SID_RE$1.test(row.sid) || typeof row.mask !== "number" || !Number.isInteger(row.mask) || row.mask < 0 || row.mask > 4294967295 || typeof row.deny !== "boolean" || typeof row.inheritOnly !== "boolean") return { aclError: "Windows ACL query returned invalid access-rule data" };
-		aces.push({
-			sid: normalizeSid$1(row.sid),
-			mask: row.mask,
-			deny: row.deny,
-			inheritOnly: row.inheritOnly
-		});
-	}
-	return {
-		daclPresent: parsed.daclPresent,
-		aces
-	};
-}
-async function inspectWindowsOwner(params) {
-	if (hasWindowsPathAlias(params.targetPath, "filesystem", "win32")) {
-		const error = /* @__PURE__ */ new Error("Path uses a Windows filesystem namespace alias");
-		return {
-			error: String(error),
-			errorCause: error
-		};
-	}
-	let command = "";
-	let startedAt = performance.now();
-	try {
-		command = resolveWindowsSystemCommand(String.raw`WindowsPowerShell\v1.0\powershell.exe`, params.env);
-		startedAt = performance.now();
-		const { stdout } = await params.exec(command, [
-			"-NoLogo",
-			"-NoProfile",
-			"-NonInteractive",
-			"-EncodedCommand",
-			encodePowerShellCommand(windowsOwnerQueryCommand(params.targetPath))
-		]);
-		const value = JSON.parse(stdout.trim());
-		if (!value || typeof value !== "object" || Array.isArray(value)) return { error: "Windows owner query returned invalid SID data" };
-		const parsed = value;
-		const ownerSid = typeof parsed.ownerSid === "string" && SID_RE$1.test(parsed.ownerSid) ? normalizeSid$1(parsed.ownerSid) : void 0;
-		const currentUserSid = typeof parsed.currentUserSid === "string" && SID_RE$1.test(parsed.currentUserSid) ? normalizeSid$1(parsed.currentUserSid) : void 0;
-		if (!ownerSid || !currentUserSid) return { error: "Windows owner query returned invalid SID data" };
-		const remote = parsed.remote;
-		if (typeof remote !== "boolean") return { error: "Windows owner query returned invalid locality data" };
-		return {
-			sid: ownerSid,
-			currentUserSid,
-			...parseWindowsAclFacts(parsed),
-			remote,
-			trusted: !remote && (ownerSid === currentUserSid || TRUSTED_OWNER_SIDS.has(ownerSid))
-		};
-	} catch (err) {
-		return {
-			error: formatCaughtPermissionFailure(err),
-			errorDetail: getPermissionCommandFailure(err, command, performance.now() - startedAt),
-			errorCause: err
-		};
-	}
-}
-//#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.18.1/node_modules/@openclaw/fs-safe/dist/permissions-windows.js
-init_native();
-init_string_coerce();
-init_windows_path_alias();
-const WORLD_PRINCIPALS = /* @__PURE__ */ new Set([
-	"everyone",
-	"users",
-	"builtin\\users",
-	"authenticated users",
-	"nt authority\\authenticated users",
-	"anonymous logon",
-	"nt authority\\anonymous logon",
-	"guests",
-	"builtin\\guests",
-	"interactive",
-	"nt authority\\interactive",
-	"network",
-	"nt authority\\network",
-	"local"
-]);
-const TRUSTED_BASE = /* @__PURE__ */ new Set([
-	"nt authority\\system",
-	"system",
-	"builtin\\administrators",
-	"creator owner",
-	"autorite nt\\système",
-	"nt-autorität\\system",
-	"autoridad nt\\system",
-	"autoridade nt\\system"
-]);
-const WORLD_SUFFIXES = ["\\users", "\\authenticated users"];
-const SID_RE = /^\*?s-\d+-\d+(-\d+)+$/i;
-const TRUSTED_SIDS = /* @__PURE__ */ new Set([
-	"s-1-5-18",
-	"s-1-5-32-544",
-	"s-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464"
-]);
-const WORLD_SIDS = /* @__PURE__ */ new Set([
-	"s-1-1-0",
-	"s-1-5-11",
-	"s-1-5-32-545",
-	"s-1-5-7",
-	"s-1-5-32-546",
-	"s-1-5-4",
-	"s-1-2-0",
-	"s-1-5-2"
-]);
-function stripDiacritics(value) {
-	return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-}
-const TRUSTED_BASE_ASCII = new Set([...TRUSTED_BASE].map(stripDiacritics));
-const normalize = (value) => normalizeLowercaseStringOrEmpty(value);
-const defaultWindowsUserInfo = () => os.userInfo();
-const defaultPermissionExec = executePermissionCommand;
-function inspectWindowsPermissionsNative(targetPath, unverified) {
-	const native = getNativeBinding();
-	if (!native) return void 0;
-	try {
-		const facts = native.readOwnerAndDacl(targetPath);
-		if (facts.fallbackRequired) return void 0;
-		return {
-			...unverified,
-			source: "windows-acl",
-			worldWritable: facts.worldWritable,
-			groupWritable: facts.groupWritable,
-			worldReadable: facts.worldReadable,
-			groupReadable: facts.groupReadable,
-			ownerSid: facts.ownerSid,
-			ownerTrusted: facts.ownerClass !== "foreign",
-			aclSummary: `native owner=${facts.ownerClass} world=${facts.worldReadable ? "r" : "-"}${facts.worldWritable ? "w" : "-"} group=${facts.groupReadable ? "r" : "-"}${facts.groupWritable ? "w" : "-"}`
-		};
-	} catch {
-		return;
-	}
-}
-async function inspectWindowsPermissions(targetPath, unverified, opts) {
-	if (hasWindowsPathAlias(targetPath, "filesystem", "win32")) return {
-		...unverified,
-		error: "Path uses a Windows filesystem namespace alias"
-	};
-	const native = inspectWindowsPermissionsNative(targetPath, unverified);
-	if (native) return native;
-	const owner = await inspectWindowsOwner({
-		targetPath,
-		env: opts?.env,
-		exec: opts?.exec ?? defaultPermissionExec
-	});
-	if (owner.error !== void 0) {
-		const error = `Windows owner inspection failed: ${owner.error}`;
-		return {
-			...unverified,
-			ownerError: owner.error,
-			error,
-			errorDetail: owner.errorDetail,
-			errorCause: owner.errorCause
-		};
-	}
-	const acl = summarizeWindowsOwnerAcl(owner);
-	const ownerFields = {
-		...owner.sid ? { ownerSid: owner.sid } : {},
-		...owner.trusted !== void 0 ? { ownerTrusted: owner.trusted } : {},
-		...owner.error ? { ownerError: owner.error } : {}
-	};
-	if (!acl.ok) return {
-		...unverified,
-		...ownerFields,
-		error: acl.error,
-		errorDetail: acl.errorDetail,
-		errorCause: acl.errorCause
-	};
-	return {
-		...unverified,
-		source: "windows-acl",
-		worldWritable: acl.untrustedWorld.some((entry) => entry.canWrite),
-		groupWritable: acl.untrustedGroup.some((entry) => entry.canWrite),
-		worldReadable: acl.untrustedWorld.some((entry) => entry.canRead),
-		groupReadable: acl.untrustedGroup.some((entry) => entry.canRead),
-		...ownerFields,
-		aclSummary: formatWindowsAclSummary(acl)
-	};
-}
-function normalizeSid(value) {
-	const normalized = normalize(value);
-	return normalized.startsWith("*") ? normalized.slice(1) : normalized;
-}
-function resolveWindowsUserPrincipal(env, userInfo = defaultWindowsUserInfo) {
-	const username = env?.USERNAME?.trim() || userInfo().username?.trim();
-	if (!username) return null;
-	const domain = env?.USERDOMAIN?.trim();
-	return domain ? `${domain}\\${username}` : username;
-}
-function buildTrustedSidPrincipals(env) {
-	const trusted = /* @__PURE__ */ new Set();
-	const userSid = normalizeSid(env?.USERSID ?? "");
-	if (userSid && SID_RE.test(userSid) && !WORLD_SIDS.has(userSid)) trusted.add(userSid);
-	return trusted;
-}
-function buildTrustedPrincipals(env) {
-	const trusted = /* @__PURE__ */ new Set([...TRUSTED_BASE, ...buildTrustedSidPrincipals(env)]);
-	const principal = resolveWindowsUserPrincipal(env);
-	if (principal) {
-		trusted.add(normalize(principal));
-		const userOnly = principal.split("\\").at(-1);
-		if (userOnly) trusted.add(normalize(userOnly));
-	}
-	return trusted;
-}
-function classifyPrincipal(principal, trustedPrincipals) {
-	const normalized = normalize(principal);
-	if (SID_RE.test(normalized)) {
-		const sid = normalizeSid(normalized);
-		if (WORLD_SIDS.has(sid)) return "world";
-		if (TRUSTED_SIDS.has(sid) || trustedPrincipals.has(sid)) return "trusted";
-		return "group";
-	}
-	if (trustedPrincipals.has(normalized) || TRUSTED_BASE.has(normalized)) return "trusted";
-	if (WORLD_PRINCIPALS.has(normalized) || WORLD_SUFFIXES.some((suffix) => normalized.endsWith(suffix))) return "world";
-	const stripped = stripDiacritics(normalized);
-	return stripped !== normalized && TRUSTED_BASE_ASCII.has(stripped) ? "trusted" : "group";
-}
-function summarizeWindowsAcl(entries, env) {
-	const trustedPrincipals = entries.every((entry) => SID_RE.test(normalize(entry.sid ?? entry.principal))) ? buildTrustedSidPrincipals(env) : buildTrustedPrincipals(env);
-	const trusted = [];
-	const untrustedWorld = [];
-	const untrustedGroup = [];
-	for (const entry of entries) {
-		const classification = classifyPrincipal(entry.sid ?? entry.principal, trustedPrincipals);
-		if (classification === "trusted") trusted.push(entry);
-		else if (classification === "world") untrustedWorld.push(entry);
-		else untrustedGroup.push(entry);
-	}
-	return {
-		trusted,
-		untrustedWorld,
-		untrustedGroup
-	};
-}
-const MASK_RIGHTS = [
-	[268435456, "GA"],
-	[2147483648, "GR"],
-	[1073741824, "GW"],
-	[536870912, "GE"],
-	[65536, "D"],
-	[131072, "RC"],
-	[262144, "WDAC"],
-	[524288, "WO"],
-	[1048576, "S"],
-	[1, "RD"],
-	[2, "WD"],
-	[4, "AD"],
-	[8, "REA"],
-	[16, "WEA"],
-	[32, "X"],
-	[64, "DC"],
-	[128, "RA"],
-	[256, "WA"]
-];
-function summarizeWindowsOwnerAcl(owner) {
-	const error = owner.error ?? owner.aclError;
-	if (error || owner.daclPresent === void 0 || !owner.aces || !owner.currentUserSid) return {
-		ok: false,
-		entries: [],
-		trusted: [],
-		untrustedWorld: [],
-		untrustedGroup: [],
-		error: error ?? "Windows ACL query returned incomplete descriptor data",
-		errorDetail: owner.errorDetail,
-		errorCause: owner.errorCause
-	};
-	const entries = (owner.daclPresent ? owner.aces : [{
-		sid: "s-1-1-0",
-		mask: 2032127,
-		deny: false,
-		inheritOnly: false
-	}]).filter((ace) => !ace.deny && !ace.inheritOnly).map((ace) => {
-		const rights = ace.mask === 2032127 ? ["F"] : MASK_RIGHTS.filter(([mask]) => (ace.mask & mask) !== 0).map(([, name]) => name);
-		return {
-			principal: ace.sid,
-			sid: ace.sid,
-			rights,
-			rawRights: "(" + rights.join(",") + ")",
-			canRead: (ace.mask & 2416050313) !== 0,
-			canWrite: (ace.mask & 1343029590) !== 0
-		};
-	});
-	return {
-		ok: true,
-		entries,
-		...summarizeWindowsAcl(entries, { USERSID: owner.currentUserSid })
-	};
-}
-function formatWindowsAclSummary(summary) {
-	if (!summary.ok) return "unknown";
-	const untrusted = [...summary.untrustedWorld, ...summary.untrustedGroup];
-	return untrusted.length === 0 ? "trusted-only" : untrusted.map((entry) => `${entry.principal}:${entry.rawRights}`).join(", ");
-}
-//#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.18.1/node_modules/@openclaw/fs-safe/dist/permissions.js
-init_windows_path_alias();
-function failedSafeStat(error) {
-	return {
-		ok: false,
-		isSymlink: false,
-		isDir: false,
-		mode: null,
-		uid: null,
-		gid: null,
-		error
-	};
-}
-async function safeStatAdmitted(targetPath) {
-	try {
-		const lst = fs$1.lstatSync(pathForWindowsFilesystem(targetPath));
-		return {
-			ok: true,
-			isSymlink: lst.isSymbolicLink(),
-			isDir: lst.isDirectory(),
-			mode: typeof lst.mode === "number" ? lst.mode : null,
-			uid: typeof lst.uid === "number" ? lst.uid : null,
-			gid: typeof lst.gid === "number" ? lst.gid : null
-		};
-	} catch (err) {
-		return failedSafeStat(String(err));
-	}
-}
-async function inspectPathPermissions(targetPath, opts) {
-	const st = hasWindowsPathAlias(targetPath, "filesystem", process.platform === "win32" ? process.platform : opts?.platform ?? process.platform) ? failedSafeStat("Path uses a Windows filesystem namespace alias") : await safeStatAdmitted(targetPath);
-	if (!st.ok) return {
-		ok: false,
-		isSymlink: false,
-		isDir: false,
-		mode: null,
-		bits: null,
-		source: "unknown",
-		worldWritable: false,
-		groupWritable: false,
-		worldReadable: false,
-		groupReadable: false,
-		error: st.error
-	};
-	let effectiveMode = st.mode;
-	let effectiveIsDir = st.isDir;
-	if (st.isSymlink) try {
-		const target = fs$1.statSync(targetPath);
-		effectiveMode = typeof target.mode === "number" ? target.mode : st.mode;
-		effectiveIsDir = target.isDirectory();
-	} catch {}
-	const bits = modeBits(effectiveMode);
-	const windows = (opts?.platform ?? process.platform) === "win32";
-	const permissions = {
-		ok: true,
-		isSymlink: st.isSymlink,
-		isDir: effectiveIsDir,
-		mode: effectiveMode,
-		bits,
-		source: windows ? "unknown" : "posix",
-		worldWritable: !windows && isWorldWritable(bits),
-		groupWritable: !windows && isGroupWritable(bits),
-		worldReadable: !windows && isWorldReadable(bits),
-		groupReadable: !windows && isGroupReadable(bits)
-	};
-	return windows ? await inspectWindowsPermissions(targetPath, permissions, opts) : permissions;
-}
-function modeBits(mode) {
-	return mode == null ? null : mode & 511;
-}
-function isWorldWritable(bits) {
-	return bits != null && (bits & 2) !== 0;
-}
-function isGroupWritable(bits) {
-	return bits != null && (bits & 16) !== 0;
-}
-function isWorldReadable(bits) {
-	return bits != null && (bits & 4) !== 0;
-}
-function isGroupReadable(bits) {
-	return bits != null && (bits & 32) !== 0;
-}
-//#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.18.1/node_modules/@openclaw/fs-safe/dist/effective-uid.js
-function isValidUid(value) {
-	return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
-}
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/effective-uid.js
 function unavailable(cause) {
 	return new Error("Effective user identity is unavailable.", { ...cause === void 0 ? {} : { cause } });
 }
@@ -8368,13 +8409,12 @@ function resolveEffectiveUid() {
 	} catch (cause) {
 		throw unavailable(cause);
 	}
-	if (!isValidUid(uid)) throw unavailable();
+	if (!(typeof uid === "number" && Number.isSafeInteger(uid) && uid >= 0)) throw unavailable();
 	return uid;
 }
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.18.1/node_modules/@openclaw/fs-safe/dist/secure-file-windows.js
-init_errors();
-init_file_observation();
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/secure-file-windows.js
+init_strict_file_identity();
 init_native();
 init_native_config();
 const IDENTITY_RE = /^([0-9a-f]{8}):([0-9a-f]{16})$/;
@@ -8383,30 +8423,22 @@ const TRUSTED_OWNER_CLASSES = /* @__PURE__ */ new Set([
 	"system",
 	"administrators"
 ]);
-function permissionUnverified(message, cause) {
-	throw new FsSafeError("permission-unverified", message, cause === void 0 ? {} : { cause });
-}
-function identityMismatch() {
-	const error = new FsSafeError("path-mismatch", "file identity changed or could not be verified");
-	recordFileObservationFailure(error, "identity");
-	throw error;
-}
 function isRecord(value) {
 	return typeof value === "object" && value !== null;
 }
 function parseIdentity(value) {
-	if (typeof value !== "string") identityMismatch();
+	if (typeof value !== "string") throw fileIdentityMismatchError();
 	const match = IDENTITY_RE.exec(value);
-	if (!match) identityMismatch();
+	if (!match) throw fileIdentityMismatchError();
 	return {
 		dev: BigInt(`0x${match[1]}`),
 		ino: BigInt(`0x${match[2]}`)
 	};
 }
 function inspectDescriptorResult(params, result, mechanism) {
-	if (!isRecord(result)) permissionUnverified("Windows descriptor ACL facts were malformed");
+	if (!isRecord(result)) unverified("Windows descriptor ACL facts were malformed");
 	const observed = parseIdentity(result.identity);
-	if (observed.dev !== params.identity.dev || observed.ino !== params.identity.ino) identityMismatch();
+	if (observed.dev !== params.identity.dev || observed.ino !== params.identity.ino) throw fileIdentityMismatchError();
 	const facts = validateSecureWindowsSecurityFacts(result.security);
 	return {
 		ok: true,
@@ -8430,23 +8462,23 @@ async function inspectSecureWindowsFile(params) {
 	try {
 		native = getNativeBinding();
 	} catch (cause) {
-		permissionUnverified("Windows descriptor ACL verification requires the matching native helper", cause);
+		unverified("Windows descriptor ACL verification requires the matching native helper", cause);
 	}
 	const inspect = native?.inspectWindowsSecureFileHandle;
 	const nativeAvailable = typeof inspect === "function";
-	if (!nativeAvailable && getFsSafeNativeConfig().mode === "require") permissionUnverified("Windows descriptor ACL verification requires an up-to-date native helper");
+	if (!nativeAvailable && getFsSafeNativeConfig().mode === "require") unverified("Windows descriptor ACL verification requires an up-to-date native helper");
 	if (!nativeAvailable) warnNativeFallback("windows-secure-file", "Windows descriptor ACL inspection uses a slower built-in system command.");
 	let result;
 	try {
 		if (nativeAvailable) result = inspect.call(native, params.fd);
 		else result = await inspectWindowsDescriptorCommand(params.fd);
 	} catch (cause) {
-		permissionUnverified("Windows descriptor ACL verification failed", cause);
+		unverified("Windows descriptor ACL verification failed", cause);
 	}
 	return inspectDescriptorResult(params, result, nativeAvailable ? "native" : "system-command");
 }
 //#endregion
-//#region node_modules/.pnpm/@openclaw+fs-safe@0.18.1/node_modules/@openclaw/fs-safe/dist/secure-file.js
+//#region node_modules/.pnpm/@openclaw+fs-safe@0.24.2/node_modules/@openclaw/fs-safe/dist/secure-file.js
 init_device_path();
 init_errors();
 init_local_file_access();
@@ -8520,7 +8552,7 @@ async function openSecureHandle(options, maxBytes) {
 	if (!isAbsolutePathname(options.filePath)) throw new FsSafeError("invalid-path", `${label(options)} must be an absolute path.`);
 	let preStat;
 	try {
-		preStat = fs$1.lstatSync(options.filePath);
+		preStat = fsSync.lstatSync(options.filePath);
 	} catch (err) {
 		throw new FsSafeError("not-found", `${label(options)} is not readable: ${options.filePath}`, { cause: err });
 	}
@@ -8535,12 +8567,12 @@ async function openSecureHandle(options, maxBytes) {
 		throw err;
 	}
 	try {
-		const openedStat = fs$1.fstatSync(handle.fd);
+		const openedStat = fsSync.fstatSync(handle.fd);
 		if (!openedStat.isFile()) throw new FsSafeError("not-file", `${label(options)} must be a file: ${options.filePath}`);
-		const openedIdentity = inspectFileIdentitySync(() => fs$1.fstatSync(handle.fd, { bigint: true }));
+		const openedIdentity = inspectFileIdentitySync(() => fsSync.fstatSync(handle.fd, { bigint: true }));
 		assertNotHardlinked(options, openedIdentity);
 		inspectFileIdentitySync(() => {
-			const pathStat = options.trust?.allowSymlink ? fs$1.statSync(options.filePath, { bigint: true }) : fs$1.lstatSync(options.filePath, { bigint: true });
+			const pathStat = options.trust?.allowSymlink ? fsSync.statSync(options.filePath, { bigint: true }) : fsSync.lstatSync(options.filePath, { bigint: true });
 			if (!options.trust?.allowSymlink && pathStat.isSymbolicLink()) throw new FsSafeError("symlink", `${label(options)} must not be a symlink: ${options.filePath}`);
 			assertNotHardlinked(options, pathStat);
 			return pathStat;
@@ -8548,7 +8580,7 @@ async function openSecureHandle(options, maxBytes) {
 		const realPath = realpathSync.native(options.filePath);
 		assertNoWindowsPathAlias(realPath, "filesystem", `${label(options)} resolved path uses a Windows filesystem namespace alias`);
 		inspectFileIdentitySync(() => {
-			const realPathStat = fs$1.statSync(realPath, { bigint: true });
+			const realPathStat = fsSync.statSync(realPath, { bigint: true });
 			assertNotHardlinked(options, realPathStat);
 			return realPathStat;
 		}, openedIdentity);
@@ -8592,7 +8624,8 @@ function inspectOpenedPermissions(stat, platform) {
 		groupReadable: isGroupReadable(bits)
 	};
 }
-async function assertSecurePermissions(options, stat, realPath, identity, fd) {
+async function assertSecurePermissions(options, opened, fd) {
+	const { pathStat: stat, realPath, identity } = opened;
 	if (options.permissions?.allowInsecure) return;
 	const platform = options.inject?.platform ?? process.platform;
 	const permissions = platform === "win32" ? process.platform === "win32" ? await inspectSecureWindowsFile({
@@ -8649,9 +8682,9 @@ async function readSecureFile(options) {
 	const opened = await openSecureHandle(options, maxBytes);
 	try {
 		assertTrustedDirs(options, opened.realPath);
-		const permissions = await assertSecurePermissions(options, opened.pathStat, opened.realPath, opened.identity, opened.handle.fd);
+		const permissions = await assertSecurePermissions(options, opened, opened.handle.fd);
 		const buffer = await readHandleWithTimeout(opened.handle, options.io?.timeoutMs, maxBytes);
-		const finalIdentity = inspectFileIdentitySync(() => fs$1.fstatSync(opened.handle.fd, { bigint: true }), opened.identity);
+		const finalIdentity = inspectFileIdentitySync(() => fsSync.fstatSync(opened.handle.fd, { bigint: true }), opened.identity);
 		if (!finalIdentity.isFile()) throw new FsSafeError("not-file", `${label(options)} must remain a file: ${options.filePath}`);
 		assertNotHardlinked(options, finalIdentity);
 		return {

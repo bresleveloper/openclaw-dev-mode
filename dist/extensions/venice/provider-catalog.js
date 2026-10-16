@@ -1,4 +1,4 @@
-import { r as VENICE_MODEL_CATALOG, t as VENICE_BASE_URL } from "./.setup/models-CX--kzd2.mjs";
+import { r as VENICE_MODEL_CATALOG, t as VENICE_BASE_URL } from "./.setup/models-D73jPrCr.mjs";
 //#region extensions/venice/provider-catalog.ts
 function buildStaticVeniceProvider() {
 	return {

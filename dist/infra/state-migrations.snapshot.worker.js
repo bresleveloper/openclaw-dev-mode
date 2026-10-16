@@ -1,10 +1,12 @@
-import { t as formatErrorMessage } from "../errors-DnjwnOju.mjs";
-import { constants, lstatSync, readdirSync } from "node:fs";
+import { t as formatErrorMessage } from "../errors-O33D01XW.mjs";
+import { lstatSync, readdirSync } from "node:fs";
 import path from "node:path";
 import fs$1 from "node:fs/promises";
 import { endianness } from "node:os";
-import { text } from "node:stream/consumers";
 import { createHash } from "node:crypto";
+import { FsSafeError } from "@openclaw/fs-safe/errors";
+import { openLocalFileSafely } from "@openclaw/fs-safe/root";
+import { text } from "node:stream/consumers";
 //#region src/infra/state-migrations.snapshot.worker.ts
 const SQLITE_FILE_HEADER = Buffer.from("SQLite format 3\0", "utf8");
 const SQLITE_SHM_REGION_BYTES = 32768;
@@ -41,22 +43,13 @@ async function digestFile(filePath, observedEntries, hashPrefix = "") {
 	return `sha256:${await digestSnapshotFileHandle(filePath, handle, before, [], hashPrefix)}`;
 }
 async function openSnapshotRegularFile(filePath) {
-	let before;
 	try {
-		before = await fs$1.lstat(filePath);
+		return (await openLocalFileSafely({ filePath })).handle;
 	} catch (error) {
-		if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") return;
-		throw error;
-	}
-	if (!before.isFile()) return;
-	let handle;
-	try {
-		handle = await fs$1.open(filePath, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0));
-		const [opened, after] = await Promise.all([handle.stat(), fs$1.lstat(filePath)]);
-		if (!opened.isFile() || !after.isFile() || before.dev !== opened.dev || before.ino !== opened.ino || before.dev !== after.dev || before.ino !== after.ino) throw new Error(`Snapshot file changed while opening: ${filePath}`);
-		return handle;
-	} catch (error) {
-		await handle?.close();
+		if (error instanceof FsSafeError) {
+			if (error.code === "not-found" || error.code === "not-file" || error.code === "symlink") return;
+			if (error.code === "path-mismatch") throw new Error(`Snapshot file changed while opening: ${filePath}`, { cause: error });
+		}
 		throw error;
 	}
 }

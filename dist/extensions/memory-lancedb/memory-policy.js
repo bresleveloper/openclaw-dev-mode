@@ -1,7 +1,8 @@
 import { looksLikeEnvelopeSludge } from "./memory-capture-sanitization.js";
 import { DEFAULT_RECALL_MAX_CHARS } from "./config.js";
 import { asOptionalRecord, normalizeLowercaseStringOrEmpty } from "openclaw/plugin-sdk/string-coerce-runtime";
-import { truncateUtf16Safe } from "openclaw/plugin-sdk/text-utility-runtime";
+import { escapeHtml, truncateUtf16Safe } from "openclaw/plugin-sdk/text-utility-runtime";
+import { resolveNonNegativeIntegerOption } from "openclaw/plugin-sdk/number-runtime";
 import { createHash } from "node:crypto";
 //#region extensions/memory-lancedb/memory-policy.ts
 function extractUserTextContent(message) {
@@ -19,11 +20,8 @@ function extractUserTextContent(message) {
 }
 function normalizeRecallQuery(text, maxChars = DEFAULT_RECALL_MAX_CHARS) {
 	const normalized = text.replace(/\s+/g, " ").trim();
-	const limit = normalizeMaxChars(maxChars, DEFAULT_RECALL_MAX_CHARS);
+	const limit = resolveNonNegativeIntegerOption(maxChars, DEFAULT_RECALL_MAX_CHARS);
 	return normalized.length > limit ? truncateUtf16Safe(normalized, limit).trimEnd() : normalized;
-}
-function normalizeMaxChars(value, fallback) {
-	return typeof value === "number" && Number.isFinite(value) ? Math.max(0, Math.floor(value)) : fallback;
 }
 function captureFingerprint(text) {
 	return createHash("sha256").update(text).digest("hex");
@@ -102,20 +100,10 @@ const PROMPT_INJECTION_PATTERNS = [
 	/<\s*(system|assistant|developer|tool|function|relevant-memories)\b/i,
 	/\b(run|execute|call|invoke)\b.{0,40}\b(tool|command)\b/i
 ];
-const PROMPT_ESCAPE_MAP = {
-	"&": "&amp;",
-	"<": "&lt;",
-	">": "&gt;",
-	"\"": "&quot;",
-	"'": "&#39;"
-};
 function looksLikePromptInjection(text) {
 	const normalized = text.replace(/\s+/g, " ").trim();
 	if (!normalized) return false;
 	return PROMPT_INJECTION_PATTERNS.some((pattern) => pattern.test(normalized));
-}
-function escapeMemoryForPrompt(text) {
-	return text.replace(/[&<>"']/g, (char) => PROMPT_ESCAPE_MAP[char] ?? char);
 }
 function isRecallableMemoryText(text) {
 	return text.trim().length > 0 && !looksLikeEnvelopeSludge(text);
@@ -131,9 +119,18 @@ async function findCleanDuplicateMemory(db, agentId, vector, exactText) {
 function cleanMemorySearchResults(results) {
 	return results.filter(({ entry }) => isRecallableMemoryText(entry.text));
 }
+function projectMemorySearchResult({ entry, score }) {
+	return {
+		id: entry.id,
+		text: entry.text,
+		category: entry.category,
+		importance: entry.importance,
+		score
+	};
+}
 function formatRecalledMemoryForModel(text, maxChars = DEFAULT_RECALL_MAX_CHARS) {
-	const limit = normalizeMaxChars(maxChars, DEFAULT_RECALL_MAX_CHARS);
-	return truncateUtf16Safe(escapeMemoryForPrompt(text), limit);
+	const limit = resolveNonNegativeIntegerOption(maxChars, DEFAULT_RECALL_MAX_CHARS);
+	return truncateUtf16Safe(escapeHtml(text), limit);
 }
 function formatRelevantMemoriesContext(memories, maxChars = DEFAULT_RECALL_MAX_CHARS) {
 	const clean = memories.filter((entry) => isRecallableMemoryText(entry.text));
@@ -147,7 +144,7 @@ function matchesCustomTrigger(text, customTriggers) {
 }
 function shouldCapture(text, options) {
 	if (looksLikeEnvelopeSludge(text)) return false;
-	const maxChars = normalizeMaxChars(options?.maxChars, 500);
+	const maxChars = resolveNonNegativeIntegerOption(options?.maxChars, 500);
 	if (text.length > maxChars) return false;
 	if (text.includes("<relevant-memories>")) return false;
 	if (text.startsWith("<") && text.includes("</")) return false;
@@ -165,4 +162,4 @@ function detectCategory(text) {
 	return "other";
 }
 //#endregion
-export { captureFingerprint, cleanMemorySearchResults, detectCategory, escapeMemoryForPrompt, extractUserTextContent, findCleanDuplicateMemory, formatRecalledMemoryForModel, formatRelevantMemoriesContext, looksLikePromptInjection, normalizeRecallQuery, prepareAutoCaptureMessages, shouldCapture };
+export { captureFingerprint, cleanMemorySearchResults, detectCategory, extractUserTextContent, findCleanDuplicateMemory, formatRecalledMemoryForModel, formatRelevantMemoriesContext, looksLikePromptInjection, normalizeRecallQuery, prepareAutoCaptureMessages, projectMemorySearchResult, shouldCapture };

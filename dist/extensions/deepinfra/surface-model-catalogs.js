@@ -2,25 +2,6 @@ import { DEEPINFRA_VIDEO_ASPECT_RATIOS, DEEPINFRA_VIDEO_DURATIONS } from "./medi
 import { discoverDeepInfraSurfaces } from "./provider-models.js";
 //#region extensions/deepinfra/surface-model-catalogs.ts
 const PROVIDER_ID = "deepinfra";
-function surfaceModelToImageGenEntry(model) {
-	return {
-		kind: "image_generation",
-		provider: PROVIDER_ID,
-		model: model.id,
-		source: "live",
-		...model.name ? { label: model.name } : {}
-	};
-}
-function surfaceModelToVideoGenEntry(model) {
-	return {
-		kind: "video_generation",
-		provider: PROVIDER_ID,
-		model: model.id,
-		source: "live",
-		...model.name ? { label: model.name } : {},
-		capabilities: buildDeepInfraVideoModelCapabilities()
-	};
-}
 function buildDeepInfraVideoModelCapabilities() {
 	return {
 		providerOptions: {
@@ -40,25 +21,32 @@ function buildDeepInfraVideoModelCapabilities() {
 		videoToVideo: { enabled: false }
 	};
 }
-async function listDeepInfraImageGenCatalog(ctx) {
+async function listDeepInfraGenerationCatalog(ctx, kind) {
 	const { discoveryApiKey } = ctx.resolveProviderApiKey(PROVIDER_ID);
 	if (!discoveryApiKey) return null;
 	const catalog = await discoverDeepInfraSurfaces({
 		hasApiKey: true,
 		env: ctx.env
 	});
-	if (!catalog.live || catalog.imageGen.length === 0) return null;
-	return catalog.imageGen.map(surfaceModelToImageGenEntry);
+	const models = kind === "image_generation" ? catalog.imageGen : catalog.videoGen;
+	if (!catalog.live || models.length === 0) return null;
+	return models.map((model) => {
+		const entry = {
+			kind,
+			provider: PROVIDER_ID,
+			model: model.id,
+			source: "live"
+		};
+		if (model.name) entry.label = model.name;
+		if (kind === "video_generation") entry.capabilities = buildDeepInfraVideoModelCapabilities();
+		return entry;
+	});
 }
-async function listDeepInfraVideoGenCatalog(ctx) {
-	const { discoveryApiKey } = ctx.resolveProviderApiKey(PROVIDER_ID);
-	if (!discoveryApiKey) return null;
-	const catalog = await discoverDeepInfraSurfaces({
-		hasApiKey: true,
-		env: ctx.env
-	});
-	if (!catalog.live || catalog.videoGen.length === 0) return null;
-	return catalog.videoGen.map(surfaceModelToVideoGenEntry);
+function listDeepInfraImageGenCatalog(ctx) {
+	return listDeepInfraGenerationCatalog(ctx, "image_generation");
+}
+function listDeepInfraVideoGenCatalog(ctx) {
+	return listDeepInfraGenerationCatalog(ctx, "video_generation");
 }
 async function resolveDeepInfraVideoModelCapabilities(ctx) {
 	const rawId = typeof ctx.model === "string" ? ctx.model : "";
@@ -67,4 +55,4 @@ async function resolveDeepInfraVideoModelCapabilities(ctx) {
 	return catalog.videoGen.find((m) => m.id === normalized) ?? catalog.videoGen.find((m) => m.id === rawId) ? buildDeepInfraVideoModelCapabilities() : void 0;
 }
 //#endregion
-export { listDeepInfraImageGenCatalog, listDeepInfraVideoGenCatalog, resolveDeepInfraVideoModelCapabilities };
+export { buildDeepInfraVideoModelCapabilities, listDeepInfraImageGenCatalog, listDeepInfraVideoGenCatalog, resolveDeepInfraVideoModelCapabilities };

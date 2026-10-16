@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";var SessionMutationAuthorizationChangedError,t=e((()=>{SessionMutationAuthorizationChangedError=class extends Error{constructor(e){super(e.message),this.name=`SessionMutationAuthorizationChangedError`,this.error=e}}}));export{t as n,SessionMutationAuthorizationChangedError as t};

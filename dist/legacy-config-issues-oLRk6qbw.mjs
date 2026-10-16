@@ -1,0 +1,104 @@
+import { l as withPluginMetadataSnapshotScope } from "./current-plugin-metadata-snapshot-DkhWcws3.mjs";
+import { t as isChannelConfigMetadataKey } from "./config-metadata-aX1D2IMg.mjs";
+import { l as findLegacySystemAgentOwnerIssue, t as findLegacyConfigIssues } from "./legacy-Bu4WPgr_.mjs";
+import { t as getBootstrapChannelPlugin } from "./bootstrap-registry-DlD4zNx-.mjs";
+import { t as loadBundledChannelDoctorContractApi } from "./doctor-contract-api-DJ9wcLLt.mjs";
+import { o as listPluginDoctorLegacyConfigRules, r as collectDoctorConfigRepairPluginIds } from "./doctor-contract-registry-BGRBWEIs.mjs";
+import { t as listDoctorConfiguredChannelIds } from "./configured-channel-ids-Ce74V-mJ.mjs";
+//#region src/channels/plugins/legacy-config.ts
+function collectConfiguredChannelIds(raw) {
+	if (!raw || typeof raw !== "object") return [];
+	const channels = raw.channels;
+	if (!channels || typeof channels !== "object" || Array.isArray(channels)) return [];
+	return Object.keys(channels).map((channelId) => channelId.trim()).filter((channelId) => channelId && !isChannelConfigMetadataKey(channelId));
+}
+function shouldIncludeLegacyRuleForTouchedPaths(rulePath, touchedPaths) {
+	if (!touchedPaths || touchedPaths.length === 0) return true;
+	return touchedPaths.some((touchedPath) => {
+		const sharedLength = Math.min(rulePath.length, touchedPath.length);
+		for (let index = 0; index < sharedLength; index += 1) if (rulePath[index] !== touchedPath[index]) return false;
+		return true;
+	});
+}
+function collectRelevantChannelIdsForTouchedPaths(params) {
+	const channelIds = collectConfiguredChannelIds(params.raw);
+	const filteredChannelIds = params.excludedChannelIds?.size ? channelIds.filter((channelId) => !params.excludedChannelIds?.has(channelId)) : channelIds;
+	if (!params.touchedPaths || params.touchedPaths.length === 0) return filteredChannelIds;
+	const touchedChannelIds = /* @__PURE__ */ new Set();
+	for (const touchedPath of params.touchedPaths) {
+		const [first, second] = touchedPath;
+		if (first !== "channels") continue;
+		if (!second) return filteredChannelIds;
+		const channelId = second.trim();
+		if (!channelId || isChannelConfigMetadataKey(channelId)) continue;
+		touchedChannelIds.add(channelId);
+	}
+	return filteredChannelIds.filter((channelId) => touchedChannelIds.has(channelId));
+}
+function collectChannelLegacyConfigRules(raw, touchedPaths, excludedChannelIds) {
+	const channelIds = collectRelevantChannelIdsForTouchedPaths({
+		raw,
+		touchedPaths,
+		excludedChannelIds
+	});
+	const rules = [];
+	const unresolvedChannelIds = [];
+	for (const channelId of channelIds) {
+		const contractRules = loadBundledChannelDoctorContractApi(channelId)?.legacyConfigRules;
+		if (Array.isArray(contractRules)) {
+			rules.push(...contractRules);
+			continue;
+		}
+		const plugin = getBootstrapChannelPlugin(channelId);
+		if (plugin?.doctor?.legacyConfigRules?.length) {
+			rules.push(...plugin.doctor.legacyConfigRules);
+			continue;
+		}
+		if (plugin) continue;
+		unresolvedChannelIds.push(channelId);
+	}
+	if (unresolvedChannelIds.length > 0) rules.push(...listPluginDoctorLegacyConfigRules({
+		config: raw,
+		pluginIds: unresolvedChannelIds
+	}));
+	const seen = /* @__PURE__ */ new Set();
+	return rules.filter((rule) => {
+		if (!shouldIncludeLegacyRuleForTouchedPaths(rule.path, touchedPaths)) return false;
+		const key = `${rule.path.join(".")}::${rule.message}`;
+		if (seen.has(key)) return false;
+		seen.add(key);
+		return true;
+	});
+}
+//#endregion
+//#region src/commands/doctor/shared/legacy-config-issues.ts
+function collectPluginLegacyConfigRules(raw, touchedPaths) {
+	const channelIds = new Set(listDoctorConfiguredChannelIds(raw, { configEntryPolicy: "raw" }));
+	const pluginIds = collectDoctorConfigRepairPluginIds(raw, touchedPaths).filter((pluginId) => !channelIds.has(pluginId));
+	if (pluginIds.length === 0) return [];
+	return listPluginDoctorLegacyConfigRules({
+		config: raw,
+		pluginIds
+	});
+}
+/** Find legacy config issues using core rules plus relevant channel/plugin doctor contracts. */
+function findDoctorLegacyConfigIssues(raw, sourceRaw, touchedPaths) {
+	return findLegacyConfigIssues(raw, sourceRaw, [...collectChannelLegacyConfigRules(raw, touchedPaths), ...collectPluginLegacyConfigRules(raw, touchedPaths)]);
+}
+function addDoctorLegacyIssues(snapshot, pluginMetadataSnapshot) {
+	if (!snapshot.exists) return snapshot;
+	const resolvedRaw = snapshot.sourceConfig ?? snapshot.config ?? {};
+	const collect = () => {
+		const sourceRaw = snapshot.parsed ?? resolvedRaw;
+		const legacyIssues = findDoctorLegacyConfigIssues(resolvedRaw, sourceRaw);
+		const ownerIssue = findLegacySystemAgentOwnerIssue(snapshot.sourceConfigBeforeMigrations ?? resolvedRaw);
+		if (ownerIssue) legacyIssues.push(ownerIssue);
+		return legacyIssues.length === 0 ? snapshot : {
+			...snapshot,
+			legacyIssues
+		};
+	};
+	return pluginMetadataSnapshot ? withPluginMetadataSnapshotScope(pluginMetadataSnapshot, collect, { config: resolvedRaw }) : collect();
+}
+//#endregion
+export { findDoctorLegacyConfigIssues as n, addDoctorLegacyIssues as t };
