@@ -6,8 +6,6 @@
   "files": [
     "../src/agents/sessions/keybindings.ts",
     "../src/cli/program/openclaw-command.ts",
-    "../src/agents/bash-tools.exec.resolve-env-hook.test.ts",
-    "../src/plugin-sdk/channel-inbound.test.ts",
     "../src/infra/host-env-security-policy.d.ts"
   ]
 }

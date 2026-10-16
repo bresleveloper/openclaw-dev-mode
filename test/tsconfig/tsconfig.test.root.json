@@ -12,8 +12,7 @@
     "../vitest/vitest.ui-e2e.setup.ts",
     "../vitest/vitest.ui-e2e.bundled.global-setup.ts",
     "../vitest/vitest.ui-e2e-prebuilt.global-setup.ts",
-    "../vitest/vitest.ui-e2e.global-setup.ts",
-    "../e2e/gateway-transcripts-discord-capture.e2e.test.ts"
+    "../vitest/vitest.ui-e2e.global-setup.ts"
   ],
   "include": [
     "../../test/**/*.ts",
