@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{f as t,m as n}from"./worker-chunk-DmByjxfp.mjs";import{f as r,i}from"./worker-chunk-Dv2jXMOh.mjs";function transcriptEventReadBytesSql(e=`transcript_events`){let t=n.ref(`${e}.event_json`);return n`coalesce(${r(e)}, octet_length(${t}))`}var a=e((()=>{t(),i()}));export{transcriptEventReadBytesSql as n,a as t};

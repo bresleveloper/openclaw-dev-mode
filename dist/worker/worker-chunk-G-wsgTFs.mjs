@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function isCloudWorkerPlacementState(e){return e!==void 0&&e!==`local`&&e!==`reclaimed`}var t,n=e((()=>{t=[`local`,`requested`,`provisioning`,`syncing`,`starting`,`active`,`draining`,`reconciling`,`reclaimed`,`failed`]}));export{n,isCloudWorkerPlacementState as r,t};

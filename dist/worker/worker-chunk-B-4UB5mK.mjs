@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function resolveSandboxScope(e){return e.scope??`agent`}function resolveSandboxDockerEnv(e){let t=e.scope===`shared`?void 0:e.agentEnv;return t?{...e.globalEnv??{LANG:`C.UTF-8`},...t}:e.globalEnv??{LANG:`C.UTF-8`}}var t=e((()=>{}));export{resolveSandboxDockerEnv as n,resolveSandboxScope as r,t};

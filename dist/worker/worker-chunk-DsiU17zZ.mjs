@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{i as t,n,r}from"./worker-chunk-B_fJCaKe.mjs";var stylePromptMessage,stylePromptTitle,stylePromptHint,i=e((()=>{n(),stylePromptMessage=e=>r()?t.accent(e):e,stylePromptTitle=e=>e&&r()?t.heading(e):e,stylePromptHint=e=>e&&r()?t.muted(e):e}));export{stylePromptTitle as i,stylePromptHint as n,stylePromptMessage as r,i as t};

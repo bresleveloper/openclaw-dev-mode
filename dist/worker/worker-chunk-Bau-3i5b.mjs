@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{i as t,n}from"./worker-chunk-z04j10rr.mjs";import{i as r}from"./worker-chunk-B1YzM0QK.mjs";function isChannelIngressUnavailableError(e){return n(e,e=>[e.cause]).some(e=>t(e)===i)}var i,a=e((()=>{r(),i=`CHANNEL_INGRESS_UNAVAILABLE`}));export{isChannelIngressUnavailableError as n,a as t};

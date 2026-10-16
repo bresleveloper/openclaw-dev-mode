@@ -1,0 +1,3 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function supportsModelTools(e){return(e.compat&&typeof e.compat==`object`?e.compat:void 0)?.supportsTools!==!1}function buildModelToolsUnavailablePrompt(e){return e?void 0:t}var t,n=e((()=>{t=`## Tool availability
+
+This model cannot use tools in this run. Do not claim that you ran commands, read or wrote files, browsed the web, generated media, or performed any other tool-backed action. If a request requires tools, say they are unavailable in this chat and ask the user to switch to a tool-capable model.`}));export{n,supportsModelTools as r,buildModelToolsUnavailablePrompt as t};

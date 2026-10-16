@@ -1,0 +1,2 @@
+import { a as openRootFile, c as readFileDescriptorBoundedSync, i as matchRootFileOpenFailure, n as describeRootFileOpenFailure, o as openRootFileSync, r as isRootFileMissingFailure, s as readFileDescriptorBounded, t as canUseRootFileOpen } from "../boundary-file-read-CCth2Hwg.mjs";
+export { canUseRootFileOpen, describeRootFileOpenFailure, isRootFileMissingFailure, matchRootFileOpenFailure, openRootFile, openRootFileSync, readFileDescriptorBounded, readFileDescriptorBoundedSync };

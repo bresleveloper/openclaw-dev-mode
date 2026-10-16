@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function resolveGrantExpiryDaysConfig(e){let t=e.tools?.exec?.grantExpiryDays;return typeof t==`number`&&Number.isFinite(t)&&t>=1?Math.floor(t):null}var t=e((()=>{}));export{resolveGrantExpiryDaysConfig as n,t};

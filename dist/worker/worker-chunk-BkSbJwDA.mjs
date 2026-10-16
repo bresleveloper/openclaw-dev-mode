@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";async function resolveSessionTranscriptFile(e){return{sessionFile:e.sessionKey,sessionEntry:e.sessionEntry??e.sessionStore?.[e.sessionKey]}}var t=e((()=>{}));e((()=>{t()}))();export{resolveSessionTranscriptFile};

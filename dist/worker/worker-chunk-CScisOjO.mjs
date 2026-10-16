@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function resolveGatewayReloadSettings(e,t=300){return{mode:e.gateway?.reload?.mode===`off`?`off`:`hybrid`,debounceMs:t}}var t=e((()=>{}));export{resolveGatewayReloadSettings as n,t};

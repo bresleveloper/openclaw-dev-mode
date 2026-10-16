@@ -1,0 +1,17 @@
+import { A as init_EventStreamCodec, E as init_MessageEncoderStream, M as init_HeaderMarshaller, O as init_MessageDecoderStream, P as init_Int64, S as init_SmithyMessageEncoderStream, a as init_EventStreamSerdeConfig, b as init_getChunkedStream, d as eventStreamSerdeProvider, f as init_EventStreamMarshaller$1, h as init_EventStreamMarshaller, i as init_EventStreamSerde, n as init_event_streams, r as EventStreamSerde, s as init_utils, v as init_getUnmarshalledStream, w as init_SmithyMessageDecoderStream } from "./event-streams-Dkxqunj9.mjs";
+init_Int64();
+init_HeaderMarshaller();
+init_EventStreamCodec();
+init_MessageDecoderStream();
+init_MessageEncoderStream();
+init_SmithyMessageDecoderStream();
+init_SmithyMessageEncoderStream();
+init_getChunkedStream();
+init_getUnmarshalledStream();
+init_EventStreamMarshaller();
+init_EventStreamMarshaller$1();
+init_utils();
+init_EventStreamSerdeConfig();
+init_EventStreamSerde();
+init_event_streams();
+export { EventStreamSerde, eventStreamSerdeProvider };

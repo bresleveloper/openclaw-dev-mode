@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function ok(e){return{ok:!0,value:e}}function err(e){return{ok:!1,error:e}}var t=e((()=>{}));export{t as n,ok as r,err as t};

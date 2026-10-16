@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";var t,n=e((()=>{t={year:31536e6,week:6048e5,day:864e5,hour:36e5,minute:6e4,second:1e3,millisecond:1}}));export{n,t};

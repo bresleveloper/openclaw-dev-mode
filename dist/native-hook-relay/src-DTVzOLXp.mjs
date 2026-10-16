@@ -1,0 +1,254 @@
+//#region packages/retry/src/index.ts
+const MAX_TIMER_TIMEOUT_MS = 2147e6;
+function createAbortError(message, options) {
+	const error = new Error(message, options);
+	error.name = "AbortError";
+	return error;
+}
+function racePromiseWithAbortSignal(operation, signal, createError = (abortedSignal) => createAbortError("Operation aborted", { cause: abortedSignal.reason })) {
+	const run = () => {
+		try {
+			return typeof operation === "function" ? operation() : operation;
+		} catch (error) {
+			return Promise.reject(error);
+		}
+	};
+	if (!signal) return run();
+	const abortError = () => createError(signal);
+	if (signal.aborted) {
+		const aborted = Promise.reject(abortError());
+		return typeof operation === "function" ? aborted : Promise.race([aborted, operation]);
+	}
+	let onAbort;
+	const aborted = new Promise((_, reject) => {
+		onAbort = () => reject(abortError());
+		signal.addEventListener("abort", onAbort, { once: true });
+		if (signal.aborted) onAbort();
+	});
+	return Promise.race([run(), aborted]).finally(() => {
+		signal.removeEventListener("abort", onAbort);
+	});
+}
+/** Bounds observation without cancelling work; a factory starts only after the timer is armed. */
+async function raceWithTimeout(operation, timeoutMs, onTimeout, options = {}) {
+	let timer;
+	let onAbort;
+	try {
+		const deadline = new Promise((resolve, reject) => {
+			const settle = (result) => {
+				try {
+					resolve(result());
+				} catch (error) {
+					reject(error);
+				}
+			};
+			timer = setTimeout(() => settle(onTimeout), timeoutMs);
+			if (options.ref === false) timer.unref?.();
+			const signal = options.signal;
+			if (signal) {
+				onAbort = () => settle(() => {
+					if (options.onAbort) return options.onAbort(signal);
+					throw createAbortError("Operation aborted", { cause: signal.reason });
+				});
+				signal.addEventListener("abort", onAbort, { once: true });
+				if (signal.aborted) onAbort();
+			}
+		});
+		let source;
+		try {
+			source = typeof operation === "function" ? operation() : operation;
+		} catch (error) {
+			deadline.catch(() => {});
+			throw error;
+		}
+		return await Promise.race([source, deadline]);
+	} finally {
+		clearTimeout(timer);
+		if (onAbort) options.signal?.removeEventListener("abort", onAbort);
+	}
+}
+function computeBackoff(policy, attempt) {
+	const base = Math.min(policy.maxMs, policy.initialMs * policy.factor ** Math.max(attempt - 1, 0));
+	const jitter = base * policy.jitter * Math.random();
+	return Math.min(policy.maxMs, Math.round(base + jitter));
+}
+function resolveSleepDelayMs(ms) {
+	return Number.isFinite(ms) && ms > 0 ? Math.min(Math.max(Math.floor(ms), 1), MAX_TIMER_TIMEOUT_MS) : 0;
+}
+async function sleepWithAbort(ms, abortSignal, options = {}) {
+	const delayMs = resolveSleepDelayMs(ms);
+	if (delayMs === 0) return;
+	await new Promise((resolve, reject) => {
+		let settled = false;
+		let timer = null;
+		const cleanup = () => abortSignal?.removeEventListener("abort", onAbort);
+		const onAbort = () => {
+			if (settled) return;
+			settled = true;
+			if (timer) clearTimeout(timer);
+			timer = null;
+			cleanup();
+			reject(createAbortError("aborted", { cause: abortSignal?.reason ?? /* @__PURE__ */ new Error("aborted") }));
+		};
+		abortSignal?.addEventListener("abort", onAbort, { once: true });
+		if (abortSignal?.aborted) {
+			onAbort();
+			return;
+		}
+		timer = setTimeout(() => {
+			settled = true;
+			cleanup();
+			timer = null;
+			resolve();
+		}, delayMs);
+		if (options.ref === false) timer.unref?.();
+		if (abortSignal?.aborted) onAbort();
+	});
+}
+var RetrySupervisor = class {
+	constructor(policy, maxAttempts = Number.POSITIVE_INFINITY) {
+		this.policy = policy;
+		this.maxAttempts = maxAttempts;
+		this.attempts = 0;
+		this.initialMs = policy.initialMs;
+	}
+	reset(initialMs = this.policy.initialMs) {
+		this.cancel();
+		this.attempts = 0;
+		this.initialMs = initialMs;
+		this.nextDelayOverrideMs = void 0;
+	}
+	cancel(reason = /* @__PURE__ */ new Error("retry cancelled")) {
+		this.pendingAbort?.abort(reason);
+		this.pendingAbort = void 0;
+	}
+	next(abortSignal) {
+		const override = this.nextDelayOverrideMs;
+		this.nextDelayOverrideMs = void 0;
+		if (override === void 0 && ++this.attempts > Math.ceil(this.maxAttempts)) return;
+		const attempt = Math.max(this.attempts, 1);
+		const delayMs = override ?? computeBackoff({
+			...this.policy,
+			initialMs: this.initialMs
+		}, attempt);
+		this.cancel();
+		const pendingAbort = new AbortController();
+		this.pendingAbort = pendingAbort;
+		return {
+			attempt,
+			delayMs,
+			signal: abortSignal ? AbortSignal.any([pendingAbort.signal, abortSignal]) : pendingAbort.signal
+		};
+	}
+};
+const DEFAULT_RETRY_CONFIG = {
+	attempts: 3,
+	minDelayMs: 300,
+	maxDelayMs: 3e4,
+	jitter: 0
+};
+const defaultSleep = async (ms) => {
+	let remainingMs = ms;
+	do {
+		const delayMs = Math.min(remainingMs, MAX_TIMER_TIMEOUT_MS);
+		await new Promise((resolve) => {
+			setTimeout(resolve, delayMs);
+		});
+		remainingMs -= delayMs;
+	} while (remainingMs > 0);
+};
+function clampNumber(value, fallback, min, max) {
+	if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
+	return Math.min(Math.max(value, min ?? Number.NEGATIVE_INFINITY), max ?? Number.POSITIVE_INFINITY);
+}
+function resolveAttemptCount(value, fallback) {
+	return Math.max(1, Math.round(clampNumber(value, fallback)));
+}
+function resolveRetryDelayMs(value) {
+	return Math.min(Math.max(Math.round(value === Number.POSITIVE_INFINITY ? MAX_TIMER_TIMEOUT_MS : Number.isFinite(value) ? value : 0), 0), MAX_TIMER_TIMEOUT_MS);
+}
+function resolveJitterConfig(value, fallback) {
+	if (value === "full") return "full";
+	return typeof value === "number" && Number.isFinite(value) ? Math.min(Math.max(value, 0), 1) : fallback;
+}
+function resolveRetryConfig(defaults = DEFAULT_RETRY_CONFIG, overrides) {
+	const attempts = resolveAttemptCount(overrides?.attempts, defaults.attempts);
+	const minDelayMs = resolveRetryDelayMs(clampNumber(overrides?.minDelayMs, defaults.minDelayMs, 0));
+	return {
+		attempts,
+		minDelayMs,
+		maxDelayMs: Math.max(minDelayMs, resolveRetryDelayMs(clampNumber(overrides?.maxDelayMs, defaults.maxDelayMs, 0))),
+		jitter: resolveJitterConfig(overrides?.jitter, defaults.jitter)
+	};
+}
+function applyJitter(delayMs, jitter, mode, random) {
+	if (jitter === "full") {
+		if (mode === "symmetric") return Math.max(0, Math.round(delayMs * (.5 + random() * .5)));
+		return Math.max(0, Math.ceil(delayMs * (1 + random())));
+	}
+	if (jitter <= 0) return mode === "positive" ? Math.ceil(delayMs) : delayMs;
+	const fraction = random();
+	const raw = delayMs * (1 + (mode === "positive" ? fraction * jitter : (fraction * 2 - 1) * jitter));
+	return Math.max(0, mode === "positive" ? Math.ceil(raw) : Math.round(raw));
+}
+function toRetryError(value, fallbackMessage = "Non-Error thrown") {
+	if (value instanceof Error) return value;
+	if (typeof value === "string") return new Error(value);
+	const error = new Error(fallbackMessage, { cause: value });
+	if (typeof value === "object" && value !== null || typeof value === "function") Object.assign(error, value);
+	return error;
+}
+function createRetryRunner(runtime = {}) {
+	const runtimeSleep = runtime.sleep ?? defaultSleep;
+	const runtimeRandom = runtime.random ?? Math.random;
+	const createFailure = runtime.createFailure ?? ((errors) => toRetryError(errors.at(-1) ?? /* @__PURE__ */ new Error("Retry failed")));
+	return async function retryAsync(fn, attemptsOrOptions = 3, initialDelayMs = 300) {
+		const attemptErrors = [];
+		const numeric = typeof attemptsOrOptions === "number";
+		const options = typeof attemptsOrOptions === "number" ? { attempts: attemptsOrOptions } : attemptsOrOptions;
+		const resolved = resolveRetryConfig(DEFAULT_RETRY_CONFIG, options);
+		const maxAttempts = resolved.attempts;
+		const minDelayMs = resolved.minDelayMs;
+		const maxDelayMs = resolved.maxDelayMs > 0 ? resolved.maxDelayMs : Number.POSITIVE_INFINITY;
+		const retryAfterMaxDelayMs = options.retryAfterMaxDelayMs === void 0 ? maxDelayMs : Math.max(minDelayMs, resolveRetryDelayMs(clampNumber(options.retryAfterMaxDelayMs, maxDelayMs, 0)));
+		const random = options.random ?? runtimeRandom;
+		const sleep = options.sleep ?? runtimeSleep;
+		const shouldRetry = options.shouldRetry ?? (() => true);
+		for (let attempt = 1; attempt <= maxAttempts; attempt += 1) try {
+			return await fn();
+		} catch (err) {
+			attemptErrors.push(err);
+			if (attempt >= maxAttempts || !shouldRetry(err, attempt)) break;
+			if (numeric) {
+				await runtimeSleep(resolveRetryDelayMs(initialDelayMs * 2 ** (attempt - 1)));
+				continue;
+			}
+			const context = {
+				attempt,
+				maxAttempts,
+				err,
+				label: options.label
+			};
+			const retryAfterMs = options.retryAfterMs?.(err);
+			const hasRetryAfter = typeof retryAfterMs === "number" && Number.isFinite(retryAfterMs);
+			const configuredDelay = typeof options.delayMs === "function" ? options.delayMs(context) : options.delayMs;
+			const resolvedConfiguredDelay = configuredDelay === void 0 ? void 0 : resolveRetryDelayMs(configuredDelay);
+			const baseDelay = hasRetryAfter ? Math.max(retryAfterMs, minDelayMs) : resolvedConfiguredDelay === void 0 ? minDelayMs * 2 ** (attempt - 1) : Math.max(resolvedConfiguredDelay, minDelayMs);
+			const delayCap = hasRetryAfter ? retryAfterMaxDelayMs : maxDelayMs;
+			let delay = Math.min(baseDelay, delayCap);
+			const canHonorRetryAfter = hasRetryAfter && (retryAfterMs ?? 0) <= delayCap;
+			const wantsPositiveDraw = resolved.jitter === "full" ? !hasRetryAfter || canHonorRetryAfter : canHonorRetryAfter;
+			delay = applyJitter(delay, resolved.jitter, wantsPositiveDraw ? "positive" : "symmetric", random);
+			delay = Math.min(Math.max(delay, minDelayMs), delayCap);
+			await options.onRetry?.({
+				...context,
+				delayMs: delay
+			});
+			if (delay > 0) await sleep(delay);
+		}
+		throw createFailure(attemptErrors);
+	};
+}
+createRetryRunner();
+//#endregion
+export { resolveSleepDelayMs as a, raceWithTimeout as i, createAbortError as n, sleepWithAbort as o, racePromiseWithAbortSignal as r, RetrySupervisor as t };

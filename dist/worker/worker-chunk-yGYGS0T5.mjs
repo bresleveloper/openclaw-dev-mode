@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function registerActiveProgressLine(e){e.isTTY&&(t=e)}function clearActiveProgressLine(){t?.isTTY&&t.write(`\r\x1B[2K`)}function unregisterActiveProgressLine(e){t&&(e&&t!==e||(t=null))}var t,n=e((()=>{t=null}));export{unregisterActiveProgressLine as i,n,registerActiveProgressLine as r,clearActiveProgressLine as t};

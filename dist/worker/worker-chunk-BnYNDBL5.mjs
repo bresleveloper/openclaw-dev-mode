@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{AsyncLocalStorage as t}from"node:async_hooks";function runWithCanonicalSkillWorkspace(e,t){return e?n.run(e,t):t()}function getCanonicalSkillWorkspace(){return n.getStore()}var n,r=e((()=>{n=new t}));export{r as n,runWithCanonicalSkillWorkspace as r,getCanonicalSkillWorkspace as t};

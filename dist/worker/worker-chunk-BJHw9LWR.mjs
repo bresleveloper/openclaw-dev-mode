@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function isAgentLifecycleYieldedWaiting(e){return e.phase===`end`&&e.yielded===!0&&e.livenessState===`paused`&&e.stopReason===`end_turn`&&e.aborted!==!0&&e.status!==`cancelled`&&e.status!==`timed_out`&&e.timeoutPhase==null&&e.error==null}var t=e((()=>{}));export{isAgentLifecycleYieldedWaiting as n,t};

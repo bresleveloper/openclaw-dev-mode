@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function markInboundContextLabel(e){return`${e} ${t}`}var t,n=e((()=>{t=`⟦openclaw:ctx⟧`}));export{n,markInboundContextLabel as r,t};

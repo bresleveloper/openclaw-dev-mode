@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import t from"node:os";function isRosettaTranslatedProcess(){return process.platform!==`darwin`||process.arch!==`x64`?!1:(n??=t.cpus()[0]?.model.includes(`Apple`)===!0,n)}var n,r=e((()=>{}));export{isRosettaTranslatedProcess as n,r as t};

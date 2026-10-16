@@ -1,0 +1,429 @@
+{
+  "id": "sms",
+  "categories": [
+    "channels"
+  ],
+  "name": "SMS",
+  "description": "Twilio SMS/MMS channel plugin for OpenClaw messages.",
+  "activation": {
+    "onStartup": false
+  },
+  "channels": [
+    "sms"
+  ],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  },
+  "channelConfigs": {
+    "sms": {
+      "schema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "configWrites": {
+            "type": "boolean"
+          },
+          "mediaMaxMb": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "accountSid": {
+            "type": "string"
+          },
+          "authToken": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "const": "env"
+                      },
+                      "provider": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                      },
+                      "id": {
+                        "type": "string",
+                        "pattern": "^[A-Z][A-Z0-9_]{0,127}$"
+                      }
+                    },
+                    "required": [
+                      "source",
+                      "provider",
+                      "id"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "const": "store"
+                      },
+                      "provider": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                      },
+                      "id": {
+                        "type": "string",
+                        "pattern": "^[A-Z][A-Z0-9_]{0,127}$"
+                      }
+                    },
+                    "required": [
+                      "source",
+                      "provider",
+                      "id"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "const": "file"
+                      },
+                      "provider": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                      },
+                      "id": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "source",
+                      "provider",
+                      "id"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "const": "exec"
+                      },
+                      "provider": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                      },
+                      "id": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "source",
+                      "provider",
+                      "id"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              }
+            ]
+          },
+          "fromNumber": {
+            "type": "string"
+          },
+          "messagingServiceSid": {
+            "type": "string"
+          },
+          "defaultTo": {
+            "type": "string"
+          },
+          "webhookPath": {
+            "type": "string"
+          },
+          "publicWebhookUrl": {
+            "type": "string"
+          },
+          "dangerouslyDisableSignatureValidation": {
+            "type": "boolean"
+          },
+          "dmPolicy": {
+            "default": "pairing",
+            "type": "string",
+            "enum": [
+              "pairing",
+              "allowlist",
+              "open",
+              "disabled"
+            ]
+          },
+          "allowFrom": {
+            "type": "array",
+            "items": {
+              "type": [
+                "string",
+                "number"
+              ]
+            }
+          },
+          "textChunkLimit": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "accounts": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "enabled": {
+                  "type": "boolean"
+                },
+                "configWrites": {
+                  "type": "boolean"
+                },
+                "mediaMaxMb": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "accountSid": {
+                  "type": "string"
+                },
+                "authToken": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "source": {
+                              "type": "string",
+                              "const": "env"
+                            },
+                            "provider": {
+                              "type": "string",
+                              "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                            },
+                            "id": {
+                              "type": "string",
+                              "pattern": "^[A-Z][A-Z0-9_]{0,127}$"
+                            }
+                          },
+                          "required": [
+                            "source",
+                            "provider",
+                            "id"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "source": {
+                              "type": "string",
+                              "const": "store"
+                            },
+                            "provider": {
+                              "type": "string",
+                              "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                            },
+                            "id": {
+                              "type": "string",
+                              "pattern": "^[A-Z][A-Z0-9_]{0,127}$"
+                            }
+                          },
+                          "required": [
+                            "source",
+                            "provider",
+                            "id"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "source": {
+                              "type": "string",
+                              "const": "file"
+                            },
+                            "provider": {
+                              "type": "string",
+                              "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                            },
+                            "id": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "source",
+                            "provider",
+                            "id"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "source": {
+                              "type": "string",
+                              "const": "exec"
+                            },
+                            "provider": {
+                              "type": "string",
+                              "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+                            },
+                            "id": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "source",
+                            "provider",
+                            "id"
+                          ],
+                          "additionalProperties": false
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "fromNumber": {
+                  "type": "string"
+                },
+                "messagingServiceSid": {
+                  "type": "string"
+                },
+                "defaultTo": {
+                  "type": "string"
+                },
+                "webhookPath": {
+                  "type": "string"
+                },
+                "publicWebhookUrl": {
+                  "type": "string"
+                },
+                "dangerouslyDisableSignatureValidation": {
+                  "type": "boolean"
+                },
+                "dmPolicy": {
+                  "default": "pairing",
+                  "type": "string",
+                  "enum": [
+                    "pairing",
+                    "allowlist",
+                    "open",
+                    "disabled"
+                  ]
+                },
+                "allowFrom": {
+                  "type": "array",
+                  "items": {
+                    "type": [
+                      "string",
+                      "number"
+                    ]
+                  }
+                },
+                "textChunkLimit": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "dmPolicy"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "defaultAccount": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "dmPolicy"
+        ],
+        "additionalProperties": false
+      },
+      "label": "SMS",
+      "description": "Twilio-backed SMS/MMS with inbound webhooks and outbound replies.",
+      "uiHints": {
+        "": {
+          "label": "SMS",
+          "help": "Twilio SMS/MMS channel configuration for inbound webhooks and outbound replies."
+        },
+        "accountSid": {
+          "label": "Twilio Account SID",
+          "help": "Twilio Account SID used for SMS outbound API calls."
+        },
+        "authToken": {
+          "label": "Twilio Auth Token",
+          "help": "Twilio Auth Token used to sign webhook validation and SMS outbound API calls."
+        },
+        "fromNumber": {
+          "label": "SMS From Number",
+          "help": "Twilio SMS-capable phone number in E.164 format; outbound attachments also require MMS capability.",
+          "presentation": "phone-number"
+        },
+        "messagingServiceSid": {
+          "label": "Twilio Messaging Service SID",
+          "help": "Twilio Messaging Service SID to use instead of a dedicated fromNumber."
+        },
+        "defaultTo": {
+          "label": "SMS Default To Number",
+          "help": "Optional default outbound phone number used when a send flow omits an explicit SMS target.",
+          "presentation": "phone-number"
+        },
+        "publicWebhookUrl": {
+          "label": "SMS Public Webhook URL",
+          "help": "Public URL configured in Twilio for incoming messages. Must match Twilio's signed URL exactly; outbound MMS also requires this same path to be reachable over HTTPS."
+        },
+        "webhookPath": {
+          "label": "SMS Webhook Path",
+          "help": "Gateway HTTP path that receives Twilio incoming-message webhooks. Use a distinct path per account."
+        },
+        "dmPolicy": {
+          "label": "SMS DM Policy",
+          "help": "Direct SMS access control (\"pairing\" recommended). \"open\" requires channels.sms.allowFrom=[\"*\"]."
+        },
+        "allowFrom": {
+          "label": "SMS Allow From",
+          "help": "Allowed sender phone numbers in E.164 format, or * when dmPolicy is open.",
+          "presentation": "phone-number"
+        },
+        "accounts.*.fromNumber": {
+          "presentation": "phone-number"
+        },
+        "accounts.*.defaultTo": {
+          "presentation": "phone-number"
+        },
+        "accounts.*.allowFrom.*": {
+          "presentation": "phone-number"
+        },
+        "textChunkLimit": {
+          "label": "SMS Text Chunk Limit",
+          "help": "Maximum characters per outbound SMS chunk before OpenClaw splits long replies."
+        }
+      }
+    }
+  }
+}

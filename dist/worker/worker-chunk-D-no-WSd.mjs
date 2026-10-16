@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";var t,n,r,i,a=e((()=>{t=6e4,n=2e3,r={status:0,request:1,ack:2,expiresAt:3,lastRenewedAt:4,startupPhase:5,starting:0n,ready:1n,closed:2n,lost:3n},i={"entry-not-observed":0n,"body-entry":1n,"open-complete":2n,"initial-renew-start":3n,"initial-renew-returned":4n}}));export{r as a,i,t as n,a as r,n as t};

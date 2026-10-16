@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{l as t,n}from"./worker-chunk-Beu5zrK3.mjs";function normalizeChatType(e){let n=t(e);return n===`dm`?`direct`:n===`direct`||n===`group`||n===`channel`?n:void 0}var r=e((()=>{n()}));export{normalizeChatType as n,r as t};

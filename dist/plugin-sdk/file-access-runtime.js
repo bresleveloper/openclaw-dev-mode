@@ -1,0 +1,13 @@
+import { D as statRegularFileSync, E as statRegularFile, M as writeFileWithinRoot, _ as readRegularFileSync, a as canonicalPathFromExistingAncestor, g as readRegularFile, m as readLocalFileFromRoots, p as readFileWithinRoot, v as readSecureFile, w as root } from "../fs-safe-BUXBSN-4.mjs";
+import { a as openRootFile } from "../boundary-file-read-CCth2Hwg.mjs";
+import { i as isPathStrictlyInside, r as isPathInside } from "../path-guards-CH7noY0Z.mjs";
+import { n as resolvePreferredOpenClawTmpDir } from "../tmp-openclaw-dir-DR7bHNl9.mjs";
+import { c as sha256File, l as syncDirectory, t as ensureDurableDirectory } from "../directory-durability-CqSvP1tc.mjs";
+import { a as writeFileWindowFully } from "../file-descriptor-B4yBUiAP.mjs";
+import { a as inspectPathPermissions, c as removePathWithinRoot, d as tempFile, f as watch, i as fileExists, l as resolvePathPrefixSync, n as assertNoSymlinkParentsSync, o as readFileHandleBounded, p as getFileWatchCapacityCode, r as basenameFromMediaSource, s as readFileWindowFully, t as assertNoSymlinkParents, u as safeFileURLToPath } from "../file-access-runtime-BMp89X4Y.mjs";
+import { a as resolveFsObservationIntervalMs, i as observationPrefixKind, n as readObservationSnapshot, o as resolveFsObservationMode, r as admitObservationRoot, t as ObservationSampleCloseError } from "../fs-observation-snapshot-DTptcApl.mjs";
+import { t as createFileWatchNotifier } from "../file-watch-notifier-BCFTHUea.mjs";
+import { t as readFileRangeAsync } from "../file-range-jGKnMXJ2.mjs";
+import { a as createStagedInputPathMatcher } from "../staged-inputs-B7cE4lVT.mjs";
+import { t as createBoundedRemoteFileReader } from "../remote-workspace-file-Bi0P0wVf.mjs";
+export { ObservationSampleCloseError, admitObservationRoot, assertNoSymlinkParents, assertNoSymlinkParentsSync, basenameFromMediaSource, canonicalPathFromExistingAncestor, createBoundedRemoteFileReader, createFileWatchNotifier, createStagedInputPathMatcher, ensureDurableDirectory, fileExists, getFileWatchCapacityCode, inspectPathPermissions, isPathInside, isPathStrictlyInside, observationPrefixKind, openRootFile, readFileHandleBounded, readFileRangeAsync, readFileWindowFully, readFileWithinRoot, readLocalFileFromRoots, readObservationSnapshot, readRegularFile, readRegularFileSync, readSecureFile, removePathWithinRoot, resolveFsObservationIntervalMs, resolveFsObservationMode, resolvePathPrefixSync, resolvePreferredOpenClawTmpDir, root, safeFileURLToPath, sha256File, statRegularFile, statRegularFileSync, syncDirectory, tempFile, watch, writeFileWindowFully, writeFileWithinRoot };

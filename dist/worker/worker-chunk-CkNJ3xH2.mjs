@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function buildCloudflareAccessHeaders(e){return{[t]:e.clientId,[n]:e.clientSecret}}var t,n,r=e((()=>{t=`CF-Access-Client-Id`,n=`CF-Access-Client-Secret`}));export{r as n,buildCloudflareAccessHeaders as t};

@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function normalizeWebSocketProtocol(e){return e===`https:`?`wss:`:e===`http:`?`ws:`:e}var t=e((()=>{}));export{normalizeWebSocketProtocol as n,t};

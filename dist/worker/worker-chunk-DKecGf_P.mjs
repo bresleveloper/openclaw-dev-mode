@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function isChannelConfigMetadataKey(e){return t.has(e.trim())}var t,n=e((()=>{t=/* @__PURE__ */ new Set([`defaults`,`modelByChannel`])}));export{isChannelConfigMetadataKey as n,n as t};

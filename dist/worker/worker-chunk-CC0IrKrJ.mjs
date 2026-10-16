@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function parseConfigPathArrayIndex(e){if(!n.test(e))return;let r=Number(e);return Number.isSafeInteger(r)&&r<=t?r:void 0}var t,n,r=e((()=>{t=1e5,n=/^(0|[1-9]\d*)$/}));export{parseConfigPathArrayIndex as n,r as t};

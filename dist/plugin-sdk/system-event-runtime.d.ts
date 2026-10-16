@@ -1,0 +1,6 @@
+import { a as enqueueSystemEventEntryFromSdk, c as isSystemEventContextChangedFromSdk, d as SystemEvent, f as resolveSystemEventDeliveryContext, i as enqueueRoutedSystemEvent, l as peekSystemEventEntriesFromSdk, n as drainSystemEventEntriesFromSdk, o as enqueueSystemEventFromSdk, r as drainSystemEventsFromSdk, s as hasSystemEventsFromSdk, t as consumeSelectedSystemEventEntriesFromSdk, u as peekSystemEventsFromSdk } from "../system-events-DI0ty8h6.js";
+//#region src/config/sessions/main-session.runtime.d.ts
+/** Resolves the main session key from the active runtime config. */
+export declare function resolveMainSessionKeyFromConfig(): string;
+//#endregion
+export { type SystemEvent, consumeSelectedSystemEventEntriesFromSdk as consumeSelectedSystemEventEntries, drainSystemEventEntriesFromSdk as drainSystemEventEntries, drainSystemEventsFromSdk as drainSystemEvents, enqueueRoutedSystemEvent, enqueueSystemEventFromSdk as enqueueSystemEvent, enqueueSystemEventEntryFromSdk as enqueueSystemEventEntry, hasSystemEventsFromSdk as hasSystemEvents, isSystemEventContextChangedFromSdk as isSystemEventContextChanged, peekSystemEventEntriesFromSdk as peekSystemEventEntries, peekSystemEventsFromSdk as peekSystemEvents, resolveSystemEventDeliveryContext };

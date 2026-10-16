@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{o as t,s as n}from"./worker-chunk-DgFmVOlu.mjs";function createMigrationDatabaseHandle(e,n,r){return{agentId:n,db:e,path:r,walMaintenance:{checkpoint:()=>!1,stop:async()=>{},close:()=>!1,reclaimFreePages:t}}}var r=e((()=>{n()}));export{r as n,createMigrationDatabaseHandle as t};

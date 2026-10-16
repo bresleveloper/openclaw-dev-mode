@@ -1,0 +1,8 @@
+import { t as buildOpenAIRealtimeVoiceProvider$1 } from "./realtime-voice-provider-factory-PUuN4Moy.mjs";
+import { t as openAIRealtimeHost } from "./realtime-host-BFIi8qxv.mjs";
+//#region extensions/openai/realtime-voice-provider.ts
+function buildOpenAIRealtimeVoiceProvider(options) {
+	return buildOpenAIRealtimeVoiceProvider$1(openAIRealtimeHost, options);
+}
+//#endregion
+export { buildOpenAIRealtimeVoiceProvider as t };

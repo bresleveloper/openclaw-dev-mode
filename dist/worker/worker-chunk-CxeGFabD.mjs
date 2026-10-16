@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function resolveEffectiveCompactionReserveTokens(e){let n=Math.max(1,Math.floor(e.contextTokenBudget));return Math.min(Math.max(0,Math.floor(e.reserveTokens)),Math.floor(n*t))}var t,n=e((()=>{t=.25}));export{resolveEffectiveCompactionReserveTokens as n,n as t};

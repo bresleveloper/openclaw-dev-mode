@@ -1,0 +1,2 @@
+import{n as e}from"./rolldown-runtime-8BhlS34s.js";import{Ai as t}from"./control-ui-core-DNh4McGE.js";import{$ as n,Y as r}from"./lit-runtime-DyST807n.js";function i(e,t){return e?n`<openclaw-tooltip open-on-click .content=${e}>${t}</openclaw-tooltip>`:t}function a(){return(a=e((()=>{r(),t()})))()}export{i as n,a as t};
+//# sourceMappingURL=reasoned-disabled-control-DOelYLrp.js.map

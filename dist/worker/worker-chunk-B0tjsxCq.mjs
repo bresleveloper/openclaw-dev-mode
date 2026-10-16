@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{n as t,o as n}from"./worker-chunk-BBtRVI2k.mjs";var r,i=e((()=>{n(),r={id:`openclaw`,label:`OpenClaw embedded agent`,contextEngineHostCapabilities:t.capabilities,supports:()=>({supported:!0,priority:0})}}));export{i as n,r as t};

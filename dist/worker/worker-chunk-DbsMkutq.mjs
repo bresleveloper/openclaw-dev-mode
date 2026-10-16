@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function slugifyWorktreeTitle(e){let n=e.normalize(`NFKD`).replace(/\p{M}/gu,``).toLowerCase().replace(/&/g,` and `).replace(/[^a-z0-9]+/g,`-`).replace(/^-+|-+$/g,``);if(n.length<=t)return n||void 0;let r=n.slice(0,t),i=r.lastIndexOf(`-`);return i>0?r.slice(0,i):r}var t,n=e((()=>{t=64}));export{slugifyWorktreeTitle as n,n as t};

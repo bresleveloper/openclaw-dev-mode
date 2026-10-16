@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function formatChannelStatusState(e){switch(e){case`not-linked`:return`not linked`;case`unstable`:return`auth stabilizing`;default:return e}}var t=e((()=>{}));export{t as n,formatChannelStatusState as t};

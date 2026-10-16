@@ -1,0 +1,4 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{T as t,h as n}from"./worker-chunk-a5H2i7-x.mjs";import{a as r,i,o as a,r as o}from"./worker-chunk-sDRx1xg8.mjs";function resolveCronStyleNow(e,n){let i=a(e.agents?.defaults?.userTimezone),s=r(void 0),c=t(n),l=new Date(c),u=o(l,i,s)??l.toISOString();return{userTimezone:i,formattedTime:u,timeLine:`Current time: ${u} (${i})\nReference UTC: ${l.toISOString().replace(`T`,` `).slice(0,16)+` UTC`}`}}function appendCronStyleCurrentTimeLine(e,t,n){let r=e.trimEnd();if(!r)return r;let{timeLine:i}=resolveCronStyleNow(t,n);if(!s.test(r))return`${r}\n${i}`;s.lastIndex=0;let a=!1;return r.replace(s,()=>a?``:(a=!0,i)).replace(/\n{3,}/g,`
+
+`).replace(/\n\n+(?=Current time:)/g,`
+`).trimEnd()}var s,c=e((()=>{n(),i(),s=/^Current time: .+? \([^)]+\)\nReference UTC: \d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC$/gm}));export{c as n,resolveCronStyleNow as r,appendCronStyleCurrentTimeLine as t};

@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function createTerminalSessionTransport(e,n){return{emit:(n,r,i)=>e(r,i,/* @__PURE__ */ new Set([n]),{dropIfSlow:r===t}),getBufferedAmount:n}}var t,n,r=e((()=>{t=`terminal.data`,n=`terminal.exit`}));export{r as i,n,createTerminalSessionTransport as r,t};

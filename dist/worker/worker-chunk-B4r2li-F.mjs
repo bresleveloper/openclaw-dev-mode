@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function isManagedGitHubProfileId(e){return t.test(e)}var t,n=e((()=>{t=/^ghp_[a-f0-9]{32}$/u}));export{n,isManagedGitHubProfileId as r,t};

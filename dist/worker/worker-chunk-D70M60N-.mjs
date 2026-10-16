@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{n as t,t as n}from"./worker-chunk-BG_xGkTp.mjs";function resolveGatewayConversationReadOrigin(e){return e.client?.internal?.agentRuntimeIdentity?`delegated`:t(e.requestedOrigin)}var r=e((()=>{n()}));export{resolveGatewayConversationReadOrigin as n,r as t};

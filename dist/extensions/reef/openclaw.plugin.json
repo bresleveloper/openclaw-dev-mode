@@ -1,0 +1,224 @@
+{
+  "id": "reef",
+  "categories": [
+    "agent-orchestration"
+  ],
+  "doctorContract": {
+    "configRepair": true,
+    "stateMigrations": [
+      {
+        "id": "reef-keys-json-to-plugin-state"
+      },
+      {
+        "id": "reef-registration-json-to-plugin-state"
+      },
+      {
+        "id": "reef-audit-jsonl-to-plugin-state"
+      },
+      {
+        "id": "reef-runtime-files-to-plugin-state"
+      },
+      {
+        "id": "reef-config-trust-to-plugin-state"
+      }
+    ]
+  },
+  "name": "Reef",
+  "description": "Guarded end-to-end encrypted claw channel",
+  "cliCommands": [
+    {
+      "name": "reef",
+      "description": "Register on a Reef relay and manage guarded claw-to-claw friendships",
+      "hasSubcommands": true
+    }
+  ],
+  "activation": {
+    "onStartup": true,
+    "onCommands": [
+      "reef"
+    ]
+  },
+  "channels": [
+    "reef"
+  ],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  },
+  "commandAliases": [
+    {
+      "name": "reef"
+    }
+  ],
+  "channelConfigs": {
+    "reef": {
+      "schema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "default": true,
+            "type": "boolean"
+          },
+          "configWrites": {
+            "type": "boolean"
+          },
+          "relayUrl": {
+            "default": "https://reefwire.ai",
+            "type": "string",
+            "format": "uri",
+            "pattern": "^[hH][tT][tT][pP][sS]?:\\/\\/[^\\\\/?#@]+\\/?$"
+          },
+          "handle": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,62}$"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+          },
+          "guard": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "provider": {
+                    "type": "string",
+                    "const": "openai"
+                  },
+                  "authMode": {
+                    "type": "string",
+                    "const": "oauth"
+                  },
+                  "authProfileId": {
+                    "type": "string",
+                    "pattern": "^openai:[^\\s:/][^\\s/]*$"
+                  },
+                  "pinnedModel": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "policyVersion": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "timeoutMs": {
+                    "type": "integer",
+                    "minimum": 100,
+                    "maximum": 120000
+                  },
+                  "rules": {
+                    "type": "object",
+                    "properties": {
+                      "outbound": {
+                        "type": "string",
+                        "maxLength": 2000,
+                        "pattern": "\\S"
+                      },
+                      "inbound": {
+                        "type": "string",
+                        "maxLength": 2000,
+                        "pattern": "\\S"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "provider",
+                  "authMode",
+                  "authProfileId",
+                  "pinnedModel",
+                  "policyVersion",
+                  "timeoutMs"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "provider": {
+                    "type": "string",
+                    "enum": [
+                      "anthropic",
+                      "openai"
+                    ]
+                  },
+                  "authMode": {
+                    "type": "string",
+                    "const": "api-key"
+                  },
+                  "apiKeyEnv": {
+                    "type": "string",
+                    "pattern": "^[A-Z_][A-Z0-9_]*$"
+                  },
+                  "pinnedModel": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "policyVersion": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "timeoutMs": {
+                    "type": "integer",
+                    "minimum": 100,
+                    "maximum": 120000
+                  },
+                  "rules": {
+                    "type": "object",
+                    "properties": {
+                      "outbound": {
+                        "type": "string",
+                        "maxLength": 2000,
+                        "pattern": "\\S"
+                      },
+                      "inbound": {
+                        "type": "string",
+                        "maxLength": 2000,
+                        "pattern": "\\S"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "provider",
+                  "apiKeyEnv",
+                  "pinnedModel",
+                  "policyVersion",
+                  "timeoutMs"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "stateDir": {
+            "type": "string",
+            "minLength": 1
+          },
+          "requestPolicy": {
+            "default": "code-only",
+            "type": "string",
+            "enum": [
+              "code-only",
+              "friends-of-friends",
+              "open"
+            ]
+          },
+          "friends": {}
+        },
+        "required": [
+          "enabled",
+          "relayUrl",
+          "requestPolicy"
+        ],
+        "additionalProperties": false
+      },
+      "label": "Reef",
+      "description": "Guarded end-to-end encrypted claw messaging."
+    }
+  }
+}

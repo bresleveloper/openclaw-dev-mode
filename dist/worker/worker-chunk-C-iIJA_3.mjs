@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function isAccountEnabled(e){return!e||typeof e!=`object`||e.enabled!==!1}var t=e((()=>{}));export{isAccountEnabled as n,t};

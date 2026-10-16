@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{constants as t}from"node:os";function resolveSubprocessExitCode(e,n){if(typeof e==`number`)return e;let r=n?t.signals[n]:void 0;return typeof r==`number`?128+r:1}var n=e((()=>{}));export{resolveSubprocessExitCode as n,n as t};

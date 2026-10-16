@@ -1,0 +1,27 @@
+{
+  "name": "OpenClaw Control",
+  "short_name": "OpenClaw",
+  "description": "Multi-channel AI gateway control panel",
+  "start_url": "./",
+  "display": "standalone",
+  "theme_color": "#0a0a0a",
+  "background_color": "#0a0a0a",
+  "icons": [
+    {
+      "src": "./favicon.svg?v=2026.10.4-383c124cc32f-2026-10-16T10-34-11.412Z-829c0937a963f553623efc5aee466ba3f31a7c54bbc9216f669c639193848f9b",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "./favicon-32.png?v=2026.10.4-383c124cc32f-2026-10-16T10-34-11.412Z-829c0937a963f553623efc5aee466ba3f31a7c54bbc9216f669c639193848f9b",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "./apple-touch-icon.png?v=2026.10.4-383c124cc32f-2026-10-16T10-34-11.412Z-829c0937a963f553623efc5aee466ba3f31a7c54bbc9216f669c639193848f9b",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}

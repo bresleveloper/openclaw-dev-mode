@@ -1,0 +1,2 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{i as t,n,r,t as i}from"./worker-chunk-B_fJCaKe.mjs";function formatLine(e,n){let a=r();return`${i(a,t.muted,`${e}:`)} ${i(a,t.command,n)}`}function writeFormattedLines(e,t,n){n?.leadingBlankLine&&e.write(`
+`);for(let n of t)e.write(`${formatLine(n.label,n.value)}\n`)}var normalizeWindowsPathSeparators,a=e((()=>{n(),normalizeWindowsPathSeparators=e=>e.replace(/\\/g,`/`)}));export{writeFormattedLines as i,a as n,normalizeWindowsPathSeparators as r,formatLine as t};

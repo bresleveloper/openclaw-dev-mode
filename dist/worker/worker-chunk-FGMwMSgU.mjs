@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function setManagedProviderLocalServicesStop(e){t=e}function setProviderTransportDispatcherPoolActive(e){n=e}var t,n,r=e((()=>{}));export{setManagedProviderLocalServicesStop as n,setProviderTransportDispatcherPoolActive as r,r as t};

@@ -1,0 +1,2 @@
+import{n as e,r as t}from"./rolldown-runtime-8BhlS34s.js";import{Ho as n,Vo as r,zo as i}from"./control-ui-boot-shared-DsSYH3B6.js";var a=t({navigateMcpAppLink:()=>o});function o(e,t){let i=n(t);return i?(e.navigate(`apps`,{search:r(i)}),!0):!1}function s(){return(s=e((()=>{i()})))()}export{a as n,o as r,s as t};
+//# sourceMappingURL=mcp-app-routing-1zgGff-7.js.map

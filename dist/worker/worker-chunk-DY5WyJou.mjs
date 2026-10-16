@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";var t,TranscriptNotContinuableError,n=e((()=>{t=`openclaw_transcript_not_continuable`,TranscriptNotContinuableError=class extends Error{constructor(e){super(`Cannot continue from message role: ${e}`),this.code=t,this.name=`TranscriptNotContinuableError`,this.role=e}}}));export{TranscriptNotContinuableError as n,n as r,t};

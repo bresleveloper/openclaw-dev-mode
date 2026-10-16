@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{S as t,h as n,n as r}from"./worker-chunk-a5H2i7-x.mjs";function resolveLocalRunShutdownGraceMs(){let e=process.env.OPENCLAW_TUI_LOCAL_RUN_SHUTDOWN_GRACE_MS?.trim(),n=t(e);return n===void 0?i:Math.min(n,r)}var i,a=e((()=>{n(),i=12e4}));export{resolveLocalRunShutdownGraceMs as n,a as t};

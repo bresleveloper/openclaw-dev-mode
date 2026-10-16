@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function bindPluginRegistryRuntime(e,n){Object.defineProperty(e,t,{configurable:!1,enumerable:!1,value:n,writable:!1})}function getPluginRegistryRuntime(e){return e[t]}var t,n=e((()=>{t=Symbol.for(`openclaw.pluginRegistryRuntime`)}));export{getPluginRegistryRuntime as n,n as r,bindPluginRegistryRuntime as t};

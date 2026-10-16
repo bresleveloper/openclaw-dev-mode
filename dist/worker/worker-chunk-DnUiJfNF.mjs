@@ -1,0 +1,4 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function copyHealthChecks(e){return e.map(e=>({...e}))}function normalizeHealthCheck(e){return{id:e.id,kind:e.kind,description:e.description,source:e.source,defaultEnabled:e.defaultEnabled,updateReadiness:e.updateReadiness,detect:(t,n)=>e.detect(t,n),repair:e.repair===void 0?void 0:(t,n)=>e.repair?.(t,n)??Promise.resolve({changes:[]})}}function securityAuditFindingToHealthFinding(e){let[t,...n]=e.detail.split(`
+`),r=[...n,...e.remediation?.split(`
+`)??[]].join(`
+`);return{checkId:`core/doctor/security`,requirement:e.checkId,severity:e.severity===`critical`?`error`:e.severity===`warn`?`warning`:`info`,message:`${e.title}${t?`: ${t}`:``}`,...r?{fixHint:r}:{}}}var t=e((()=>{}));export{securityAuditFindingToHealthFinding as i,t as n,normalizeHealthCheck as r,copyHealthChecks as t};

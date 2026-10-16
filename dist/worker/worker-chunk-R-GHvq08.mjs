@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{n as t,r as n}from"./worker-chunk-M8So9KGd.mjs";import{n as r,t as i}from"./worker-chunk-lzeFN4jB.mjs";async function resolveExecApprovalCommandSpans(e){let n=await t(e),r=i(n);return r.length>0?r:void 0}e((()=>{n(),r()}))();export{resolveExecApprovalCommandSpans};

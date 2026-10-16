@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{t}from"./worker-chunk-DwT8ulJv.mjs";import{t as n}from"./worker-chunk-CrTfSG6A.mjs";import{n as r}from"./worker-chunk-CFcvXKIY.mjs";var i;e((()=>{t(),i={connect:({respond:e})=>{e(!1,void 0,r(n.INVALID_REQUEST,`connect is only valid as the first request`))}}}))();export{i as connectHandlers};

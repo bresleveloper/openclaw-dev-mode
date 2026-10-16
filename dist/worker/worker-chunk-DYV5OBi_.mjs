@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function appendUniqueEnvVarCandidates(e,t,n){let r=t.trim();if(!r||n.length===0)return;let i=e[r]??=[],a=new Set(i);for(let e of n){let t=e.trim();t&&!a.has(t)&&(a.add(t),i.push(t))}}var t=e((()=>{}));export{t as n,appendUniqueEnvVarCandidates as t};

@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function markPrivateDirectoryCreationRefused(e){return typeof e==`object`&&e&&t.add(e),e}function isPrivateDirectoryCreationRefused(e){return typeof e==`object`&&!!e&&t.has(e)}var t,n=e((()=>{t=/* @__PURE__ */ new WeakSet}));export{isPrivateDirectoryCreationRefused as n,markPrivateDirectoryCreationRefused as r,n as t};

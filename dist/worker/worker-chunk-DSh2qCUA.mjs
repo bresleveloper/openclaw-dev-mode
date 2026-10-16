@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{n as t,t as n}from"./worker-chunk-CAIFk38y.mjs";function loadBundledChannelDoctorContractApi(e){return t({dirName:e.trim(),artifactCandidates:[`doctor-contract-api.js`]})??void 0}var r=e((()=>{n()}));export{loadBundledChannelDoctorContractApi as n,r as t};

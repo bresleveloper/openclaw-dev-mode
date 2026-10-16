@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";var SkillLibraryError,t=e((()=>{SkillLibraryError=class extends Error{constructor(e,t,n,r){super(t,r),this.code=e,this.currentRevision=n,this.name=`SkillLibraryError`}}}));export{t as n,SkillLibraryError as t};

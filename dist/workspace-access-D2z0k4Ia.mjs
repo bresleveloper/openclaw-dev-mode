@@ -1,0 +1,2 @@
+import { a as isWorkspaceAccessUnavailableError, i as getAgentWorkspaceAccess, n as captureAgentWorkspaceOutboundMedia, o as prepareAgentWorkspaceAttachments, r as declareAgentWorkspaceAccess, s as registerAgentWorkspaceAccess, t as WorkspaceAccessUnavailableError } from "./workspace-access-CeRsYrid.mjs";
+export { WorkspaceAccessUnavailableError, captureAgentWorkspaceOutboundMedia, declareAgentWorkspaceAccess, getAgentWorkspaceAccess, isWorkspaceAccessUnavailableError, prepareAgentWorkspaceAttachments, registerAgentWorkspaceAccess };

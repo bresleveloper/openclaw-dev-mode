@@ -1,0 +1,4 @@
+import { o as resolveCompatibleRuntimePluginRegistry } from "../active-runtime-registry-B1mWK6o9.mjs";
+import { _ as clearPluginRegistryLoadCache, i as loadOpenClawPlugins, r as loadAndActivateRootPluginRegistry, t as acquirePluginRegistryForInspection, u as resolveRuntimePluginRegistry, v as isPluginRegistryLoadInFlight, y as resolvePluginRegistryLoadCacheKey } from "../loader-runtime-load-C3He8u8Z.mjs";
+import { n as loadPluginRegistryHandle, t as loadOpenClawPluginCliRegistry } from "../loader-vjZ2aI5b.mjs";
+export { acquirePluginRegistryForInspection, clearPluginRegistryLoadCache, isPluginRegistryLoadInFlight, loadAndActivateRootPluginRegistry, loadOpenClawPluginCliRegistry, loadOpenClawPlugins, loadPluginRegistryHandle, resolveCompatibleRuntimePluginRegistry, resolvePluginRegistryLoadCacheKey, resolveRuntimePluginRegistry };

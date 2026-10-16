@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function isTerminalConfigEnabled(e){return e?.gateway?.terminal?.enabled!==!1}var t=e((()=>{}));export{isTerminalConfigEnabled as n,t};

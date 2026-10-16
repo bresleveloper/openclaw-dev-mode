@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{i as t,o as n}from"./worker-chunk-8bTm-c03.mjs";import{n as r,r as i}from"./worker-chunk-no9LL9Rl.mjs";e((()=>{t(),r()}))();export{n as listPluginOriginsFromMetadataSnapshot,i as resolveConfigWidePluginManifestRegistry};

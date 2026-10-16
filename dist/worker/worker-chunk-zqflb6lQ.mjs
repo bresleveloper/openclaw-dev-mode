@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{v as t,y as n}from"./worker-chunk-BVyUgLcT.mjs";function isWorkerTranscriptFrameWithinBudget(e){return n(e,()=>e.params.messages.flatMap(({content:e})=>e.flatMap(e=>e.type===`image`?[e.data]:[])))}var r=e((()=>{t()}));export{isWorkerTranscriptFrameWithinBudget as n,r as t};

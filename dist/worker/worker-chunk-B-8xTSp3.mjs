@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function isGatewayNativeApprovalMethod(e){return n.has(e)}var t,n,r=e((()=>{t=[`approval.resolve`,`exec.approval.get`,`exec.approval.list`,`exec.approval.resolve`,`plugin.approval.list`,`plugin.approval.resolve`,`openclaw.approval.list`],n=new Set(t)}));export{r as n,isGatewayNativeApprovalMethod as r,t};

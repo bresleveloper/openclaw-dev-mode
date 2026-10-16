@@ -1,0 +1,1 @@
+import{a as e,i as t,n,o as r,r as i,t as a}from"./worker-chunk-D_Un3iqi.mjs";t();export{a as drainPluginNextTurnInjectionContext,n as enqueuePluginNextTurnInjection,i as getPluginSessionExtensionStateSync,e as patchPluginSessionExtension,r as projectPluginSessionExtensionsSync};

@@ -1,0 +1,1 @@
+main.content:where(.content--terminal-page){padding:0;overflow:hidden}main.content:where(.content--terminal-page)>openclaw-router-outlet,openclaw-terminal-page{flex-direction:column;flex:1;width:100%;min-width:0;height:100%;min-height:0;display:flex}

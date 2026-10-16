@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function isTranscriptArtifactText(e){let t=e.trim().replace(/\s+/gu,` `).toLowerCase();return t===``||t===`context:`||t===`###`||t===`transcribe the audio`||t===`transcribe the audio.`}var t=e((()=>{}));export{isTranscriptArtifactText as n,t};

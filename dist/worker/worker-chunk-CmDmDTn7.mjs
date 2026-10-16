@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function jsonRpcResult(e,t){return{jsonrpc:`2.0`,id:e??null,result:t}}function jsonRpcError(e,t,n){return{jsonrpc:`2.0`,id:e??null,error:{code:t,message:n}}}var t,n,r,i=e((()=>{t=`openclaw`,n=`0.1.0`,r=[`2025-03-26`,`2024-11-05`]}));export{jsonRpcError as a,i,n,jsonRpcResult as o,r,t};
