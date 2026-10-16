@@ -3,8 +3,8 @@
 ## Prerequisites
 
 - An existing OpenClaw installation (the fork reuses `~/.openclaw/`)
-- Node.js `>=24.16.0 <25` or `>=26.1.0` (v2026.9.6 engines)
-- pnpm 12.4.0 (`npm i -g pnpm@12.4.0`, or corepack on Node 24) — plain npm cannot install this repo (`workspace:*` deps)
+- Node.js `>=24.16.0 <25` or `>=26.1.0` (v2026.10.4 engines)
+- pnpm 12.5.1 (`npm i -g pnpm@12.5.1`, or corepack on Node 24) — plain npm cannot install this repo (`workspace:*` deps)
 - Git
 
 ## Installation (VPS / Linux)
@@ -42,8 +42,7 @@ chmod +x /usr/local/bin/openclaw
 # 8. Enable dev mode — the only flag
 echo 'OPENCLAW_DEV_MODE=1' >> ~/.openclaw/.env
 
-# 9. Migrate state/config for this version, then start
-openclaw doctor --fix < /dev/null
+# 9. Start. Never run `openclaw doctor` on this fork: the gateway runs its own startup migrations
 openclaw gateway start
 ```
 
@@ -61,7 +60,7 @@ cd /opt/openclaw-dev-mode && git config core.symlinks false && git checkout -- .
 
 - pnpm refuses to remove an old `node_modules` without a TTY → `rm -rf node_modules` and rerun.
 - WhatsApp/model warmup fails with `Cannot find package 'openclaw'` → rerun the `ln -sfn` step, restart.
-- After a version upgrade: `openclaw doctor --fix < /dev/null` and read its warnings. WhatsApp needs ~2 minutes after the restart before it answers.
+- Never run `openclaw doctor` when deploying (custom fork; the gateway runs its own startup migrations). WhatsApp needs ~2 minutes after the restart before it answers.
 
 ## Reverting to original openclaw
 
