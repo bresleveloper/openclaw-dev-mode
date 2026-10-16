@@ -54,13 +54,17 @@ Optional (recommended): `openclaw hooks enable session-memory < /dev/null` — s
 
 ## Updating
 
+One-shot with automatic rollback: `dev-mode/vps-deploy.sh` (usage in its header). By hand:
+
 ```bash
-cd /opt/openclaw-dev-mode && git config core.symlinks false && git checkout -- . 2>/dev/null; git pull && git config --unset core.symlinks && CI=true pnpm install --ignore-scripts && sh dev-mode/link-dist-plugin-deps.sh && ln -sfn /opt/openclaw-dev-mode node_modules/openclaw && openclaw gateway restart
+cd /opt/openclaw-dev-mode && systemctl --user stop openclaw-gateway && git config core.symlinks false && git checkout -- . 2>/dev/null; git pull --ff-only origin main && git config --unset core.symlinks && CI=true pnpm install --ignore-scripts && sh dev-mode/link-dist-plugin-deps.sh && ln -sfn /opt/openclaw-dev-mode node_modules/openclaw && node --import ./scripts/tsx.mjs dev-mode/migrate-agent-dbs.mts && systemctl --user start openclaw-gateway
 ```
 
 - pnpm refuses to remove an old `node_modules` without a TTY → `rm -rf node_modules` and rerun.
 - WhatsApp/model warmup fails with `Cannot find package 'openclaw'` → rerun the `ln -sfn` step, restart.
-- Never run `openclaw doctor` when deploying (custom fork; the gateway runs its own startup migrations). WhatsApp needs ~2 minutes after the restart before it answers.
+- Stop the gateway before the pull: a running gateway restarts itself onto the new build at once.
+- `dev-mode/migrate-agent-dbs.mts` upgrades agent DB schemas (doctor-only upstream); it is a no-op when they are current. When a build bumps a schema, copy `~/.openclaw/state/openclaw.sqlite*` and `~/.openclaw/agents/*/agent/openclaw-agent.sqlite*` first: the previous build refuses the upgraded files.
+- Never run `openclaw doctor` when deploying (custom fork; the gateway runs its own startup migrations). WhatsApp can need ~2 minutes after the restart before it answers.
 
 ## Reverting to original openclaw
 

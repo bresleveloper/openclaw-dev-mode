@@ -6,6 +6,12 @@ tasks (2026-10-16, Windows PC session):
    "anything that is running on github delete. anything runing local keep. that is the rule."
 4. "never run doctor when deploying as its a custom fork"
 5. "why today the deploy is sooooo long???"
+6. "well... that time dowwn the drain. i want to update to 10.4, but only the new stuff, and make sure our
+   fork's stuff stay implemented. revise a simple plan that we get the update + saty with dev-mode stuff +
+   doesnt take hours"
+7. "why cant u just update here the new stuff, build and push? why all the script-test-copy long long
+   thinkg? also same whith check? commit and deploy should be 1 min, why so long? and cant doctor cuz it
+   tries to change code to upstream"
 
 ---
 
@@ -81,3 +87,18 @@ Doctor migration for unscoped WhatsApp credentials; pnpm 12.5.1.
   in `files`; fixed, and the orphan `tsconfig.crabline-candidate.json` removed. Remaining: the
   `max-lines` error on `update.ts` (705 > 700) from the FIX-09 hook. tsgo core/extensions pass.
 - Waiting on Ariel: how to migrate the agent DBs without doctor.
+
+## 7. Second deploy: live (12:50 UTC)
+
+- Ariel wanted it short: no test on a copy, one run. `dev-mode/migrate-agent-dbs.mts` (fork-owned) runs
+  only upstream's per-DB schema upgrade (`migrateOpenClawAgentDatabaseForMaintenance`) for each
+  registered agent DB under `withAgentDatabaseMaintenanceLease` — what doctor calls, none of doctor's
+  other repairs. Runs from source (`node --import ./scripts/tsx.mjs …`); upstream's SQLite workers
+  support source runs. Local smoke run on an empty state dir: 11 s, exit 0.
+- "Only the new stuff": the branch tree landed on `main` as one commit `8450a664b7d` (parent = the
+  9.6-era head), plain fast-forward push; future VPS pulls never see upstream's rewritten history.
+- `dev-mode/vps-deploy.sh` (this run's script, generalized): detached on the VPS, DB copies first,
+  automatic rollback. Run: stop 18 s, pull 9 s, install 4 s, copy 292 MB 1 s, migration 14 s (state
+  v18 → v20, five agent DBs v23 → v24), `gateway ready` 38 s after start, WhatsApp 2 s later.
+  WhatsApp down 68 s. Checks: 2026.10.4 (383c124), history logger attached, WhatsApp bundled,
+  FIX-09 refuses `openclaw update --dry-run`. Doctor never ran.
