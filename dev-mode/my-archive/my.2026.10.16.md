@@ -12,6 +12,14 @@ tasks (2026-10-16, Windows PC session):
 7. "why cant u just update here the new stuff, build and push? why all the script-test-copy long long
    thinkg? also same whith check? commit and deploy should be 1 min, why so long? and cant doctor cuz it
    tries to change code to upstream"
+8. "explain me the  upstream replaced its "Safety" prompt section with "Care" upstream replaced its "Safety"
+   prompt section with "Care" , is it the system prompt of them?"
+9. "lets start looking at some bugs. there is a detailed bug from ur brother opus running in the vps, detailed
+   here @dev-mode/claude-sub/bug-cron-session-target-cli-amnesia.md. be sure that they still not fixed it, if not
+   learn the suggestion howto fix, reason its correct, and implements as another FIX-##. dont build or deploy,
+   when u done audit and ask me for next bug"
+10. "next, i want to remove the "marked as unsafe" system for the agents md files,,
+    @dev-mode/claude-sub/fork-fix-memory-provenance.md"
 
 ---
 
@@ -102,3 +110,71 @@ Doctor migration for unscoped WhatsApp credentials; pnpm 12.5.1.
   v18 → v20, five agent DBs v23 → v24), `gateway ready` 38 s after start, WhatsApp 2 s later.
   WhatsApp down 68 s. Checks: 2026.10.4 (383c124), history logger attached, WhatsApp bundled,
   FIX-09 refuses `openclaw update --dry-run`. Doctor never ran.
+
+## 8. "Safety" became "Care" (message 8)
+
+- It is OpenClaw's own agent system prompt (`buildAgentSystemPrompt`, `src/agents/system-prompt.ts`), not
+  Anthropic's. On claude-cli runs Claude Code keeps its own prompt and OpenClaw's is appended on top.
+- Upstream commit `a219fa50a0a` (#157447, 2026-09-25) "stop agents refusing or arguing over requested work"
+  dropped the Safety section: tool policy, sandboxing and exec approvals gate risk at runtime, and the prompt
+  now says a requested action with an available tool is authorized. The credential lines loosened too (9.6
+  "Never collect tokens, API keys, or passwords in chat" → 10.4 use or store supplied credentials, then
+  acknowledge briefly).
+- For Ariel's agent, 9.6 → 10.4: "No independent goals…" gone (upstream deleted it), the config caution is back
+  (9.6 dev-mode had removed it), the dev-mode permissive line is unchanged. Options offered: keep (recommended),
+  drop the caution in dev-mode, or remove the dev-mode line. No answer yet.
+
+## 9. FIX-10: cron jobs in a chat session keep its Claude CLI session
+
+- Report by the VPS agent (2026-10-12): `dev-mode/claude-sub/bug-cron-session-target-cli-amnesia.md`. Untracked;
+  it holds Ariel's phone number and the repo is public, so redact it before it is committed.
+- Still open upstream: 10.4 `run-executor.ts:533-537` and upstream main `95a27d0779d` (2026-10-16,
+  `run-prompt-executor.ts:541`) still pass the cron run's delivery plan as the CLI binding facts. The legacy-hash
+  normalization the report lists as a fork prerequisite (§4.2) is already in 10.4, so delivery-`none` jobs
+  already reuse the chat's session; announce jobs (the default for `session:` targets) reset it.
+- Why the fix is right: binding facts feed only the reuse fingerprint, the rules baked into the CLI session's
+  system prompt and the forced message tool for a hook-supplied allowlist (`prepare.ts` 588-618, 692, 1597).
+  The turn's own delivery rules travel as top-level params into the per-turn reply guidance
+  (`buildHarnessVisibleReplyGuidance`) and the MCP grant (`buildCliMcpGrantContext`), unchanged. Upstream's
+  rule, `prepare.ts:598`: "Per-turn background restrictions must not replace the session-stable binding
+  policy" — applied to heartbeats (#121485) and agent-command turns (#164378). Cron and chat turns for one
+  session queue in the same session lane (`withLocalSessionPlacementTurnSettlement`), so they never resume the
+  CLI session at the same time.
+- Deviation from the report: `extraSystemPromptStatic` stays the cron delivery prompt (omitting it hashes the
+  same text; a mismatch there only resumes with drift).
+- Code: fork-owned `src/cron/isolated-agent/fork-cron-cli-binding-facts.ts`
+  (`resolveForkCronCliSessionBindingFacts`, regression checklist in the header) + hook in `run-executor.ts`
+  (import, comment, upstream's three fact lines wrapped unchanged). Not dev-mode gated. Fork test
+  `fork-cron-cli-binding-facts.test.ts`; checklist item 9's keep-list now has 7 fork tests.
+- Checks: the new test failed first (missing module), then 4/4; oxfmt, oxlint and the full lint wrapper (`run-oxlint.mjs`, plugin-SDK boundary check included) clean; `tsgo:core` passes;
+  `tsgo:test:src` passes (all 20 shards, the cron one with the new test included). Not built, not deployed, not committed.
+
+## 10. SEC-103: no "untrusted" memory files in dev-mode
+
+- Report by the VPS agent (2026-10-16): `dev-mode/claude-sub/fork-fix-memory-provenance.md` (no personal data
+  in it). It proposed three narrower patches (labels expire with their content, an owner exemption for
+  MEMORY.md/USER.md behind a config key, an alert when the gate drops a file). Ariel asked for the whole
+  system to go, so all three are superseded.
+- Still upstream behavior: 10.4 and upstream main `95a27d0779d` label the same way (main only moved the
+  writer into a compareAndApply loop); no config key turns it off.
+- Where the label lives: `src/memory/memory-artifact-provenance.ts`. One writer
+  (`recordMemoryArtifactWriteProvenance`: the agent's edit/write/apply_patch tools and the session-memory
+  hook), two readers (`readMemoryArtifactProvenance` → memory-core's path classifier → bootstrap gate and the
+  search index's chunk labels; `listMemoryArtifactProvenance` → dreaming, short-term promotion, forget),
+  both through `toPublicProvenance`.
+- Change, dev-mode only: the writer stores `agent`; `toPublicProvenance` returns `agent` for rows stored
+  earlier; `resolveIneligibleAutomaticMemoryFiles` returns nothing (so its fail-closed paths — classification
+  error, unsupported memory runtime — no longer drop the files either). Fork-owned
+  `src/memory/fork-memory-provenance-trust.ts` holds the gate (reads `OPENCLAW_DEV_MODE` directly: the store
+  is reachable from the plugin SDK and stays free of logger imports). Named SEC-103, not FIX-11: it removes
+  an upstream safety gate, so it is dev-mode gated like the other SEC items.
+- Untouched: the `system` class of DREAMS.md / memory/dreaming/, session-transcript provenance, paths outside
+  the workspace, the main-session-only rule for MEMORY.md.
+- Consequence: dreaming is on by default (`src/memory-host-sdk/dreaming.ts:381`), so content from files that
+  used to be quarantined (web-tainted edits, session-memory snapshots holding hub or other-agent messages)
+  can now be promoted into MEMORY.md.
+- Checks: new test `src/memory/fork-memory-provenance-trust.test.ts` failed first at each dev-mode assertion
+  (its upstream halves passed), then 4/4; oxfmt, oxlint and the full lint wrapper (`run-oxlint.mjs`, plugin-SDK boundary check included) clean; `tsgo:core` passes; `tsgo:extensions` passes (memory-core reads the store through the plugin SDK);
+  the test shard holding the new test (`tsconfig.core.test.other.json`) passes. Not built, not deployed, not committed.
+- After the deploy: `openclaw memory index --agent main --force` once if auto-recall should see chunks that
+  were indexed while labeled; the VPS agent's 05:30 provenance cron can be retired.
