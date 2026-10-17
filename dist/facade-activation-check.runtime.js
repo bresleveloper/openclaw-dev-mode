@@ -7,7 +7,7 @@ import { n as getPluginRegistryState } from "./runtime-state-Cd-Ga9cg.mjs";
 import { a as getPluginRuntimeGatewayRequestScope } from "./gateway-request-scope-BSmCVVpP.mjs";
 import { l as getRuntimeConfigSourceSnapshot, o as getRuntimeConfigSnapshot } from "./runtime-snapshot-DYptB0Cf.mjs";
 import { c as resolveBundledMetadataManifestRecord, l as resolveRegistryPluginModuleLocationFromRecords } from "./facade-loader-B-X-HqBc.mjs";
-import { i as configMayNeedPluginAutoEnable, t as applyPluginAutoEnable } from "./plugin-auto-enable-CSQ1bLlx.mjs";
+import { i as configMayNeedPluginAutoEnable, t as applyPluginAutoEnable } from "./plugin-auto-enable-A8cOwPsR.mjs";
 import fs from "node:fs";
 import path from "node:path";
 //#endregion

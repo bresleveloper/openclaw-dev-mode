@@ -1,7 +1,7 @@
 import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
-import { n as createProviderApiKeyAuthMethod } from "../../provider-api-key-auth-Cg1OHhgW.mjs";
-import "../../provider-entry-B2Tqqb69.mjs";
-import { t as alibabaVideoGenerationProvider } from "../../video-generation-provider-Bsgp6itT.mjs";
+import { n as createProviderApiKeyAuthMethod } from "../../provider-api-key-auth-DHc8KFQ9.mjs";
+import "../../provider-entry-Dw7vrvaY.mjs";
+import { t as alibabaVideoGenerationProvider } from "../../video-generation-provider-CWUw57gb.mjs";
 //#region extensions/alibaba/index.ts
 var alibaba_default = definePluginEntry({
 	id: "alibaba",

@@ -1,0 +1,85 @@
+import { l as resolveSessionStorePathCore } from "./paths-dpReqUI8.mjs";
+import { l as readSessionUpdatedAtCore } from "./session-accessor.sqlite-entry-DjT1nXRD.mjs";
+import "./session-accessor-CQ-g9yb2.mjs";
+import { o as resolveAgentRoute } from "./resolve-route-Bzb6opva.mjs";
+import { a as resolveEnvelopeFormatOptions, t as formatAgentEnvelope } from "./envelope-BjMhM0rf.mjs";
+//#region src/channels/inbound-event/envelope.ts
+function createChannelInboundEnvelopeBuilder(params) {
+	const storePath = resolveSessionStorePathCore(params.cfg.session?.store, { agentId: params.route.agentId });
+	const envelope = resolveEnvelopeFormatOptions(params.cfg);
+	return (input) => {
+		const previousTimestamp = input.previousTimestamp === null ? void 0 : input.previousTimestamp ?? readSessionUpdatedAtCore({
+			storePath,
+			sessionKey: params.route.sessionKey
+		});
+		return formatAgentEnvelope({
+			...input,
+			previousTimestamp,
+			envelope: input.envelope ?? envelope
+		});
+	};
+}
+function resolveChannelInboundRouteEnvelope(params) {
+	const route = resolveAgentRoute(params);
+	return {
+		route,
+		buildEnvelope: createChannelInboundEnvelopeBuilder({
+			cfg: params.cfg,
+			route
+		})
+	};
+}
+function createInboundEnvelopeBuilder(params) {
+	const storePath = params.resolveStorePath(params.sessionStore, { agentId: params.route.agentId });
+	const envelopeOptions = params.resolveEnvelopeFormatOptions(params.cfg);
+	return (input) => {
+		const previousTimestamp = params.readSessionUpdatedAt({
+			storePath,
+			sessionKey: params.route.sessionKey
+		});
+		const body = params.formatAgentEnvelope({
+			channel: input.channel,
+			from: input.from,
+			timestamp: input.timestamp,
+			previousTimestamp,
+			envelope: envelopeOptions,
+			body: input.body
+		});
+		return {
+			storePath,
+			body
+		};
+	};
+}
+function resolveInboundRouteEnvelopeBuilder(params) {
+	const route = params.resolveAgentRoute({
+		cfg: params.cfg,
+		channel: params.channel,
+		accountId: params.accountId,
+		peer: params.peer
+	});
+	return {
+		route,
+		buildEnvelope: createInboundEnvelopeBuilder({
+			...params,
+			route
+		})
+	};
+}
+/** Runtime-driven compatibility variant for shipped plugin SDK callers. */
+function resolveInboundRouteEnvelopeBuilderWithRuntime(params) {
+	return resolveInboundRouteEnvelopeBuilder({
+		cfg: params.cfg,
+		channel: params.channel,
+		accountId: params.accountId,
+		peer: params.peer,
+		resolveAgentRoute: (routeParams) => params.runtime.routing.resolveAgentRoute(routeParams),
+		sessionStore: params.sessionStore,
+		resolveStorePath: params.runtime.session.resolveStorePath,
+		readSessionUpdatedAt: params.runtime.session.readSessionUpdatedAt,
+		resolveEnvelopeFormatOptions: params.runtime.reply.resolveEnvelopeFormatOptions,
+		formatAgentEnvelope: params.runtime.reply.formatAgentEnvelope
+	});
+}
+//#endregion
+export { resolveInboundRouteEnvelopeBuilderWithRuntime as a, resolveInboundRouteEnvelopeBuilder as i, createInboundEnvelopeBuilder as n, resolveChannelInboundRouteEnvelope as r, createChannelInboundEnvelopeBuilder as t };

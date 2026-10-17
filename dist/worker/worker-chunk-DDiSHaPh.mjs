@@ -1,0 +1,1 @@
+import{n as e,t}from"./worker-chunk-BjghNYYZ.mjs";t();export{e as withSetupProviderAuthMethod};

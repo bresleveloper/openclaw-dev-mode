@@ -9,13 +9,13 @@ import { _ as resolveProviderOperationTimeoutMs, r as createProviderOperationDea
 import "../../response-limit-runtime-CpfmMF5T.mjs";
 import { r as selectSupportedVideoDuration } from "../../duration-support-BfgJ7oBc.mjs";
 import "../../ssrf-runtime-BzkFo_VJ.mjs";
-import "../../media-generation-runtime-D1HcnVCx.mjs";
-import { a as resolveApiKeyForProvider } from "../../provider-auth-runtime-CpGmMxRN.mjs";
+import "../../media-generation-runtime-DVf13dFr.mjs";
+import { a as resolveApiKeyForProvider } from "../../provider-auth-runtime-B-PBEJIo.mjs";
 import "../../provider-http-CuRGJD0L.mjs";
-import "../../video-generation-D5W8W7TP.mjs";
+import "../../video-generation-CWmMhTr-.mjs";
 import { t as stripGoogleProviderPrefix } from "../../model-id-CPDOOOMu.mjs";
 import { n as resolveGoogleGenerativeAiApiOrigin } from "../../provider-policy-4Ba5tPL0.mjs";
-import { c as GOOGLE_VIDEO_ALLOWED_DURATION_SECONDS, l as GOOGLE_VIDEO_MAX_DURATION_SECONDS, m as createGoogleVideoGenerationProviderMetadata, u as GOOGLE_VIDEO_MIN_DURATION_SECONDS } from "../../generation-provider-metadata-D0HXeJwn.mjs";
+import { c as GOOGLE_VIDEO_ALLOWED_DURATION_SECONDS, l as GOOGLE_VIDEO_MAX_DURATION_SECONDS, m as createGoogleVideoGenerationProviderMetadata, u as GOOGLE_VIDEO_MIN_DURATION_SECONDS } from "../../generation-provider-metadata-CkICOOMz.mjs";
 import { t as parseGeminiAuth } from "../../gemini-auth-ms1_pxuH.mjs";
 import { t as resolveGoogleApiClientHeaders } from "../../google-api-client-header-Dfv7yW-z.mjs";
 import { t as canonicalizeGoogleProviderBase64 } from "../../base64-CKISTF1b.mjs";

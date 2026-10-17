@@ -1,0 +1,29 @@
+import { a as createLazyRuntimeSurface, r as createLazyRuntimeModule } from "./lazy-runtime-CJrzFzqU.mjs";
+import { t as createOllamaWebSearchProvider } from "./web-search-contract-api-DoycEQIx.mjs";
+import { n as OLLAMA_WEB_SEARCH_TOOL_PARAMETERS, t as OLLAMA_WEB_SEARCH_TOOL_DESCRIPTION } from "./web-search-contract-DrYBQMoZ.mjs";
+//#region extensions/ollama/src/web-search-provider-registration.ts
+const loadOllamaWebSearchProvider = createLazyRuntimeModule(() => import("./web-search-provider.runtime-CfEWBI7J.mjs"));
+function createLazyOllamaWebSearchProvider() {
+	const loadProvider = createLazyRuntimeSurface(loadOllamaWebSearchProvider, (runtime) => runtime.createOllamaWebSearchProvider());
+	return {
+		...createOllamaWebSearchProvider(),
+		runSetup: async (ctx) => {
+			const provider = await loadProvider();
+			return provider.runSetup ? await provider.runSetup(ctx) : ctx.config;
+		},
+		createTool: (ctx) => {
+			const loadTool = createLazyRuntimeSurface(loadProvider, (provider) => provider.createTool(ctx));
+			return {
+				description: OLLAMA_WEB_SEARCH_TOOL_DESCRIPTION,
+				parameters: OLLAMA_WEB_SEARCH_TOOL_PARAMETERS,
+				execute: async (args, executionContext) => {
+					const tool = await loadTool();
+					if (!tool) throw new Error("Ollama web search runtime did not create a tool");
+					return await tool.execute(args, executionContext);
+				}
+			};
+		}
+	};
+}
+//#endregion
+export { createLazyOllamaWebSearchProvider as t };

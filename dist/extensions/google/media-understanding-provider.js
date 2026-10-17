@@ -3,7 +3,7 @@ import { n as normalizeGooglePreviewModelId } from "../../provider-model-id-norm
 import { d as postJsonRequest } from "../../shared-DcnGQdHV.mjs";
 import "../../provider-http-CuRGJD0L.mjs";
 import "../../model-id-CPDOOOMu.mjs";
-import { f as createGoogleMediaUnderstandingProviderMetadata, o as GOOGLE_MEDIA_UNDERSTANDING_DEFAULT_MODELS } from "../../generation-provider-metadata-D0HXeJwn.mjs";
+import { f as createGoogleMediaUnderstandingProviderMetadata, o as GOOGLE_MEDIA_UNDERSTANDING_DEFAULT_MODELS } from "../../generation-provider-metadata-CkICOOMz.mjs";
 import { t as resolveGoogleGenerativeAiHttpRequestConfig } from "../../http-request-Bp4RpyLy.mjs";
 //#region extensions/google/media-understanding-provider.ts
 const DEFAULT_GOOGLE_AUDIO_PROMPT = "Transcribe the audio.";

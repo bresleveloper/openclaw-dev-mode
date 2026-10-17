@@ -4,14 +4,14 @@ import { t as parseDurationMs } from "../../parse-duration-C4JaJvt9.mjs";
 import { f as listProfilesForProvider } from "../../order-B7W96aON.mjs";
 import { n as suggestOAuthProfileIdForLegacyDefault } from "../../repair-CkThvU-e.mjs";
 import "../../number-runtime-CgyXj1A5.mjs";
-import { t as applyAuthProfileConfig } from "../../provider-auth-helpers-DYE6_4KQ.mjs";
-import "../../cli-runtime-DIoqxVK3.mjs";
-import "../../provider-auth-C3BBF7yn.mjs";
-import { i as upsertAuthProfileWithLockOrThrowCompat } from "../../provider-auth-write-compat-B5xygsJD.mjs";
+import { t as applyAuthProfileConfig } from "../../provider-auth-helpers-CDvD9QW2.mjs";
+import "../../cli-runtime-DRAjv9MR.mjs";
+import "../../provider-auth-BGYKg9mW.mjs";
+import { i as upsertAuthProfileWithLockOrThrowCompat } from "../../provider-auth-write-compat-Bwk0aAVb.mjs";
 import { n as validateAnthropicSetupToken, t as buildTokenProfileId } from "../../provider-auth-token-Bn7OhxfC.mjs";
-import "../../provider-auth-api-key-uE6qOqkQ.mjs";
+import "../../provider-auth-api-key-BUmPr6lI.mjs";
 import { t as probeClaudeCliAuthStatus } from "../../cli-auth-seam-D_p5Ffc_.mjs";
-import { t as buildAnthropicCliMigrationResult } from "../../cli-migration-BXeCHwq5.mjs";
+import { t as buildAnthropicCliMigrationResult } from "../../cli-migration-C7v_HE-u.mjs";
 //#region extensions/anthropic/auth.runtime.ts
 /** Auth execution stays deferred until a setup or doctor hook is invoked. */
 const PROVIDER_ID = "anthropic";

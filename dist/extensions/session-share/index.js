@@ -9,13 +9,13 @@ import { n as validateJsonSchemaValue } from "../../schema-validator-qnYkiHpy.mj
 import "../../string-coerce-runtime-50qKeWeL.mjs";
 import "../../routing-CEr1aXk1.mjs";
 import "../../agent-scope-runtime-DMJYuX7c.mjs";
-import { _ as createSessionCatalogGitHubLinker, g as readSessionTranscriptCatalogTitle, h as readSessionTranscriptCatalogPage, v as createSessionCatalogSourceActorProjector } from "../../session-transcript-runtime-Bo9r2tlZ.mjs";
+import { _ as createSessionCatalogGitHubLinker, g as readSessionTranscriptCatalogTitle, h as readSessionTranscriptCatalogPage, v as createSessionCatalogSourceActorProjector } from "../../session-transcript-runtime-tIU02hJq.mjs";
 import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
 import "../../json-schema-runtime-WxokAVVM.mjs";
 import "../../time-runtime-Bfsc2GHI.mjs";
-import "../../logging-core-LMmGpAHM.mjs";
+import "../../logging-core-e269L3HU.mjs";
 import "../../diagnostic-runtime-CemwJETT.mjs";
-import "../../session-catalog-cKrf5Bg3.mjs";
+import "../../session-catalog-C3W1Xf-1.mjs";
 import { n as sessionCatalogPaging, t as publishSessionCatalogHost } from "../../session-catalog-paging-Ca-qWw_C.mjs";
 //#region extensions/session-share/src/config.ts
 function sessionShareConfig(config) {

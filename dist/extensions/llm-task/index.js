@@ -6,7 +6,7 @@ import { t as llmTaskToolDefinition } from "../../llm-task-tool-definition-C8MMP
 import { Type } from "typebox";
 //#region extensions/llm-task/index.ts
 function createLazyLlmTaskTool(api) {
-	const loadTool = createLazyRuntimeModule(() => import("../../llm-task-tool-DlM_dAHH.mjs").then(({ createLlmTaskTool }) => createLlmTaskTool(api)));
+	const loadTool = createLazyRuntimeModule(() => import("../../llm-task-tool-DTS8Sw0P.mjs").then(({ createLlmTaskTool }) => createLlmTaskTool(api)));
 	return {
 		...llmTaskToolDefinition,
 		execute: async (id, params, signal) => await (await loadTool()).execute(id, params, signal)

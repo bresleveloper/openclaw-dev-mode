@@ -1,7 +1,7 @@
 import { n as buildPluginConfigSchema } from "../../config-schema-BBtylDlH.mjs";
 import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
 import { n as agentsApiConfigSchema } from "../../config-C0jAkmTa.mjs";
-import { t as createAgentsApiHarness } from "../../agentsapi-harness-D1nSvXCg.mjs";
+import { t as createAgentsApiHarness } from "../../agentsapi-harness-DMK2L3eQ.mjs";
 //#region extensions/agentsapi/index.ts
 var agentsapi_default = definePluginEntry({
 	id: "agentsapi",

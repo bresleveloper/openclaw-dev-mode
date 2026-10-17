@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";function forkTrustsAllMemoryFiles(){return process.env.OPENCLAW_DEV_MODE===`1`}function resolveForkMemoryOriginClass(e){return forkTrustsAllMemoryFiles()?`agent`:e}var t=e((()=>{}));export{t as n,resolveForkMemoryOriginClass as r,forkTrustsAllMemoryFiles as t};

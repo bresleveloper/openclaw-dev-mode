@@ -12,10 +12,10 @@ import { c as removePathWithinRoot } from "../../file-access-runtime-BMp89X4Y.mj
 import { n as buildPluginConfigSchema } from "../../config-schema-BBtylDlH.mjs";
 import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
 import "../../plugin-config-runtime-DKh00pJ1.mjs";
-import "../../media-runtime-BeXWK4uL.mjs";
+import "../../media-runtime-BQh7AQ_g.mjs";
 import "../../temp-path-C5ZA6ftW.mjs";
 import { t as registerComputerUseProvider } from "../../computer-use-DhnvVHBf.mjs";
-import { n as registerCuaDriverDoctorChecks, r as verifyInstalledCuaDriverArtifacts } from "../../api-f3da1Sak.mjs";
+import { n as registerCuaDriverDoctorChecks, r as verifyInstalledCuaDriverArtifacts } from "../../api-BMuWSmQf.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";

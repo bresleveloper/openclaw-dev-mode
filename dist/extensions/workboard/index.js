@@ -14,12 +14,12 @@ import { m as readToolStringParam } from "../../common-Dyxcwsy8.mjs";
 import "../../number-runtime-CgyXj1A5.mjs";
 import "../../routing-CEr1aXk1.mjs";
 import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
-import "../../core-xGEFuUaI.mjs";
-import "../../logging-core-LMmGpAHM.mjs";
+import "../../core-5IrwDSpb.mjs";
+import "../../logging-core-e269L3HU.mjs";
 import "../../global-singleton-yHEs_vfD.mjs";
 import "../../api-Dw-2Dcz5.mjs";
 import { d as WORKBOARD_STATUSES, h as redactDispatchResult, m as redactClaimToken } from "../../src-C_j7E0TD.mjs";
-import { _ as resolveAgentWorkboardWorkspaceRuntime, a as WorkboardStore, c as cardBoardId, d as cleanupWorkboardCardWorktree, f as isWorkboardWorktreeCleanupCandidate, g as guardWorkboardToolsForWorkspaceAccess, h as canonicalizeWorkboardWorkspaceAccess, i as dispatchAndStartWorkboardCards, l as cardRunId, m as WORKBOARD_SESSIONS_BOARD_TOOL_NAMES, n as registerWorkboardStoreLifecycle, o as workboardCardMatchesLifecycleLink, p as WORKBOARD_CARD_TOOL_NAMES, r as resolveWorkboardSqliteWorkerModuleUrl, s as workboardCardSessionLookupKey, t as registerWorkboardGatewayMethods, u as cardSessionKey, v as resolveCommandWorkboardWorkspaceAccess, y as resolveWorkboardAgentWorkspace } from "../../runtime-api-B44EJAFL.mjs";
+import { _ as resolveAgentWorkboardWorkspaceRuntime, a as WorkboardStore, c as cardBoardId, d as cleanupWorkboardCardWorktree, f as isWorkboardWorktreeCleanupCandidate, g as guardWorkboardToolsForWorkspaceAccess, h as canonicalizeWorkboardWorkspaceAccess, i as dispatchAndStartWorkboardCards, l as cardRunId, m as WORKBOARD_SESSIONS_BOARD_TOOL_NAMES, n as registerWorkboardStoreLifecycle, o as workboardCardMatchesLifecycleLink, p as WORKBOARD_CARD_TOOL_NAMES, r as resolveWorkboardSqliteWorkerModuleUrl, s as workboardCardSessionLookupKey, t as registerWorkboardGatewayMethods, u as cardSessionKey, v as resolveCommandWorkboardWorkspaceAccess, y as resolveWorkboardAgentWorkspace } from "../../runtime-api-Cb5w4zJv.mjs";
 import "../../sqlite-store-errors-ClY8dC8v.mjs";
 import { t as resolveWorkboardCardByIdOrPrefix } from "../../card-lookup-BoXKYGHH.mjs";
 import { Type } from "typebox";
@@ -1811,7 +1811,7 @@ var workboard_default = definePluginEntry({
 			});
 		}));
 		api.registerCli(async ({ program }) => {
-			const { registerWorkboardCli } = await import("../../cli-DbhB-iPY.mjs");
+			const { registerWorkboardCli } = await import("../../cli-BAwvnhqM.mjs");
 			registerWorkboardCli({
 				program,
 				store

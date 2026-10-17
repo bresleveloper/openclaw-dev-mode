@@ -1,1 +1,1 @@
-export * from "./extension-native-host.runtime-B6dAJ5tN.mjs";
+export * from "./extension-native-host.runtime-BVXJkK7k.mjs";

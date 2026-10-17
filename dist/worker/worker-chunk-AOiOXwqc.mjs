@@ -1,0 +1,1 @@
+import{n as e,t}from"./worker-chunk-B_ceIigD.mjs";e();export{t as formatModelCatalogAuthLabel};

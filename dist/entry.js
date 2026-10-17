@@ -5,9 +5,9 @@ import { r as isForegroundGatewayRunArgv } from "./gateway-run-argv-DFDqy1EF.mjs
 import { t as resolveCliArgvInvocation } from "./argv-invocation-CV_-dmd8.mjs";
 import { n as fsSafeEnvInput } from "./fs-safe-env-CCe2lU-3.mjs";
 import { n as parseCliProfileArgs, t as applyCliProfileEnv } from "./profile-DEgnfd3z.mjs";
-import { n as tryRunUpdateAdmissionBeforeStartup, t as isUpdateAdmissionInvocation } from "./run-main-update-admission-BS1Ry2Ic.mjs";
+import { n as tryRunUpdateAdmissionBeforeStartup, t as isUpdateAdmissionInvocation } from "./run-main-update-admission-BobnKS48.mjs";
 import { i as normalizeEnv } from "./env-BBJTTIuE.mjs";
-import { i as createGatewayDispatchStartupTrace, n as configureGatewayStartupTraceConsoleFormatting, o as prepareGatewayStartupTraceConsoleFormatting } from "./startup-trace-D7hzafKJ.mjs";
+import { i as createGatewayDispatchStartupTrace, n as configureGatewayStartupTraceConsoleFormatting, o as prepareGatewayStartupTraceConsoleFormatting } from "./startup-trace-C4xndCPa.mjs";
 import { n as parseCliContainerArgs, r as resolveCliContainerTarget } from "./container-target-Bj4zLvq3.mjs";
 import { t as tryHandleRootVersionFastPath } from "./detached-async-context-B1URpzvl.mjs";
 import { t as isMainModule } from "./is-main-DYSvvM1W.mjs";
@@ -257,7 +257,7 @@ else {
 			gatewayEntryStartupTrace.mark("argv");
 			if (!tryHandleRootVersionFastPath(process.argv)) {
 				const run = async (finalize) => {
-					const { withCliProcessScope } = await import("./runtime-cleanup-scope-DfAoBUW-.mjs");
+					const { withCliProcessScope } = await import("./runtime-cleanup-scope-Bw7FGGr4.mjs");
 					return withCliProcessScope(() => runMainOrRootHelp(process.argv, { finalize }));
 				};
 				const managedNodeStatePath = getManagedNodeHostStatePath();
@@ -289,7 +289,7 @@ async function tryHandleRootHelpFastPath(argv, deps = {}) {
 		if (!liveRootHelpOptions) {
 			if ((deps.outputPrecomputedRootHelpText ?? (await loadRootHelpMetadataModule()).outputPrecomputedRootHelpText)()) return true;
 		}
-		await (deps.outputRootHelp ?? (await import("./root-help-C0eHaA8V.mjs")).outputRootHelp)(liveRootHelpOptions ?? void 0);
+		await (deps.outputRootHelp ?? (await import("./root-help-C2WFuewn.mjs")).outputRootHelp)(liveRootHelpOptions ?? void 0);
 		return true;
 	} catch (error) {
 		await handleError(error);
@@ -328,7 +328,7 @@ async function prepareCliFailureHandler(argv, commandStarted) {
 async function runMainOrRootHelp(argv, deps = {}) {
 	let commandStarted = false;
 	let failureHandler;
-	const { runCliWithExitFinalization, requestExitAfterOneShotOutput } = await import("./one-shot-exit-45nwQ_jz.mjs");
+	const { runCliWithExitFinalization, requestExitAfterOneShotOutput } = await import("./one-shot-exit-BwX7kJPB.mjs");
 	await runCliWithExitFinalization({
 		finalize: deps.finalize,
 		run: async () => {

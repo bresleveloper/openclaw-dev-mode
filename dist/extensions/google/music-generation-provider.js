@@ -3,11 +3,11 @@ import { r as extensionForMime } from "../../mime-CGDYrRzL.mjs";
 import "../../string-coerce-runtime-50qKeWeL.mjs";
 import { _ as resolveProviderOperationTimeoutMs, r as createProviderOperationDeadline } from "../../shared-DcnGQdHV.mjs";
 import "../../media-mime-DLFR6fqC.mjs";
-import { a as resolveApiKeyForProvider } from "../../provider-auth-runtime-CpGmMxRN.mjs";
+import { a as resolveApiKeyForProvider } from "../../provider-auth-runtime-B-PBEJIo.mjs";
 import "../../provider-http-CuRGJD0L.mjs";
 import { r as generatedMusicAssetFromBase64 } from "../../music-generation-D-5knzUP.mjs";
 import { n as resolveGoogleGenerativeAiApiOrigin } from "../../provider-policy-4Ba5tPL0.mjs";
-import { p as createGoogleMusicGenerationProviderMetadata } from "../../generation-provider-metadata-D0HXeJwn.mjs";
+import { p as createGoogleMusicGenerationProviderMetadata } from "../../generation-provider-metadata-CkICOOMz.mjs";
 import { n as toStandardGoogleProviderBase64 } from "../../base64-CKISTF1b.mjs";
 import { t as createGoogleGenAI } from "../../google-genai-runtime-BvkO2YGf.mjs";
 //#region extensions/google/music-generation-provider.ts

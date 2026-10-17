@@ -1,1 +1,0 @@
-import{i as e,n as t}from"./worker-chunk-BqPqPrA5.mjs";t();export{e as openOwnedGatewayNodeDuplex};

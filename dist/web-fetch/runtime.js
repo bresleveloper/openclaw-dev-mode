@@ -1,10 +1,10 @@
 import { o as normalizeLowercaseStringOrEmpty } from "../string-coerce-1VuiLaaR.mjs";
 import { C as resolveRuntimeConfigCacheKey } from "../runtime-snapshot-DYptB0Cf.mjs";
-import { d as getActivePluginRegistryVersion } from "../runtime-D4MkflNJ.mjs";
+import { d as getActivePluginRegistryVersion } from "../runtime-DfYPSUKC.mjs";
 import { i as logVerbose } from "../globals-BXbZ1A_g.mjs";
 import { S as getActiveRuntimeWebToolsMetadataFromState } from "../runtime-state-D5wZ6Dom.mjs";
 import { n as sortPluginEntriesForAutoDetect } from "../plugin-entry-order-DxrT0ucv.mjs";
-import { n as resolveRuntimeWebFetchProviders, t as resolvePluginWebFetchProviders } from "../web-fetch-providers.runtime-IahMVK-P.mjs";
+import { n as resolveRuntimeWebFetchProviders, t as resolvePluginWebFetchProviders } from "../web-fetch-providers.runtime-Ceqb8W24.mjs";
 import { i as resolveWebProviderConfig, n as providerRequiresCredential, r as readWebProviderEnvValue, t as hasWebProviderEntryCredential } from "../provider-runtime-shared-rD0cvENJ.mjs";
 //#region src/web-fetch/runtime.ts
 const webFetchProviderCache = /* @__PURE__ */ new WeakMap();

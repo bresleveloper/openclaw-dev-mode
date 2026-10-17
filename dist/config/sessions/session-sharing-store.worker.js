@@ -10,7 +10,7 @@ import { s as resolveSqliteScope } from "../../session-accessor.sqlite-scope-Cdp
 import { s as readSqliteSessionParticipantProjection } from "../../internal-session-key-CPayZwJR.mjs";
 import { t as assignSessionOwner } from "../../session-accessor.sqlite-owner-ylhcUaWK.mjs";
 import { n as removeSessionMember, r as recordSessionParticipant, t as addSessionMember } from "../../session-sharing-store.native-Z8tyX-6b.mjs";
-import { n as assertSessionGroupCategoryDestination, r as prepareSessionGroupCategoryMutation, t as applySessionGroupCategoryMutation } from "../../session-group-categories.kernel-BhgRGqMF.mjs";
+import { n as assertSessionGroupCategoryDestination, r as prepareSessionGroupCategoryMutation, t as applySessionGroupCategoryMutation } from "../../session-group-categories.kernel-wR6Spnl4.mjs";
 import { i as releaseSessionSuggestionDispatch, n as claimSessionSuggestionDispatch, r as finalizeSessionSuggestionClaim, t as addSessionSuggestion } from "../../session-suggestion-store-Ds6yg9Y3.mjs";
 //#region src/config/sessions/session-sharing-store.worker.ts
 /** The canonical agent executor retains the connection and both live admission checks. */

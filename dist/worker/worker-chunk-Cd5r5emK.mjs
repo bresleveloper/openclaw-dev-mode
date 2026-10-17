@@ -1,1 +1,0 @@
-import{a as e,i as t,n,t as r}from"./worker-chunk-CE5TkY4l.mjs";r();export{n as applyPluginAutoEnable,e as detectPluginAutoEnableCandidates,t as materializePluginAutoEnableCandidates};

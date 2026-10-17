@@ -1,7 +1,7 @@
 import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
-import { n as createProviderApiKeyAuthMethod } from "../../provider-api-key-auth-Cg1OHhgW.mjs";
-import "../../provider-auth-api-key-uE6qOqkQ.mjs";
-import { t as buildKieVideoGenerationProvider } from "../../video-generation-provider-DC_PoQZD.mjs";
+import { n as createProviderApiKeyAuthMethod } from "../../provider-api-key-auth-DHc8KFQ9.mjs";
+import "../../provider-auth-api-key-BUmPr6lI.mjs";
+import { t as buildKieVideoGenerationProvider } from "../../video-generation-provider-BRihancQ.mjs";
 //#region extensions/kie/index.ts
 var kie_default = definePluginEntry({
 	id: "kie",

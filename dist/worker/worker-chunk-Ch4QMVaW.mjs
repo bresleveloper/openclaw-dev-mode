@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{r as t}from"./worker-chunk-BHZIQFyz.mjs";import{t as n}from"./worker-chunk-Bptg_B68.mjs";e((()=>{n()}))();export{t as getRuntimeConfig};

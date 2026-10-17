@@ -15,7 +15,7 @@ import "../../response-limit-runtime-CpfmMF5T.mjs";
 import "../../number-runtime-CgyXj1A5.mjs";
 import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
 import "../../ssrf-runtime-BzkFo_VJ.mjs";
-import "../../plugin-runtime-C3Ot0aFc.mjs";
+import "../../plugin-runtime-DJr2pk-j.mjs";
 import "../../state-paths-Dd9pLEOI.mjs";
 import path from "node:path";
 import fs from "node:fs/promises";

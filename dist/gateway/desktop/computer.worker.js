@@ -1,8 +1,8 @@
 import { t as createDeferredCore } from "../../deferred-D0La5CRk.mjs";
-import { n as requestExitAfterOneShotOutput, r as runCliWithExitFinalization } from "../../one-shot-exit-CSOrFNcy.mjs";
-import { r as getRuntimeConfig } from "../../io.runtime-CPntde4x.mjs";
-import "../../config-CzeZu5J_.mjs";
-import { a as listRegisteredNodeHostCapsAndCommands, o as notifyRegisteredNodeHostCommandDisconnect, r as invokeRegisteredNodeHostCommand, s as watchRegisteredNodeHostCommandAvailability, t as ensureNodeHostPluginRegistry } from "../../plugin-node-host-BQ-t8Tr2.mjs";
+import { n as requestExitAfterOneShotOutput, r as runCliWithExitFinalization } from "../../one-shot-exit-Bd4757D_.mjs";
+import { r as getRuntimeConfig } from "../../io.runtime-BSum32pK.mjs";
+import "../../config-9720xhC5.mjs";
+import { a as listRegisteredNodeHostCapsAndCommands, o as notifyRegisteredNodeHostCommandDisconnect, r as invokeRegisteredNodeHostCommand, s as watchRegisteredNodeHostCommandAvailability, t as ensureNodeHostPluginRegistry } from "../../plugin-node-host-K67tp7ny.mjs";
 import { n as parseComputerHostInput } from "../../computer-protocol-BHvtEXcO.mjs";
 import { createInterface } from "node:readline";
 //#region src/gateway/desktop/computer.worker.ts

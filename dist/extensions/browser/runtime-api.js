@@ -3,9 +3,9 @@ import { i as resolveExistingPathsWithinRoot } from "../../security-runtime-CpTH
 import { t as createBrowserToolDefinition } from "../../browser-tool-description-CRHph32o.mjs";
 import { i as resolveBrowserConfig } from "../../config-DQZ6ubGi.mjs";
 import "../../paths-j6Von5wB.mjs";
-import { x as closePlaywrightBrowserConnection } from "../../pw-tools-core.interactions.navigation-DjuSXcOZ.mjs";
-import { n as stopBrowserBridgeServer, t as startBrowserBridgeServer } from "../../bridge-server-dAXfU0Bl.mjs";
-import { i as createBrowserTool, t as browserHandlers } from "../../browser-request-CLI0TKbR.mjs";
+import { x as closePlaywrightBrowserConnection } from "../../pw-tools-core.interactions.navigation-D7pCRllD.mjs";
+import { n as stopBrowserBridgeServer, t as startBrowserBridgeServer } from "../../bridge-server-BJjl2XoE.mjs";
+import { i as createBrowserTool, t as browserHandlers } from "../../browser-request-CZ2fWUTe.mjs";
 import path from "node:path";
 import { chmod, copyFile } from "node:fs/promises";
 import { randomBytes } from "node:crypto";

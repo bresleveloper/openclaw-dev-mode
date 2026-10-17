@@ -20,7 +20,7 @@ const loadPluginState = createLazyRuntimeModule(() => import("../plugin-state.wo
 let pluginState;
 const loadCapture = createLazyRuntimeModule(() => import("../store.worker-BYz186R1.mjs"));
 let capture;
-const loadRuntime = createLazyRuntimeModule(() => import("../openclaw-state-worker-runtime-BQsXJ_g2.mjs"));
+const loadRuntime = createLazyRuntimeModule(() => import("../openclaw-state-worker-runtime-CImwF0yk.mjs"));
 let runtime;
 function stateDatabaseInitializationEnvironment() {
 	const context = getSqliteWorkerStateContext();

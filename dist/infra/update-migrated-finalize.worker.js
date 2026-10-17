@@ -16,15 +16,15 @@ import "../openclaw-state-db-D1jWDzK3.mjs";
 import { b as writeUpdatePostInstallDoctorResult, i as UPDATE_POST_INSTALL_DOCTOR_RESULT_PATH_ENV, v as recordUpdateDoctorConfigWriteRefusal } from "../update-doctor-result-yVslo54h.mjs";
 import { n as adoptUpdateRun } from "../update-run-ledger-jBhhLo0P.mjs";
 import { i as getUpdateRun } from "../update-run-reader-B7x8dkVs.mjs";
-import { n as createManagedUpdateRequesterAuthority, r as createManagedUpdateRequesterContinuationAuthority, t as UpdateRequesterRevokedError } from "../update-requester-authority-CbCLnyCx.mjs";
-import { o as withCliProcessScope, r as retainCliProcessJobUntilExit } from "../runtime-cleanup-scope-BktLDe8P.mjs";
+import { n as createManagedUpdateRequesterAuthority, r as createManagedUpdateRequesterContinuationAuthority, t as UpdateRequesterRevokedError } from "../update-requester-authority-sTeqCewg.mjs";
+import { o as withCliProcessScope, r as retainCliProcessJobUntilExit } from "../runtime-cleanup-scope-Dno3Ssrr.mjs";
 import { n as withDelegatedUpdateCommandExecutor, o as captureUpdateCommandExecutorAuthority, t as withUpdateCommandExecutor } from "../update-command-executor-C94Zye_E.mjs";
 import "../update-control-plane-sentinel-Du9790-7.mjs";
 import { b as POST_CORE_MUTATION_PROTOCOL, y as POST_CORE_EXECUTOR_CAPABILITY } from "../package-update-activation-B8eAkK7X.mjs";
-import { c as stopSupervisedPredecessorGateway, d as writePostCoreUpdateFailureFile, l as recordUpdateRunStepAsync, p as isOmittedUpdateTimeout, t as finishUpdate } from "../update-command-post-update-BVQ18FlY.mjs";
-import { a as createWindowsTaskAutoStartRecovery, t as createWindowsTaskAutoStartGuard } from "../update-command-service-maintenance-Bc6Zm_Kc.mjs";
-import { c as formatUpdateFinalizationError, n as UpdateCommandFailure } from "../update-command-result-4Ha0lQk3.mjs";
-import { l as withUpdateCommandTerminalResult } from "../update-command-terminal-CblG2A7I.mjs";
+import { c as stopSupervisedPredecessorGateway, d as writePostCoreUpdateFailureFile, l as recordUpdateRunStepAsync, p as isOmittedUpdateTimeout, t as finishUpdate } from "../update-command-post-update-DopYo-d_.mjs";
+import { a as createWindowsTaskAutoStartRecovery, t as createWindowsTaskAutoStartGuard } from "../update-command-service-maintenance-ClkdH7ec.mjs";
+import { c as formatUpdateFinalizationError, n as UpdateCommandFailure } from "../update-command-result-hCfuj3eW.mjs";
+import { l as withUpdateCommandTerminalResult } from "../update-command-terminal-CpPTmwiB.mjs";
 import { t as resolveUpdateFinalizationTimeoutMs } from "../update-finalization-budget-BqCBETpF.mjs";
 import path from "node:path";
 import fs from "node:fs/promises";
@@ -123,7 +123,7 @@ async function runDelegatedPostCore(input) {
 				runId: input.runId,
 				executor: fence
 			}) : input.requester ? await createManagedUpdateRequesterAuthority(input.requester) : void 0;
-			const { updateCommand } = await import("../update-command-CoqOaE-d.mjs");
+			const { updateCommand } = await import("../update-command-DTI3wKPM.mjs");
 			fence.assertCurrent();
 			if (requesterAuthority?.isCurrent() === false) throw new UpdateRequesterRevokedError();
 			await updateCommand({
@@ -183,7 +183,7 @@ async function runDelegatedDoctor(input) {
 			process.exitCode = 1;
 			return;
 		}
-		const { runDoctorHealthFlow } = await import("../doctor-health-BIXcHUn3.mjs");
+		const { runDoctorHealthFlow } = await import("../doctor-health-DYToTFSy.mjs");
 		assertCurrent();
 		await stopSupervisedPredecessorGateway(input, {
 			root: input.root,

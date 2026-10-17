@@ -1,0 +1,2 @@
+import{n as e}from"./rolldown-runtime-8BhlS34s.js";import{ao as t,so as n}from"./ui-CnRtCcYL.js";async function r(e,r){try{let t=r?.signal?await e.request(`usage.status`,void 0,{signal:r.signal}):await e.request(`usage.status`);return n(t)}catch(e){if(r?.signal?.aborted)throw e;return t({kind:`request-failed`})}}function i(){return(i=e((()=>{})))()}export{r as n,i as t};
+//# sourceMappingURL=provider-usage-request-DpRQVAgY.js.map

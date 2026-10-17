@@ -1,23 +1,23 @@
 import { a as resolveAgentDir, d as resolveAgentWorkspaceDir } from "../../agent-scope-config-CDYpzA0r.mjs";
 import { n as createNormalizedPluginsConfig } from "../../config-state-DY_WJYue.mjs";
 import { o as resolveRememberAcrossConversations } from "../../config-utils-DnfHy8-v.mjs";
-import { a as getMemoryCapabilityRegistration } from "../../memory-state-B2gqTM3p.mjs";
+import { a as getMemoryCapabilityRegistration } from "../../memory-state-Cx8Kzhx0.mjs";
 import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
 import { n as resolveLivePluginConfigObject } from "../../plugin-config-runtime-DKh00pJ1.mjs";
-import "../../agent-runtime-BhLWDirV.mjs";
-import "../../memory-core-host-runtime-core-BPcsOjzw.mjs";
-import "../../memory-host-core-BFby6pBK.mjs";
+import "../../agent-runtime-CozKBj9N.mjs";
+import "../../memory-core-host-runtime-core-BZil17-O.mjs";
+import "../../memory-host-core-DN_I2RgE.mjs";
 import { L as MAX_SETUP_GRACE_TIMEOUT_MS, M as HOOK_TIMEOUT_RECOVERY_GRACE_MS, R as MAX_TIMEOUT_MS, l as ACTIVE_MEMORY_STATUS_PREFIX } from "../../types-DgEaE0BK.mjs";
 import { a as normalizePluginConfig, n as hasDeprecatedModelFallbackPolicy, o as readActiveMemoryConfig, t as applyCliRuntimeRecallTimeoutDefault } from "../../config-BzmnyTfk.mjs";
 import { n as resolveRecallEscalationDecision } from "../../escalation-Cps8b7xi.mjs";
-import { n as buildSearchQuery, o as getModelRef, r as extractRecentTurns, t as buildQuery } from "../../query-B1l0OAz9.mjs";
-import { n as buildRecallOutcomePrefix, t as buildPromptPrefix } from "../../prompt-C_-mB5HW.mjs";
-import { h as toSingleLineErrorMessage, i as forgetActiveRecallRun } from "../../recall-state-5LQNrO5V.mjs";
-import { i as resolveCanonicalSessionKeyFromSessionId, o as resolveStatusUpdateAgentId, r as persistPluginStatusLines } from "../../session-DJIe3gwV.mjs";
-import { t as createActiveMemoryHookDeadline } from "../../transcript-B8-8Q4Rd.mjs";
-import { t as maybeResolveActiveRecall } from "../../recall-BwSBZV-Y.mjs";
-import { a as isAllowedChatId, c as isSessionActiveMemoryDisabled, d as resolveCommandSessionKey, f as setSessionActiveMemoryDisabled, i as isActiveMemoryPluginEnabled, l as lacksAdminToMutateActiveMemoryGlobal, m as updateActiveMemoryGlobalEnabledInConfig, n as formatActiveMemoryCommandHelp, o as isEligibleInteractiveSession, p as shouldSkipActiveMemoryForHarnessSession, r as isActiveMemoryGloballyEnabled, s as isEnabledForAgent, t as ACTIVE_MEMORY_GLOBAL_MUTATION_ADMIN_REQUIRED_TEXT, u as resolveChatType } from "../../session-policy-DA8DEIyB.mjs";
-import { a as resolveTriggerRecall, r as forgetTriggerRecallRun } from "../../trigger-recall-L9kxEBiU.mjs";
+import { n as buildSearchQuery, o as getModelRef, r as extractRecentTurns, t as buildQuery } from "../../query-BSMExMts.mjs";
+import { n as buildRecallOutcomePrefix, t as buildPromptPrefix } from "../../prompt-DM3fsjGv.mjs";
+import { h as toSingleLineErrorMessage, i as forgetActiveRecallRun } from "../../recall-state-BkoI2py5.mjs";
+import { i as resolveCanonicalSessionKeyFromSessionId, o as resolveStatusUpdateAgentId, r as persistPluginStatusLines } from "../../session-nN0gieHo.mjs";
+import { t as createActiveMemoryHookDeadline } from "../../transcript-J6g5hRC3.mjs";
+import { t as maybeResolveActiveRecall } from "../../recall-BLPZT_V6.mjs";
+import { a as isAllowedChatId, c as isSessionActiveMemoryDisabled, d as resolveCommandSessionKey, f as setSessionActiveMemoryDisabled, i as isActiveMemoryPluginEnabled, l as lacksAdminToMutateActiveMemoryGlobal, m as updateActiveMemoryGlobalEnabledInConfig, n as formatActiveMemoryCommandHelp, o as isEligibleInteractiveSession, p as shouldSkipActiveMemoryForHarnessSession, r as isActiveMemoryGloballyEnabled, s as isEnabledForAgent, t as ACTIVE_MEMORY_GLOBAL_MUTATION_ADMIN_REQUIRED_TEXT, u as resolveChatType } from "../../session-policy-DMc8OD-p.mjs";
+import { a as resolveTriggerRecall, r as forgetTriggerRecallRun } from "../../trigger-recall-Mm_7C47a.mjs";
 //#region extensions/active-memory/index.ts
 var active_memory_default = definePluginEntry({
 	id: "active-memory",

@@ -1,12 +1,12 @@
 import { t as formatErrorMessage } from "../errors-O33D01XW.mjs";
 import { r as theme } from "../theme-DzaUZY4q.mjs";
 import { t as formatDocsLink } from "../links-4Bgsoz0M.mjs";
-import { t as addGatewayServiceCommands } from "../register-service-commands-D63sf_J1.mjs";
+import { t as addGatewayServiceCommands } from "../register-service-commands-BQdXDPqH.mjs";
 import { c as recordUpdateRunDiagnostic, f as recordUpdateRunStep, n as adoptUpdateRun, p as recordUpdateRunVerification } from "../update-run-ledger-jBhhLo0P.mjs";
 import { i as finishUpdateRun } from "../update-run-write-DdGOnqyV.mjs";
 import { i as getUpdateRun } from "../update-run-reader-B7x8dkVs.mjs";
 import { o as refreshUpdateRunReportArtifact } from "../update-failure-report-artifact-DSFBsmLj.mjs";
-import { i as prepareManagedUpdateRequesterIdentity, n as createManagedUpdateRequesterAuthority } from "../update-requester-authority-CbCLnyCx.mjs";
+import { i as prepareManagedUpdateRequesterIdentity, n as createManagedUpdateRequesterAuthority } from "../update-requester-authority-sTeqCewg.mjs";
 //#region src/cli/daemon-cli/register.ts
 /** Register the legacy daemon command group. */
 function registerDaemonCli(program) {
@@ -27,11 +27,11 @@ async function finishDaemonUpdateRun(runId, result, options = {}) {
 }
 //#endregion
 //#region src/cli/daemon-cli.ts
-const loadInstallRuntime = () => import("../install-D0g2MUcS.mjs");
-const loadLifecycleRuntime = () => import("../lifecycle-LVbL5FRi.mjs");
-const loadStatusRuntime = () => import("../status-CNXI6toC.mjs");
-const loadLifecycleContextRuntime = () => import("../lifecycle-context-BWa8RtsK.mjs");
-const loadServiceHandoffRuntime = () => import("../update-managed-service-handoff-DyFWWuhS.mjs");
+const loadInstallRuntime = () => import("../install-CZDBAd4y.mjs");
+const loadLifecycleRuntime = () => import("../lifecycle-DZncPtsd.mjs");
+const loadStatusRuntime = () => import("../status-CYTig8ZW.mjs");
+const loadLifecycleContextRuntime = () => import("../lifecycle-context-BtWupNWi.mjs");
+const loadServiceHandoffRuntime = () => import("../update-managed-service-handoff-vCZDNjFF.mjs");
 async function runDaemonInstall(opts) {
 	return (await loadInstallRuntime()).runDaemonInstall(opts);
 }

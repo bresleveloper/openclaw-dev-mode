@@ -3,20 +3,20 @@ import { n as createLazyRuntimeMethodBinder, r as createLazyRuntimeModule } from
 import { c as isRecord, o as asRecord } from "../../record-coerce-TIsquoVR.mjs";
 import { n as filterStringEntries, y as uniqueStrings } from "../../string-normalization-CECOqf64.mjs";
 import { t as createSubsystemLogger } from "../../subsystem-I-uqdx4f.mjs";
-import "../../llm--QylqK5V.mjs";
+import "../../llm-BoijNIT8.mjs";
 import { h as ssrfPolicyFromHttpBaseUrlAllowedHostname } from "../../ssrf-v45DW-yR.mjs";
 import { t as normalizeOptionalSecretInput } from "../../normalize-secret-input-DBJvdk-L.mjs";
 import { n as CUSTOM_LOCAL_AUTH_MARKER } from "../../model-auth-markers-Cuz_bq6T.mjs";
 import "../../string-coerce-runtime-50qKeWeL.mjs";
-import { i as streamSimple } from "../../stream-4ZQq1Iyd.mjs";
-import { d as createOpenAICompatibleCompletionsThinkingOffWrapper, p as createPlainTextToolCallCompatWrapper } from "../../provider-stream-shared-D8q3R1a-.mjs";
+import { i as streamSimple } from "../../stream-CL_UFGCU.mjs";
+import { d as createOpenAICompatibleCompletionsThinkingOffWrapper, p as createPlainTextToolCallCompatWrapper } from "../../provider-stream-shared-CU7Z6wj0.mjs";
 import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
 import "../../ssrf-runtime-BzkFo_VJ.mjs";
-import "../../logging-core-LMmGpAHM.mjs";
-import "../../provider-auth-C3BBF7yn.mjs";
+import "../../logging-core-e269L3HU.mjs";
+import "../../provider-auth-BGYKg9mW.mjs";
 import { r as buildProviderToolCompatFamilyHooks } from "../../provider-tools-DajrfQK1.mjs";
-import { A as LMSTUDIO_DEFAULT_API_KEY_ENV_VAR, B as LMSTUDIO_PROVIDER_ID, S as normalizeLmstudioProviderConfig, V as LMSTUDIO_PROVIDER_LABEL, b as normalizeLmstudioConfiguredCatalogEntries, d as resolveLmstudioRuntimeApiKey, g as shouldUseLmstudioSyntheticAuth, i as prepareLmstudioModelForInference, l as resolveLmstudioProviderHeaders, w as resolveLmstudioInferenceBase } from "../../models.fetch-CSolZJOV.mjs";
-import { t as lmstudioMemoryEmbeddingProviderAdapter } from "../../memory-embedding-adapter-BZKbJzsu.mjs";
+import { A as LMSTUDIO_DEFAULT_API_KEY_ENV_VAR, B as LMSTUDIO_PROVIDER_ID, S as normalizeLmstudioProviderConfig, V as LMSTUDIO_PROVIDER_LABEL, b as normalizeLmstudioConfiguredCatalogEntries, d as resolveLmstudioRuntimeApiKey, g as shouldUseLmstudioSyntheticAuth, i as prepareLmstudioModelForInference, l as resolveLmstudioProviderHeaders, w as resolveLmstudioInferenceBase } from "../../models.fetch-CPNwI0Xc.mjs";
+import { t as lmstudioMemoryEmbeddingProviderAdapter } from "../../memory-embedding-adapter-BR-xjIU4.mjs";
 //#region extensions/lmstudio/src/stream.ts
 const log = createSubsystemLogger("extensions/lmstudio/stream");
 const preloadInFlight = /* @__PURE__ */ new Map();
@@ -188,7 +188,7 @@ function wrapLmstudioInferencePreload(ctx) {
 //#endregion
 //#region extensions/lmstudio/index.ts
 const PROVIDER_ID = "lmstudio";
-const loadSetup = createLazyRuntimeModule(() => import("../../setup-0QkZaN11.mjs"));
+const loadSetup = createLazyRuntimeModule(() => import("../../setup-CrAkq9i-.mjs"));
 const setupMethod = createLazyRuntimeMethodBinder(loadSetup);
 function resolveLmstudioAugmentedCatalogEntries(config) {
 	return normalizeLmstudioConfiguredCatalogEntries(config?.models?.providers?.lmstudio?.models).map((entry) => Object.assign({}, entry, {

@@ -1,7 +1,7 @@
 // Published updater config reads run in the candidate's dependency tree.
 import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-const target = new URL("./io.runtime-Ccl1QQQe.mjs", import.meta.url).href;
+const target = new URL("./io.runtime-D9uDfKv8.mjs", import.meta.url).href;
 const root = fileURLToPath(new URL("../", import.meta.url));
 const worker = "\nconst fs = require(\"node:fs\");\n// Reserve stdout for the response; config diagnostics must not corrupt its frame.\nglobalThis.console = new (require(\"node:console\").Console)(process.stderr, process.stderr);\nprocess.stdout.write = process.stderr.write.bind(process.stderr);\nfunction send(result) {\n  const payload = JSON.stringify(result);\n  fs.writeFileSync(1, Buffer.byteLength(payload) + \"\\n\" + payload);\n}\n(async () => {\n  try {\n    const request = JSON.parse(fs.readFileSync(0, \"utf8\"));\n    const runtime = await import(request.target);\n    const logs = [];\n    const options = request.options ?? {};\n    if (request.captureLogs) options.logger = Object.fromEntries([\"debug\", \"info\", \"warn\", \"error\"].map(level => [level, (...args) => logs.push({ level, args })]));\n    const owner = request.factory ? runtime.createConfigIO(options) : runtime;\n    const value = await owner[request.operation](...request.args);\n    send({ ok: true, value, logs });\n  } catch (error) {\n    send({ ok: false, message: String(error), code: typeof error?.code === \"string\" ? error.code : undefined });\n    process.exitCode = 1;\n  }\n})().catch(() => { process.exitCode = 1; });\n";
 const updating = process.env.OPENCLAW_UPDATE_IN_PROGRESS === "1" && process.env.OPENCLAW_CONFIG_READ_CHILD !== "1";

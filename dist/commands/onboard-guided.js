@@ -8,12 +8,12 @@ import "../session-key-C09ow4h0.mjs";
 import { r as hasResolvedRosterBeforeMigrations } from "../agent-roster-provenance-CHtmWQjc.mjs";
 import { r as t } from "../i18n-Cuh2pEdZ.mjs";
 import { t as isUnconfiguredConfigSource } from "../fresh-install-config-Bi-9QLEM.mjs";
-import { c as resolveOnboardingAgentTarget, u as resolveSystemAgentOnboardingTarget } from "../onboard-agent-target-DdbF_syb.mjs";
-import { n as showSessionMigrationWarnings, t as promptFirstOnboardingAgent } from "../onboard-first-agent-BjM2arDB.mjs";
-import { o as requestTelemetryConsent, s as requireRiskAcknowledgement, u as getSecurityNoteTitle } from "../setup.shared-BUMSRW_B.mjs";
+import { c as resolveOnboardingAgentTarget, u as resolveSystemAgentOnboardingTarget } from "../onboard-agent-target-B6YZOGfo.mjs";
+import { n as showSessionMigrationWarnings, t as promptFirstOnboardingAgent } from "../onboard-first-agent-D-JiSNSS.mjs";
+import { o as requestTelemetryConsent, s as requireRiskAcknowledgement, u as getSecurityNoteTitle } from "../setup.shared-BMT89zuh.mjs";
 import { t as enableDefaultOnboardingInternalHooks } from "../onboard-hooks-CWFxUH6y.mjs";
 import { r as isTerminalInteractive } from "../terminal-interactivity-DXUXAq5U.mjs";
-import { n as runInteractiveOnboarding, t as runGuidedOnboardingHandoff } from "../onboard-interactive-runner-DTigaYAt.mjs";
+import { n as runInteractiveOnboarding, t as runGuidedOnboardingHandoff } from "../onboard-interactive-runner-D9V_M8I4.mjs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 //#region src/commands/onboard-guided-consent.ts
@@ -165,7 +165,7 @@ async function runManualStage(params) {
 //#endregion
 //#region src/commands/onboard-guided.ts
 async function runGuidedOnboardingFlow(opts, runtime, deps) {
-	const onboardHelpers = await import("../onboard-helpers-Bnu4lIgv.mjs");
+	const onboardHelpers = await import("../onboard-helpers-DBHfpUEl.mjs");
 	const prompter = await (deps.createPrompter?.() ?? import("../clack-prompter-DJxqUWif.mjs").then(({ createClackPrompter }) => createClackPrompter()));
 	await onboardHelpers.printWizardHeader(runtime);
 	await prompter.intro(t("wizard.guided.custodianIntro"));
@@ -239,7 +239,7 @@ async function runGuidedOnboardingFlow(opts, runtime, deps) {
 	const conversationWorkspace = handoffAgentId ? hasAuthoredRoster ? resolveOnboardingAgentTarget(existingConfig, handoffAgentId).workspaceDir : path.join(workspace, handoffAgentId) : workspace;
 	let teamCoordinatorId = (resumingSetup ? localSetup?.teamCoordinatorId : void 0) ?? (firstAgent?.team ? normalizeAgentId(firstAgent.name) : void 0);
 	if (resumingSetup && hasAuthoredRoster) {
-		const { matchesLocalSetupWorkspace } = await import("../setup-recovery-CLii2uiW.mjs");
+		const { matchesLocalSetupWorkspace } = await import("../setup-recovery-CvfEFmkz.mjs");
 		if (localSetup?.teamCoordinatorId && !await matchesLocalSetupWorkspace(existingConfig, workspace, localSetup.teamCoordinatorId)) throw new Error("The pending team no longer matches its approved roster and workspace. Inspect `openclaw agents list` and repair the team before retrying setup.");
 		if (!teamCoordinatorId && handoffAgentId && await matchesLocalSetupWorkspace(existingConfig, workspace, handoffAgentId)) teamCoordinatorId = handoffAgentId;
 	}
@@ -358,7 +358,7 @@ async function runGuidedOnboardingFlow(opts, runtime, deps) {
 			await prompter.note(t("wizard.guided.nextStepsWithoutAi", { workspace }), t("wizard.guided.nextStepsTitle"));
 			return null;
 		}
-		if (wantsDiscovery) await (deps.runSetupMemoryImportStep ?? (await import("../setup.memory-import-B0TwiZ0w.mjs")).runSetupMemoryImportStep)({
+		if (wantsDiscovery) await (deps.runSetupMemoryImportStep ?? (await import("../setup.memory-import-Dy3ybSZh.mjs")).runSetupMemoryImportStep)({
 			config: persistedConfig,
 			prompter,
 			runtime,
@@ -387,7 +387,7 @@ async function runGuidedOnboardingFlow(opts, runtime, deps) {
 		if (!skippedInference) await prompter.note(t("wizard.guided.alreadySetUp"), t("wizard.guided.welcomeTitle"));
 		if (workspaceConflict) await prompter.note(t("wizard.guided.workspaceConflictClassic", { command: formatCliCommand("openclaw onboard --classic") }), t("wizard.setup.workspaceConflictTitle"));
 		if (firstAgent) {
-			const { ensureOnboardingAgent } = await import("../onboard-agent-Ck7FknBa.mjs");
+			const { ensureOnboardingAgent } = await import("../onboard-agent-DJcd-H9Y.mjs");
 			const created = await ensureOnboardingAgent({
 				config: persistedConfig,
 				workspace: appliedWorkspace,
@@ -406,7 +406,7 @@ async function runGuidedOnboardingFlow(opts, runtime, deps) {
 				if (!ownerSnapshot.exists || !ownerSnapshot.valid || resolveUserPath(ownerSnapshot.path) !== localSetup.configPath) throw new Error("Another onboarding run replaced this setup operation. Retry onboarding.");
 				assertLocalSetupOwner(ownerSnapshot.sourceConfig ?? ownerSnapshot.config);
 			}
-			const applySetup = deps.applySetup ?? (await import("../setup-apply-D_ViV1r_.mjs")).applySystemAgentSetup;
+			const applySetup = deps.applySetup ?? (await import("../setup-apply-D1lHK-QT.mjs")).applySystemAgentSetup;
 			const applied = await withConsoleSubsystemsSuppressed(() => applySetup({
 				workspace,
 				...firstAgent ? { firstAgent } : {},
@@ -430,7 +430,7 @@ async function runGuidedOnboardingFlow(opts, runtime, deps) {
 				throw new Error(gateway.error);
 			}
 			gatewayExternallyManaged = applied.gateway.status === "skipped" && applied.gateway.reason === "external";
-			const appliedSnapshot = localSetup?.status === "pending" ? await (await import("../setup-recovery-CLii2uiW.mjs")).completeLocalSetupRecovery({
+			const appliedSnapshot = localSetup?.status === "pending" ? await (await import("../setup-recovery-CvfEFmkz.mjs")).completeLocalSetupRecovery({
 				owner: localSetup,
 				appliedConfigPath: applied.configPath,
 				teamCoordinatorId
@@ -456,20 +456,20 @@ async function runGuidedOnboardingFlow(opts, runtime, deps) {
 		await prompter.outro(t("wizard.guided.setupDone"));
 		return null;
 	}
-	const { resolveConfiguredSetupModelForAgent } = await import("../utility-model-JGqWYUFA.mjs");
+	const { resolveConfiguredSetupModelForAgent } = await import("../utility-model-BdPopHsA.mjs");
 	const setupOnly = resolveConfiguredSetupModelForAgent({
 		cfg: persistedConfig,
 		agentId: handoffAgentId ?? resolveSystemAgentOnboardingTarget(persistedConfig).agentId
 	})?.modelTarget === "utility";
 	if (setupOnly) await prompter.note("Your setup and utility model is ready. It can help finish setup here. Choose a primary model in Model Setup or run openclaw onboard before regular agent chat.", "Setup and utility inference");
 	if (wantsDiscovery && !quickstart && !setupOnly) {
-		await (deps.runSetupMemoryImportStep ?? (await import("../setup.memory-import-B0TwiZ0w.mjs")).runSetupMemoryImportStep)({
+		await (deps.runSetupMemoryImportStep ?? (await import("../setup.memory-import-Dy3ybSZh.mjs")).runSetupMemoryImportStep)({
 			config: persistedConfig,
 			prompter,
 			runtime,
 			...handoffAgentId ? { agentId: handoffAgentId } : {}
 		});
-		const recommendationOutcome = await (deps.runAppRecommendations ?? (await import("../setup.app-recommendations-CcCm2dhx.mjs")).setupAppRecommendations)({
+		const recommendationOutcome = await (deps.runAppRecommendations ?? (await import("../setup.app-recommendations-dpI65dG8.mjs")).setupAppRecommendations)({
 			config: persistedConfig,
 			prompter,
 			runtime,
@@ -478,7 +478,7 @@ async function runGuidedOnboardingFlow(opts, runtime, deps) {
 		});
 		const recommendedConfig = recommendationOutcome.config;
 		if (recommendedConfig !== persistedConfig) {
-			const { writeWizardConfigFile } = await import("../setup.shared-BtC-LiFr.mjs");
+			const { writeWizardConfigFile } = await import("../setup.shared-CN7KgerP.mjs");
 			persistedConfig = (await writeWizardConfigFile(recommendedConfig, {
 				allowConfigSizeDrop: false,
 				mergeBase: persistedConfig
@@ -500,7 +500,7 @@ async function runGuidedOnboardingFlow(opts, runtime, deps) {
 		return null;
 	}
 	if (opts.tui !== true) {
-		if ((await (deps.runBrowserHandoff ?? (await import("../onboard-browser-handoff-hIuPKdMe.mjs")).runBrowserHatchHandoff)({
+		if ((await (deps.runBrowserHandoff ?? (await import("../onboard-browser-handoff-3kytaviM.mjs")).runBrowserHatchHandoff)({
 			config: persistedConfig,
 			prompter,
 			...handoffAgentId ? { agentId: handoffAgentId } : {},

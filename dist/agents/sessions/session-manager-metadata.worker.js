@@ -13,12 +13,12 @@ import { d as resolveSqliteTranscriptScope } from "../../session-accessor.sqlite
 import { n as assertCanonicalSessionKeyWrite } from "../../session-canonical-key-D1TSJMmX.mjs";
 import { a as runWithSessionTranscriptReadFence } from "../../session-transcript-read-fence-DfxRHzep.mjs";
 import { v as runWithSessionPendingInputWorkerCustody } from "../../session-accessor.sqlite-pending-inputs-DtDOOibA.mjs";
-import { T as validatePreparedAssistantAppendSync, a as inspectTranscriptEventsSync, d as loadTranscriptReadSnapshotSync } from "../../session-accessor.sqlite-read-D4vZepQN.mjs";
-import { t as ensureSessionEntryInTransaction } from "../../session-accessor.sqlite-initial-entry-B_o9uZxg.mjs";
-import { t as readSessionTranscriptBoundedActiveContextCore } from "../../session-accessor.sqlite-active-context-BG2hVt5Z.mjs";
-import { a as appendTranscriptMessageSnapshotSync, c as replaceSessionWithBranchedTranscriptInTransaction, h as replaceTranscriptSuffixEventsSync, n as appendTranscriptEventSnapshotSync } from "../../session-accessor.sqlite-transcript-write-Kl-_Ewp0.mjs";
-import { i as persistCompactionBoundaryWithSessionEntryInWorker, n as readTranscriptMutationAtSync } from "../../session-accessor.sqlite-metadata-read-VWtG2sx_.mjs";
-import { t as prepareTranscriptRewriteSync } from "../../session-accessor.sqlite-branch-rewrite-Djr4NbGb.mjs";
+import { T as validatePreparedAssistantAppendSync, a as inspectTranscriptEventsSync, d as loadTranscriptReadSnapshotSync } from "../../session-accessor.sqlite-read-8qBtzC-z.mjs";
+import { t as ensureSessionEntryInTransaction } from "../../session-accessor.sqlite-initial-entry--t0jv1JX.mjs";
+import { t as readSessionTranscriptBoundedActiveContextCore } from "../../session-accessor.sqlite-active-context-B0o-SgQq.mjs";
+import { a as appendTranscriptMessageSnapshotSync, c as replaceSessionWithBranchedTranscriptInTransaction, h as replaceTranscriptSuffixEventsSync, n as appendTranscriptEventSnapshotSync } from "../../session-accessor.sqlite-transcript-write-CPk6xFA-.mjs";
+import { i as persistCompactionBoundaryWithSessionEntryInWorker, n as readTranscriptMutationAtSync } from "../../session-accessor.sqlite-metadata-read-Dij1AT2k.mjs";
+import { t as prepareTranscriptRewriteSync } from "../../session-accessor.sqlite-branch-rewrite-B_v7eZj9.mjs";
 import { serialize } from "node:v8";
 //#region src/agents/sessions/session-manager-maintenance.worker.ts
 function executeSessionMaintenance(command, scope, context) {

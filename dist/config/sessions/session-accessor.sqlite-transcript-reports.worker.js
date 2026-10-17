@@ -8,12 +8,12 @@ import { t as SessionTranscriptWriterClaimReboundError } from "../../transcript-
 import { i as toDatabaseOptions } from "../../session-accessor.sqlite-scope-helpers-DOK3pvYX.mjs";
 import "../../session-accessor.sqlite-scope-CdpbxR_m.mjs";
 import { l as readSessionEntryRow } from "../../session-accessor.sqlite-entry-read-CWTZjXLR.mjs";
-import "../../session-accessor.sqlite-entry-store-BnbK5FTE.mjs";
+import "../../session-accessor.sqlite-entry-store-Ca60AZ39.mjs";
 import { i as requestSessionEntryCurrentAdmission } from "../../session-entry-current-admission.worker-DStXV6pd.mjs";
-import { m as advanceCliHistoryBoundaryRangeInTransaction } from "../../session-accessor.sqlite-transcript-store-CV2CGkbJ.mjs";
+import { m as advanceCliHistoryBoundaryRangeInTransaction } from "../../session-accessor.sqlite-transcript-store-Bqsq62BI.mjs";
 import { s as readTranscriptContextVersionInTransaction } from "../../session-accessor.sqlite-transcript-state-xJ1TJ9j2.mjs";
-import { i as resolveTranscriptAppendRefusal } from "../../session-accessor.sqlite-transcript-write-guard-zwgi538F.mjs";
-import { i as prepareTranscriptReportSelection, n as appendSelectedTranscriptReportInTransaction, t as appendAbortedSessionTranscriptPartialInTransaction } from "../../session-accessor.sqlite-transcript-reports.kernel-D58coxNn.mjs";
+import { i as resolveTranscriptAppendRefusal } from "../../session-accessor.sqlite-transcript-write-guard-Dit9k70E.mjs";
+import { i as prepareTranscriptReportSelection, n as appendSelectedTranscriptReportInTransaction, t as appendAbortedSessionTranscriptPartialInTransaction } from "../../session-accessor.sqlite-transcript-reports.kernel-CoNAoLug.mjs";
 import { isDeepStrictEqual } from "node:util";
 //#region src/config/sessions/session-accessor.sqlite-transcript-reports.worker.ts
 /** Domain binding borrows the existing SQLite broker's canonical writer. */

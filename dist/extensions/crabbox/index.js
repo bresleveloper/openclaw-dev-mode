@@ -17,17 +17,17 @@ import { t as jsonResult } from "../../tool-results-BCM3fdVS.mjs";
 import { m as readToolStringParam, u as readPositiveIntegerParam } from "../../common-Dyxcwsy8.mjs";
 import { t as SandboxRuntimeRetiredError } from "../../provisioning-error-bD2pXu_s.mjs";
 import "../../process-runtime-CYiH_oPH.mjs";
-import { d as createRemoteShellSandboxSession, p as createRemoteShellSandboxBackend } from "../../ssh-backend-zD0LaFjr.mjs";
-import { a as getSandboxBackendWorkdirResolver, o as registerSandboxBackend } from "../../backend-DPeOs_VY.mjs";
+import { d as createRemoteShellSandboxSession, p as createRemoteShellSandboxBackend } from "../../ssh-backend-oJM__Dmi.mjs";
+import { a as getSandboxBackendWorkdirResolver, o as registerSandboxBackend } from "../../backend-Bhk9VbVt.mjs";
 import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
-import "../../sandbox-iDQppsJh.mjs";
+import "../../sandbox-CAuV4ife.mjs";
 import "../../temp-path-C5ZA6ftW.mjs";
 import "../../time-runtime-Bfsc2GHI.mjs";
-import "../../logging-core-LMmGpAHM.mjs";
+import "../../logging-core-e269L3HU.mjs";
 import "../../param-readers-B4Zo5Lzz.mjs";
 import { _ as resolveCrabboxNodeEnrollmentTimeoutMs, a as CRABBOX_LIFECYCLE_TIMEOUT_MS, b as resolveCrabboxReadyPollIntervalMs, c as CRABBOX_SETUP_TIMEOUT_MS, d as WARM_IMAGE_COMMAND_ROUND_TRIP_TIMEOUT_MS, f as WARM_IMAGE_COMMAND_TIMEOUT_MS, g as resolveCrabboxLifecycleTimeoutMs, h as resolveCrabboxCheckpointCaptureTimeoutMs, l as CRABBOX_STOP_TIMEOUT_MS, m as countCrabboxProvisionSetupPhases, n as CRABBOX_CONFIG_TIMEOUT_MS, o as CRABBOX_MACHINE_CATALOG_TIMEOUT_MS, p as WARM_IMAGE_NATIVE_WAIT_TIMEOUT_MS, r as CRABBOX_DESKTOP_WARMUP_TIMEOUT_MS, s as CRABBOX_NODE_ENROLLMENT_DIAGNOSTIC_TIMEOUT_MS, t as CRABBOX_COMMAND_SETTLEMENT_TIMEOUT_MS, u as CRABBOX_WARMUP_TIMEOUT_MS, v as resolveCrabboxProvisionBaseTimeoutMs, x as resolveCrabboxWarmImageCaptureTimeoutMs, y as resolveCrabboxProvisionCallTimeoutMs } from "../../crabbox-worker-timeouts-DXsC1sef.mjs";
 import { a as buildCrabboxAllocationArgs, c as operationSlug, d as resolveCrabboxProvisionProfile, f as resolveCrabboxWarmImageProfile, i as assertCrabboxLeaseId, l as parseCrabboxOperatingSystem, m as resolveOpenClawRoot, n as CRABBOX_OS_LABELS, o as listCrabboxMachineOptions, p as resolveCrabboxWarmImageProfileKey, r as CRABBOX_WORKER_PROVIDER_ID, s as operationLeaseId, t as CRABBOX_ENROLLABLE_TARGETS, u as parseCrabboxProfile } from "../../crabbox-worker-profile-BU49dPt3.mjs";
-import { c as isFixedLeaseIdUnsupported, d as parseCrabboxJson, f as runCrabboxCommand, l as isUnrecognizedLease, m as stopCrabboxLease, n as ensureManagedCrabboxBinary, o as crabboxCommandError, p as runCrabboxCommandWithCoordinatorRetry, s as crabboxCommandOutput, u as leaseRunArgs } from "../../crabbox-managed-binary-DtWM-7fF.mjs";
+import { c as isFixedLeaseIdUnsupported, d as parseCrabboxJson, f as runCrabboxCommand, l as isUnrecognizedLease, m as stopCrabboxLease, n as ensureManagedCrabboxBinary, o as crabboxCommandError, p as runCrabboxCommandWithCoordinatorRetry, s as crabboxCommandOutput, u as leaseRunArgs } from "../../crabbox-managed-binary-BJo8zB7t.mjs";
 import "../../crabbox-worker-warm-image-records-D4Yqzjt9.mjs";
 import { _ as withCrabboxWarmImageGeneration, a as crabboxCaptureUnsupportedSentence, c as isCrabboxCaptureRefusalRetained, f as openCrabboxWarmImageStore, g as withCrabboxWarmImageDisplayFacts, h as sameCrabboxWarmImageGeneration, i as clearCrabboxWarmImageCapture, l as isCrabboxWarmImageHeld, n as CrabboxWarmImageRequestError, o as crabboxWarmImageCaptureStatus, p as projectCrabboxWarmImage, r as assertCrabboxWarmImageMigrationReady, s as crabboxWarmImageRecoveryHint, t as CRABBOX_WARM_IMAGE_WAIT_HINT, v as withoutCrabboxWarmImageOperation } from "../../crabbox-worker-warm-image-store-CTZ77FWn.mjs";
 import fs from "node:fs";
@@ -3744,7 +3744,7 @@ var crabbox_default = definePluginEntry({
 		api.registerCli(async ({ program, config }) => {
 			const { registerCrabboxWarmImageCommands } = await import("../../crabbox-worker-warm-image-cli-CCrwbpVZ.mjs");
 			registerCrabboxWarmImageCommands(program, api.runtime.state);
-			const { registerCrabboxModelRunCommand } = await import("../../crabbox-model-run-cli-B_xKyaqQ.mjs");
+			const { registerCrabboxModelRunCommand } = await import("../../crabbox-model-run-cli-BENwHzTt.mjs");
 			registerCrabboxModelRunCommand({
 				program,
 				config

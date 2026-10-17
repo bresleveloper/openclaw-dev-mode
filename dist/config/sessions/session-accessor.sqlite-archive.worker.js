@@ -338,7 +338,7 @@ if (isRecord(workerData) && workerData.type === "sqlite-transcript-archive-v2") 
 	const operation = workerData.operation;
 	if (operation === "canonical-validation-pool") {
 		const { serveWorkerTasks } = await import("../../worker-task-server-DCO6XUS8.mjs");
-		const { runReclamationWorkerPort } = await import("../../session-accessor.sqlite-mutation-worker.runtime-dNC5GvKw.mjs");
+		const { runReclamationWorkerPort } = await import("../../session-accessor.sqlite-mutation-worker.runtime-j6AwotmG.mjs");
 		const taskSequence = { operationId: 0 };
 		serveWorkerTasks(async (value, channel) => {
 			const task = value;
@@ -371,7 +371,7 @@ if (isRecord(workerData) && workerData.type === "sqlite-transcript-archive-v2") 
 		if (!plans) throw new Error("SQLite transcript archive worker requires valid publication data");
 		runPublishWorkerPort(parentPort, plans);
 	} else if (operation === "cold-prepare") {
-		const { prepareSessionColdBatchInWorker } = await import("../../session-cold-storage-worker-5xlnjkpA.mjs");
+		const { prepareSessionColdBatchInWorker } = await import("../../session-cold-storage-worker-BGLwMA4f.mjs");
 		const result = await prepareSessionColdBatchInWorker(workerData.input);
 		parentPort.postMessage({
 			type: "done",
@@ -379,7 +379,7 @@ if (isRecord(workerData) && workerData.type === "sqlite-transcript-archive-v2") 
 		}, []);
 		parentPort.close();
 	} else if (operation === "maintenance-size") {
-		const { readSessionTranscriptJsonlBytesInDatabase } = await import("../../session-accessor.sqlite-maintenance-store-DnlfplbG.mjs");
+		const { readSessionTranscriptJsonlBytesInDatabase } = await import("../../session-accessor.sqlite-maintenance-store-C14WjdWY.mjs");
 		const { input } = workerData;
 		const opened = withFreshOpenClawAgentDatabaseReadOnly((database) => readSessionTranscriptJsonlBytesInDatabase(database, input.sessionIds), input);
 		if (!opened.found) throw new Error(`Cannot size SQLite session transcripts: ${opened.reason.replaceAll("-", " ")}`);
@@ -389,7 +389,7 @@ if (isRecord(workerData) && workerData.type === "sqlite-transcript-archive-v2") 
 		}, []);
 		parentPort.close();
 	} else if (operation === "cold-mutate" || operation === "reclaim") {
-		const { runColdMutationWorkerPort, runReclamationWorkerPort } = await import("../../session-accessor.sqlite-mutation-worker.runtime-dNC5GvKw.mjs");
+		const { runColdMutationWorkerPort, runReclamationWorkerPort } = await import("../../session-accessor.sqlite-mutation-worker.runtime-j6AwotmG.mjs");
 		if (operation === "cold-mutate") await runColdMutationWorkerPort(parentPort, workerData);
 		else await runReclamationWorkerPort(parentPort, workerData.databaseOptions);
 	} else throw new Error("SQLite transcript archive worker requires a supported operation");

@@ -1,14 +1,14 @@
 import { i as extractErrorCode } from "../../error-coercion-CvJK4lmH.mjs";
 import { t as createSubsystemLogger } from "../../subsystem-I-uqdx4f.mjs";
-import { r as getRuntimeConfig } from "../../io.runtime-CPntde4x.mjs";
+import { r as getRuntimeConfig } from "../../io.runtime-BSum32pK.mjs";
 import "../../security-runtime-CpTHQYW2.mjs";
-import "../../runtime-config-snapshot-DgZgcXUX.mjs";
-import "../../logging-core-LMmGpAHM.mjs";
+import "../../runtime-config-snapshot-DlrhEsA8.mjs";
+import "../../logging-core-e269L3HU.mjs";
 import { a as createDeferred } from "../../extension-shared-GoQu59iC.mjs";
 import { i as resolveBrowserConfig, s as resolveProfile } from "../../config-DQZ6ubGi.mjs";
-import { t as readBrowserHostConfig } from "../../extension-host-config-CRJsBkxu.mjs";
-import { n as readExtensionRelayToken } from "../../relay-auth-hAstP_cu.mjs";
-import { r as startExtensionRelayServer } from "../../relay-server-H4jkf0OF.mjs";
+import { t as readBrowserHostConfig } from "../../extension-host-config-CgZzBhnb.mjs";
+import { n as readExtensionRelayToken } from "../../relay-auth-z0aZf3a4.mjs";
+import { r as startExtensionRelayServer } from "../../relay-server-VNzPGXwB.mjs";
 //#region extensions/browser/src/browser/relay-daemon.ts
 const log = createSubsystemLogger("browser").child("relay-daemon");
 /** Default grace before a daemon with no extension and no CDP clients exits. */

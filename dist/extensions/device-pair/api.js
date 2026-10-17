@@ -7,5 +7,5 @@ import { n as renderQrPngDataUrl, r as writeQrPngTempFile, t as renderQrPngBase6
 import { n as approveDevicePairing } from "../../device-pairing-approval-DyoNg7Fe.mjs";
 import { p as revokeDeviceBootstrapToken, s as issueDeviceBootstrapToken, t as clearDeviceBootstrapTokens } from "../../device-bootstrap-oFZT97Lm.mjs";
 import { t as resolvePairingGatewayUrl } from "../../device-bootstrap-CXmW8GN_.mjs";
-import "../../api-Jg0Xdehf.mjs";
+import "../../api-D-QH72dU.mjs";
 export { PAIRING_SETUP_BOOTSTRAP_PROFILE, approveDevicePairing, clearDeviceBootstrapTokens, definePluginEntry, issueDeviceBootstrapToken, listDevicePairing, renderQrPngBase64, renderQrPngDataUrl, resolvePairingGatewayUrl, resolvePreferredOpenClawTmpDir, revokeDeviceBootstrapToken, runPluginCommandWithTimeout, writeQrPngTempFile };

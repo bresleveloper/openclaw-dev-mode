@@ -3,7 +3,7 @@ import { a as asOptionalRecord } from "../../record-coerce-TIsquoVR.mjs";
 import { t as findCrabboxBinary } from "../../crabbox-binary-BMI8aWfR.mjs";
 import "../../string-coerce-runtime-50qKeWeL.mjs";
 import { m as resolveOpenClawRoot, r as CRABBOX_WORKER_PROVIDER_ID } from "../../crabbox-worker-profile-BU49dPt3.mjs";
-import { a as resolveManagedCrabboxBinaryPath, i as probeCrabboxVersion, n as ensureManagedCrabboxBinary, r as findManagedCrabboxBinary, t as CRABBOX_MIN_VERSION } from "../../crabbox-managed-binary-DtWM-7fF.mjs";
+import { a as resolveManagedCrabboxBinaryPath, i as probeCrabboxVersion, n as ensureManagedCrabboxBinary, r as findManagedCrabboxBinary, t as CRABBOX_MIN_VERSION } from "../../crabbox-managed-binary-BJo8zB7t.mjs";
 import "../../crabbox-worker-warm-image-records-D4Yqzjt9.mjs";
 import { p as projectCrabboxWarmImage, s as crabboxWarmImageRecoveryHint, t as CRABBOX_WARM_IMAGE_WAIT_HINT } from "../../crabbox-worker-warm-image-store-CTZ77FWn.mjs";
 import { fileURLToPath } from "node:url";

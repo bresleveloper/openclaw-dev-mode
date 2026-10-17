@@ -4,7 +4,7 @@ import { r as resolveStateDir } from "../state-dir-BHJORNly.mjs";
 import "../paths-DGIwWbpu.mjs";
 import { t as UpdateSchemaRefusalError } from "../openclaw-update-schema-refusal-M64rViod.mjs";
 import { r as formatCliJsonFailure } from "../failure-output-gtb9zaTk.mjs";
-import { t as exitCliAfterOutput } from "../one-shot-exit-CSOrFNcy.mjs";
+import { t as exitCliAfterOutput } from "../one-shot-exit-Bd4757D_.mjs";
 import { a as getNodeSqliteKysely, i as executeSqliteQueryTakeFirstSync, r as executeSqliteQuerySync } from "../kysely-sync-K7ftY-g4.mjs";
 import { t as clearNodeSqliteKyselyCacheForDatabase } from "../kysely-sync-cache-state-eUau8Jaa.mjs";
 import { t as openNodeSqliteDatabase } from "../node-sqlite-XIcwmOrl.mjs";
@@ -19,9 +19,9 @@ import { n as readUpdateRunDriver, r as sameUpdateRunDriver, t as inspectUpdateR
 import { r as UpdateRunRecordSchema } from "../update-run-schema-DOichlUj.mjs";
 import { n as openDoctorStateSchemaReadAdmission } from "../openclaw-state-db-doctor-schema-BlUz8kWR.mjs";
 import { st as readStateSchemaPublicationBlocker } from "../openclaw-state-db-fast-path-CPAamWzU.mjs";
-import { t as prepareDoctorDatabasePreflight } from "../doctor-database-preflight-Bc5gds0N.mjs";
+import { t as prepareDoctorDatabasePreflight } from "../doctor-database-preflight-DQeccfC9.mjs";
 import { t as createDoctorRehearsalDatabaseCoverage } from "../doctor-rehearsal-databases-jWB-feGw.mjs";
-import { n as recordUpdateDoctorRefusal, r as resolveUpdateDoctorGitRecovery } from "../doctor-update-refusal-Bd5VKBXs.mjs";
+import { n as recordUpdateDoctorRefusal, r as resolveUpdateDoctorGitRecovery } from "../doctor-update-refusal-CuBUilWt.mjs";
 import { d as isUpdatePackageSwapInProgress } from "../update-phase-BClSJ17n.mjs";
 import { lstatSync, realpathSync, statSync } from "node:fs";
 import path from "node:path";
@@ -135,8 +135,8 @@ async function guardUpdateDoctorSchemaUpgrade(options) {
 			};
 			assertCurrent();
 			const [{ createBackupArchive }, { verifyBackupArchive }, { resolveUpdateCaptureRoot }] = await Promise.all([
-				import("../backup-create-BwvKWkGd.mjs"),
-				import("../backup-verify-DTbbf5qi.mjs"),
+				import("../backup-create-Bj7XL5w0.mjs"),
+				import("../backup-verify-CkQonlxk.mjs"),
 				import("../update-capture-paths-_3kPlbkf.mjs")
 			]);
 			assertCurrent();
@@ -258,10 +258,10 @@ async function rehearseDeferredUpdateDoctorSchemaForParent(schemas, runtime, par
 	};
 	assertParent();
 	const [{ createConfigIO }, { resolveOpenClawPackageRoot }, { resolveUpdateInstallKind }, { prepareUpdateCandidateRehearsal }, { resolveGatewayInstallEntrypoint }, { runUtf8CommandWithTimeout }, { resolveSqliteInspectionBudget }] = await Promise.all([
-		import("../io-DWAGT1Vv.mjs"),
+		import("../io-BM-qEheD.mjs"),
 		import("../openclaw-root-Cr3tCNk3.mjs"),
-		import("../update-check-Cro5RFw-.mjs"),
-		import("../update-candidate-rehearsal-CuqDqmVb.mjs"),
+		import("../update-check-D5e9uqv6.mjs"),
+		import("../update-candidate-rehearsal-nNf124C8.mjs"),
 		import("../gateway-entrypoint-ByuBsr2t.mjs"),
 		import("../exec-C89-C-hl.mjs"),
 		import("../sqlite-readonly-worker-DPlfD0t8.mjs")
@@ -307,7 +307,7 @@ async function rehearseDeferredUpdateDoctorSchemaForParent(schemas, runtime, par
 			...rehearsal.env,
 			OPENCLAW_UPDATE_IN_PROGRESS: "0"
 		};
-		const { inspectPreparedDoctorRehearsal } = await import("../doctor-update-rehearsal-inventory-Brvs8faK.mjs");
+		const { inspectPreparedDoctorRehearsal } = await import("../doctor-update-rehearsal-inventory-D45Y2ifF.mjs");
 		const admitted = await inspectPreparedDoctorRehearsal({
 			stateDir: rehearsal.stateDir,
 			pluginCodeLinks: rehearsal.pluginCodeLinks,

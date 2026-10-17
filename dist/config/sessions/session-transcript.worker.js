@@ -4,7 +4,7 @@ import { r as cloneEnvWithPlatformSemantics } from "../../config-env-vars-DjPHKi
 import { t as serveOwnedWorkerTasks } from "../../worker-task-server-BC_7U18u.mjs";
 import { a as runWithSessionTranscriptReadFence } from "../../session-transcript-read-fence-DfxRHzep.mjs";
 import { a as sessionHistoryCleanupError, i as encodeSessionTranscriptWorkerError, r as encodeSessionTranscriptRequestError } from "../../session-history-worker-errors-NH8_8u1W.mjs";
-import { n as prepareSessionHistoryReadOperation, t as isSessionHistoryReadOperation } from "../../session-history-read-operation.worker-DKAySX5X.mjs";
+import { n as prepareSessionHistoryReadOperation, t as isSessionHistoryReadOperation } from "../../session-history-read-operation.worker-Ddb-X95l.mjs";
 //#region src/config/sessions/session-transcript-worker-scopes.ts
 const MAX_RETAINED_HISTORY_DATABASES = 64;
 const historyDatabaseScopes = /* @__PURE__ */ new Map();
@@ -65,7 +65,7 @@ serveOwnedWorkerTasks(async (input, channel, control) => {
 	const request = input;
 	if (request.kind === "cli-process-history") {
 		if (!channel) throw new Error("Process-held history requires its host reader channel");
-		const { readProcessHeldCliHistoryInWorker } = await import("../../cli-session-history.process-held-BVRVcpxt.mjs");
+		const { readProcessHeldCliHistoryInWorker } = await import("../../cli-session-history.process-held-DIlnCme3.mjs");
 		return {
 			ok: true,
 			value: {
@@ -82,7 +82,7 @@ serveOwnedWorkerTasks(async (input, channel, control) => {
 		};
 	}
 	if (request.kind === "usage-cost") {
-		const { executeUsageCostWorker, usageCostWorkerFailure } = await import("../../session-cost-usage-worker-B2avScHO.mjs");
+		const { executeUsageCostWorker, usageCostWorkerFailure } = await import("../../session-cost-usage-worker-DINZDrla.mjs");
 		try {
 			if (!channel) throw new Error("Usage cost worker requires its host channel");
 			const closed = /* @__PURE__ */ new Map();
@@ -103,7 +103,7 @@ serveOwnedWorkerTasks(async (input, channel, control) => {
 	const readRequest = async () => {
 		if (isSessionHistoryReadOperation(request)) return (await prepareSessionHistoryReadOperation(request))();
 		if (request.kind === "lifecycle-artifact-plan") {
-			const { readSessionLifecycleArtifactCleanup } = await import("../../session-accessor.sqlite-lifecycle-artifacts-CWSK8qRf.mjs");
+			const { readSessionLifecycleArtifactCleanup } = await import("../../session-accessor.sqlite-lifecycle-artifacts-B8RJcfUB.mjs");
 			const { withOpenClawAgentDatabaseReadOnly } = await import("../../openclaw-agent-db-readonly-CaIroy8A.mjs");
 			const result = withOpenClawAgentDatabaseReadOnly((database) => readSessionLifecycleArtifactCleanup(database, request.input, request.expectedSource), {
 				...request.database,
@@ -120,10 +120,10 @@ serveOwnedWorkerTasks(async (input, channel, control) => {
 		}
 		if (request.kind === "prewarm") {
 			await Promise.all([
-				import("../../session-history-worker-reader-BGhNb5p0.mjs"),
+				import("../../session-history-worker-reader-CDir-yrc.mjs"),
 				import("../../chat-history-page-kernel-CSHhmCUJ.mjs"),
-				import("../../chat-history-response-page-FdT4ozPl.mjs"),
-				import("../../session-history-snapshot-DgRdTGhT.mjs")
+				import("../../chat-history-response-page-fKVbbSAu.mjs"),
+				import("../../session-history-snapshot-CzIvW-DJ.mjs")
 			]);
 			const { withOpenClawAgentDatabaseReadOnly } = await import("../../openclaw-agent-db-readonly-CaIroy8A.mjs");
 			const opened = withOpenClawAgentDatabaseReadOnly(() => void 0, {
@@ -136,7 +136,7 @@ serveOwnedWorkerTasks(async (input, channel, control) => {
 		if (request.kind === "historical-eviction-candidates") {
 			const { withOpenClawAgentDatabaseReadOnly } = await import("../../openclaw-agent-db-readonly-CaIroy8A.mjs");
 			const { runSqliteDeferredTransactionSync } = await import("../../sqlite-transaction-DGdmlejc.mjs");
-			const { readHistoricalSessionIdsInDatabase, readDiskEvictableArchivedSessionBatchInDatabase } = await import("../../session-history-eviction-candidates-CYzVKOzg.mjs");
+			const { readHistoricalSessionIdsInDatabase, readDiskEvictableArchivedSessionBatchInDatabase } = await import("../../session-history-eviction-candidates-eCmpOEfO.mjs");
 			const result = withOpenClawAgentDatabaseReadOnly((database) => runSqliteDeferredTransactionSync(database.db, () => "archived" in request ? { batch: readDiskEvictableArchivedSessionBatchInDatabase(database, request.archived) } : { sessionIds: readHistoricalSessionIdsInDatabase({
 				...request,
 				database
@@ -173,7 +173,7 @@ serveOwnedWorkerTasks(async (input, channel, control) => {
 			};
 		}
 		if (request.kind === "memory-session-targets") {
-			const { readMemorySessionTargets } = await import("../../session-memory-targets-Bes_D657.mjs");
+			const { readMemorySessionTargets } = await import("../../session-memory-targets-BNbb3ndb.mjs");
 			return {
 				kind: request.kind,
 				targets: readMemorySessionTargets({
@@ -183,7 +183,7 @@ serveOwnedWorkerTasks(async (input, channel, control) => {
 			};
 		}
 		if (request.kind === "session-archive-inventory") {
-			const { listSessionTranscriptArchivesReadOnly } = await import("../../session-accessor.sqlite-history-B2gkbHv9.mjs");
+			const { listSessionTranscriptArchivesReadOnly } = await import("../../session-accessor.sqlite-history-B9w5HpJ3.mjs");
 			return {
 				kind: request.kind,
 				archives: listSessionTranscriptArchivesReadOnly({
@@ -193,7 +193,7 @@ serveOwnedWorkerTasks(async (input, channel, control) => {
 			};
 		}
 		if (request.kind === "session-corpus-inventory") {
-			const { readSessionTranscriptCorpusInventory } = await import("../../session-transcript-corpus-j_8NF0F4.mjs");
+			const { readSessionTranscriptCorpusInventory } = await import("../../session-transcript-corpus-DneGneZ2.mjs");
 			return {
 				kind: request.kind,
 				entries: readSessionTranscriptCorpusInventory({
@@ -213,14 +213,14 @@ serveOwnedWorkerTasks(async (input, channel, control) => {
 			};
 		}
 		if (request.kind === "session-archive-pruning") {
-			const { readSessionArchivePruningInWorker } = await import("../../session-history-archive-pruning.worker-DR7MvEsd.mjs");
+			const { readSessionArchivePruningInWorker } = await import("../../session-history-archive-pruning.worker-CtbX6A-0.mjs");
 			return {
 				kind: "session-archive-pruning",
 				result: readSessionArchivePruningInWorker(request)
 			};
 		}
 		if (request.kind === "cold-metadata" || request.kind === "cold-storage-inventory") {
-			const cold = await import("../../session-cold-storage-worker-5xlnjkpA.mjs");
+			const cold = await import("../../session-cold-storage-worker-BGLwMA4f.mjs");
 			const options = {
 				...request.database,
 				env: cloneEnvWithPlatformSemantics(request.env)
@@ -248,20 +248,20 @@ serveOwnedWorkerTasks(async (input, channel, control) => {
 			return read.value;
 		}
 		if (request.kind === "session-exact-entries") {
-			const { readExactSessionEntriesWithLifecycle } = await import("../../session-entry-read.worker-BvbSjS7K.mjs");
+			const { readExactSessionEntriesWithLifecycle } = await import("../../session-entry-read.worker-C7D_OsD2.mjs");
 			request.env = cloneEnvWithPlatformSemantics(request.env);
 			return readExactSessionEntriesWithLifecycle(request);
 		}
 		if (request.kind === "session-row-facts") {
-			const { readSessionRowDatabaseFacts } = await import("../../session-entry-read.worker-BvbSjS7K.mjs");
+			const { readSessionRowDatabaseFacts } = await import("../../session-entry-read.worker-C7D_OsD2.mjs");
 			return readSessionRowDatabaseFacts(request);
 		}
 		if (request.kind === "session-entry-current") {
-			const { readSessionEntryCurrentFacts } = await import("../../session-entry-read.worker-BvbSjS7K.mjs");
+			const { readSessionEntryCurrentFacts } = await import("../../session-entry-read.worker-C7D_OsD2.mjs");
 			return readSessionEntryCurrentFacts(request);
 		}
 		if (request.kind === "session-row-backfill") {
-			const { readSessionRowTranscriptFields } = await import("../../session-row-transcript-backfill.kernel-D18SAm5O.mjs");
+			const { readSessionRowTranscriptFields } = await import("../../session-row-transcript-backfill.kernel-CmKlM1wH.mjs");
 			return {
 				kind: "session-row-backfill",
 				fields: readSessionRowTranscriptFields(request.params)
@@ -273,7 +273,7 @@ serveOwnedWorkerTasks(async (input, channel, control) => {
 		}
 		if (request.kind === "session-identity-evidence") {
 			const { withOpenClawAgentDatabaseReadOnly } = await import("../../openclaw-agent-db-readonly-CaIroy8A.mjs");
-			const { readSessionIdentityEvidenceInDatabase } = await import("../../session-accessor.sqlite-entry-availability-BfcLbzrq.mjs");
+			const { readSessionIdentityEvidenceInDatabase } = await import("../../session-accessor.sqlite-entry-availability-f21XB-BK.mjs");
 			const { readWithCanonicalSessionReaderContinuation } = await import("../../session-canonical-key-DYObZ8GD.mjs");
 			const result = withOpenClawAgentDatabaseReadOnly((database) => readWithCanonicalSessionReaderContinuation(database, request.continuation, () => readSessionIdentityEvidenceInDatabase(database, request.identities)), {
 				...request.database,
@@ -288,15 +288,15 @@ serveOwnedWorkerTasks(async (input, channel, control) => {
 			};
 		}
 		if (request.kind === "session-diagnostic-text") {
-			const { readSessionDiagnosticText } = await import("../../session-entry-read.worker-BvbSjS7K.mjs");
+			const { readSessionDiagnosticText } = await import("../../session-entry-read.worker-C7D_OsD2.mjs");
 			return readSessionDiagnosticText(request);
 		}
 		if (request.kind === "session-entry-read" || request.kind === "session-runtime-target") {
-			const { readSessionEntryWorkerRequest } = await import("../../session-entry-read.worker-BvbSjS7K.mjs");
+			const { readSessionEntryWorkerRequest } = await import("../../session-entry-read.worker-C7D_OsD2.mjs");
 			return readSessionEntryWorkerRequest(request);
 		}
 		if (request.kind === "session-entry-list") {
-			const { readSessionEntryList } = await import("../../session-entry-read.worker-BvbSjS7K.mjs");
+			const { readSessionEntryList } = await import("../../session-entry-read.worker-C7D_OsD2.mjs");
 			return {
 				kind: "session-entry-list",
 				entries: readSessionEntryList(request)
@@ -398,7 +398,7 @@ serveOwnedWorkerTasks(async (input, channel, control) => {
 		}
 		if (request.kind === "goal-operation-receipt") {
 			const { withOpenClawAgentDatabaseReadOnly } = await import("../../openclaw-agent-db-readonly-CaIroy8A.mjs");
-			const { assertSessionGoalOperationTime, readSessionGoalOperationInDatabase, SessionGoalOperationError } = await import("../../goals-operations-W13UYmLJ.mjs");
+			const { assertSessionGoalOperationTime, readSessionGoalOperationInDatabase, SessionGoalOperationError } = await import("../../goals-operations-Dfw0X9q9.mjs");
 			try {
 				assertSessionGoalOperationTime(request.operation, Date.now());
 				const result = withOpenClawAgentDatabaseReadOnly((database) => readSessionGoalOperationInDatabase(database, request), {
@@ -441,28 +441,28 @@ serveOwnedWorkerTasks(async (input, channel, control) => {
 		}
 		return await runWithSessionTranscriptReadFence(request.admission, async () => {
 			if (request.kind === "session-activity-summary-source") {
-				const { readActivitySummaryBatch } = await import("../../session-activity-summary-source-CuW2hfxJ.mjs");
+				const { readActivitySummaryBatch } = await import("../../session-activity-summary-source-BjjC_aUX.mjs");
 				return {
 					kind: "session-activity-summary-source",
 					source: readActivitySummaryBatch(request)
 				};
 			}
 			if (request.kind === "transcript-hydration" || request.kind === "transcript-maintenance" || request.kind === "current-turn-entry" || request.kind === "recent-active-events" || request.kind === "latest-active-message") {
-				const { readSessionTranscriptHydrationRequest } = await import("../../session-transcript-hydration-read.worker-fWiAhnij.mjs");
+				const { readSessionTranscriptHydrationRequest } = await import("../../session-transcript-hydration-read.worker-C6hzGSiD.mjs");
 				return readSessionTranscriptHydrationRequest(request, channel, control);
 			}
 			if (request.kind === "history-page") {
-				const { readSessionHistoryRequest } = await import("../../session-history-worker-reader-BGhNb5p0.mjs");
+				const { readSessionHistoryRequest } = await import("../../session-history-worker-reader-CDir-yrc.mjs");
 				return readSessionHistoryRequest(request.request, {
 					...request.target,
 					database: request.database
 				});
 			}
 			if (request.kind === "session-reset-recall") {
-				const { readSessionResetRecallCutoffInProcess } = await import("../../session-reset-recall-read-Cz3ySfUf.mjs");
+				const { readSessionResetRecallCutoffInProcess } = await import("../../session-reset-recall-read-h_GiVvc5.mjs");
 				return { cutoff: readSessionResetRecallCutoffInProcess(request.scope) };
 			}
-			const { buildSessionEntryInProcess, readSessionEntryResetRecallCutoff } = await import("../../session-files-l7Kk1G0N.mjs");
+			const { buildSessionEntryInProcess, readSessionEntryResetRecallCutoff } = await import("../../session-files-CURj1ZCP.mjs");
 			const { createSensitiveTextRedactor } = await import("../../redact-BkOlsSgX.mjs");
 			const entry = await buildSessionEntryInProcess(request.absPath, request.options, createSensitiveTextRedactor(request.redaction));
 			return {

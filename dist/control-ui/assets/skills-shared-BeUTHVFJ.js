@@ -1,0 +1,11 @@
+import{n as e}from"./rolldown-runtime-8BhlS34s.js";import{Eu as t,ju as n}from"./control-ui-core-CTSdBcaH.js";import{$ as r,X as i,Y as a}from"./lit-runtime-TNZj1e-P.js";function o(e){let t=s.map(({id:e,labelKey:t,sources:r})=>({sources:r,group:{id:e,label:n(t),skills:[]}})),r=t.find(({group:e})=>e.id===`built-in`),i={id:`other`,label:n(`skillGroups.other`),skills:[]};for(let n of e)((n.bundled?r:t.find(({sources:e})=>e.includes(n.source)))?.group??i).skills.push(n);return[...t.map(({group:e})=>e),i].filter(e=>e.skills.length>0)}var s;function c(){return(c=e((()=>{t(),s=[{id:`workspace`,labelKey:`skillGroups.workspace`,sources:[`openclaw-workspace`]},{id:`built-in`,labelKey:`skillGroups.builtIn`,sources:[`openclaw-bundled`]},{id:`installed`,labelKey:`skillGroups.installed`,sources:[`openclaw-managed`]},{id:`extra`,labelKey:`skillGroups.extra`,sources:[`openclaw-extra`]}]})))()}function l(e){return[...e.missing.bins.map(e=>`bin:${e}`),...e.missing.anyBins.length>0?[`bin:any of (${e.missing.anyBins.join(`, `)})`]:[],...e.missing.env.map(e=>`env:${e}`),...e.missing.config.map(e=>`config:${e}`),...e.missing.os.map(e=>`os:${e}`)]}function u(e){let t=[];return e.disabled&&t.push(n(`skillStatus.disabled`)),e.blockedByAllowlist&&t.push(n(`skillStatus.blockedAllowlist`)),e.blockedByAgentFilter&&t.push(n(`skillStatus.blockedAgentFilter`)),t}function d(e){return e.eligible&&!e.blockedByAgentFilter}function f(e){let t=e.skill,a=d(t),o=!!e.showBundledBadge;return r`
+    <div class="chip-row" style="margin-top: 6px;">
+      <span class="chip">${t.source}</span>
+      ${o?r` <span class="chip">${n(`skillStatus.bundled`)}</span> `:i}
+      <span class="chip ${a?`chip-ok`:`chip-warn`}">
+        ${n(a?`skillStatus.eligible`:`skillStatus.blocked`)}
+      </span>
+      ${t.disabled?r` <span class="chip chip-warn">${n(`skillStatus.disabled`)}</span> `:i}
+    </div>
+  `}function p(){return(p=e((()=>{a(),t()})))()}export{f as a,d as i,u as n,o,p as r,c as s,l as t};
+//# sourceMappingURL=skills-shared-BeUTHVFJ.js.map

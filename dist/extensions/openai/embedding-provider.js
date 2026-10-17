@@ -1,4 +1,4 @@
-import { a as normalizeEmbeddingModelWithPrefixes, n as createRemoteEmbeddingProvider, r as resolveRemoteEmbeddingClient } from "../../memory-core-host-engine-embeddings-D5ue0oCU.mjs";
+import { a as normalizeEmbeddingModelWithPrefixes, n as createRemoteEmbeddingProvider, r as resolveRemoteEmbeddingClient } from "../../memory-core-host-engine-embeddings-C_qi8FWC.mjs";
 import { r as OPENAI_DEFAULT_EMBEDDING_MODEL } from "../../default-models-CYEf1QuY.mjs";
 //#region extensions/openai/embedding-provider.ts
 const DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1";

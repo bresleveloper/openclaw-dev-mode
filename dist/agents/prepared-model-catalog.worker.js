@@ -13,30 +13,30 @@ import { D as setRuntimeConfigSnapshot } from "../runtime-snapshot-DYptB0Cf.mjs"
 import { o as nativeReferenceProgress, s as withPluginSourceCaptureDirectory } from "../plugin-generation-artifact-CHASLMSu.mjs";
 import { n as withPluginRuntimeGenerationScope } from "../generation-scope-BNE7YdYW.mjs";
 import { n as isManifestPluginAvailableForControlPlane } from "../manifest-contract-eligibility-CJLBUUHI.mjs";
-import { t as createModelCatalogIdentityKeyResolver } from "../openai-model-routes-mS12tkxj.mjs";
+import { t as createModelCatalogIdentityKeyResolver } from "../openai-model-routes-CVmOODN3.mjs";
 import { d as withRemoteModelCatalogSnapshot } from "../remote-overlay-C3A-3o4_.mjs";
 import { g as mergeRuntimeExternalProfileReferences } from "../persisted-BVyWmvfF.mjs";
 import { T as listExternalCliSyncProviderIds } from "../store-SwwRUDrm.mjs";
-import { b as resolveAuthStorePathForDisplay } from "../profiles-bOpxmzRV.mjs";
+import { b as resolveAuthStorePathForDisplay } from "../profiles-Dk53jI-3.mjs";
 import { C as replaceRuntimeAuthProfileStoreSnapshots } from "../runtime-snapshots-CSLjByUx.mjs";
 import { d as preserveResolvedSecretBackedCredentials } from "../runtime-snapshot-owner-Dm2mqUH2.mjs";
 import { t as manifestPluginResolvesRuntimeModelCatalogAugment } from "../providers-DQUFJKZx.mjs";
-import { l as loadAuthProfileStoreWithoutExternalProfiles } from "../store-runtime-CzCCJ_Oe.mjs";
+import { l as loadAuthProfileStoreWithoutExternalProfiles } from "../store-runtime-Qx0DZ2Si.mjs";
 import { r as planRuntimePluginDiscovery } from "../provider-discovery-BkPgLJBP.mjs";
-import { W as restorePreparedSyntheticAuthFacts } from "../provider-runtime-BMdc4CgR.mjs";
+import { W as restorePreparedSyntheticAuthFacts } from "../provider-runtime-Ck_Cecr1.mjs";
 import { i as resolveRuntimeSyntheticAuthProviderRefs } from "../synthetic-auth.runtime-B8WINApd.mjs";
-import { I as resolveAmbientAgentCredentialsForDiscovery, L as resolveAgentCredentialMapFromStore, R as resolveUsableAgentCredentialModes, c as ownPreparedPluginGeneration, m as PreparedModelRuntimeBuildResources, p as retainPreparedPluginRegistry } from "../prepared-model-runtime.plugin-generation-BJmmAHm2.mjs";
-import { i as AuthStorage } from "../model-registry-BpwFZKI0.mjs";
-import { n as modelCatalogRouteVariantKey, r as modelCatalogRowToEntry } from "../model-catalog-entry-CqW6R2Ff.mjs";
+import { I as resolveAmbientAgentCredentialsForDiscovery, L as resolveAgentCredentialMapFromStore, R as resolveUsableAgentCredentialModes, c as ownPreparedPluginGeneration, m as PreparedModelRuntimeBuildResources, p as retainPreparedPluginRegistry } from "../prepared-model-runtime.plugin-generation-i7pfklM1.mjs";
+import { i as AuthStorage } from "../model-registry-DKSOyLSb.mjs";
+import { n as modelCatalogRouteVariantKey, r as modelCatalogRowToEntry } from "../model-catalog-entry-BfooR5F2.mjs";
 import { t as createPreparedModelCatalogProviderNormalizer } from "../model-catalog-provider-normalizer-ByP944Cg.mjs";
 import { c as withClawInstallSchemaVersionFacts } from "../provenance-runtime-read-DLNIVZio.mjs";
-import { a as fingerprintPreparedModelCatalogPluginContext, i as fingerprintPreparedModelCatalogGeneration, o as fingerprintPreparedModelWorkerRequest, t as PREPARED_MODEL_CATALOG_WORKER_TIMEOUT_MS } from "../prepared-model-catalog-worker-BIidLPJ7.mjs";
+import { a as fingerprintPreparedModelCatalogPluginContext, i as fingerprintPreparedModelCatalogGeneration, o as fingerprintPreparedModelWorkerRequest, t as PREPARED_MODEL_CATALOG_WORKER_TIMEOUT_MS } from "../prepared-model-catalog-worker-B-zIZ-R7.mjs";
 import { t as captureProviderCatalogExpiries } from "../provider-catalog-expiry-BajE8fJo.mjs";
-import { i as resolveImplicitProviderDiscoveryScope, t as prepareImplicitProviderStaticCatalog } from "../models-config.providers.implicit-CdLjM0Zk.mjs";
-import { l as scopeSyntheticAuthProviderRefs, p as prepareOwnedPluginLoadContext } from "../prepared-model-runtime.facts-B9ZARl2O.mjs";
-import { n as prepareModelCatalogAuthLabels } from "../model-catalog-auth-labels-Bq3A-5jk.mjs";
+import { i as resolveImplicitProviderDiscoveryScope, t as prepareImplicitProviderStaticCatalog } from "../models-config.providers.implicit-BnJHM4x8.mjs";
+import { l as scopeSyntheticAuthProviderRefs, p as prepareOwnedPluginLoadContext } from "../prepared-model-runtime.facts-Uvb82TTa.mjs";
+import { n as prepareModelCatalogAuthLabels } from "../model-catalog-auth-labels-DHCJ-sP2.mjs";
 import { n as serveWorkerTasks } from "../worker-task-server-BC_7U18u.mjs";
-import { n as overlayExternalAuthProfiles } from "../external-auth-runtime-CFBoC24Z.mjs";
+import { n as overlayExternalAuthProfiles } from "../external-auth-runtime-8KiuxODj.mjs";
 import { parentPort, workerData } from "node:worker_threads";
 //#region src/agents/prepared-model-catalog.worker.ts
 /** Worker-thread entrypoint for complete model-catalog discovery. */
@@ -75,7 +75,7 @@ function restoreWorkerConfig(value) {
 async function prepareWorkerGeneration(value, previous, pluginIds) {
 	try {
 		var _usingCtx$1 = _usingCtx();
-		const { prepareConfiguredModelFacts } = await import("../prepared-model-runtime.facts-D93XvN0G.mjs");
+		const { prepareConfiguredModelFacts } = await import("../prepared-model-runtime.facts-CnDyEyeO.mjs");
 		const metadata = previous?.pluginGeneration.pluginMetadataSnapshot ?? restorePluginMetadataSnapshot(value.pluginMetadataSnapshot);
 		const normalizedConfig = normalizePluginsConfig(value.input.config.plugins);
 		const basePluginIds = pluginIds ?? metadata.plugins.filter((plugin) => manifestPluginResolvesRuntimeModelCatalogAugment(plugin) && isManifestPluginAvailableForControlPlane({
@@ -185,8 +185,8 @@ async function runCatalogRequest(value, request, work, prepareGeneration, beginD
 			credentials,
 			authModes: resolveUsableAgentCredentialModes(credentials)
 		};
-		const { prepareAgentCatalogSource } = await import("../prepared-model-runtime.scoped-catalog-7RCAAxz0.mjs");
-		const { prepareFullCatalogFacts } = await import("../prepared-model-runtime.full-catalog-BfI0aAte.mjs");
+		const { prepareAgentCatalogSource } = await import("../prepared-model-runtime.scoped-catalog-BBqJMJDM.mjs");
+		const { prepareFullCatalogFacts } = await import("../prepared-model-runtime.full-catalog-Cb4cLhkY.mjs");
 		const startupProviderIds = new Set(value.providerIds.map(normalizeProviderId));
 		const exactAgentFacts = {
 			...value.catalogFacts,

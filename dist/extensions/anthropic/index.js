@@ -1,5 +1,5 @@
 import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
-import { n as registerAnthropicPlugin } from "../../register.runtime-u_tygPjH.mjs";
+import { n as registerAnthropicPlugin } from "../../register.runtime-BIyvpLBy.mjs";
 //#region extensions/anthropic/index.ts
 var anthropic_default = definePluginEntry({
 	id: "anthropic",

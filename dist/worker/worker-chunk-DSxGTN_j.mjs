@@ -1,0 +1,1 @@
+import{n as e,r as t}from"./worker-chunk-BII7g6md.mjs";e();export{t as resolveGatewayRuntimeConfig};

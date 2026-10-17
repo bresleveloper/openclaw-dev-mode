@@ -1,8 +1,8 @@
 import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
-import { t as buildFalImageGenerationProvider } from "../../image-generation-provider-BMMkmOY5.mjs";
-import { t as buildFalMusicGenerationProvider } from "../../music-generation-provider-BtngVtCl.mjs";
-import { t as createFalProvider } from "../../provider-registration-jkID5pEP.mjs";
-import { t as buildFalVideoGenerationProvider } from "../../video-generation-provider-CsQx1UKU.mjs";
+import { t as buildFalImageGenerationProvider } from "../../image-generation-provider-CukCVRdl.mjs";
+import { t as buildFalMusicGenerationProvider } from "../../music-generation-provider-Duxr42l5.mjs";
+import { t as createFalProvider } from "../../provider-registration-D5fn0i2J.mjs";
+import { t as buildFalVideoGenerationProvider } from "../../video-generation-provider-uEAxomh-.mjs";
 var fal_default = definePluginEntry({
 	id: "fal",
 	name: "fal Provider",

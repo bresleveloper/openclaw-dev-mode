@@ -1,12 +1,12 @@
 import { a as writeRuntimeJson, r as defaultRuntime } from "../runtime-DlO3PTAd.mjs";
 import { t as _usingCtx } from "../usingCtx-DwOBYOJf.mjs";
-import { a as isPersistentSystemAgentOperation, o as parseSystemAgentOperation } from "../operations-parse-DRngeZgT.mjs";
-import { t as executeSystemAgentOperation } from "../operations-CnmxyhD5.mjs";
+import { a as isPersistentSystemAgentOperation, o as parseSystemAgentOperation } from "../operations-parse-BH-EPBYS.mjs";
+import { t as executeSystemAgentOperation } from "../operations-9NkJbThA.mjs";
 import { r as withProgress } from "../progress-UTM8yfZa.mjs";
 import { t as SystemAgentInferenceUnavailableError } from "../inference-error-D_m-vFb8.mjs";
-import { i as loadSystemAgentOverview, n as formatSystemAgentOverview } from "../overview-BZs3uZvH.mjs";
-import { a as resolveSystemAgentVerifiedInferenceRoute, r as hasCurrentSystemAgentOwnerPluginArtifacts } from "../verified-inference-BLAb2uCx.mjs";
-import { n as resolveSystemAgentOperation } from "../dialogue-DZe3oa43.mjs";
+import { i as loadSystemAgentOverview, n as formatSystemAgentOverview } from "../overview-CX3ffJ1C.mjs";
+import { a as resolveSystemAgentVerifiedInferenceRoute, r as hasCurrentSystemAgentOwnerPluginArtifacts } from "../verified-inference-GNcjQces.mjs";
+import { n as resolveSystemAgentOperation } from "../dialogue-BfUse9fl.mjs";
 import { stdin, stdout } from "node:process";
 //#region src/system-agent/system-agent.ts
 function systemAgentCommandDepsFromOptions(opts) {
@@ -65,7 +65,7 @@ async function runSystemAgent(opts, runtime = defaultRuntime) {
 		const route = binding.execution;
 		if (route.runner !== "embedded" || route.agentHarnessRuntimeOverride === "openclaw") return await run();
 		const { resolveAgentWorkspaceDir } = await import("../agent-scope-BbGZA7Yc.mjs");
-		const { loadAgentRuntimePluginRegistryHandle } = await import("../runtime-plugins-BncOhqa0.mjs");
+		const { loadAgentRuntimePluginRegistryHandle } = await import("../runtime-plugins-BO4voomR.mjs");
 		const { withPluginLifecycleLease } = await import("../plugin-lifecycle-lease-D_2q8UjY.mjs");
 		const { createPluginCache, withPluginCache } = await import("../plugin-cache-C7OQTvG6.mjs");
 		const { withPluginRuntimeRegistryScope } = await import("../gateway-request-scope-BNep3pMv.mjs");
@@ -139,7 +139,7 @@ async function runBoundSystemAgent(boundOpts, runtime) {
 		runtime.exit(1);
 		return;
 	}
-	const runInteractiveTui = boundOpts.runInteractiveTui ?? (await import("../tui-backend-BHQGF0TS.mjs")).runSystemAgentTui;
+	const runInteractiveTui = boundOpts.runInteractiveTui ?? (await import("../tui-backend-BlWUa7v_.mjs")).runSystemAgentTui;
 	boundOpts.onReady?.();
 	await runInteractiveTui(boundOpts, runtime);
 }

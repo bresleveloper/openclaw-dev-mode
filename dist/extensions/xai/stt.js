@@ -5,7 +5,7 @@ import { f as postMultipartRequest, h as resolveProviderHttpRequestConfig, t as 
 import "../../provider-http-CuRGJD0L.mjs";
 import { t as XAI_BASE_URL } from "../../model-definitions-BTg9V4Hq.mjs";
 import { l as createXaiMediaUnderstandingProviderMetadata } from "../../capability-provider-metadata-factory-C2QQ6-HN.mjs";
-import "../../capability-provider-metadata-DnlCiTAP.mjs";
+import "../../capability-provider-metadata-mORI2UCe.mjs";
 //#region extensions/xai/stt.ts
 function resolveXaiSttBaseUrl(value) {
 	return normalizeOptionalString(value ?? process.env.XAI_BASE_URL) ?? XAI_BASE_URL;

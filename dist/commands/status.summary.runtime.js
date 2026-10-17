@@ -2,18 +2,18 @@ import { c as normalizeOptionalLowercaseString, l as normalizeOptionalString, o 
 import { r as resolveAgentConfig } from "../agent-scope-config-CDYpzA0r.mjs";
 import { s as resolveAgentModelPrimaryValue } from "../model-input-C9K4a_6k.mjs";
 import "../defaults-Jag53zwP.mjs";
-import { g as resolveConfiguredPrimaryProviderFallback, i as buildModelAliasIndex } from "../model-selection-shared-BZeDVoch.mjs";
+import { g as resolveConfiguredPrimaryProviderFallback, i as buildModelAliasIndex } from "../model-selection-shared-DKlQ1p0S.mjs";
 import { n as parseModelRef } from "../model-selection-normalize-AjjSfI-g.mjs";
-import { r as resolvePersistedSelectedModelRef } from "../model-selection-C1qxt1eY.mjs";
+import { r as resolvePersistedSelectedModelRef } from "../model-selection-D3_rVb38.mjs";
 import { o as resolveStoredSessionKeyForAgentStore } from "../session-store-key-Ci099tm9.mjs";
 import { t as classifySessionKind } from "../classify-session-kind-CT3WV_2y.mjs";
-import { n as resolveSessionStorePathForAcp } from "../session-meta-store-BuPPT7EU.mjs";
+import { n as resolveSessionStorePathForAcp } from "../session-meta-store-C2kPc7n-.mjs";
 import { n as readAcpSessionMetaForEntry } from "../session-meta-readonly-CvCR0QQG.mjs";
-import "../session-meta-C2UXd_yK.mjs";
-import { t as resolveCurrentSessionAgentRuntimeMetadata } from "../agent-runtime-metadata-B1ramhpb.mjs";
+import "../session-meta-DUw-8Na0.mjs";
+import { t as resolveCurrentSessionAgentRuntimeMetadata } from "../agent-runtime-metadata-BYpiZnNd.mjs";
 import { i as resolveContextTokensForModelFromCache, n as resolveAuthoredModelContextTokens } from "../context-resolution-rBaR4T59.mjs";
-import { c as waitForContextWindowCacheLoad } from "../context-qaLs5Adf.mjs";
-import { n as resolveAgentRuntimeLabel } from "../agent-runtime-label-DgK-9QfF.mjs";
+import { c as waitForContextWindowCacheLoad } from "../context-DtziOKiU.mjs";
+import { n as resolveAgentRuntimeLabel } from "../agent-runtime-label-D9Q95kGc.mjs";
 //#region src/status/summary.runtime.ts
 function resolveStatusModelRefFromRaw(params) {
 	const trimmed = params.rawModel.trim();

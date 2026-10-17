@@ -1,0 +1,435 @@
+import { t as openNodeSqliteDatabase } from "./node-sqlite-XIcwmOrl.mjs";
+import { n as resolvePreferredOpenClawTmpDir } from "./tmp-openclaw-dir-DR7bHNl9.mjs";
+import { t as runCommandBuffered } from "./exec-DJvyCA0D.mjs";
+import { t as _usingCtx } from "./usingCtx-DwOBYOJf.mjs";
+import { r as getRuntimeConfig } from "./io.runtime-BSum32pK.mjs";
+import "./sqlite-runtime-Ch9K5Xik.mjs";
+import "./process-runtime-CYiH_oPH.mjs";
+import "./runtime-config-snapshot-DlrhEsA8.mjs";
+import { t as tempWorkspaceSync } from "./temp-path-C5ZA6ftW.mjs";
+import { c as BrowserProfileUnavailableError } from "./errors-BqlAThZX.mjs";
+import { f as usesOpenClawMockKeychain, l as resolveOpenClawUserDataDir } from "./chrome-OB2FGbRg.mjs";
+import { n as runProfileContextOperation } from "./server-context-D9ePJOZb.mjs";
+import { l as isProfileRestartRequiredError } from "./server-context.lifecycle-Dpq7t7Ns.mjs";
+import { n as getPwAiModule } from "./pw-ai-module-DlH89P_E.mjs";
+import fs from "node:fs";
+import path from "node:path";
+import os from "node:os";
+import crypto from "node:crypto";
+//#region extensions/browser/src/browser/system-chrome-cookies.ts
+/** macOS Chrome-family cookie database decryption and Playwright mapping. */
+const KEYCHAIN_ENTRIES = {
+	chrome: {
+		service: "Chrome Safe Storage",
+		account: "Chrome"
+	},
+	brave: {
+		service: "Brave Safe Storage",
+		account: "Brave"
+	},
+	edge: {
+		service: "Microsoft Edge Safe Storage",
+		account: "Microsoft Edge"
+	},
+	chromium: {
+		service: "Chromium Safe Storage",
+		account: "Chromium"
+	}
+};
+const CHROME_EPOCH_OFFSET_SECONDS = 11644473600;
+const V10_PREFIX = Buffer.from("v10", "ascii");
+const COOKIE_QUERY = `
+  SELECT host_key, top_frame_site_key, name, value, encrypted_value, path, expires_utc,
+         is_secure, is_httponly, has_expires, samesite
+  FROM cookies
+`;
+function isAsciiWhitespace(value) {
+	return value === 9 || value === 10 || value === 11 || value === 12 || value === 13 || value === 32;
+}
+/** Read the browser Safe Storage secret. The OS consent prompt is intentional. */
+async function readKeychainSecret(entry, signal) {
+	signal?.throwIfAborted();
+	let stdout;
+	try {
+		const result = await runCommandBuffered([
+			"security",
+			"find-generic-password",
+			"-w",
+			"-s",
+			entry.service,
+			"-a",
+			entry.account
+		], {
+			signal,
+			maxOutputBytes: 1048576
+		});
+		if (result.termination !== "exit" || result.code !== 0) throw result.error ?? /* @__PURE__ */ new Error(`security exited with code ${result.code ?? "unknown"}`);
+		stdout = result.stdout;
+	} catch (error) {
+		if (signal?.aborted) throw signal.reason instanceof Error ? signal.reason : new Error("Browser cookie import aborted.", { cause: signal.reason ?? error });
+		throw new Error(`could not read ${entry.service} from macOS Keychain; approve the prompt and retry`, { cause: error });
+	}
+	const raw = stdout;
+	let start = 0;
+	let end = raw.length;
+	while (start < end && isAsciiWhitespace(raw.readUInt8(start))) start += 1;
+	while (end > start && isAsciiWhitespace(raw.readUInt8(end - 1))) end -= 1;
+	const secret = Buffer.from(raw.subarray(start, end));
+	raw.fill(0);
+	if (secret.length === 0) throw new Error(`macOS Keychain returned an empty ${entry.service} secret`);
+	return secret;
+}
+/** Read and retain one Safe Storage secret for a long-running cookie sync session. */
+async function cacheKeychainSecret(browser, signal) {
+	const entry = KEYCHAIN_ENTRIES[browser];
+	const secret = await readKeychainSecret(entry, signal);
+	return async (requestedEntry, requestedSignal) => {
+		requestedSignal?.throwIfAborted();
+		if (requestedEntry.service !== entry.service || requestedEntry.account !== entry.account) throw new Error("cached Keychain secret does not match the selected system browser");
+		return Buffer.from(secret);
+	};
+}
+/** Convert Chromium's Windows-epoch microseconds to Unix seconds. */
+function chromeFiletimeToUnixSeconds(value) {
+	if (typeof value === "bigint") {
+		const seconds = value / 1000000n - BigInt(CHROME_EPOCH_OFFSET_SECONDS);
+		return seconds > 0n && seconds <= 9999999999n ? Number(seconds) : void 0;
+	}
+	if (!Number.isFinite(value) || value === 0) return;
+	const seconds = Math.floor(value / 1e6) - CHROME_EPOCH_OFFSET_SECONDS;
+	return seconds > 0 && seconds <= 9999999999 ? seconds : void 0;
+}
+function mapChromeSameSite(value, secure) {
+	const numericValue = Number(value);
+	if (numericValue === 2) return "Strict";
+	if (numericValue === 1) return "Lax";
+	if (numericValue === 0 && secure) return "None";
+}
+function decryptCookieValue(row, encrypted, key) {
+	if (encrypted.length === 0) return row.value;
+	if (!encrypted.subarray(0, V10_PREFIX.length).equals(V10_PREFIX)) return;
+	const decipher = crypto.createDecipheriv("aes-128-cbc", key, Buffer.alloc(16, 32));
+	decipher.setAutoPadding(true);
+	let plain = Buffer.concat([decipher.update(encrypted.subarray(V10_PREFIX.length)), decipher.final()]);
+	const hostPrefix = crypto.createHash("sha256").update(row.host_key).digest();
+	if (plain.length >= hostPrefix.length && plain.subarray(0, hostPrefix.length).equals(hostPrefix)) plain = plain.subarray(hostPrefix.length);
+	return plain.toString("utf8");
+}
+function mapCookie(row, value) {
+	const secure = row.is_secure !== 0 && row.is_secure !== 0n;
+	const expires = row.has_expires === 0 || row.has_expires === 0n ? void 0 : chromeFiletimeToUnixSeconds(row.expires_utc);
+	const sameSite = mapChromeSameSite(row.samesite, secure);
+	return {
+		name: row.name,
+		value,
+		domain: row.host_key,
+		path: row.path,
+		httpOnly: row.is_httponly !== 0 && row.is_httponly !== 0n,
+		secure,
+		...expires === void 0 ? {} : { expires },
+		...sameSite === void 0 ? {} : { sameSite }
+	};
+}
+function matchesDomain(hostKey, domains) {
+	if (!domains?.length) return true;
+	const host = hostKey.replace(/^\./, "").toLowerCase();
+	return domains.some((candidate) => {
+		const domain = candidate.trim().replace(/^\./, "").toLowerCase();
+		return domain.length > 0 && (host === domain || host.endsWith(`.${domain}`));
+	});
+}
+/** Decrypt and map cookie rows without exposing any cookie values in the result metadata. */
+async function decryptChromeCookieRows(params) {
+	const counts = {
+		total: params.rows.length,
+		imported: 0,
+		failed: 0,
+		skipped: 0
+	};
+	const selected = params.rows.filter((row) => {
+		if (!matchesDomain(row.host_key, params.domains)) {
+			counts.skipped += 1;
+			return false;
+		}
+		if (row.top_frame_site_key.trim().length > 0) {
+			counts.skipped += 1;
+			return false;
+		}
+		return true;
+	});
+	if (selected.length === 0) return {
+		cookies: [],
+		counts,
+		domains: []
+	};
+	const secret = await (params.readSecret ?? readKeychainSecret)(KEYCHAIN_ENTRIES[params.browser], params.signal);
+	let key;
+	const cookies = [];
+	try {
+		const decryptionKey = crypto.pbkdf2Sync(secret, "saltysalt", 1003, 16, "sha1");
+		key = decryptionKey;
+		for (const row of selected) {
+			params.signal?.throwIfAborted();
+			const encrypted = Buffer.from(row.encrypted_value);
+			try {
+				const value = decryptCookieValue(row, encrypted, decryptionKey);
+				if (value === void 0) {
+					counts.skipped += 1;
+					continue;
+				}
+				cookies.push(mapCookie(row, value));
+			} catch {
+				counts.failed += 1;
+			}
+		}
+	} finally {
+		secret.fill(0);
+		key?.fill(0);
+	}
+	counts.imported = cookies.length;
+	return {
+		cookies,
+		counts,
+		domains: [...new Set(cookies.map((cookie) => cookie.domain))].toSorted()
+	};
+}
+/** Read cookies from a copied Chromium SQLite database and decrypt them. */
+async function readChromeCookiesDatabase(params) {
+	const database = openNodeSqliteDatabase(params.databasePath, { readOnly: true });
+	try {
+		const statement = database.prepare(COOKIE_QUERY);
+		statement.setReadBigInts(true);
+		const rows = statement.all();
+		return await decryptChromeCookieRows({
+			browser: params.browser,
+			rows,
+			domains: params.domains,
+			readSecret: params.readSecret,
+			signal: params.signal
+		});
+	} finally {
+		database.close();
+	}
+}
+//#endregion
+//#region extensions/browser/src/browser/system-profiles.ts
+/** Discovery and cookie import for macOS Chrome-family system profiles. */
+const SYSTEM_BROWSER_DIRS = {
+	chrome: ["Google", "Chrome"],
+	brave: ["BraveSoftware", "Brave-Browser"],
+	edge: ["Microsoft Edge"],
+	chromium: ["Chromium"]
+};
+function resolveSystemBrowser(value) {
+	const browser = value?.trim().toLowerCase() || "chrome";
+	if (browser === "chrome" || browser === "brave" || browser === "edge" || browser === "chromium") return browser;
+	throw new Error(`unsupported system browser "${value}"; use chrome, brave, edge, or chromium`);
+}
+function resolveSystemBrowserRoot(browser, homeDir = os.homedir()) {
+	return path.join(homeDir, "Library", "Application Support", ...SYSTEM_BROWSER_DIRS[browser]);
+}
+/** Prefer Chrome's current Network/Cookies location, then its legacy location. */
+function resolveSystemCookiesFile(root, profileId) {
+	return [path.join(root, profileId, "Network", "Cookies"), path.join(root, profileId, "Cookies")].find((candidate) => fs.existsSync(candidate));
+}
+/** Enforce the host-local platform contract before touching browser cookie state. */
+function assertSystemCookiePlatform(platform = process.platform, operation = "cookie access") {
+	if (platform !== "darwin") throw new Error(`system profile ${operation} is only supported on macOS in this release`);
+}
+function resolveSystemCookieSource(params, deps = {}) {
+	const browser = resolveSystemBrowser(params.browser);
+	const systemProfile = params.systemProfile?.trim() || "Default";
+	const cookiesFile = resolveSystemCookiesFile(resolveSystemBrowserRoot(browser, deps.homeDir), systemProfile);
+	if (!cookiesFile) throw new Error(`cookies database not found for ${browser} profile "${systemProfile}"`);
+	return {
+		browser,
+		systemProfile,
+		cookiesFile
+	};
+}
+function readProfileNames(root) {
+	try {
+		const localState = JSON.parse(fs.readFileSync(path.join(root, "Local State"), "utf8"));
+		const names = /* @__PURE__ */ new Map();
+		for (const [id, info] of Object.entries(localState.profile?.info_cache ?? {})) {
+			const displayName = [
+				info.name,
+				info.gaia_name,
+				info.user_name
+			].find((value) => typeof value === "string" && value.trim().length > 0);
+			names.set(id, displayName?.trim() || id);
+		}
+		return names;
+	} catch {
+		return /* @__PURE__ */ new Map();
+	}
+}
+const SUPPORTED_SYSTEM_BROWSERS = [
+	"chrome",
+	"brave",
+	"edge",
+	"chromium"
+];
+function listOneBrowserProfiles(browser, homeDir) {
+	const root = resolveSystemBrowserRoot(browser, homeDir);
+	const names = readProfileNames(root);
+	if (names.size === 0 && fs.existsSync(path.join(root, "Default"))) names.set("Default", "Default");
+	return [...names.entries()].filter(([id]) => id === "Default" || /^Profile \d+$/.test(id)).map(([id, name]) => ({
+		browser,
+		id,
+		name,
+		hasCookies: resolveSystemCookiesFile(root, id) !== void 0
+	})).toSorted((a, b) => a.id.localeCompare(b.id, void 0, { numeric: true }));
+}
+/**
+* Enumerate importable Chrome-family profiles without reading the Keychain. With
+* no browser specified, list every supported browser so discovery matches the
+* Chrome-family import support instead of assuming Chrome.
+*/
+function listSystemProfiles(browserInput, deps = {}) {
+	return (browserInput?.trim() ? [resolveSystemBrowser(browserInput)] : SUPPORTED_SYSTEM_BROWSERS).flatMap((browser) => listOneBrowserProfiles(browser, deps.homeDir));
+}
+/** Create a transactionally coherent snapshot while Chrome may be writing its WAL. */
+function snapshotCookieDatabase(source, databasePath) {
+	const sourceDatabase = openNodeSqliteDatabase(source, { readOnly: true });
+	try {
+		sourceDatabase.exec("PRAGMA busy_timeout = 5000");
+		sourceDatabase.prepare("VACUUM INTO ?").run(databasePath);
+	} finally {
+		sourceDatabase.close();
+	}
+}
+/** Snapshot and decrypt cookies from one local macOS Chrome-family profile. */
+async function readSystemProfileCookies(params, deps = {}) {
+	try {
+		var _usingCtx$1 = _usingCtx();
+		assertSystemCookiePlatform(deps.platform);
+		const source = resolveSystemCookieSource(params, deps);
+		const databasePath = _usingCtx$1.u(tempWorkspaceSync({
+			rootDir: resolvePreferredOpenClawTmpDir(),
+			prefix: "openclaw-system-cookies-"
+		})).path("Cookies");
+		snapshotCookieDatabase(source.cookiesFile, databasePath);
+		const decrypted = await readChromeCookiesDatabase({
+			browser: source.browser,
+			databasePath,
+			domains: params.domains,
+			readSecret: deps.readSecret,
+			signal: params.signal
+		});
+		return {
+			browser: source.browser,
+			systemProfile: source.systemProfile,
+			...decrypted
+		};
+	} catch (_) {
+		_usingCtx$1.e = _;
+	} finally {
+		_usingCtx$1.d();
+	}
+}
+/** Import decrypted system-profile cookies into one managed OpenClaw profile. */
+async function importSystemProfileCookies(params, runtime, deps = {}) {
+	assertSystemCookiePlatform(deps.platform, "import");
+	if ((deps.cfg ?? getRuntimeConfig()).browser?.allowSystemProfileImport === false) throw new Error("system profile import is disabled (browser.allowSystemProfileImport=false)");
+	const browser = resolveSystemBrowser(params.browser);
+	const systemProfile = params.systemProfile?.trim() || "Default";
+	const into = params.into?.trim() || "imported";
+	if (!listSystemProfiles(browser, { homeDir: deps.homeDir }).find((profile) => profile.id === systemProfile)) throw new Error(`system browser profile "${systemProfile}" was not found for ${browser}`);
+	resolveSystemCookieSource({
+		browser,
+		systemProfile
+	}, deps);
+	if (!(into in runtime.ctx.state().resolved.profiles)) await runtime.createProfile({
+		name: into,
+		driver: "openclaw"
+	});
+	const profileCtx = runtime.ctx.forProfile(into);
+	if (profileCtx.profile.driver !== "openclaw" || !profileCtx.profile.cdpIsLoopback || profileCtx.profile.attachOnly) throw new Error(`profile "${into}" is not a locally managed OpenClaw profile; import into a fresh profile name`);
+	for (let attempt = 0; attempt < 2; attempt += 1) try {
+		return await runProfileContextOperation(profileCtx, runtime.signal, async (signal, profileRuntime) => {
+			await profileCtx.ensureBrowserAvailable({
+				headless: true,
+				signal
+			});
+			const userDataDir = resolveOpenClawUserDataDir(into);
+			const runningUserDataDir = profileRuntime.running?.userDataDir;
+			if (!runningUserDataDir || path.resolve(runningUserDataDir) !== path.resolve(userDataDir)) throw new Error(`managed profile "${into}" is not owned by this OpenClaw browser runtime; stop it and import into a fresh profile name`);
+			if (!usesOpenClawMockKeychain(userDataDir)) throw new Error(`managed profile "${into}" does not use the OpenClaw mock keychain; import into a fresh profile name`);
+			const decrypted = await readSystemProfileCookies({
+				browser,
+				systemProfile,
+				domains: params.domains,
+				signal
+			}, deps);
+			signal.throwIfAborted();
+			const pw = await getPwAiModule({ mode: "strict" });
+			if (!pw) throw new Error("Playwright is required to import system profile cookies");
+			let injected = 0;
+			if (decrypted.cookies.length > 0) {
+				const tab = await profileCtx.ensureTabAvailable(void 0, {
+					allowPlaywrightFallback: true,
+					signal
+				});
+				try {
+					const result = await pw.cookiesSetManyViaPlaywright({
+						cdpUrl: profileCtx.profile.cdpUrl,
+						targetId: tab.targetId,
+						cookies: decrypted.cookies,
+						signal
+					});
+					signal.throwIfAborted();
+					injected = result.added;
+				} catch {
+					throw new Error(`failed to inject imported cookies into managed profile "${into}"`);
+				}
+			}
+			const rejected = decrypted.cookies.length - injected;
+			return {
+				ok: true,
+				systemProfile,
+				into,
+				browser,
+				cookies: {
+					total: decrypted.counts.total,
+					imported: injected,
+					failed: decrypted.counts.failed + rejected,
+					skipped: decrypted.counts.skipped
+				},
+				domains: decrypted.domains
+			};
+		}, { commit: async (result) => await runtime.finalize?.(result) });
+	} catch (err) {
+		if (isProfileRestartRequiredError(err)) {
+			if (attempt === 0) {
+				await profileCtx.ensureBrowserAvailable({
+					headless: true,
+					signal: runtime.signal
+				});
+				continue;
+			}
+			throw new BrowserProfileUnavailableError(`Managed profile "${into}" could not stabilize for cookie import.`);
+		}
+		throw err;
+	}
+	throw new Error(`managed profile "${into}" could not stabilize for cookie import`);
+}
+//#endregion
+//#region extensions/browser/src/browser/system-profile-domains.ts
+/**
+* Normalize the optional `domains` filter for system-profile cookie import.
+*
+* Import copies real browser session cookies, so a caller that meant to scope
+* the import must never be silently widened to "import everything". A present
+* but malformed or empty filter throws; an absent filter (undefined/null)
+* returns undefined, meaning no domain restriction.
+*/
+function parseSystemProfileDomains(raw) {
+	if (raw === void 0 || raw === null) return;
+	if (!Array.isArray(raw)) throw new Error("domains must be an array of domain strings");
+	const cleaned = raw.filter((value) => typeof value === "string").map((value) => value.trim()).filter((value) => value.length > 0);
+	if (cleaned.length === 0) throw new Error("domains must include at least one non-empty domain");
+	return cleaned;
+}
+//#endregion
+export { readSystemProfileCookies as a, listSystemProfiles as i, assertSystemCookiePlatform as n, resolveSystemCookieSource as o, importSystemProfileCookies as r, cacheKeychainSecret as s, parseSystemProfileDomains as t };

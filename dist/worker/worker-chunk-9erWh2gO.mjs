@@ -1,1 +1,0 @@
-import{n as e}from"./worker-chunk-lTaEq7OX.mjs";async function*collectWorkspaceSuggestionNotes(e){let{collectWorkspaceBackupTip:t,MEMORY_SYSTEM_PROMPT:n,shouldSuggestMemorySystem:r}=await import(`./worker-chunk-DxepfkFl.mjs`),i=t(e);i&&(yield i),await r(e)&&(yield n)}e((()=>{}))();export{collectWorkspaceSuggestionNotes};

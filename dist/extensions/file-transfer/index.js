@@ -1,14 +1,14 @@
 import { a as asOptionalRecord } from "../../record-coerce-TIsquoVR.mjs";
-import { r as declareAgentWorkspaceAccess, s as registerAgentWorkspaceAccess } from "../../workspace-access-CeRsYrid.mjs";
+import { r as declareAgentWorkspaceAccess, s as registerAgentWorkspaceAccess } from "../../workspace-access-DjFUgH7e.mjs";
 import "../../string-coerce-runtime-50qKeWeL.mjs";
-import { i as createWorkspaceAttachmentPreparer } from "../../agent-workspace-runtime-Ck9Qkxiq.mjs";
+import { i as createWorkspaceAttachmentPreparer } from "../../agent-workspace-runtime-B_2-8Yo6.mjs";
 import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
 import { t as FILE_TRANSFER_NODE_INVOKE_COMMANDS } from "../../node-invoke-policy-commands-BEizdTVP.mjs";
 import { i as FILE_FETCH_TOOL_DESCRIPTOR, r as DIR_LIST_TOOL_DESCRIPTOR, s as FILE_WRITE_TOOL_DESCRIPTOR, t as DIR_FETCH_TOOL_DESCRIPTOR } from "../../descriptors-D69ns4FR.mjs";
 import path from "node:path";
 //#region extensions/file-transfer/src/shared/lazy-node-invoke-policy.ts
 const loadFileTransferNodeInvokePolicy = async () => {
-	const { createFileTransferNodeInvokePolicy } = await import("../../node-invoke-policy-CkkzGyFJ.mjs");
+	const { createFileTransferNodeInvokePolicy } = await import("../../node-invoke-policy-DAVW8Z6y.mjs");
 	return createFileTransferNodeInvokePolicy();
 };
 function createLazyFileTransferNodeInvokePolicy(loadPolicy = loadFileTransferNodeInvokePolicy) {
@@ -85,7 +85,7 @@ function registerNodeWorkspaces(api) {
 				const invoke = ctx.invokeNode;
 				if (!invoke) throw new Error("Node workspaces require Gateway service node access");
 				const { createNodeWorkspaceBridge } = await import("../../workspace-bridge-De6K9qh7.mjs");
-				const { createNodeWorkspaceMemory } = await import("../../workspace-memory-QE-zyOxx.mjs");
+				const { createNodeWorkspaceMemory } = await import("../../workspace-memory-C0ViUDTh.mjs");
 				const { createNodeWorkspaceSkills } = await import("../../workspace-skills-BVS4gNpk.mjs");
 				controller.signal.throwIfAborted();
 				for (const entry of bindings.values()) {
@@ -234,7 +234,7 @@ var file_transfer_default = definePluginEntry({
 				dangerous: true,
 				duplex: true,
 				handle: async (...args) => {
-					const { createWorkspaceCommand } = await import("../../workspace-memory-ccffLwVj.mjs");
+					const { createWorkspaceCommand } = await import("../../workspace-memory-DRqeMraN.mjs");
 					return await createWorkspaceCommand(api, kind).handle(...args);
 				}
 			});
@@ -242,14 +242,14 @@ var file_transfer_default = definePluginEntry({
 				commands: [`workspace.${kind}`],
 				dangerous: true,
 				async handle(ctx) {
-					const { createWorkspaceWorkerPolicy } = await import("../../workspace-memory-policy-lU1sqsVy.mjs");
+					const { createWorkspaceWorkerPolicy } = await import("../../workspace-memory-policy-DEddXXSQ.mjs");
 					return await createWorkspaceWorkerPolicy(kind).handle(ctx);
 				}
 			});
 		}
 		registerNodeWorkspaces(api);
 		api.registerCli(async ({ program }) => {
-			const { registerFileTransferCli } = await import("../../cli-veiHTAdT.mjs");
+			const { registerFileTransferCli } = await import("../../cli-bUO1dC1x.mjs");
 			registerFileTransferCli(program);
 		}, { descriptors: [{
 			name: "file-transfer",
@@ -258,19 +258,19 @@ var file_transfer_default = definePluginEntry({
 		}] });
 		api.registerNodeInvokePolicy(createLazyFileTransferNodeInvokePolicy());
 		api.registerTool(createLazyTool(FILE_FETCH_TOOL_DESCRIPTOR, async () => {
-			const { createFileFetchTool } = await import("../../file-fetch-tool-Cqwq5kVQ.mjs");
+			const { createFileFetchTool } = await import("../../file-fetch-tool-ueHm19GY.mjs");
 			return createFileFetchTool();
 		}));
 		api.registerTool(createLazyTool(DIR_LIST_TOOL_DESCRIPTOR, async () => {
-			const { createDirListTool } = await import("../../dir-list-tool-B2gSk8Gw.mjs");
+			const { createDirListTool } = await import("../../dir-list-tool-DUkhLEhH.mjs");
 			return createDirListTool();
 		}));
 		api.registerTool(createLazyTool(DIR_FETCH_TOOL_DESCRIPTOR, async () => {
-			const { createDirFetchTool } = await import("../../dir-fetch-tool-DQH6xfLD.mjs");
+			const { createDirFetchTool } = await import("../../dir-fetch-tool-7Eus2K9u.mjs");
 			return createDirFetchTool();
 		}));
 		api.registerTool(createLazyTool(FILE_WRITE_TOOL_DESCRIPTOR, async () => {
-			const { createFileWriteTool } = await import("../../file-write-tool-CxATLh4e.mjs");
+			const { createFileWriteTool } = await import("../../file-write-tool-DapUprE9.mjs");
 			return createFileWriteTool();
 		}));
 	}

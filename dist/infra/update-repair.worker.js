@@ -1,6 +1,6 @@
 import { a as closeOpenClawStateDatabaseAsync } from "../openclaw-state-db-cache-BKCnj4of.mjs";
 import "../openclaw-state-db-D1jWDzK3.mjs";
-import { o as withCliProcessScope, r as retainCliProcessJobUntilExit } from "../runtime-cleanup-scope-BktLDe8P.mjs";
+import { o as withCliProcessScope, r as retainCliProcessJobUntilExit } from "../runtime-cleanup-scope-Dno3Ssrr.mjs";
 import { r as updateRepairParentMessageSchema } from "../update-repair-protocol-6YddvAVS.mjs";
 //#region src/infra/update-repair.worker.ts
 const deferredReason = "Inference repair is deferred until after the update has failed. Updates do not require inference.";
@@ -84,7 +84,7 @@ process.on("message", (raw) => {
 			finish("unavailable", deferredReason);
 			return;
 		}
-		import("../update-repair-turn-worker-B9O4BjNl.mjs").then(({ runDelegatedUpdateRepairTurn }) => runDelegatedUpdateRepairTurn(message, admissionEnv, controller.signal, (route) => send({
+		import("../update-repair-turn-worker-C7Qwqk43.mjs").then(({ runDelegatedUpdateRepairTurn }) => runDelegatedUpdateRepairTurn(message, admissionEnv, controller.signal, (route) => send({
 			type: "event",
 			event: {
 				type: "route-selected",

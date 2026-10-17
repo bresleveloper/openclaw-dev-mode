@@ -1,7 +1,7 @@
 import { t as isMainModule } from "./is-main-DYSvvM1W.mjs";
 import { b as resolveGatewayPort } from "./paths-DGIwWbpu.mjs";
-import { r as getRuntimeConfig } from "./io.runtime-CPntde4x.mjs";
-import "./config-CzeZu5J_.mjs";
+import { r as getRuntimeConfig } from "./io.runtime-BSum32pK.mjs";
+import "./config-9720xhC5.mjs";
 import { s as readActiveGatewayLockPort } from "./gateway-lock-B6mKYs2x.mjs";
 import { fileURLToPath } from "node:url";
 //#region src/docker-healthcheck.ts

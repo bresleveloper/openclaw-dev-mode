@@ -1,1 +1,0 @@
-import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{a as t,o as n}from"./worker-chunk-CJUfyHiO.mjs";import{l as r,m as i}from"./worker-chunk-sRJPZ0Fy.mjs";function createChannelRegistryLoader(e){return async n=>{let i=(t()?.pluginRegistry??r())?.channels.find(e=>e.plugin.id===n);return i?e(i):void 0}}var a=e((()=>{i(),n()}));export{a as n,createChannelRegistryLoader as t};

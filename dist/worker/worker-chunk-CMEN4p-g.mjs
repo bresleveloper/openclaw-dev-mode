@@ -1,0 +1,1 @@
+import{a as e,i as t,n,o as r,r as i,t as a}from"./worker-chunk-DOfMu0Oz.mjs";a();export{n as resolvePluginSetupAutoEnableReasons,i as resolvePluginSetupCliBackend,t as resolvePluginSetupProviderCore,e as resolvePluginSetupRegistry,r as runPluginSetupConfigMigrations};

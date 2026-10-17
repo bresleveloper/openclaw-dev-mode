@@ -1,2 +1,2 @@
-import { t as buildOpenAIRealtimeVoiceProvider } from "../../realtime-voice-provider-D_tfyzlk.mjs";
+import { t as buildOpenAIRealtimeVoiceProvider } from "../../realtime-voice-provider-ChCDPR-u.mjs";
 export { buildOpenAIRealtimeVoiceProvider };

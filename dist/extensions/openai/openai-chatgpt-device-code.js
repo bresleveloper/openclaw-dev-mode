@@ -12,7 +12,7 @@ import "../../fetch-runtime-DT4gd-qk.mjs";
 import "../../number-runtime-CgyXj1A5.mjs";
 import { t as classifyTransientNetworkErrorCode } from "../../retry-runtime-CZf8_bHp.mjs";
 import "../../provider-http-CuRGJD0L.mjs";
-import "../../provider-auth-C3BBF7yn.mjs";
+import "../../provider-auth-BGYKg9mW.mjs";
 import { n as withOpenAIOAuthResponse, t as createOpenAIAuthorizationCodeForm } from "../../openai-oauth-http.runtime-BqUOWv-L.mjs";
 //#region extensions/openai/openai-chatgpt-device-code.ts
 const OPENAI_AUTH_BASE_URL = "https://auth.openai.com";

@@ -1,0 +1,1 @@
+import{a as e,c as t,i as n,n as r,o as i,r as a,s as o,t as s}from"./worker-chunk-DYJoC8x-.mjs";e();export{s as WorkspaceAccessUnavailableError,r as captureAgentWorkspaceOutboundMedia,a as declareAgentWorkspaceAccess,n as getAgentWorkspaceAccess,i as isWorkspaceAccessUnavailableError,o as prepareAgentWorkspaceAttachments,t as registerAgentWorkspaceAccess};

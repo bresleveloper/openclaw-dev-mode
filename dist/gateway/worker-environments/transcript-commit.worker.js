@@ -3,7 +3,7 @@ import { i as getSqliteWorkerStateContext } from "../../sqlite-worker-state-cont
 import { u as runOpenClawAgentWriteTransaction } from "../../openclaw-agent-db-DBug3LUA.mjs";
 import { i as toDatabaseOptions } from "../../session-accessor.sqlite-scope-helpers-DOK3pvYX.mjs";
 import { d as resolveSqliteTranscriptScope } from "../../session-accessor.sqlite-scope-CdpbxR_m.mjs";
-import { r as prepareTranscriptCommit, t as applyPreparedTranscriptCommit } from "../../transcript-commit.kernel-CqIUShGF.mjs";
+import { r as prepareTranscriptCommit, t as applyPreparedTranscriptCommit } from "../../transcript-commit.kernel-DRbNGnyD.mjs";
 //#region src/gateway/worker-environments/transcript-commit.worker.ts
 /** The canonical agent actor owns the connection and writer admission. */
 function bindSqliteWorkerBackend(_input, context) {

@@ -1,1 +1,0 @@
-import{n as e,t}from"./worker-chunk-BdRm1nxj.mjs";t();export{e as resolveNativeWebSearchRoute};

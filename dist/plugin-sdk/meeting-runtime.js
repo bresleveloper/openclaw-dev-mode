@@ -25,8 +25,8 @@ import { t as canonicalizeBase64 } from "../base64-CU53EX1R.mjs";
 import { t as jsonResult } from "../tool-results-BCM3fdVS.mjs";
 import { c as readNonNegativeIntegerParam, u as readPositiveIntegerParam } from "../common-Dyxcwsy8.mjs";
 import { t as resolveTranscriptsConfig } from "../config-B42acf6V.mjs";
-import { n as getRealtimeTranscriptionProvider, r as listRealtimeTranscriptionProviders } from "../provider-registry-5wFx4IyL.mjs";
-import { S as resolveRealtimeVoiceBargeIn, d as resolveConfiguredRealtimeVoiceProvider, t as createRealtimeVoiceSessionHarness, y as consultRealtimeVoiceAgent } from "../realtime-session-harness-D7rELioe.mjs";
+import { n as getRealtimeTranscriptionProvider, r as listRealtimeTranscriptionProviders } from "../provider-registry-Dq_aj-ar.mjs";
+import { S as resolveRealtimeVoiceBargeIn, d as resolveConfiguredRealtimeVoiceProvider, t as createRealtimeVoiceSessionHarness, y as consultRealtimeVoiceAgent } from "../realtime-session-harness-CZgnZGxB.mjs";
 import { A as REALTIME_VOICE_AUDIO_FORMAT_PCM16_24KHZ, D as resolveRealtimeVoiceAgentConsultTools, E as resolveRealtimeVoiceAgentConsultToolPolicy, O as resolveRealtimeVoiceAgentConsultToolsAllow, k as REALTIME_VOICE_AUDIO_FORMAT_G711_ULAW_8KHZ, x as buildRealtimeVoiceAgentConsultWorkingResponse } from "../agent-run-control-shared-HQwazRP4.mjs";
 import { a as convertPcmToMulaw8k, i as readPcm16AudioStats, l as resamplePcm, n as createSpeechThresholdGate, r as isRealtimeVoiceAudioAudible, s as mulawToPcm } from "../audio-energy-DXFUFDyy.mjs";
 import { a as createMeetingStatusCallSource, i as createMeetingStatusPreludeSource, n as createMeetingPageScripts } from "../page-script-source-BCpP1rNj.mjs";
@@ -2304,7 +2304,7 @@ var MeetingSessionDurableTranscripts = class {
 	}
 	async #getBridge() {
 		if (!this.options.config) return;
-		this.#bridge ??= import("../transcripts-bridge.runtime-DeHxwIkj.mjs").then(({ createMeetingDurableTranscriptBridge }) => createMeetingDurableTranscriptBridge({
+		this.#bridge ??= import("../transcripts-bridge.runtime-CN70LTuy.mjs").then(({ createMeetingDurableTranscriptBridge }) => createMeetingDurableTranscriptBridge({
 			isEnabled: () => this.#enabled,
 			logger: this.options.logger,
 			options: this.options.config

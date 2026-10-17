@@ -1,8 +1,8 @@
 import { _ as normalizeXaiRealtimeProviderConfig, g as normalizeXaiRealtimeBaseUrl } from "../../realtime-voice-config-CSKz551Y.mjs";
 import { s as assertXaiRealtimeVoiceRequestSupported } from "../../capability-provider-metadata-factory-C2QQ6-HN.mjs";
-import { t as createXaiRealtimeVoiceProviderMetadata } from "../../capability-provider-metadata-DnlCiTAP.mjs";
-import { t as resolveXaiRealtimeApiKey } from "../../realtime-voice-auth.runtime-Cnrlf26m.mjs";
-import { t as XaiRealtimeVoiceBridge } from "../../realtime-voice-bridge-B9XjNJUp.mjs";
+import { t as createXaiRealtimeVoiceProviderMetadata } from "../../capability-provider-metadata-mORI2UCe.mjs";
+import { t as resolveXaiRealtimeApiKey } from "../../realtime-voice-auth.runtime-DeR15wPS.mjs";
+import { t as XaiRealtimeVoiceBridge } from "../../realtime-voice-bridge-Bt69DZEi.mjs";
 //#region extensions/xai/realtime-voice-provider.ts
 function buildXaiRealtimeVoiceProvider() {
 	return {

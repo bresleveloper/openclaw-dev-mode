@@ -1,2 +1,2 @@
-import { n as buildMinimaxPortalMusicGenerationProvider, t as buildMinimaxMusicGenerationProvider } from "../../music-generation-provider-m6shfWMa.mjs";
+import { n as buildMinimaxPortalMusicGenerationProvider, t as buildMinimaxMusicGenerationProvider } from "../../music-generation-provider-BHS_KeD4.mjs";
 export { buildMinimaxMusicGenerationProvider, buildMinimaxPortalMusicGenerationProvider };

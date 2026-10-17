@@ -7,10 +7,10 @@ import { i as applyMigrationManualItem, l as markMigrationItemConflict, r as app
 import { a as resolvePlannedMigrationTargets, i as copyMigrationFileItem, o as withCachedMigrationConfigRuntime, r as copyMemoryMigrationFileItem, s as writeMigrationReport, t as archiveMigrationItem } from "../../migration-runtime-BOM5W2_O.mjs";
 import { t as appendItem } from "../../helpers-B2SzrrLy.mjs";
 import { c as HERMES_REASON_MODEL_PROVIDER_CONFLICT, f as findHermesModelProviderDependency, p as readHermesModelDetails } from "../../items-Ow1uFW0E.mjs";
-import { t as applyAuthItem } from "../../auth-BipNh_8-.mjs";
-import { t as applyModelItem } from "../../model-B-1-eaxp.mjs";
-import { t as applySecretItem } from "../../secrets-DhvozIaq.mjs";
-import { t as buildHermesPlan } from "../../plan-CDAnzMfh.mjs";
+import { t as applyAuthItem } from "../../auth-CgAkFjLJ.mjs";
+import { t as applyModelItem } from "../../model-DW3elluA.mjs";
+import { t as applySecretItem } from "../../secrets-C67LiIns.mjs";
+import { t as buildHermesPlan } from "../../plan-DmZuY_Ti.mjs";
 import path from "node:path";
 import fs from "node:fs/promises";
 //#region extensions/migrate-hermes/apply.ts

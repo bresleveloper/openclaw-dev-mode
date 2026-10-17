@@ -3,8 +3,8 @@ import { a as asOptionalRecord } from "../../record-coerce-TIsquoVR.mjs";
 import { t as DEFAULT_CONTEXT_TOKENS } from "../../defaults-Jag53zwP.mjs";
 import { s as isNonSecretApiKeyMarker } from "../../model-auth-markers-Cuz_bq6T.mjs";
 import "../../string-coerce-runtime-50qKeWeL.mjs";
-import "../../provider-auth-C3BBF7yn.mjs";
-import { f as getCachedLiveProviderModelRows, m as LiveModelCatalogHttpError } from "../../provider-catalog-live-runtime-NaavztHY.mjs";
+import "../../provider-auth-BGYKg9mW.mjs";
+import { f as getCachedLiveProviderModelRows, m as LiveModelCatalogHttpError } from "../../provider-catalog-live-runtime-Ngo-Palb.mjs";
 import "../../provider-model-metadata-fSBArSt7.mjs";
 import { n as TOKEN_SHARING_AUTH_FLOW, s as TOKEN_SHARING_RESOURCE } from "../../token-sharing-CmBELw8t.mjs";
 //#region extensions/openai/token-sharing-catalog.ts

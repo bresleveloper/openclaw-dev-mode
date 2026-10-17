@@ -5,7 +5,7 @@ import { t as formatCliCommand } from "../../command-format-DwEdrDKL.mjs";
 import { t as note } from "../../note-Byxgt4MB.mjs";
 import "../../string-coerce-runtime-50qKeWeL.mjs";
 import "../../text-utility-runtime-BDs7x8Fk.mjs";
-import "../../cli-runtime-DIoqxVK3.mjs";
+import "../../cli-runtime-DRAjv9MR.mjs";
 import { i as resolveBrowserConfig, r as isLocalManagedProfile, s as resolveProfile, t as getManagedBrowserMissingDisplayError } from "../../config-DQZ6ubGi.mjs";
 import { t as getBrowserProfileCapabilities } from "../../profile-capabilities-DHBwe9FJ.mjs";
 import { i as readBrowserVersion, n as resolveGoogleChromeExecutableForPlatform, r as parseBrowserMajorVersion, t as resolveBrowserExecutableForPlatform } from "../../chrome.executables-B3ramIBb.mjs";

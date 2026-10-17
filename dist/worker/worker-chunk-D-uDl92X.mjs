@@ -1,0 +1,1 @@
+import{n as e}from"./worker-chunk-lTaEq7OX.mjs";import{n as t,r as n}from"./worker-chunk-CGHqGxGV.mjs";e((()=>{n()}))();export{t as handleGatewayRequest};

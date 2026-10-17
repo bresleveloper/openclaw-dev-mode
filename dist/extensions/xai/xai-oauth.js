@@ -14,10 +14,10 @@ import "../../response-limit-runtime-CpfmMF5T.mjs";
 import "../../runtime-env-BjPzo7IN.mjs";
 import "../../number-runtime-CgyXj1A5.mjs";
 import "../../ssrf-runtime-BzkFo_VJ.mjs";
-import "../../provider-auth-C3BBF7yn.mjs";
+import "../../provider-auth-BGYKg9mW.mjs";
 import { t as buildOauthProviderAuthResult } from "../../provider-auth-result-BIBiHM9E.mjs";
 import { r as applyXaiOAuthConfig, t as XAI_DEFAULT_MODEL_REF } from "../../onboard-CnuA5-ZT.mjs";
-import { r as buildXaiProvider, t as buildLiveXaiOAuthProvider } from "../../provider-catalog-CAX97roz.mjs";
+import { r as buildXaiProvider, t as buildLiveXaiOAuthProvider } from "../../provider-catalog-D42AYTpU.mjs";
 import { t as xaiUserAgent } from "../../xai-user-agent-DDm_lbFO.mjs";
 //#region extensions/xai/xai-oauth.ts
 const PROVIDER_ID = "xai";

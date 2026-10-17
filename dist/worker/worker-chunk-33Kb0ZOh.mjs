@@ -1,0 +1,1 @@
+import{n as e,t}from"./worker-chunk-BOFD0DOr.mjs";t();export{e as setupSkills};

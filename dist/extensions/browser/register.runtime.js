@@ -15,26 +15,26 @@ import "../../secret-input-BXhRrpGu.mjs";
 import "../../setup-tools-D6A0I-Kz.mjs";
 import { i as isPrivateNetworkOptInEnabled } from "../../ssrf-policy-CWFvb6PK.mjs";
 import "../../media-mime-DLFR6fqC.mjs";
-import { t as startLazyPluginServiceModule } from "../../plugin-runtime-C3Ot0aFc.mjs";
+import { t as startLazyPluginServiceModule } from "../../plugin-runtime-DJr2pk-j.mjs";
 import "../../gateway-runtime-DMDKFL1_.mjs";
 import { n as redactCdpUrl } from "../../browser-cdp-DgJ98Oxl.mjs";
 import { $ as getOptionalBrowserStateRuntime, Q as getBrowserStateRuntime } from "../../session-tab-store-D3MRWtH0.mjs";
 import { n as applyBrowserTabToolBinding, r as BROWSER_PROXY_COMMAND } from "../../browser-tool-description-CRHph32o.mjs";
 import { i as resolveBrowserConfig, r as isLocalManagedProfile, s as resolveProfile } from "../../config-DQZ6ubGi.mjs";
 import { n as resolveCdpControlPolicy } from "../../cdp-reachability-policy-38poFoxo.mjs";
-import { r as closeTrackedCdpTarget } from "../../cdp.helpers-5V0YKyjL.mjs";
-import { a as loadBrowserConfigForRuntimeRefresh } from "../../server-context-BKNNv13O.mjs";
-import { c as isProfileGenerationCurrent, o as getProfileLifecycle } from "../../server-context.lifecycle-BEP6ffl9.mjs";
-import { n as getPwAiModule } from "../../pw-ai-module-DtcZ1YiW.mjs";
-import { a as browserNavigationPolicyForProfile, c as normalizeBrowserRequestPath, l as resolveRequestedBrowserProfile, o as isBrowserHostLocalRoute, s as isPersistentBrowserProfileMutation } from "../../routes-Y7jzdlXG.mjs";
-import { t as createBrowserRouteDispatcher } from "../../dispatcher-DyQH5j96.mjs";
-import { n as resolveBrowserControlAuth } from "../../control-auth-Be3ZqNsy.mjs";
-import { i as createBrowserTool, n as handleBrowserGatewayRequest, r as withTimeout } from "../../browser-request-CLI0TKbR.mjs";
+import { r as closeTrackedCdpTarget } from "../../cdp.helpers-r6708sL2.mjs";
+import { a as loadBrowserConfigForRuntimeRefresh } from "../../server-context-D9ePJOZb.mjs";
+import { c as isProfileGenerationCurrent, o as getProfileLifecycle } from "../../server-context.lifecycle-Dpq7t7Ns.mjs";
+import { n as getPwAiModule } from "../../pw-ai-module-DlH89P_E.mjs";
+import { a as browserNavigationPolicyForProfile, c as normalizeBrowserRequestPath, l as resolveRequestedBrowserProfile, o as isBrowserHostLocalRoute, s as isPersistentBrowserProfileMutation } from "../../routes-CNPUwaUB.mjs";
+import { t as createBrowserRouteDispatcher } from "../../dispatcher-vGeVOdV2.mjs";
+import { n as resolveBrowserControlAuth } from "../../control-auth-DFBKuIY4.mjs";
+import { i as createBrowserTool, n as handleBrowserGatewayRequest, r as withTimeout } from "../../browser-request-CZ2fWUTe.mjs";
 import { d as assertBrowserProxyFileCountWithinLimit, f as createBrowserProxyFailure, h as visitBrowserProxyFilePaths, n as ensureBrowserProxyUploadCleanup, o as stageBrowserProxyUploadRequest, r as hasBrowserProxyUploadWork, s as BROWSER_PROXY_ERROR_ENVELOPE, t as discardStagedBrowserProxyUpload, u as assertBrowserProxyFileBytesWithinLimits } from "../../browser-proxy-upload-BdXafJCn.mjs";
 import { t as resolveBrowserProxyTimeoutMs } from "../../browser-proxy-timeouts-l1Xf3Ykq.mjs";
-import { i as hasBrowserControlWork, r as getBrowserControlState, t as createBrowserControlContext } from "../../browser-control-state-ifva595C.mjs";
-import { t as describeBrowserControlUnavailable } from "../../plugin-enabled-DyxIYAn3.mjs";
-import { n as stopBrowserControlService, t as startBrowserControlServiceFromConfig } from "../../control-service-B74LgX2W.mjs";
+import { i as hasBrowserControlWork, r as getBrowserControlState, t as createBrowserControlContext } from "../../browser-control-state-GDpb2Kjv.mjs";
+import { t as describeBrowserControlUnavailable } from "../../plugin-enabled-6OuZ5GNX.mjs";
+import { n as stopBrowserControlService, t as startBrowserControlServiceFromConfig } from "../../control-service-TYtFFvCT.mjs";
 import { n as sameBrowserDashboardDefinition, t as readBrowserDashboardDefinition } from "../../browser-dashboard-definition-BDAe-mpi.mjs";
 import fs from "node:fs/promises";
 import { toUSVString } from "node:util";
@@ -746,7 +746,7 @@ function createBrowserPluginService(params) {
 				skipEnvVar: "OPENCLAW_SKIP_BROWSER_CONTROL_SERVER",
 				overrideEnvVar: "OPENCLAW_BROWSER_CONTROL_MODULE",
 				validateOverrideSpecifier: validateBrowserControlOverrideSpecifier,
-				loadDefaultModule: async () => await import("../../server-avx1e9vG.mjs"),
+				loadDefaultModule: async () => await import("../../server-B1CgGw_z.mjs"),
 				startExportNames: ["startBrowserControlServiceFromConfig", "startBrowserControlServerFromConfig"],
 				stopExportNames: ["stopBrowserControlService", "stopBrowserControlServer"]
 			});

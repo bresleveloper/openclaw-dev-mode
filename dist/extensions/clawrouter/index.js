@@ -1,10 +1,10 @@
-import { r as buildProviderReplayFamilyHooks } from "../../provider-model-shared-BZZnLgoM.mjs";
-import { t as defineSingleProviderPluginEntry } from "../../provider-entry-B2Tqqb69.mjs";
+import { r as buildProviderReplayFamilyHooks } from "../../provider-model-shared-CgZ78XZA.mjs";
+import { t as defineSingleProviderPluginEntry } from "../../provider-entry-Dw7vrvaY.mjs";
 import { r as buildProviderToolCompatFamilyHooks } from "../../provider-tools-DajrfQK1.mjs";
-import { a as normalizeClawRouterResolvedModel, i as normalizeClawRouterReasoningEfforts, n as buildClawRouterProviderConfig, o as normalizeClawRouterRootUrl, r as normalizeClawRouterApiBaseUrl, t as CLAWROUTER_REASONING_EFFORT_LEVELS } from "../../provider-catalog-Cu2pOrnR.mjs";
-import { t as wrapClawRouterProviderStream } from "../../stream-D7VTGLj5.mjs";
+import { a as normalizeClawRouterResolvedModel, i as normalizeClawRouterReasoningEfforts, n as buildClawRouterProviderConfig, o as normalizeClawRouterRootUrl, r as normalizeClawRouterApiBaseUrl, t as CLAWROUTER_REASONING_EFFORT_LEVELS } from "../../provider-catalog-DYctU7v4.mjs";
+import { t as wrapClawRouterProviderStream } from "../../stream-Bsl4yqS0.mjs";
 import { n as normalizePerplexityToolSchemas, t as inspectPerplexityToolSchemas } from "../../tool-schemas-DVZtjWkO.mjs";
-import { t as fetchClawRouterUsage } from "../../usage-B7L-OJvN.mjs";
+import { t as fetchClawRouterUsage } from "../../usage-CiRZoRFX.mjs";
 //#region extensions/clawrouter/openclaw.plugin.json
 var openclaw_plugin_default = {
 	id: "clawrouter",

@@ -3,7 +3,7 @@ import { c as isRecord } from "./record-coerce-TIsquoVR.mjs";
 import { a as getNodeSqliteKysely, r as executeSqliteQuerySync } from "./kysely-sync-K7ftY-g4.mjs";
 import { Et as _enum, Fn as object, Jn as string, Nt as array, Pn as number, nr as tuple, qn as strictObject, xn as literal } from "./schemas-BOYIvvln.mjs";
 import { t as findCrabboxBinary } from "./crabbox-binary-BMI8aWfR.mjs";
-import { t as ensureManagedCrabboxBinary } from "./cli-runtime-api-D3quWSwZ.mjs";
+import { t as ensureManagedCrabboxBinary } from "./cli-runtime-api-kxHcuVYc.mjs";
 import { n as resolvePathEnvKey, r as resolveWindowsCmdExePath } from "./windows-cmd-helpers-6q_bkE4I.mjs";
 import { n as hasUnjoinedWork, r as loadManagedChildSpawner, t as finalizeManagedChild } from "./managed-child-process-DzXLUTpR.mjs";
 import { c as captureSourceWitness, i as recoverDiscoveredStaging, n as createStaging, o as captureClaimNamespace, r as discoverStaging, s as preserveCrabboxArtifacts, t as createMirrorStaging } from "./crabbox-staging-6ve2pz0K.mjs";

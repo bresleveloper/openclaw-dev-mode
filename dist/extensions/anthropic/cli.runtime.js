@@ -4,7 +4,7 @@ import "../../error-runtime-BmospGvZ.mjs";
 import "../../string-coerce-runtime-50qKeWeL.mjs";
 import { t as hasClaudeRawToolInvocation } from "../../cli-output-CGHp3Q7v.mjs";
 import { t as prepareClaudeCliTransportArgs } from "../../cli-runtime-args-UumcGmHy.mjs";
-import { t as createClaudeCliTransport } from "../../cli-transport-CEP0VCj-.mjs";
+import { t as createClaudeCliTransport } from "../../cli-transport-CTKdtXBQ.mjs";
 import { t as createClaudeCliUserInputAuthorizer } from "../../cli-user-input-JuwgTecH.mjs";
 import { randomUUID } from "node:crypto";
 import { once } from "node:events";

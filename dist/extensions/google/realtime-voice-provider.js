@@ -18,7 +18,7 @@ import { n as resolveGoogleEnvApiKey } from "../../gemini-auth-ms1_pxuH.mjs";
 import { n as GOOGLE_REALTIME_VOICE_METADATA } from "../../realtime-voice-metadata-BfpYKwoa.mjs";
 import { t as canonicalizeGoogleProviderBase64 } from "../../base64-CKISTF1b.mjs";
 import { t as createGoogleGenAI } from "../../google-genai-runtime-BvkO2YGf.mjs";
-import { a as isGemini31LiveModel, c as supportsAsyncFunctionCalling, i as endsTurnOnAudioStreamEnd, l as supportsClientContentInterrupt, n as buildThinkingConfig, o as isResponseDone, r as emitsCompleteInputTranscripts, s as modelSupportsToolResultContinuation, t as buildGoogleLiveInterruptTurn } from "../../realtime-voice-model-contract-CvhxASee.mjs";
+import { a as isGemini31LiveModel, c as supportsAsyncFunctionCalling, i as endsTurnOnAudioStreamEnd, l as supportsClientContentInterrupt, n as buildThinkingConfig, o as isResponseDone, r as emitsCompleteInputTranscripts, s as modelSupportsToolResultContinuation, t as buildGoogleLiveInterruptTurn } from "../../realtime-voice-model-contract-rBa6mtYW.mjs";
 import { randomUUID } from "node:crypto";
 import { ActivityHandling, Behavior, EndSensitivity, FunctionResponseScheduling, Modality, StartSensitivity, TurnCoverage } from "@google/genai";
 //#region extensions/google/realtime-voice-provider.ts

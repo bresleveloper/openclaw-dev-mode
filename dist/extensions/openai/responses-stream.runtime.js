@@ -1,11 +1,11 @@
 import { a as asOptionalRecord } from "../../record-coerce-TIsquoVR.mjs";
-import "../../llm--QylqK5V.mjs";
+import "../../llm-BoijNIT8.mjs";
 import "../../string-coerce-runtime-50qKeWeL.mjs";
-import { i as streamSimple } from "../../stream-4ZQq1Iyd.mjs";
-import { n as buildProviderStreamFamilyHooks } from "../../provider-stream-CPGCn_Ra.mjs";
-import "../../provider-stream-family-B6dW08sH.mjs";
+import { i as streamSimple } from "../../stream-CL_UFGCU.mjs";
+import { n as buildProviderStreamFamilyHooks } from "../../provider-stream-aRo8sEaq.mjs";
+import "../../provider-stream-family-DbJy-rAq.mjs";
 import "../../token-sharing-CmBELw8t.mjs";
-import { t as createOpenAINativeWebSearchWrapper } from "../../native-web-search-CbVzDZug.mjs";
+import { t as createOpenAINativeWebSearchWrapper } from "../../native-web-search-CUmOOmgJ.mjs";
 //#region extensions/openai/responses-stream.runtime.ts
 const { wrapStreamFn } = buildProviderStreamFamilyHooks("openai-responses-defaults");
 const SIWC_SERVICE_TIERS = [

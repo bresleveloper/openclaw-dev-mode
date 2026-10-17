@@ -5,9 +5,9 @@ import { C as retirePluginCache, D as withPluginCache, a as createPluginCache, o
 import { t as resolveCliArgvInvocation } from "../argv-invocation-CV_-dmd8.mjs";
 import { n as tryProcessCwd } from "../safe-cwd-DOxDm8mD.mjs";
 import { n as parseCliProfileArgs, t as applyCliProfileEnv } from "../profile-DEgnfd3z.mjs";
-import { n as tryRunUpdateAdmissionBeforeStartup } from "../run-main-update-admission-BS1Ry2Ic.mjs";
+import { n as tryRunUpdateAdmissionBeforeStartup } from "../run-main-update-admission-BobnKS48.mjs";
 import { i as normalizeEnv, n as isTruthyEnvValue } from "../env-BBJTTIuE.mjs";
-import { i as createGatewayDispatchStartupTrace, n as configureGatewayStartupTraceConsoleFormatting, t as configureCliStartupDiagnostics } from "../startup-trace-D7hzafKJ.mjs";
+import { i as createGatewayDispatchStartupTrace, n as configureGatewayStartupTraceConsoleFormatting, t as configureCliStartupDiagnostics } from "../startup-trace-C4xndCPa.mjs";
 import { r as truncateUtf16Safe } from "../utf16-slice-D_ngcYKd.mjs";
 import { n as parseCliContainerArgs, t as maybeRunCliInContainer } from "../container-target-Bj4zLvq3.mjs";
 import { t as tryOutputPrecomputedCommandHelp } from "../precomputed-help-bBDqtMtk.mjs";
@@ -17,11 +17,11 @@ import { i as formatInvalidConfigDetails, r as createInvalidConfigError } from "
 import { r as resolveStateDir } from "../state-dir-BHJORNly.mjs";
 import { b as resolveGatewayPort } from "../paths-DGIwWbpu.mjs";
 import { i as registerSignalExitBarrier, l as waitForSignalExitBarriers } from "../signal-exit-barrier-BFniU76K.mjs";
-import { r as runCliDisposer, t as closeCliResources } from "../runtime-cleanup-BrX8Cb4t.mjs";
-import { n as requestExitAfterOneShotOutput } from "../one-shot-exit-CSOrFNcy.mjs";
+import { r as runCliDisposer, t as closeCliResources } from "../runtime-cleanup-CiSdbQbb.mjs";
+import { n as requestExitAfterOneShotOutput } from "../one-shot-exit-Bd4757D_.mjs";
 import { n as pluginSourceCaptureMaintenance } from "../plugin-source-capture-context-B9nV7ZEy.mjs";
 import { n as withDeferredDebugProxyCapture } from "../runtime-deferral-Bdhp4T3g.mjs";
-import { a as withCliCommandCleanup } from "../runtime-cleanup-scope-BktLDe8P.mjs";
+import { a as withCliCommandCleanup } from "../runtime-cleanup-scope-Dno3Ssrr.mjs";
 import { t as normalizeWebSocketProtocol } from "../websocket-protocol-MDxbNIbL.mjs";
 import { s as isLoopbackHost, u as isSecureWebSocketUrl } from "../net-C6WEu3pd.mjs";
 import { a as withConsoleLogsRoutedToStderrForJson, i as withConsoleLogsRoutedToStderr, n as hasJsonOutputFlag, r as isJsonOutputModeActive } from "../json-output-mode-DhC0xNZP.mjs";
@@ -219,10 +219,10 @@ async function tryRunGatewayRunFastPath(argv, startupTrace) {
 	if (!isGatewayRunFastPathArgv(argv)) return false;
 	const [{ Command }, { addGatewayRunCommand }, { VERSION }, { emitCliBanner }, { ensureCliExecutionBootstrap }, { defaultRuntime }] = await startupTrace.measure("gateway-run-imports", () => Promise.all([
 		import("commander"),
-		import("../run-command-DSDJqQ_q.mjs"),
+		import("../run-command-CW1iPdq3.mjs"),
 		import("../version-Rz_KSRMi.mjs"),
 		import("../banner-NaYRd5Rd.mjs"),
-		import("../command-execution-startup-DCqC5tZ8.mjs"),
+		import("../command-execution-startup-CYqAUcYI.mjs"),
 		import("../runtime-C3rISTtF.mjs")
 	]));
 	const commandPath = resolveGatewayCatalogCommandPath(argv) ?? ["gateway"];
@@ -243,7 +243,7 @@ async function tryRunGatewayRunFastPath(argv, startupTrace) {
 	const beforeRun = async (opts) => {
 		let beforeStatePreparation;
 		if (!await startupTrace.measure("gateway-run-pre-bootstrap", async () => {
-			const { prepareGatewayRunBootstrap, recheckGatewayRunBootstrap } = await import("../pre-bootstrap-DigA57gy.mjs");
+			const { prepareGatewayRunBootstrap, recheckGatewayRunBootstrap } = await import("../pre-bootstrap-rNa78Qif.mjs");
 			const prepared = await prepareGatewayRunBootstrap({
 				opts,
 				runtime: defaultRuntime
@@ -263,7 +263,7 @@ async function tryRunGatewayRunFastPath(argv, startupTrace) {
 				loadPlugins: false,
 				...beforeStatePreparation ? { beforeStatePreparation } : {}
 			});
-			const { reloadTrustedGatewayRunEnvironment } = await import("../pre-bootstrap-DigA57gy.mjs");
+			const { reloadTrustedGatewayRunEnvironment } = await import("../pre-bootstrap-rNa78Qif.mjs");
 			await reloadTrustedGatewayRunEnvironment({ runtime: defaultRuntime });
 		});
 	};
@@ -333,7 +333,7 @@ function toReachableGateway(target, auth) {
 async function resolveReachableGateway(config, options) {
 	const { targets, auth } = await resolveGatewayProbePlan(config);
 	if (targets.length === 0) return { kind: "unreachable" };
-	const { probeGatewayConfiguredModel } = await import("../onboard-helpers-Bnu4lIgv.mjs");
+	const { probeGatewayConfiguredModel } = await import("../onboard-helpers-DBHfpUEl.mjs");
 	let missingModelGateway;
 	let reachableUnverifiedGateway;
 	let configuredGateway;
@@ -554,7 +554,7 @@ function resolveBuiltInMachineOutput(argv) {
 async function resolvePluginMachineOutput(params) {
 	const { primary } = resolveCliArgvInvocation(params.argv);
 	if (!primary || isKnownBuiltInCommandRoot(primary)) return false;
-	const { loadPluginCliDescriptors } = await import("../cli-registry-loader-BHQXGqXZ.mjs");
+	const { loadPluginCliDescriptors } = await import("../cli-registry-loader-BOhzwv6C.mjs");
 	const descriptor = (await loadPluginCliDescriptors({
 		cfg: params.config,
 		env: process$1.env,
@@ -566,7 +566,7 @@ async function resolvePluginMachineOutput(params) {
 }
 async function isPluginCliRoot(params) {
 	try {
-		const { resolvePluginCliRootOwnerIds } = await import("../cli-registry-loader-BHQXGqXZ.mjs");
+		const { resolvePluginCliRootOwnerIds } = await import("../cli-registry-loader-BOhzwv6C.mjs");
 		const ownerIds = await resolvePluginCliRootOwnerIds({
 			cfg: params.config,
 			env: process$1.env,
@@ -597,7 +597,7 @@ async function resolveCliCommandSurfaceOwner(params) {
 	});
 	if (manifestOwner) return manifestOwner;
 	try {
-		const { resolvePluginCliRootOwnerIds } = await import("../cli-registry-loader-BHQXGqXZ.mjs");
+		const { resolvePluginCliRootOwnerIds } = await import("../cli-registry-loader-BOhzwv6C.mjs");
 		return (await resolvePluginCliRootOwnerIds({
 			cfg: createAllowlistAgnosticCliLookupConfig(params.config),
 			env: process$1.env,
@@ -673,7 +673,7 @@ async function runCli(argv = process$1.argv, options = {}) {
 				});
 			} catch (error) {
 				if (isGatewayRunInvocationArgv(originalArgv) && !resolveCliArgvInvocation(originalArgv).hasHelpOrVersion) {
-					const { handleGatewayStartupMaintenance } = await import("../startup-maintenance-BTfUfuxc.mjs");
+					const { handleGatewayStartupMaintenance } = await import("../startup-maintenance-C82g8-6H.mjs");
 					if (await handleGatewayStartupMaintenance(error)) return;
 				}
 				throw error;
@@ -781,7 +781,7 @@ async function runCliWithPreparedOutputMode(originalArgv, options) {
 	}
 	await configureStartupTraces();
 	if (!isHelpOrVersionInvocation && isGatewayRunInvocation) await startupTrace.measure("gateway-run-select-environment", async () => {
-		const [{ selectGatewayRunEnvironment }, { defaultRuntime }] = await Promise.all([import("../pre-bootstrap-DigA57gy.mjs"), import("../runtime-C3rISTtF.mjs")]);
+		const [{ selectGatewayRunEnvironment }, { defaultRuntime }] = await Promise.all([import("../pre-bootstrap-rNa78Qif.mjs"), import("../runtime-C3rISTtF.mjs")]);
 		await selectGatewayRunEnvironment({
 			opts: resolveGatewayRunPreBootstrapOptions(normalizedArgv) ?? {},
 			runtime: defaultRuntime
@@ -803,7 +803,7 @@ async function runCliWithPreparedOutputMode(originalArgv, options) {
 	let bestEffortConfigPromise = null;
 	let pluginCliSession;
 	const getPluginCliSession = async () => {
-		pluginCliSession ??= (await import("../cli-registry-loader-BHQXGqXZ.mjs")).createPluginCliLoadSession(getPluginCache());
+		pluginCliSession ??= (await import("../cli-registry-loader-BOhzwv6C.mjs")).createPluginCliLoadSession(getPluginCache());
 		return pluginCliSession;
 	};
 	const isolateProxyConfigEnv = isGatewayRunInvocation;
@@ -815,7 +815,7 @@ async function runCliWithPreparedOutputMode(originalArgv, options) {
 	});
 	const useSourceOnlyBestEffortConfig = !await isCurrentRuntimeSupported() || normalizedInvocation.primary === "update" || normalizedInvocation.primary === "doctor";
 	const readBestEffortCliConfig = async () => {
-		if (!bestEffortConfigPromise) bestEffortConfigPromise = import("../io-DWAGT1Vv.mjs").then(async (configIo) => {
+		if (!bestEffortConfigPromise) bestEffortConfigPromise = import("../io-BM-qEheD.mjs").then(async (configIo) => {
 			if (useSourceOnlyBestEffortConfig) return configIo.readSourceConfigBestEffort();
 			const readOptions = {
 				observe: false,
@@ -928,13 +928,13 @@ async function runCliWithPreparedOutputMode(originalArgv, options) {
 				const { outputPrecomputedRootHelpText } = await import("../root-help-metadata-DJawK_mA.mjs");
 				if (outputPrecomputedRootHelpText()) return;
 			}
-			const { outputRootHelp } = await import("../root-help-C0eHaA8V.mjs");
+			const { outputRootHelp } = await import("../root-help-C2WFuewn.mjs");
 			await outputRootHelp(liveRootHelpOptions ?? void 0);
 			return;
 		}
 		if (await tryOutputPrecomputedCommandHelp(normalizedArgv)) return;
 		if (shouldUseSetupOnboardConfigureHelpFastPath(normalizedArgv)) {
-			const { tryOutputSetupOnboardConfigureHelp } = await import("../setup-onboard-configure-help-fast-path-Cfis3KRg.mjs");
+			const { tryOutputSetupOnboardConfigureHelp } = await import("../setup-onboard-configure-help-fast-path-B-gEZvBw.mjs");
 			if (await tryOutputSetupOnboardConfigureHelp(normalizedArgv)) return;
 		}
 		await installConsoleCapture();
@@ -944,7 +944,7 @@ async function runCliWithPreparedOutputMode(originalArgv, options) {
 				process$1.exitCode = 1;
 				return;
 			}
-			const { runTuiCliAction } = await import("../tui-cli-DA6ZAltC.mjs");
+			const { runTuiCliAction } = await import("../tui-cli-CzHxDjBn.mjs");
 			await runTuiCliAction(bareSessionInvocation.target, bareSessionInvocation.options);
 			return;
 		}
@@ -963,7 +963,7 @@ async function runCliWithPreparedOutputMode(originalArgv, options) {
 					process$1.exitCode = 1;
 					return;
 				}
-				const { runRemoteGatewayInferenceOnboarding } = await import("../onboard-remote-gateway-DMuZKuX1.mjs");
+				const { runRemoteGatewayInferenceOnboarding } = await import("../onboard-remote-gateway-CoTkCNhI.mjs");
 				await runRemoteGatewayInferenceOnboarding(bareRootLaunchTarget.target);
 				return;
 			}
@@ -973,7 +973,7 @@ async function runCliWithPreparedOutputMode(originalArgv, options) {
 					process$1.exitCode = 1;
 					return;
 				}
-				const { setupWizardCommand } = await import("../onboard-oxfSVM6h.mjs");
+				const { setupWizardCommand } = await import("../onboard-BswwR9YZ.mjs");
 				await setupWizardCommand(bareRootLaunchTarget.classic ? { classic: true } : {});
 				return;
 			}
@@ -983,7 +983,7 @@ async function runCliWithPreparedOutputMode(originalArgv, options) {
 					process$1.exitCode = 1;
 					return;
 				}
-				const { runTui } = await import("../tui-DG2iL4qh.mjs");
+				const { runTui } = await import("../tui-DtltMYnf.mjs");
 				await runTui({
 					...bareRootLaunchTarget.local ? {
 						deliver: false,
@@ -1015,7 +1015,7 @@ async function runCliWithPreparedOutputMode(originalArgv, options) {
 		if (!isHelpOrVersionInvocation && !isDatabaseInvocation) await bootstrapCliProxyCaptureAndDispatcher(startupTrace, { ensureDispatcher: shouldUseCliEnvProxy });
 		if (bootstrapProxyBeforeFastPath && await tryRunGatewayRunFastPath(normalizedArgv, startupTrace)) return;
 		if (!isHelpOrVersionInvocation) {
-			const route = await startupTrace.measure("route-import", () => import("../route-CaJjr2rY.mjs"));
+			const route = await startupTrace.measure("route-import", () => import("../route-BraLqAT9.mjs"));
 			if (await startupTrace.measure("route", () => options.builtInMachineOutput ? route.tryRouteCli(normalizedArgv, { machineOutput: true }) : route.tryRouteCli(normalizedArgv), { timeline: false })) return;
 		}
 		let parseArgv = normalizeGeneratedHelpCommandArgv(normalizedArgv);
@@ -1029,7 +1029,7 @@ async function runCliWithPreparedOutputMode(originalArgv, options) {
 		});
 		try {
 			const [{ buildProgram }, { formatUncaughtError }, { formatCliFailureLines, formatCliJsonFailure }, { runFatalErrorHooks }, { installUnhandledRejectionHandler, isBenignUncaughtExceptionError, isUncaughtExceptionHandled }, { defaultRuntime, restoreRuntimeTerminalState }] = await startupTrace.measure("core-imports", () => Promise.all([
-				import("../build-program-Nu28nd0T.mjs"),
+				import("../build-program-34l02Qhn.mjs"),
 				import("../infra/errors.js"),
 				import("../failure-output-CKN7Q5cE.mjs"),
 				import("../fatal-error-hooks-Q7ktJSt7.mjs"),
@@ -1067,10 +1067,10 @@ async function runCliWithPreparedOutputMode(originalArgv, options) {
 				const { getProgramContext } = await import("../program-context-Dmi_zvNV.mjs");
 				const ctx = getProgramContext(program);
 				if (ctx) {
-					const { registerCoreCliByName } = await import("../command-registry-core-BLtRjOdG.mjs");
+					const { registerCoreCliByName } = await import("../command-registry-core-CXb1NsHL.mjs");
 					await registerCoreCliByName(program, ctx, primary);
 				}
-				const { registerSubCliByName } = await import("../register.subclis-C3djj9gG.mjs");
+				const { registerSubCliByName } = await import("../register.subclis-DVaMJmfw.mjs");
 				await registerSubCliByName(program, primary, parseArgv);
 			});
 			const hasBuiltinPrimary = primary !== null && findSubcommand(program, primary) !== void 0;
@@ -1080,7 +1080,7 @@ async function runCliWithPreparedOutputMode(originalArgv, options) {
 				hasBuiltinPrimary
 			})) {
 				const config = await startupTrace.measure("register-plugin-commands", async () => {
-					const { registerPluginCliCommandsFromValidatedConfig } = await import("../cli-BKVLPEnW.mjs");
+					const { registerPluginCliCommandsFromValidatedConfig } = await import("../cli-B7tSx_Vn.mjs");
 					const startupPolicy = resolveCliStartupPolicy({
 						argv: parseArgv,
 						commandPath: invocation.commandPath,

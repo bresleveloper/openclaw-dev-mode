@@ -1,9 +1,0 @@
-//#region src/commands/doctor-workspace-suggestions.ts
-async function* collectWorkspaceSuggestionNotes(workspaceDir) {
-	const { collectWorkspaceBackupTip, MEMORY_SYSTEM_PROMPT, shouldSuggestMemorySystem } = await import("./doctor-workspace-CYBo3J66.mjs");
-	const backupTip = collectWorkspaceBackupTip(workspaceDir);
-	if (backupTip) yield backupTip;
-	if (await shouldSuggestMemorySystem(workspaceDir)) yield MEMORY_SYSTEM_PROMPT;
-}
-//#endregion
-export { collectWorkspaceSuggestionNotes };

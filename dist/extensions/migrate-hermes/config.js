@@ -1,2 +1,2 @@
-import { t as buildConfigItems } from "../../config-By5iBqg4.mjs";
+import { t as buildConfigItems } from "../../config-D5BAPGor.mjs";
 export { buildConfigItems };

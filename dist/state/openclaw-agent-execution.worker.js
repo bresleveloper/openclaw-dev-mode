@@ -17,7 +17,7 @@ import { o as ensureOpenClawAgentDatabasePermissions } from "../openclaw-agent-d
 import { d as prepareOpenClawAgentDatabaseWorkerLease } from "../openclaw-agent-db-lease-D8zYIRzn.mjs";
 import { i as closeOpenClawAgentDatabaseByPath, y as retainAgentDatabase } from "../openclaw-agent-db-lifecycle-BJiYtXuW.mjs";
 import { a as getOpenClawAgentDatabaseIfOpen, s as openOpenClawAgentDatabase, u as runOpenClawAgentWriteTransaction } from "../openclaw-agent-db-DBug3LUA.mjs";
-import { _ as prepareAgentNativeBindingOperation, a as loadAgentEntryPatchOperations, b as requestRestrictedAgentDatabaseAdmission, c as loadAgentPendingInputOperations, d as loadAgentReplacementOperations, f as loadAgentRestartRecoveryOperations, g as loadUsageCacheOperations, h as loadConversationDeliveryOperations, i as loadAgentCompoundOperations, l as loadAgentProviderReviewOperations, m as loadAgentTranscriptOperations, n as loadAgentArchiveOperations, o as loadAgentEntryReadOperations, p as loadAgentTrajectoryOperations, r as loadAgentArchivePruningOperations, s as loadAgentNativeBindingOperations, t as loadAgentAcpOperations, u as loadAgentReactionOperations, v as prepareAgentTranscript, y as createAgentDatabaseDomainOwner } from "../openclaw-agent-execution-operations-CtJayanR.mjs";
+import { _ as prepareAgentNativeBindingOperation, a as loadAgentEntryPatchOperations, b as requestRestrictedAgentDatabaseAdmission, c as loadAgentPendingInputOperations, d as loadAgentReplacementOperations, f as loadAgentRestartRecoveryOperations, g as loadUsageCacheOperations, h as loadConversationDeliveryOperations, i as loadAgentCompoundOperations, l as loadAgentProviderReviewOperations, m as loadAgentTranscriptOperations, n as loadAgentArchiveOperations, o as loadAgentEntryReadOperations, p as loadAgentTrajectoryOperations, r as loadAgentArchivePruningOperations, s as loadAgentNativeBindingOperations, t as loadAgentAcpOperations, u as loadAgentReactionOperations, v as prepareAgentTranscript, y as createAgentDatabaseDomainOwner } from "../openclaw-agent-execution-operations-d8T1E3bA.mjs";
 import { t as createWorkerOperationRegistry } from "../worker-operation-registry-DhUe8rTN.mjs";
 import { MessageChannel, isMainThread, receiveMessageOnPort, threadId } from "node:worker_threads";
 //#region src/state/openclaw-agent-execution-close.ts
@@ -143,7 +143,7 @@ function createIncognitoAgentDatabaseBackend(input, opening) {
 	return {
 		async prepare(command) {
 			if (command.type !== "database.incognito.memory" && !sessions) {
-				const { createIncognitoSessionWorker } = await import("../session-incognito.worker-D_r96hYf.mjs");
+				const { createIncognitoSessionWorker } = await import("../session-incognito.worker-DgyhYZko.mjs");
 				sessions = createIncognitoSessionWorker(database, input.identity, input.environment);
 			}
 			if (command.type !== "database.incognito.memory") await sessions?.prepare(command);
@@ -263,7 +263,7 @@ function createAgentDatabaseMaintenanceOwner(context) {
 			}
 		},
 		prepare() {
-			return Promise.all([import("../session-accessor.sqlite-maintenance-transaction-CqArhfLI.mjs"), import("../session-accessor.sqlite-replacement-state-DHSVLBH5.mjs")]).then(([metadata, replacement]) => {
+			return Promise.all([import("../session-accessor.sqlite-maintenance-transaction-BSYViOUg.mjs"), import("../session-accessor.sqlite-replacement-state-BSuSTFK9.mjs")]).then(([metadata, replacement]) => {
 				maintenance = metadata;
 				replacements = replacement;
 			});

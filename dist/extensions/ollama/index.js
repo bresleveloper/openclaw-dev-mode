@@ -5,29 +5,29 @@ import { t as splitTrailingAuthProfile } from "../../model-ref-profile-BNjB2hED.
 import { j as collectConfiguredModelRefValues } from "../../runtime-snapshot-DYptB0Cf.mjs";
 import { s as isNonSecretApiKeyMarker } from "../../model-auth-markers-Cuz_bq6T.mjs";
 import { a as buildOpenAICompatibleReplayPolicy } from "../../provider-replay-helpers-Da6bKlcZ.mjs";
-import { n as buildApiKeyCredential } from "../../provider-auth-helpers-DYE6_4KQ.mjs";
+import { n as buildApiKeyCredential } from "../../provider-auth-helpers-CDvD9QW2.mjs";
 import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
-import "../../provider-model-shared-BZZnLgoM.mjs";
+import "../../provider-model-shared-CgZ78XZA.mjs";
 import "../../model-ref-parse-BI8o1mtw.mjs";
 import { r as resolvePluginConfigObject } from "../../plugin-config-runtime-DKh00pJ1.mjs";
-import "../../provider-auth-C3BBF7yn.mjs";
-import { n as createProviderApiKeyAuthMethod } from "../../provider-api-key-auth-Cg1OHhgW.mjs";
-import { h as runLiveProviderCatalog } from "../../provider-catalog-live-runtime-NaavztHY.mjs";
-import "../../provider-entry-B2Tqqb69.mjs";
+import "../../provider-auth-BGYKg9mW.mjs";
+import { n as createProviderApiKeyAuthMethod } from "../../provider-api-key-auth-DHc8KFQ9.mjs";
+import { h as runLiveProviderCatalog } from "../../provider-catalog-live-runtime-Ngo-Palb.mjs";
+import "../../provider-entry-Dw7vrvaY.mjs";
 import "../../provider-model-metadata-fSBArSt7.mjs";
 import { r as buildProviderToolCompatFamilyHooks } from "../../provider-tools-DajrfQK1.mjs";
 import { n as resolveConfiguredSecretInputString } from "../../secret-input-runtime-BO-nQ7OX.mjs";
 import { a as OLLAMA_DEFAULT_API_KEY, d as OLLAMA_GLM52_CLOUD_MODEL_ID, g as resolveOllamaSetupDefaultBaseUrl, i as OLLAMA_CLOUD_PROVIDER_ID, n as OLLAMA_CLOUD_BASE_URL, o as OLLAMA_DEFAULT_BASE_URL, r as OLLAMA_CLOUD_DEFAULT_MODELS, t as DEFAULT_OLLAMA_EMBEDDING_MODEL } from "../../defaults-Dkg1KktH.mjs";
 import { t as readProviderBaseUrl } from "../../provider-base-url-Crmh7W8f.mjs";
 import { i as resolveThinkingProfile, n as normalizeResolvedModel } from "../../provider-policy-api-B0-eG6lF.mjs";
-import { _ as queryOllamaModelShowInfo, a as capLocalOllamaModelContext, d as isOllamaCloudModel, i as buildOllamaProvider, l as fetchLoadedOllamaModelNames, o as capLocalOllamaProviderContext, r as buildOllamaModelDefinition, t as buildDefaultOllamaCloudModelDefinition, u as fetchOllamaModels, y as resolveOllamaApiBase } from "../../provider-models-CZCvuhcN.mjs";
-import { c as orderPreferredOllamaModelIds, d as isLocalOllamaBaseUrl, f as readOllamaStringValue, h as shouldUseSyntheticOllamaAuth, i as findAvailableOllamaModelName, m as resolveOllamaRuntimeBaseUrl, p as resolveOllamaDiscoveryResult, u as OLLAMA_PROVIDER_ID } from "../../setup-model-selection-BR4BEEpE.mjs";
+import { _ as queryOllamaModelShowInfo, a as capLocalOllamaModelContext, d as isOllamaCloudModel, i as buildOllamaProvider, l as fetchLoadedOllamaModelNames, o as capLocalOllamaProviderContext, r as buildOllamaModelDefinition, t as buildDefaultOllamaCloudModelDefinition, u as fetchOllamaModels, y as resolveOllamaApiBase } from "../../provider-models-i3MoimRO.mjs";
+import { c as orderPreferredOllamaModelIds, d as isLocalOllamaBaseUrl, f as readOllamaStringValue, h as shouldUseSyntheticOllamaAuth, i as findAvailableOllamaModelName, m as resolveOllamaRuntimeBaseUrl, p as resolveOllamaDiscoveryResult, u as OLLAMA_PROVIDER_ID } from "../../setup-model-selection-gF7p_WvF.mjs";
 import { c as OLLAMA_MODELS_COMMAND, d as OLLAMA_NODE_INFERENCE_DEFAULT_PLATFORMS, f as ollamaNodeInferenceToolDefinition, l as OLLAMA_NODE_INFERENCE_CAPABILITY, s as OLLAMA_CHAT_COMMAND, u as OLLAMA_NODE_INFERENCE_COMMANDS } from "../../node-inference-contract-CmzLt7E_.mjs";
-import { r as resolveConfiguredOllamaProviderConfig, t as createConfiguredOllamaCompatStreamWrapper } from "../../stream-compat-CWr-528v.mjs";
+import { r as resolveConfiguredOllamaProviderConfig, t as createConfiguredOllamaCompatStreamWrapper } from "../../stream-compat-YJvFXbbm.mjs";
 import "../../stream-contract-CaPxW4Jp.mjs";
-import { t as createLazyOllamaWebSearchProvider } from "../../web-search-provider-registration-Cjh4L3HW.mjs";
+import { t as createLazyOllamaWebSearchProvider } from "../../web-search-provider-registration-BwewLy-x.mjs";
 //#region extensions/ollama/src/node-inference-registration.ts
-const loadOllamaNodeInference = createLazyRuntimeModule(() => import("../../node-inference-Ce9JhWRO.mjs"));
+const loadOllamaNodeInference = createLazyRuntimeModule(() => import("../../node-inference-stXOPuNG.mjs"));
 function createLazyNodeHostCommand(command) {
 	const loadRuntimeCommand = createLazyRuntimeSurface(loadOllamaNodeInference, (runtime) => {
 		const runtimeCommand = runtime.createOllamaNodeHostCommands().find((candidate) => candidate.command === command);
@@ -64,7 +64,7 @@ function createLazyOllamaNodeInferenceTool(api) {
 }
 //#endregion
 //#region extensions/ollama/src/stream-registration.ts
-const loadOllamaStreamRuntime = createLazyRuntimeModule(() => import("../../stream.runtime-DYZ9twvP.mjs"));
+const loadOllamaStreamRuntime = createLazyRuntimeModule(() => import("../../stream.runtime-DUUejXYR.mjs"));
 function createLazyConfiguredOllamaStreamFn(params) {
 	const streamFnPromise = loadOllamaStreamRuntime().then((runtime) => runtime.createConfiguredOllamaStreamFn(params));
 	return async (...args) => {
@@ -73,8 +73,8 @@ function createLazyConfiguredOllamaStreamFn(params) {
 }
 //#endregion
 //#region extensions/ollama/index.ts
-const loadOllamaSetup = createLazyRuntimeModule(() => import("../../setup.runtime-VTMhdzai.mjs"));
-const loadOllamaMemoryEmbeddingProviderAdapter = createLazyRuntimeModule(async () => (await import("../../memory-embedding-adapter-B8E-_KpN.mjs")).ollamaMemoryEmbeddingProviderAdapter);
+const loadOllamaSetup = createLazyRuntimeModule(() => import("../../setup.runtime-74F7MB9a.mjs"));
+const loadOllamaMemoryEmbeddingProviderAdapter = createLazyRuntimeModule(async () => (await import("../../memory-embedding-adapter-Cic4X9TZ.mjs")).ollamaMemoryEmbeddingProviderAdapter);
 const lazyOllamaMemoryEmbeddingProviderAdapter = {
 	id: OLLAMA_PROVIDER_ID,
 	defaultModel: DEFAULT_OLLAMA_EMBEDDING_MODEL,

@@ -1,0 +1,1 @@
+import"./worker-chunk-Db7DbdB9.mjs";import{i as e,o as t}from"./worker-chunk-CRA5L8H3.mjs";t();export{e as healthCommand};

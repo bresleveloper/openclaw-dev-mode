@@ -1,2 +1,2 @@
-import { t as buildMicrosoftFoundryImageGenerationProvider } from "../../image-generation-provider-DSFcMi_y.mjs";
+import { t as buildMicrosoftFoundryImageGenerationProvider } from "../../image-generation-provider-BgZkhHwu.mjs";
 export { buildMicrosoftFoundryImageGenerationProvider };

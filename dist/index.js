@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import { t as disableExitUnsafeCompilers } from "./node-exit-safe-compilers-B7V3uapp.mjs";
 import { t as resolveCliArgvInvocation } from "./argv-invocation-CV_-dmd8.mjs";
-import { n as tryRunUpdateAdmissionBeforeStartup } from "./run-main-update-admission-BS1Ry2Ic.mjs";
-import { i as createGatewayDispatchStartupTrace, n as configureGatewayStartupTraceConsoleFormatting } from "./startup-trace-D7hzafKJ.mjs";
+import { n as tryRunUpdateAdmissionBeforeStartup } from "./run-main-update-admission-BobnKS48.mjs";
+import { i as createGatewayDispatchStartupTrace, n as configureGatewayStartupTraceConsoleFormatting } from "./startup-trace-C4xndCPa.mjs";
 import { t as tryHandleRootVersionFastPath } from "./detached-async-context-B1URpzvl.mjs";
 import { t as isMainModule } from "./is-main-DYSvvM1W.mjs";
 import { existsSync } from "node:fs";
@@ -50,13 +50,13 @@ async function runLegacyCliEntry(argv = process.argv, deps, options) {
 	const { runCli } = deps ?? await loadLegacyCliDeps(argv);
 	await runCli(argv, options);
 }
-if (!isMain) ({applyTemplate, createDefaultDeps, deriveSessionKey, describePortOwner, ensureBinary, ensurePortAvailable, getReplyFromConfig, handlePortError, loadConfig, monitorWebChannel, normalizeE164, PortInUseError, promptYesNo, resolveSessionKey, resolveStorePath, runCommandWithTimeout, runExec, waitForever} = await import("./library-QjBudDa6.mjs"));
+if (!isMain) ({applyTemplate, createDefaultDeps, deriveSessionKey, describePortOwner, ensureBinary, ensurePortAvailable, getReplyFromConfig, handlePortError, loadConfig, monitorWebChannel, normalizeE164, PortInUseError, promptYesNo, resolveSessionKey, resolveStorePath, runCommandWithTimeout, runExec, waitForever} = await import("./library-BOXFab1R.mjs"));
 if (isMain && !handledRootVersion && !handledAdmission) {
 	const [{ formatCliFailureLines, formatCliJsonFailure, isExpectedCliError }, { isJsonOutputModeActive }, { runCliWithExitFinalization }, { withCliProcessScope }, { installDistEsmResolveFastPath: installFastPath }, { formatUncaughtError }, { runFatalErrorHooks }, { installUnhandledRejectionHandler, isBenignUncaughtExceptionError, isUncaughtExceptionHandled }] = await Promise.all([
 		import("./failure-output-CKN7Q5cE.mjs"),
 		import("./json-output-mode-BR-Z3WUl.mjs"),
-		import("./one-shot-exit-45nwQ_jz.mjs"),
-		import("./runtime-cleanup-scope-DfAoBUW-.mjs"),
+		import("./one-shot-exit-BwX7kJPB.mjs"),
+		import("./runtime-cleanup-scope-Bw7FGGr4.mjs"),
 		import("./entry.esm-resolve-fast-path-nYOOyhlm.mjs"),
 		import("./infra/errors.js"),
 		import("./fatal-error-hooks-Q7ktJSt7.mjs"),

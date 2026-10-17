@@ -9,7 +9,7 @@
 * Facade loading or reviewer construction errors may still reject the promise.
 */
 async function reviewExecRequestWithConfiguredModel(params) {
-	const { createModelExecAutoReviewer } = await import("../exec-auto-reviewer-CrcrQN1p.mjs");
+	const { createModelExecAutoReviewer } = await import("../exec-auto-reviewer-DhcwtwJa.mjs");
 	return createModelExecAutoReviewer({
 		cfg: params.cfg,
 		agentId: params.agentId,

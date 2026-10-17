@@ -13,7 +13,7 @@ import { t as safeEqualSecret } from "../../secret-equal-DRsL8lKD.mjs";
 import "../../text-utility-runtime-BDs7x8Fk.mjs";
 import { t as require_punycode } from "../../punycode-Dq0oGAUU.mjs";
 import { t as definePluginEntry } from "../../plugin-entry-2l_2QeB2.mjs";
-import "../../channel-ingress-runtime-BLOEnESE.mjs";
+import "../../channel-ingress-runtime-DAwGw1Qd.mjs";
 import { i as require_build$1, o as init_tslib_es6, r as require_bytes, s as tslib_es6_exports, t as require_encoding } from "../../encoding-sPH5iPPy.mjs";
 import net from "node:net";
 import crypto, { createHash } from "node:crypto";

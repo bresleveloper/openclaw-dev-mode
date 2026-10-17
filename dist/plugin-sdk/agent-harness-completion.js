@@ -7,16 +7,16 @@ import { d as getAgentRunLifecycleGeneration, f as hasAgentRunContextExecutionOw
 import { i as emitAgentEvent, l as getAgentEventLifecycleGeneration } from "../agent-events-GvNTkbe3.mjs";
 import { _ as retainGatewayRootWorkAdmissionContinuationScope } from "../gateway-work-admission-rc4ZgKq_.mjs";
 import { n as loadExactSessionEntry } from "../session-accessor.sqlite-exact-read-JW6IveXD.mjs";
-import { j as readSessionSubmittedInput } from "../session-accessor-cUVSaeKy.mjs";
+import { j as readSessionSubmittedInput } from "../session-accessor-CQ-g9yb2.mjs";
 import { a as hasRestartRecoveryTerminalRun, n as getRestartRecoveryTerminalDeliveryEvidence } from "../restart-recovery-state-IiHiWzPq.mjs";
-import { a as readAdmittedHarnessCompletionInput, c as withAgentHarnessCompletionAdmission, i as hasHarnessCompletionFinalReceipt, o as assertAgentHarnessCompletionScope, r as getOwedHarnessCompletionTask } from "../agent-harness-completion-recovery-gh1bO9o-.mjs";
+import { a as readAdmittedHarnessCompletionInput, c as withAgentHarnessCompletionAdmission, i as hasHarnessCompletionFinalReceipt, o as assertAgentHarnessCompletionScope, r as getOwedHarnessCompletionTask } from "../agent-harness-completion-recovery-DUkxTVTf.mjs";
 import { t as AGENT_INTERNAL_EVENT_TYPE_TASK_COMPLETION } from "../internal-event-contract-pF6FHp8g.mjs";
-import { o as captureOperatorToolGatewayContinuationContext } from "../server-plugin-in-process-dispatch-BzMtb5Z5.mjs";
+import { o as captureOperatorToolGatewayContinuationContext } from "../server-plugin-in-process-dispatch-CakmmEh-.mjs";
 import { p as buildAnnounceIdempotencyKey } from "../subagent-requester-settle-identity-Blu5INx9.mjs";
-import { n as loadRequesterSessionEntry } from "../subagent-announce-delivery.runtime-g8n0rBYt.mjs";
+import { n as loadRequesterSessionEntry } from "../subagent-announce-delivery.runtime-BD5R4YaA.mjs";
 import { i as formatAgentInternalEventsForPrompt } from "../internal-events-BZWbNO1Z.mjs";
-import { d as resolveAnnounceOrigin, m as resolveSubagentCompletionOrigin } from "../subagent-announce-completion-delivery-BoV4qUtL.mjs";
-import { n as isInternalAnnounceRequesterSession, t as deliverSubagentAnnouncement } from "../subagent-announce-delivery-qQRoMG33.mjs";
+import { d as resolveAnnounceOrigin, m as resolveSubagentCompletionOrigin } from "../subagent-announce-completion-delivery-CW6K0Kgi.mjs";
+import { n as isInternalAnnounceRequesterSession, t as deliverSubagentAnnouncement } from "../subagent-announce-delivery-D4JqpJsz.mjs";
 import { isDeepStrictEqual } from "node:util";
 //#region src/agents/agent-harness-completion-custody.ts
 const owners = resolveGlobalSingleton(Symbol.for("openclaw.agentHarnessCompletionCustody.registry"), () => /* @__PURE__ */ new WeakMap());
