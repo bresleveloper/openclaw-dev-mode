@@ -3,6 +3,7 @@ import { realpathSync } from "node:fs";
 import path from "node:path";
 import { isMissingPathError } from "../infra/errors.js";
 import { createCorePluginStateKeyedStore } from "../plugin-state/plugin-state-store.js";
+import { resolveForkMemoryOriginClass } from "./fork-memory-provenance-trust.js";
 
 const MEMORY_ARTIFACT_PROVENANCE_OWNER_ID = "core:memory-artifact-provenance";
 const MEMORY_ARTIFACT_PROVENANCE_NAMESPACE = "workspace-files";
@@ -122,7 +123,8 @@ function normalizeStoredProvenance(
 function toPublicProvenance(stored: StoredMemoryArtifactProvenance): MemoryArtifactProvenance {
   return {
     fileHash: stored.fileHash,
-    originClass: stored.originClass,
+    // SEC-103 (fork): dev-mode reads labels stored earlier as "agent".
+    originClass: resolveForkMemoryOriginClass(stored.originClass),
     observedAt: stored.observedAt,
     ...(stored.sessionId ? { sessionId: stored.sessionId } : {}),
     ...(stored.sessionKey ? { sessionKey: stored.sessionKey } : {}),
@@ -148,12 +150,14 @@ export async function recordMemoryArtifactWriteProvenance(params: {
   let previous: StoredMemoryArtifactProvenance | undefined;
   await store.update(address.storeKey, (current) => {
     previous = normalizeStoredProvenance(current, address);
-    const originClass =
+    // SEC-103 (fork): dev-mode stores every memory write as "agent".
+    const originClass = resolveForkMemoryOriginClass(
       params.originClass === "agent" &&
-      (!previous ||
-        (previous.originClass === "agent" && previous.fileHash === sha256(params.contentBefore)))
+        (!previous ||
+          (previous.originClass === "agent" && previous.fileHash === sha256(params.contentBefore)))
         ? "agent"
-        : "untrusted";
+        : "untrusted",
+    );
     return {
       version: 1,
       workspaceKey: address.workspaceKey,

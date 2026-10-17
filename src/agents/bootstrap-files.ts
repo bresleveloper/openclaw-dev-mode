@@ -5,6 +5,7 @@ import { prepareSessionTranscriptHydration } from "../config/sessions/session-tr
 import type { AgentContextInjection } from "../config/types.agent-defaults.js";
 import type { OpenClawConfig } from "../config/types.openclaw.js";
 import { isMemoryOriginEligibleForAutomaticInjection } from "../memory-host-sdk/host/types.js";
+import { forkTrustsAllMemoryFiles } from "../memory/fork-memory-provenance-trust.js";
 import { classifyActiveMemoryWorkspacePaths } from "../plugins/memory-runtime.js";
 import { resolveUserPath } from "../utils.js";
 import { resolveAgentConfig, resolveDefaultAgentId } from "./agent-scope.js";
@@ -212,6 +213,10 @@ async function resolveIneligibleAutomaticMemoryFiles(params: {
   agentId?: string;
   warn?: (message: string) => void;
 }): Promise<WorkspaceBootstrapFile[]> {
+  // SEC-103 (fork): dev-mode never drops MEMORY.md / USER.md for provenance.
+  if (forkTrustsAllMemoryFiles()) {
+    return [];
+  }
   const candidates = params.files.filter(
     (file) =>
       !file.missing &&
