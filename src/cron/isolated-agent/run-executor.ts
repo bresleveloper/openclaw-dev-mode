@@ -53,6 +53,7 @@ import {
   resolveCronChannelOutputPolicy,
   resolveCurrentChannelTarget,
 } from "./channel-output-policy.js";
+import { resolveForkCronCliSessionBindingFacts } from "./fork-cron-cli-binding-facts.js";
 import { resolveCronPayloadOutcome } from "./helpers.js";
 import { resolveIsolatedCronPromptCacheKey } from "./prompt-cache-key.js";
 import { assertCronRuntimeAuthorityCandidate } from "./run-admission.js";
@@ -530,11 +531,12 @@ function createCronPromptExecutor(
                   authProfileId,
                   cliSessionId: cliSessionBinding?.sessionId,
                   cliSessionBinding: guardedCliSessionBinding,
-                  cliSessionBindingFacts: {
+                  // FIX-10 (fork): session-stable facts when the run reuses a chat session.
+                  cliSessionBindingFacts: resolveForkCronCliSessionBindingFacts(params, {
                     extraSystemPromptStatic: params.deliverySystemPrompt,
                     sourceReplyDeliveryMode,
                     requireExplicitMessageTarget: sourceDelivery.messageTool.requireExplicitTarget,
-                  },
+                  }),
                   toolsAllow: resolveCliRuntimeToolsAllow(params.agentPayload?.toolsAllow),
                   abortSignal: cliAbortSignal,
                 });
