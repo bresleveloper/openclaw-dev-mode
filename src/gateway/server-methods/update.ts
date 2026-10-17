@@ -13,7 +13,6 @@ import { resolveGatewayInstallEntrypoint } from "../../daemon/gateway-entrypoint
 import { resolvePathViaExistingAncestorSync } from "../../infra/boundary-path.js";
 import { isTruthyEnvValue } from "../../infra/env.js";
 import { formatErrorMessage } from "../../infra/errors.js";
-import { FORK_UPDATE_BLOCKED_MESSAGE, isForkUpdateBlocked } from "../../infra/fork-update-block.js";
 import { readGatewayOwnerLease } from "../../infra/gateway-owner-lease.js";
 import {
   EXTERNAL_SUPERVISOR_UPDATE_REQUIRED_REASON,
@@ -73,6 +72,7 @@ import { recordLatestUpdateRestartSentinel } from "../server-restart-sentinel.js
 import { resolveSessionStoreIdentity } from "../session-store-key.js";
 import { resolveUpdateRunNoticeTarget } from "../update-run-notice-target.js";
 import { wakeUpdateRunWatcher } from "../update-run-watcher.js";
+import { respondIfForkUpdateBlocked } from "./fork-update-run-refusal.js";
 import { parseRestartRequestParams } from "./restart-request.js";
 import type { GatewayRequestHandlers } from "./types.js";
 import {
@@ -95,12 +95,7 @@ export const updateHandlers: GatewayRequestHandlers = {
   "update.run": async (request) => {
     const { respond, client, context, sessionMutationCommitGuard } = request;
     // FIX-09 (fork): OpenClaw updates are hard-disabled; see src/infra/fork-update-block.ts.
-    if (isForkUpdateBlocked()) {
-      respond(
-        false,
-        undefined,
-        errorShape(ErrorCodes.INVALID_REQUEST, FORK_UPDATE_BLOCKED_MESSAGE),
-      );
+    if (respondIfForkUpdateBlocked(respond)) {
       return;
     }
     const params = await admitGatewayUpdateRequest(request);

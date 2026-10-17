@@ -8,7 +8,9 @@
  *
  * Hooks, each the first statement of its function in an upstream-owned file:
  * - src/gateway/server-methods/update.ts: the `update.run` handler (Control UI update button,
- *   the agent `gateway` tool's update.run, `/update` in chat, any API client).
+ *   the agent `gateway` tool's update.run, `/update` in chat, any API client). The refusal is in
+ *   the fork-owned src/gateway/server-methods/fork-update-run-refusal.ts, so the hook stays an
+ *   import plus a 3-line `if` and update.ts stays within its max-lines cap (700).
  * - src/cli/update-cli/update-command.ts: `updateCommand()`, upstream's single update executor
  *   (`openclaw update`, `openclaw --update`, `openclaw update wizard`, managed handoffs).
  * - src/infra/update-startup-auto-run.ts: `runAutoUpdateCommand()` (startup auto-update and
@@ -17,6 +19,7 @@
  *
  * Regression checklist (every upstream upgrade):
  * - the four hooks above are still in place and still run first;
+ * - `pnpm exec oxlint src/gateway/server-methods/update.ts` reports no max-lines error;
  * - no new update executor appeared: `git grep -n "startManagedServiceUpdateHandoff(\|updateCommand("`
  *   lists only update.ts, update-startup-auto-run.ts, update-command-handoff.ts (inside
  *   updateCommand), wizard.ts, doctor-update.ts and triage-failure.ts (a repair handoff, not an
