@@ -23,6 +23,13 @@ saving full log to enjoy my journey with OC ♥
 
 ## CHANGE LOG
 
+- 2026-10-17
+  - FIX-10 cron job aimed at a chat keeps the chat's Claude session => before, every run made the agent forget the chat
+  - SEC-103 removed the "untrusted" mark on the agent's md files => `MEMORY.md` kept dropping out of the prompt
+- 2026-10-16
+  - updated to v2026.10.4
+  - removed all upstream tests and the whole `.github` => anything running on GitHub is deleted, anything local stays
+  - no doctor on deploys => `dev-mode/vps-deploy.sh` deploys with auto-rollback
 - 2026-10-11
   - disabled SEC-100 (commented out) => owner now from `commands.ownerAllowFrom`
   - FIX-09 hardcoded block for OpenClaw update => an update would overwrite the fork
@@ -119,6 +126,7 @@ Gated by `OPENCLAW_DEV_MODE=1`. Each is a minimal `if (isDevMode()) { … }` che
 | SEC-100 | DISABLED 2026-10-11 (commented out) - owner comes from `commands.ownerAllowFrom` now. Was: all owner-only tools on every turn |
 | SEC-101 | Skip message-provider tool filtering in dev-mode — all tools on all channels (Discord, node, etc.)                                                   |
 | SEC-102 | Local media root checks skipped in dev-mode — file/media tools can read from any path                                                                |
+| SEC-103 | agent md files (`MEMORY.md`, `USER.md`, `memory/*.md`) never marked "untrusted" - upstream marked them after a web search/fetch in the same turn, a non-owner sender or any edit outside OpenClaw (by hand or by Claude Code), and dropped them from the prompt and recall |
 
 ### WhatsApp features
 
@@ -138,6 +146,7 @@ All gated by `OPENCLAW_DEV_MODE=1` alone — no extra flags to remember.
 | FIX-04 | revised to new global hook for `/new` and `/reset` and `/compact` and `auto-compact` to enable the greeting                                                                                                                                  |
 | FIX-07 | created `openclaw config validate --fix` to fix only the `openclaw.json`                                                                                                      |
 | FIX-09 | hardcoded block for OpenClaw update (`/update`, `openclaw update`, Control UI, auto-update) - an update would overwrite the fork |
+| FIX-10 | cron job aimed at a chat (`sessionTarget: "session:<key>"`) keeps that chat's Claude CLI session - upstream reset it on every run and again on the next chat turn, so the agent forgot the chat |
 
 
 ## How to install
